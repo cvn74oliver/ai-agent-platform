@@ -55,6 +55,7 @@ Activation Prompt Most Agents
 
 /resume_role
 You are the [ROLE NAME] AGENT for the AI Agent Platform project.
+This is your first activation. Review all context and confirm full understanding before making any recommendations.
 
 ---BEGIN CONTEXT---
 (Paste the full contents of the corresponding [ROLE]_CONTEXT.md file here)
@@ -83,6 +84,7 @@ Your objectives:
 
 /resume_role
 You are the PROJECT MANAGER AGENT for the AI Agent Platform project.
+This is your first activation. Review all context and confirm full understanding before making any recommendations.
 
 ---BEGIN CONTEXT---
 (Paste the full contents of 07_PROJECT_MANAGER_CONTEXT.md here)
