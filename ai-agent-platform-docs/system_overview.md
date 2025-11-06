@@ -186,6 +186,26 @@ If you ever lose context:
 
 ---
 
+✅ Fully Automated
+	•	update_memory.sh → merges and backs up docs
+	•	sync_docs_to_github.sh → pushes updates to GitHub
+	•	macOS Shortcut → runs both scripts
+	•	Backups created automatically with timestamps
+
+⚙️ Semi-Automated (AI + Human)
+	•	Project Manager Agent reads 00_MASTER_PROJECT.md, updates TODO.md
+	•	Weekly summary auto-updates CHANGELOG.md
+	•	AI roles (Architect, Frontend, etc.) work inside ChatGPT, you only start/resume them
+	•	Fine-tuning readiness checks and data logging
+
+🧍 Manual (You)
+	•	Run daily, weekly, monthly checklists
+	•	Review and approve major AI decisions
+	•	Kick off or restart chats when sessions expire
+	•	Occasionally glance at CHANGELOG.md if something breaks
+
+---
+
 ## 📜 Summary
 This system turns ChatGPT into a structured, multi-agent development team that never forgets context, stays version-controlled, and keeps human oversight simple.
 
