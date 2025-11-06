@@ -15,3 +15,16 @@ OpenAI API (chat, fine-tuning, embeddings), Supabase Storage, Firecrawl.
 - Implement fine-tune status checker (`/api/fine-tune-status`).
 - Build dataset export function.
 - Design cost-aware model router in /src/lib/llm.ts.
+
+## Reference Links
+- LLM Trainer Context: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/05_LLM_TRAINER_CONTEXT.md
+- Master Project Overview: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/system_overview.md
+- Agent Activation Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/agent_activation_checklist.md
+- Daily Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/daily_checklist.md
+- Weekly Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/weekly_checklist.md
+- Monthly Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/monthly_checklist.md
+- Automation Map: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/automation_map.md
+- Troubleshooting & Recovery Guide: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/troubleshooting_recovery.md
+- System Overview: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/system_overview.md
+- CHANGELOG: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/CHANGELOG.md
+- TODO List: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/TODO.md
