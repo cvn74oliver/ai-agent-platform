@@ -37,6 +37,15 @@ Use these inside ChatGPT exactly as written. They are just shorthand headers tha
 
 ⸻
 
+Before You Begin
+1. Confirm that all documentation in /web/docs/ is up to date.
+   • Run ./automation/update_memory.sh
+   • Run ./automation/sync_docs_to_github.sh
+2. Open the latest TODO.md to review current Agent Session Health.
+3. Make sure you are inside the correct ChatGPT Project (AI Agent Platform).
+
+⸻
+
 Step-By-Step Activation Process
 
 Step 1 – Create The Chat
@@ -44,14 +53,30 @@ Step 1 – Create The Chat
 	2.	Click New Chat.
 	3.	Rename it to match the role and version, for example “Backend Agent v2.”
 
+⸻
+
 Step 2 – Paste The Standard Activation Prompt
 
-Copy everything between the lines below and paste it into the new chat.
-Replace [ROLE NAME] and the file name with the correct values for that agent.
+1. In ChatGPT, open the new chat you created in Step 1.  
+2. 2. Copy the appropriate activation prompt from below:
+   • For regular agents – use “Initial Activation Prompt – Most Agents.”
+   • For the Project Manager – use “Initial Project Manager Agent Activation Prompt.”
+3. Replace [ROLE NAME] and the file name with the correct values for that agent.  
+4. Paste the completed prompt into the ChatGPT message box.
+
+5. Send the message in ChatGPT.  
+6. Wait for the agent’s confirmation message that it has loaded and summarized its context.  
+7. Once confirmed, copy the full activation prompt you used (including the pasted context) and the agent’s entire response.  
+8. Open that agent’s context file in /web/docs/ and paste both under a new heading like:
+
+   ## Session Log – Activation (Nov 6 2025)  
+   (Paste the activation prompt and the agent’s response here)
+
+9. Save the file when finished.
 
 ⸻
 
-Initail Activation Prompt Most Agents:
+Initial Activation Prompt – Most Agents:
 
 /resume_role
 You are the [ROLE NAME] AGENT for the AI Agent Platform project.
@@ -84,6 +109,8 @@ Your objectives:
 3. Update your top 5 priorities based on the current system state.
 4. Wait for Oliver’s approval before proceeding.
 
+⸻
+
 🧭 Initial Project Manager Agent Activation Prompt:
 
 /resume_role
@@ -104,6 +131,8 @@ Your objectives:
 7. Summarize overall project status, including current progress, risks, and key dependencies.  
 8. End your output with a concise daily plan for Oliver to review and approve before execution.
 
+⸻
+
 🧭 Project Manager Agent Reactivation Prompt (for v2 and later)
 
 /resume_role
@@ -123,6 +152,8 @@ Your objectives:
 6. Update the Agent Session Health list based on the newest TODO.md.  
 7. Provide a refreshed overall project summary, highlighting differences from the prior version.  
 8. End your response with a short daily or weekly plan for Oliver to confirm before execution.
+
+⸻
 
 Step 3 – Confirm Health
 
@@ -194,3 +225,14 @@ If an agent ever breaks, you can rebuild it from scratch in under three minutes 
 
 ⸻
 
+Post-Activation Verification Checklist
+
+After completing a new agent activation or reactivation, verify the following:
+
+• The agent confirmed successful context load and summarized its responsibilities.
+• The agent’s top 5 priorities have been reviewed and approved.
+• Agent Session Health list in TODO.md is updated with the activation date and version number.
+• Activation prompt and response were logged in the agent’s context file under a Session Log heading.
+• CHANGELOG.md has a matching activation or refresh entry.
+• update_memory.sh and sync_docs_to_github.sh have both been run successfully.
+• The archived version of the previous chat (if applicable) is renamed and stored properly.
