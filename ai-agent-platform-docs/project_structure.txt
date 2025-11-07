@@ -1,0 +1,85 @@
+web/src
+├── web/src/app
+│   ├── web/src/app/agents
+│   │   ├── web/src/app/agents/[id]
+│   │   │   ├── web/src/app/agents/[id]/activate
+│   │   │   │   └── web/src/app/agents/[id]/activate/page.tsx
+│   │   │   ├── web/src/app/agents/[id]/chat
+│   │   │   │   └── web/src/app/agents/[id]/chat/page.tsx
+│   │   │   ├── web/src/app/agents/[id]/page.tsx
+│   │   │   ├── web/src/app/agents/[id]/summary
+│   │   │   │   └── web/src/app/agents/[id]/summary/page.tsx
+│   │   │   └── web/src/app/agents/[id]/wow
+│   │   │       └── web/src/app/agents/[id]/wow/page.tsx
+│   │   ├── web/src/app/agents/new
+│   │   │   └── web/src/app/agents/new/page.tsx
+│   │   └── web/src/app/agents/page.tsx
+│   ├── web/src/app/api
+│   │   ├── web/src/app/api/activate-agent
+│   │   │   └── web/src/app/api/activate-agent/route.ts
+│   │   ├── web/src/app/api/agent-chat
+│   │   │   └── web/src/app/api/agent-chat/route.ts
+│   │   ├── web/src/app/api/analyze-voice
+│   │   │   └── web/src/app/api/analyze-voice/route.ts
+│   │   ├── web/src/app/api/crawl
+│   │   │   └── web/src/app/api/crawl/route.ts
+│   │   ├── web/src/app/api/deploy-fine-tune
+│   │   │   └── web/src/app/api/deploy-fine-tune/route.ts
+│   │   ├── web/src/app/api/feedback
+│   │   │   └── web/src/app/api/feedback/route.ts
+│   │   ├── web/src/app/api/fine-tune
+│   │   │   └── web/src/app/api/fine-tune/route.ts
+│   │   ├── web/src/app/api/fine-tune-status
+│   │   │   └── web/src/app/api/fine-tune-status/route.ts
+│   │   ├── web/src/app/api/generate-agent
+│   │   │   └── web/src/app/api/generate-agent/route.ts
+│   │   ├── web/src/app/api/generate-voice
+│   │   │   └── web/src/app/api/generate-voice/route.ts
+│   │   ├── web/src/app/api/generate-workflow
+│   │   │   └── web/src/app/api/generate-workflow/route.ts
+│   │   ├── web/src/app/api/guided-setup
+│   │   │   ├── web/src/app/api/guided-setup/add-notes
+│   │   │   │   └── web/src/app/api/guided-setup/add-notes/route.ts
+│   │   │   ├── web/src/app/api/guided-setup/answer
+│   │   │   │   └── web/src/app/api/guided-setup/answer/route.ts
+│   │   │   ├── web/src/app/api/guided-setup/clarify
+│   │   │   │   └── web/src/app/api/guided-setup/clarify/route.ts
+│   │   │   ├── web/src/app/api/guided-setup/end
+│   │   │   │   └── web/src/app/api/guided-setup/end/route.ts
+│   │   │   ├── web/src/app/api/guided-setup/route.ts
+│   │   │   ├── web/src/app/api/guided-setup/start
+│   │   │   │   └── web/src/app/api/guided-setup/start/route.ts
+│   │   │   └── web/src/app/api/guided-setup/submitAnswer.ts
+│   │   ├── web/src/app/api/relevance-check
+│   │   │   └── web/src/app/api/relevance-check/route.ts
+│   │   └── web/src/app/api/transcribe-audio
+│   │       └── web/src/app/api/transcribe-audio/route.ts
+│   ├── web/src/app/auth
+│   │   └── web/src/app/auth/callback
+│   │       └── web/src/app/auth/callback/page.tsx
+│   ├── web/src/app/automations
+│   │   └── web/src/app/automations/page.tsx
+│   ├── web/src/app/components
+│   │   ├── web/src/app/components/DashboardLayout.tsx
+│   │   └── web/src/app/components/Modal.tsx
+│   ├── web/src/app/dashboard
+│   │   └── web/src/app/dashboard/page.tsx
+│   ├── web/src/app/favicon.ico
+│   ├── web/src/app/globals.css
+│   ├── web/src/app/layout.tsx
+│   ├── web/src/app/login
+│   │   └── web/src/app/login/page.tsx
+│   ├── web/src/app/onboarding
+│   │   └── web/src/app/onboarding/page.tsx
+│   ├── web/src/app/page.tsx
+│   └── web/src/app/settings
+│       └── web/src/app/settings/page.tsx
+├── web/src/components
+│   ├── web/src/components/ScenarioRecorder.tsx
+│   └── web/src/components/VoiceRecorder.tsx
+├── web/src/lib
+│   └── web/src/lib/supabase.ts
+└── web/src/utils
+    └── web/src/utils/submitGuidedAnswer.ts
+
+40 directories, 43 files
