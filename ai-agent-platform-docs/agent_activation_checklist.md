@@ -93,6 +93,8 @@ Your objectives:
 4. Based on the context, generate your top 5 initial priorities for this role.
 5. Wait for Oliver’s approval before executing or drafting any plans.
 
+⸻
+
 Reactivation Prompt Most Agents (for v2 and later)
 
 /resume_role
