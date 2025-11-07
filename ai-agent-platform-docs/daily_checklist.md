@@ -6,7 +6,9 @@
 3. Open `http://localhost:3000` to verify it loads.
 4. Run `./automation/update_memory.sh` to refresh master docs snapshot.
 5. Open ChatGPT → Project Manager Agent → ask:
-   “Review 00_MASTER_PROJECT.md and generate today’s top 3 priorities per role.”
+    /update_master
+    Load the current 00_MASTER_PROJECT.md snapshot below and generate today’s top 3 priorities per role.
+    (Paste the latest master project file here)
 
 ## 🧠 During Work Blocks
 1. When switching tasks, open the relevant Agent chat.
