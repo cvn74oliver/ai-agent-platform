@@ -1,0 +1,191 @@
+Absolutely — here’s the same Operational Workflow Guide rewritten in pure Markdown formatting that will paste perfectly into your /web/docs/operational_workflow.md file with zero table issues.
+Just copy everything below the line and paste it directly into your MD file.
+
+⸻
+
+🧭 AI Agent Platform – Operational Workflow Guide
+
+Last updated: November 2025
+
+This document explains how to operate your multi-agent system in ChatGPT (GPT-5 Pro Plan).
+It covers when to talk to the Project Manager Agent versus the specialist agents, and the correct daily workflow for running and logging work.
+
+⸻
+
+1. Overview of Team Roles
+
+Project Manager Agent (PM Agent)
+	•	Central coordinator.
+	•	Maintains priorities, tracks health, merges updates, manages TODO, CHANGELOG, and master project file.
+	•	Always your starting point for daily planning, progress review, task assignment, and coordination.
+
+Architect Agent
+	•	Oversees structure, dependencies, and repo organization.
+	•	Handles architecture decisions, folder/file structure, backend ↔ frontend consistency.
+
+Frontend Agent
+	•	Handles user interface and visual logic (Next.js, Tailwind, components).
+	•	Responsible for UI issues, design changes, React/Next component fixes.
+
+Backend Agent
+	•	Handles server logic, API routes, Supabase schema, integrations.
+	•	Responsible for database logic, API endpoints, Supabase functions.
+
+Workflow Agent
+	•	Manages automations and external integrations (Activepieces, Make.com).
+	•	Used for automations, event triggers, API bridges.
+
+LLM Trainer Agent
+	•	Manages fine-tuning and data prep for OpenAI models.
+	•	Handles model training or prompt data updates.
+
+Avatar & Voice Agent
+	•	Handles voice/visual assets, TTS/STT, avatars, and media.
+	•	Responsible for audio, voice cloning, avatars, animations.
+
+⸻
+
+2. Where to Start Each Day
+	1.	Run automation scripts:
+
+./automation/update_memory.sh  
+./automation/sync_docs_to_github.sh
+
+This ensures all docs are current and backed up.
+
+	2.	Open the Project Manager Agent chat and send:
+
+/update_master  
+Here’s the current snapshot.  
+(Paste or link 00_MASTER_PROJECT.md, TODO.md, CHANGELOG.md)
+
+
+	3.	Review the Daily Plan that the PM Agent outputs.
+Approve or adjust the plan and decide which tasks you’ll handle personally or delegate to the other agents.
+
+⸻
+
+3. How Workflows Are Structured
+
+Communication Hierarchy
+
+You  ⇄  Project Manager Agent  ⇄  Specialist Agents
+
+	•	You tell the PM Agent what needs to happen (feature, bug fix, idea).
+	•	The PM Agent decides which specialist agent is responsible.
+	•	You then hand off that task to the agent using the PM’s summary or by directly pasting the relevant request.
+	•	This keeps the PM Agent as the single source of truth.
+
+⸻
+
+Typical Task Flow Example
+
+Scenario: You want to fix the onboarding question flow for new AI agent creation.
+	1.	You → PM Agent:
+“We need to refine the question flow during agent creation.”
+	2.	PM Agent → You:
+It replies:
+“This involves Frontend and Backend. Please handoff to Frontend first for UI flow, then Backend for validation logic.”
+	3.	You → Frontend Agent:
+Paste the PM’s summary:
+
+/handoff Frontend Agent – update the question flow UI as described by PM Agent.  
+Here’s the current issue...
+
+
+	4.	Frontend Agent:
+Writes or revises code.
+You test it locally.
+When done, ask it:
+
+/summarize_session Summarize what was done today.
+
+
+	5.	You → PM Agent:
+“Frontend completed the question flow update. Here’s the summary.”
+The PM Agent logs it, updates TODO and CHANGELOG, and confirms overall status.
+	6.	End of Day:
+Run update_memory.sh and sync_docs_to_github.sh.
+
+⸻
+
+4. When to Talk to Each Agent
+
+Project Manager Agent
+	•	Planning new work
+	•	Reviewing progress
+	•	Coordination between agents
+	•	Summaries and reporting
+
+Architect Agent
+	•	Architecture or folder structure decisions
+	•	Repo organization, dependencies, or code standards
+
+Frontend Agent
+	•	UI bugs, design tweaks, React component logic
+
+Backend Agent
+	•	API routes, Supabase schema, backend logic
+
+Workflow Agent
+	•	Automations and Make.com/Activepieces workflows
+
+LLM Trainer Agent
+	•	Fine-tuning, model data prep, or prompt optimization
+
+Avatar & Voice Agent
+	•	Audio, avatars, and voice integrations
+
+If unsure who to contact — always start with the Project Manager Agent.
+
+⸻
+
+5. Logging and Continuity
+	•	Every activation or session summary from agents gets pasted into its context file.
+	•	The Project Manager Agent merges those logs into 00_MASTER_PROJECT.md.
+	•	update_memory.sh and sync_docs_to_github.sh preserve backups automatically.
+
+At the end of each day:
+	1.	Check off your Daily Checklist.
+	2.	Run both automation scripts.
+	3.	Ask the PM Agent to /summarize_session — it will output a daily project summary.
+
+⸻
+
+6. Rules of Thumb
+	•	Always start with the PM Agent. Keeps the master docs aligned.
+	•	Specialists never coordinate directly without PM. Prevents data drift.
+	•	After each work session, summarize. Keeps logs consistent.
+	•	At the end of the day, run automations. Updates backups and GitHub.
+	•	If in doubt, ask the PM Agent. It’s your control tower.
+
+⸻
+
+7. Daily Loop Summary
+
+Morning:
+   → Run automations
+   → PM Agent gives plan
+
+During the day:
+   → Work with assigned specialist agents
+   → Test and confirm changes
+   → Send results back to PM Agent
+
+End of day:
+   → Run automations again
+   → PM Agent summarizes progress
+   → Complete Daily Checklist
+
+
+⸻
+
+8. In Practice
+	•	You manage what gets done.
+	•	Project Manager Agent manages who does it and records it.
+	•	Specialist Agents handle how it gets done (code, troubleshooting, or design).
+	•	Automations keep all files and GitHub perfectly in sync.
+
+⸻
+
+Once you paste this into /web/docs/operational_workflow.md, your operational guide will be properly formatted and ready for daily use.
