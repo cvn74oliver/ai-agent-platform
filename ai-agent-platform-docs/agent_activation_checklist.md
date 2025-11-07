@@ -192,6 +192,24 @@ This ensures your new session’s context and status are captured in the master 
 
 ⸻
 
+Step 6 – Provide Updated Files and Summary to the Project Manager Agent (PM Agents Only)
+
+After syncing, open the Project Manager Agent chat and send the latest full project snapshot so it can synchronize with the current system state.
+
+1. Paste or upload the following files in order:
+   • 00_MASTER_PROJECT.md  
+   • TODO.md  
+   • CHANGELOG.md  
+   • project_structure.txt  
+   • system_overview.md
+2. Then include a short written summary in your own words describing the current status of the project. 
+   Example:
+   “We’ve finished building the multi-agent framework. Architect and Frontend are active; the others are pending activation. Automation scripts are working correctly. Your goal is to coordinate the team and produce our first daily plan.”
+3. Type “All files uploaded — proceed.” once finished.
+4. Wait for the Project Manager Agent to analyze them and generate its coordination summary, agent priorities, and daily plan.
+
+⸻
+
 Daily Maintenance Integration
 
 At the start of each day, open the Project Manager Agent and check the Agent Session Health section.
