@@ -52,3 +52,31 @@ Scope approved for execution:
 - Integrate Supabase persistence with guided_setup_sessions.state_json.
 - Add structured logging and unit tests (5 cases).
 PM approved to proceed with code scaffolding.
+
+---
+
+### 🗂️ November 9 2025 – Phase 1 Files Staged for Review
+All backend deliverables (SQL, route.ts, test, seed) placed in `web/staging/phase1_backend_drop/`.
+No production code changed yet.  
+Next: review existing Clarify route and Supabase tables for merge safety.
+
+---
+
+### 🗃️ November 9, 2025 – Supabase Schema Export Completed (Phase 1 Verification)
+Completed a full schema snapshot export from the live Supabase project (agent_platform).
+
+**Context:**
+- Encountered repeated Supabase CLI and Docker dependency issues while attempting to use `supabase db dump` and `pull`.
+- Resolved by using the native `pg_dump` Postgres client with direct connection credentials.
+- Verified connection and schema integrity through terminal `head`, `wc -l`, and `less` commands.
+- File appeared blank in VS Code due to caching; confirmed populated after reopening.
+
+**Outcome:**
+- Live database schema successfully exported and stored at:
+  `web/staging/supabase_schema_snapshot_2025-11-09.sql`
+- File confirmed to contain full SQL structure including `CREATE TABLE` statements.
+- No data loss or destructive commands executed.
+- Ready for Project Manager Agent schema review and backend migration comparison.
+
+Next Step:
+- Review the snapshot against `20251108_clarify_phase1.sql` to isolate safe migration lines for Supabase execution.

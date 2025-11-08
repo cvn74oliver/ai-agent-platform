@@ -254,3 +254,13 @@ Next: Await Backend code + API endpoint for Phase 1 tests, then hand off to Fron
 - [x] Backend Agent confirmed scope and assumptions.
 - [ ] Awaiting 01_prompts.sql, route.ts, and test blueprint deliverables.
 Next Action: Review and validate code once delivered; prepare Frontend handoff.
+
+---
+
+### 🗓️ November 9, 2025 – Supabase Schema Snapshot Logged
+- [x] Exported full schema from Supabase via `pg_dump` (remote connection).
+- [x] Verified schema export contains SQL definitions.
+- [x] Confirmed file caching issue in VS Code resolved by reloading.
+- [ ] Compare schema snapshot with backend migration (`20251108_clarify_phase1.sql`) for overlap.
+- [ ] Generate Phase 1 safe migration script for Supabase.
+- [ ] Document migration verification results for next PM review.

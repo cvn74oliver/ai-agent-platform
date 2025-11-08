@@ -42,3 +42,83 @@ CREATE POLICY select_prompts_active
   ON public.prompts FOR SELECT USING (status = 'active');
 CREATE POLICY modify_prompts_service
   ON public.prompts FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+----
+
+Related Table
+
+guided_setup_sessions.state_json
+Stores per-session clarification responses, e.g.:
+{
+  "last_saved": "2025-11-08T16:05:00Z",
+  "responses": [
+    {
+      "question": "Can you describe the primary goal of your agent?",
+      "answer": "It should automate my customer service email replies."
+    }
+  ]
+}
+
+🧩 API Endpoint
+Route
+
+POST /api/guided-setup/clarify
+
+Request Examples
+
+{
+  "session_id": "uuid",
+  "prompt_id": "uuid"
+}
+
+{
+  "session_id": "uuid",
+  "prompt_id": "uuid",
+  "clarification_response": {
+    "question": "Can you describe the primary goal of your agent?",
+    "answer": "It should automate my customer service email replies."
+  }
+}
+
+Response Example
+{
+  "ok": true,
+  "data": {
+    "prompt": { "id": "uuid", "prompt_body": "..." },
+    "clarifications": [ { "question": "...", "examples": [...] } ],
+    "session_state": {
+      "last_saved": "2025-11-08T16:05:00Z",
+      "responses": [ { "question": "...", "answer": "..." } ]
+    }
+  },
+  "error": null
+}
+
+Error Examples
+
+    - ROMPT_NOT_FOUND – invalid or missing ID/version
+    - INVALID_REQUEST – missing required parameters
+
+🔍 Test Plan
+
+| # | Test                                  | Expected Result                                   |
+| - | ------------------------------------- | ------------------------------------------------- |
+| 1 | Retrieve prompt by valid ID/version   | `{ ok:true, data.prompt.id == prompt_id }`        |
+| 2 | Post clarification response → persist | `responses[]` updated; `last_saved` refreshed     |
+| 3 | Simulate back-navigation              | Prompt reloads with previous answers              |
+| 4 | Invalid prompt_id                     | `{ ok:false, error.code:"PROMPT_NOT_FOUND" }`     |
+| 5 | Version bump (1.0.0→1.1.0)            | Latest active version returned if version omitted |
+
+🧱 Implementation Status
+
+| Component                | Owner                 | Status         |
+| ------------------------ | --------------------- | -------------- |
+| Prompt schema + examples | Prompt Engineer Agent | ✅ Completed    |
+| Backend API & SQL        | Backend Agent         | 🔄 In progress |
+| Frontend Clarify UI      | Frontend UI Agent     | ⏳ Next         |
+| QA / Integration test    | Project Manager       | ⏳ Pending      |
+
+🧭 Notes
+
+This spec is the canonical reference for all agents when developing or debugging the Guided Setup Clarify feature.
+Any changes to schema or endpoint contracts must be recorded here and versioned (v1.0.0+).

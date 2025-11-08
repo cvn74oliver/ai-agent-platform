@@ -1,85 +1,152 @@
-web/src
-├── web/src/app
-│   ├── web/src/app/agents
-│   │   ├── web/src/app/agents/[id]
-│   │   │   ├── web/src/app/agents/[id]/activate
-│   │   │   │   └── web/src/app/agents/[id]/activate/page.tsx
-│   │   │   ├── web/src/app/agents/[id]/chat
-│   │   │   │   └── web/src/app/agents/[id]/chat/page.tsx
-│   │   │   ├── web/src/app/agents/[id]/page.tsx
-│   │   │   ├── web/src/app/agents/[id]/summary
-│   │   │   │   └── web/src/app/agents/[id]/summary/page.tsx
-│   │   │   └── web/src/app/agents/[id]/wow
-│   │   │       └── web/src/app/agents/[id]/wow/page.tsx
-│   │   ├── web/src/app/agents/new
-│   │   │   └── web/src/app/agents/new/page.tsx
-│   │   └── web/src/app/agents/page.tsx
-│   ├── web/src/app/api
-│   │   ├── web/src/app/api/activate-agent
-│   │   │   └── web/src/app/api/activate-agent/route.ts
-│   │   ├── web/src/app/api/agent-chat
-│   │   │   └── web/src/app/api/agent-chat/route.ts
-│   │   ├── web/src/app/api/analyze-voice
-│   │   │   └── web/src/app/api/analyze-voice/route.ts
-│   │   ├── web/src/app/api/crawl
-│   │   │   └── web/src/app/api/crawl/route.ts
-│   │   ├── web/src/app/api/deploy-fine-tune
-│   │   │   └── web/src/app/api/deploy-fine-tune/route.ts
-│   │   ├── web/src/app/api/feedback
-│   │   │   └── web/src/app/api/feedback/route.ts
-│   │   ├── web/src/app/api/fine-tune
-│   │   │   └── web/src/app/api/fine-tune/route.ts
-│   │   ├── web/src/app/api/fine-tune-status
-│   │   │   └── web/src/app/api/fine-tune-status/route.ts
-│   │   ├── web/src/app/api/generate-agent
-│   │   │   └── web/src/app/api/generate-agent/route.ts
-│   │   ├── web/src/app/api/generate-voice
-│   │   │   └── web/src/app/api/generate-voice/route.ts
-│   │   ├── web/src/app/api/generate-workflow
-│   │   │   └── web/src/app/api/generate-workflow/route.ts
-│   │   ├── web/src/app/api/guided-setup
-│   │   │   ├── web/src/app/api/guided-setup/add-notes
-│   │   │   │   └── web/src/app/api/guided-setup/add-notes/route.ts
-│   │   │   ├── web/src/app/api/guided-setup/answer
-│   │   │   │   └── web/src/app/api/guided-setup/answer/route.ts
-│   │   │   ├── web/src/app/api/guided-setup/clarify
-│   │   │   │   └── web/src/app/api/guided-setup/clarify/route.ts
-│   │   │   ├── web/src/app/api/guided-setup/end
-│   │   │   │   └── web/src/app/api/guided-setup/end/route.ts
-│   │   │   ├── web/src/app/api/guided-setup/route.ts
-│   │   │   ├── web/src/app/api/guided-setup/start
-│   │   │   │   └── web/src/app/api/guided-setup/start/route.ts
-│   │   │   └── web/src/app/api/guided-setup/submitAnswer.ts
-│   │   ├── web/src/app/api/relevance-check
-│   │   │   └── web/src/app/api/relevance-check/route.ts
-│   │   └── web/src/app/api/transcribe-audio
-│   │       └── web/src/app/api/transcribe-audio/route.ts
-│   ├── web/src/app/auth
-│   │   └── web/src/app/auth/callback
-│   │       └── web/src/app/auth/callback/page.tsx
-│   ├── web/src/app/automations
-│   │   └── web/src/app/automations/page.tsx
-│   ├── web/src/app/components
-│   │   ├── web/src/app/components/DashboardLayout.tsx
-│   │   └── web/src/app/components/Modal.tsx
-│   ├── web/src/app/dashboard
-│   │   └── web/src/app/dashboard/page.tsx
-│   ├── web/src/app/favicon.ico
-│   ├── web/src/app/globals.css
-│   ├── web/src/app/layout.tsx
-│   ├── web/src/app/login
-│   │   └── web/src/app/login/page.tsx
-│   ├── web/src/app/onboarding
-│   │   └── web/src/app/onboarding/page.tsx
-│   ├── web/src/app/page.tsx
-│   └── web/src/app/settings
-│       └── web/src/app/settings/page.tsx
-├── web/src/components
-│   ├── web/src/components/ScenarioRecorder.tsx
-│   └── web/src/components/VoiceRecorder.tsx
-├── web/src/lib
-│   └── web/src/lib/supabase.ts
-└── web/src/utils
-    └── web/src/utils/submitGuidedAnswer.ts
+.
+├── ai-agent-platform-docs
+│   ├── 00_MASTER_PROJECT.md
+│   ├── 01_ARCHITECT_CONTEXT.md
+│   ├── 02_FRONTEND_CONTEXT.md
+│   ├── 03_BACKEND_CONTEXT.md
+│   ├── 04_WORKFLOWS_CONTEXT.md
+│   ├── 05_LLM_TRAINER_CONTEXT.md
+│   ├── 06_AVATAR_VOICE_CONTEXT.md
+│   ├── 07_PROJECT_MANAGER_CONTEXT.md
+│   ├── 08_PROMPT_ENGINEER_CONTEXT.md
+│   ├── agent_activation_checklist.md
+│   ├── automation_map.md
+│   ├── CHANGELOG.md
+│   ├── daily_checklist.md
+│   ├── monthly_checklist.md
+│   ├── operational_workflow
+│   ├── phase1_clarify_spec.md
+│   ├── project_structure.txt
+│   ├── system_overview.md
+│   ├── TODO.md
+│   ├── troubleshooting_recovery.md
+│   └── weekly_checklist.md
+├── docs
+│   └── 01_ARCHITECT_CONTEXT.md
+├── package-lock.json
+├── package.json
+├── project_structure.txt
+├── supabase
+│   └── migrations
+│       └── 20251108205407_remote_schema.sql
+└── web
+    ├── automation
+    │   ├── generate_project_tree.sh
+    │   ├── sync_docs_to_github.sh
+    │   └── update_memory.sh
+    ├── backups
+    │   ├── docs_2025-11-06_15-14-29.tgz
+    │   ├── docs_2025-11-06_15-31-15.tgz
+    │   ├── docs_2025-11-06_16-07-31.tgz
+    │   ├── docs_2025-11-06_16-24-44.tgz
+    │   ├── docs_2025-11-06_16-38-00.tgz
+    │   ├── docs_2025-11-06_17-21-42.tgz
+    │   ├── docs_2025-11-06_17-43-12.tgz
+    │   ├── docs_2025-11-06_17-48-49.tgz
+    │   ├── docs_2025-11-06_19-37-23.tgz
+    │   ├── docs_2025-11-06_19-46-15.tgz
+    │   ├── docs_2025-11-06_20-16-38.tgz
+    │   ├── docs_2025-11-06_20-33-42.tgz
+    │   ├── docs_2025-11-06_21-16-19.tgz
+    │   ├── docs_2025-11-06_21-33-11.tgz
+    │   ├── docs_2025-11-06_21-40-38.tgz
+    │   ├── docs_2025-11-06_22-21-39.tgz
+    │   ├── docs_2025-11-06_22-27-51.tgz
+    │   ├── docs_2025-11-07_12-01-08.tgz
+    │   ├── docs_2025-11-08_10-09-02.tgz
+    │   ├── docs_2025-11-08_10-37-14.tgz
+    │   ├── docs_2025-11-08_10-40-16.tgz
+    │   ├── docs_2025-11-08_10-53-21.tgz
+    │   └── docs_2025-11-08_12-12-49.tgz
+    ├── docs
+    │   ├── 00_MASTER_PROJECT.md
+    │   ├── 01_ARCHITECT_CONTEXT.md
+    │   ├── 02_FRONTEND_CONTEXT.md
+    │   ├── 03_BACKEND_CONTEXT.md
+    │   ├── 04_WORKFLOWS_CONTEXT.md
+    │   ├── 05_LLM_TRAINER_CONTEXT.md
+    │   ├── 06_AVATAR_VOICE_CONTEXT.md
+    │   ├── 07_PROJECT_MANAGER_CONTEXT.md
+    │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
+    │   ├── agent_activation_checklist.md
+    │   ├── automation_map.md
+    │   ├── CHANGELOG.md
+    │   ├── daily_checklist.md
+    │   ├── monthly_checklist.md
+    │   ├── operational_workflow
+    │   ├── phase1_clarify_spec.md
+    │   ├── project_structure.txt
+    │   ├── system_overview.md
+    │   ├── TODO.md
+    │   ├── troubleshooting_recovery.md
+    │   └── weekly_checklist.md
+    ├── eslint.config.mjs
+    ├── next-env.d.ts
+    ├── next.config.ts
+    ├── package-lock.json
+    ├── package.json
+    ├── postcss.config.mjs
+    ├── public
+    │   ├── file.svg
+    │   ├── globe.svg
+    │   ├── next.svg
+    │   ├── vercel.svg
+    │   └── window.svg
+    ├── README.md
+    ├── src
+    │   ├── app
+    │   │   ├── agents
+    │   │   │   ├── [id]
+    │   │   │   ├── new
+    │   │   │   └── page.tsx
+    │   │   ├── api
+    │   │   │   ├── activate-agent
+    │   │   │   ├── agent-chat
+    │   │   │   ├── analyze-voice
+    │   │   │   ├── crawl
+    │   │   │   ├── deploy-fine-tune
+    │   │   │   ├── feedback
+    │   │   │   ├── fine-tune
+    │   │   │   ├── fine-tune-status
+    │   │   │   ├── generate-agent
+    │   │   │   ├── generate-voice
+    │   │   │   ├── generate-workflow
+    │   │   │   ├── guided-setup
+    │   │   │   ├── relevance-check
+    │   │   │   └── transcribe-audio
+    │   │   ├── auth
+    │   │   │   └── callback
+    │   │   ├── automations
+    │   │   │   └── page.tsx
+    │   │   ├── components
+    │   │   │   ├── DashboardLayout.tsx
+    │   │   │   └── Modal.tsx
+    │   │   ├── dashboard
+    │   │   │   └── page.tsx
+    │   │   ├── favicon.ico
+    │   │   ├── globals.css
+    │   │   ├── layout.tsx
+    │   │   ├── login
+    │   │   │   └── page.tsx
+    │   │   ├── onboarding
+    │   │   │   └── page.tsx
+    │   │   ├── page.tsx
+    │   │   └── settings
+    │   │       └── page.tsx
+    │   ├── components
+    │   │   ├── ScenarioRecorder.tsx
+    │   │   └── VoiceRecorder.tsx
+    │   ├── lib
+    │   │   └── supabase.ts
+    │   └── utils
+    │       └── submitGuidedAnswer.ts
+    ├── staging
+    │   ├── phase1_backend_drop
+    │   │   ├── 20251108_clarify_phase1.sql
+    │   │   ├── clarify.api.test.ts
+    │   │   ├── route.ts
+    │   │   └── seed_prompts.sql
+    │   └── supabase_schema_snapshot_2025-11-09.sql
+    └── tsconfig.json
 
-40 directories, 43 files
+43 directories, 107 files
