@@ -219,3 +219,25 @@ Deliverables for next PM sync:
 1. Schema draft (SQL + JSON structure)  
 2. Clarification flow diagram (prompt flow + data handoff)  
 3. Baseline prompt templates library
+
+---
+
+### 🗓️ November 8, 2025 – Phase 1 Kickoff (Vertical Slice)
+
+**System Focus (Director View)**
+Build the spine: Guided Setup → Get Clarification → Save to Supabase (one complete end-to-end path).
+
+**Assignments**
+- Prompt Engineer (lead): prompts table schema, JSON template, clarify API spec, persistence rules, test plan.
+- Backend (next): implement `/api/guided-setup/clarify`, wire Supabase table, `{ ok, data, error }` responses.
+- Frontend: connect “Get Clarification” UI to API; ensure state persists on back-navigation.
+
+**Success Criteria**
+- Start → Answer → Clarify → Back → Clarify persists → End (no data loss).
+- Prompts versioned; API returns correct prompt + clarifications based on ids/version.
+
+**Daily Plan**
+Morning: Handoff to Prompt Engineer + confirm delivery scope.  
+Mid-Day: Review deliverables; prepare backend handoff.  
+Evening: If accepted, open Backend task and schedule Frontend hookup for tomorrow.
+
