@@ -30,3 +30,25 @@ This enables completion of the “Get Clarification” rebuild and schema mappin
 Decision: Start with the Guided Setup → Clarification → Supabase persistence flow (system spine).
 Rationale: Validates end-to-end path touching Frontend, Backend, Supabase, and Prompt Engineering. Enables later voice, workflows, and fine-tune to attach cleanly.
 Next: Prompt Engineer produces schema, JSON template, clarify API contract, and test plan for Backend + Frontend integration.
+
+---
+
+### 🧱 November 8, 2025 – Prompt Engineer Deliverables Received (Phase 1 A–D)
+Received the Prompt Engineer’s Phase 1 package:
+- A) Supabase SQL for `public.prompts` (+ indexes, RLS notes)
+- B) Canonical JSON schema + two examples (guided setup + system prompt)
+- C) `/api/guided-setup/clarify` API request/response contract
+- D) Short test plan (5 cases)
+
+Action: Forwarded A–D to Backend Agent with implementation /handoff for Clarify API + persistence.
+
+---
+
+### 🧠 November 8, 2025 – Backend Scope Confirmed (Phase 1 Clarify API)
+Backend Agent reviewed Prompt Engineer A–D deliverables and confirmed full understanding.
+Scope approved for execution:
+- Create public.prompts table, indexes, RLS policies.
+- Implement /api/guided-setup/clarify route.
+- Integrate Supabase persistence with guided_setup_sessions.state_json.
+- Add structured logging and unit tests (5 cases).
+PM approved to proceed with code scaffolding.
