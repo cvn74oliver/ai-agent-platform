@@ -264,3 +264,10 @@ Next Action: Review and validate code once delivered; prepare Frontend handoff.
 - [ ] Compare schema snapshot with backend migration (`20251108_clarify_phase1.sql`) for overlap.
 - [ ] Generate Phase 1 safe migration script for Supabase.
 - [ ] Document migration verification results for next PM review.
+
+---
+
+### 🗓️ November 9 2025 – Schema Comparison Checklist Created
+- [x] Added `/web/docs/operational_workflow/schema_comparison_checklist.md`
+- [x] Verified formatting and Markdown table rendering.
+- [ ] Apply checklist during next migration comparison.

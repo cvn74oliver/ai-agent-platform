@@ -57,7 +57,8 @@
     │   ├── docs_2025-11-08_10-37-14.tgz
     │   ├── docs_2025-11-08_10-40-16.tgz
     │   ├── docs_2025-11-08_10-53-21.tgz
-    │   └── docs_2025-11-08_12-12-49.tgz
+    │   ├── docs_2025-11-08_12-12-49.tgz
+    │   └── docs_2025-11-08_15-33-37.tgz
     ├── docs
     │   ├── 00_MASTER_PROJECT.md
     │   ├── 01_ARCHITECT_CONTEXT.md
@@ -76,6 +77,7 @@
     │   ├── operational_workflow
     │   ├── phase1_clarify_spec.md
     │   ├── project_structure.txt
+    │   ├── schema_comparison_checklist.md
     │   ├── system_overview.md
     │   ├── TODO.md
     │   ├── troubleshooting_recovery.md
@@ -149,4 +151,4 @@
     │   └── supabase_schema_snapshot_2025-11-09.sql
     └── tsconfig.json
 
-43 directories, 107 files
+43 directories, 109 files

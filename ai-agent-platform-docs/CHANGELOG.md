@@ -80,3 +80,18 @@ Completed a full schema snapshot export from the live Supabase project (agent_pl
 
 Next Step:
 - Review the snapshot against `20251108_clarify_phase1.sql` to isolate safe migration lines for Supabase execution.
+
+---
+
+### 🧩 November 9 2025 – Schema Comparison Checklist Added to Operational Workflow
+Created new documentation file  
+`/web/docs/operational_workflow/schema_comparison_checklist.md`  
+to formalize the verification process before applying backend migrations.
+
+Purpose:
+- Prevent duplicate table creation or data loss.
+- Establish repeatable safety workflow for future Project Manager Agents.
+
+Outcome:
+- Checklist synced and versioned in docs.
+- Ready for use during Phase 1 migration verification.

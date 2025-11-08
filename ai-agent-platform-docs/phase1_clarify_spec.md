@@ -111,12 +111,13 @@ Error Examples
 
 🧱 Implementation Status
 
-| Component                | Owner                 | Status         |
-| ------------------------ | --------------------- | -------------- |
-| Prompt schema + examples | Prompt Engineer Agent | ✅ Completed    |
-| Backend API & SQL        | Backend Agent         | 🔄 In progress |
-| Frontend Clarify UI      | Frontend UI Agent     | ⏳ Next         |
-| QA / Integration test    | Project Manager       | ⏳ Pending      |
+| Component | Owner | Status |
+|------------|--------|--------|
+| Prompt schema + examples | Prompt Engineer Agent | ✅ Completed |
+| Backend API & SQL | Backend Agent | ✅ Code delivered |
+| Supabase Schema Snapshot | Oliver / PM | ✅ Exported 2025-11-09 |
+| Frontend Clarify UI | Frontend UI Agent | ⏳ Next |
+| QA / Integration Test | Project Manager | ⏳ Pending |
 
 🧭 Notes
 
