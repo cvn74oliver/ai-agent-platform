@@ -25,11 +25,6 @@ npm run dev
 
 ⸻
 
-
-✏️ Replace your current 🧠 During Work Blocks section with the one below:
-
-⸻
-
 🧠 During Work Blocks
 	1.	Start every new task with the Project Manager Agent.
 	    •	Explain what you’re working on or what problem you need to solve.
@@ -76,8 +71,6 @@ Nov 7 2025 – Backend Agent resolved Supabase auth bug.
 ./automation/update_memory.sh
 ./automation/sync_docs_to_github.sh
 ```
-
-
 	    •	This merges all context updates into 00_MASTER_PROJECT.md, creates a backup, and pushes to GitHub.
 
 ⸻

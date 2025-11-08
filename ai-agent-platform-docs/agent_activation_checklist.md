@@ -202,9 +202,8 @@ After syncing, open the Project Manager Agent chat and send the latest full proj
    • CHANGELOG.md  
    • project_structure.txt  
    • system_overview.md
-2. Then include a short written summary in your own words describing the current status of the project. 
-   Example:
-   “We’ve finished building the multi-agent framework. Architect and Frontend are active; the others are pending activation. Automation scripts are working correctly. Your goal is to coordinate the team and produce our first daily plan.”
+   • automation_map.md (include when activating or after any automation changes)
+2. Record a Loom video explaining everything that you want this project manager to know and be like, and all the details about the project. Once you're done, download the video and its captions, and include them as attachments in your project, along with a text summary of everything the project manager needs to know about those attachments and what you need to say.
 3. Type “All files uploaded — proceed.” once finished.
 4. Wait for the Project Manager Agent to analyze them and generate its coordination summary, agent priorities, and daily plan.
 
