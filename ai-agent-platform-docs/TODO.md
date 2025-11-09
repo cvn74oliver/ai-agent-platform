@@ -271,3 +271,11 @@ Next Action: Review and validate code once delivered; prepare Frontend handoff.
 - [x] Added `/web/docs/operational_workflow/schema_comparison_checklist.md`
 - [x] Verified formatting and Markdown table rendering.
 - [ ] Apply checklist during next migration comparison.
+
+### 🗓️ November 9, 2025 – Post-Build Action Plan
+- [x] Achieve clean build across all agents (completed)
+- [ ] Run Clarify API 5-test validation suite (Phase 1)
+- [ ] Test Guided Setup → Clarify → Supabase persistence cycle
+- [ ] Verify Automations page Suspense wrapper in dev mode
+- [ ] Perform daily agent health check (all 6 active agents)
+- [ ] Review `CHANGELOG.md` updates and sync with master project files
