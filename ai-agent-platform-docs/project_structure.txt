@@ -60,7 +60,9 @@
     │   ├── docs_2025-11-08_10-53-21.tgz
     │   ├── docs_2025-11-08_12-12-49.tgz
     │   ├── docs_2025-11-08_15-33-37.tgz
-    │   └── docs_2025-11-08_15-56-24.tgz
+    │   ├── docs_2025-11-08_15-56-24.tgz
+    │   ├── docs_2025-11-08_15-57-00.tgz
+    │   └── docs_2025-11-09_07-35-00.tgz
     ├── docs
     │   ├── 00_MASTER_PROJECT.md
     │   ├── 01_ARCHITECT_CONTEXT.md
@@ -142,6 +144,8 @@
     │   │   └── VoiceRecorder.tsx
     │   ├── lib
     │   │   └── supabase.ts
+    │   ├── tools
+    │   │   └── image_gen.ts
     │   └── utils
     │       └── submitGuidedAnswer.ts
     ├── staging
@@ -153,4 +157,4 @@
     │   └── supabase_schema_snapshot_2025-11-09.sql
     └── tsconfig.json
 
-43 directories, 111 files
+44 directories, 114 files
