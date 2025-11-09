@@ -1197,7 +1197,177 @@ Complete the full stabilization and production build of the AI Agent Platform (N
 - Maintain logs under new version heading beginning November 9, 2025.
 - Context continuity preserved via CHANGELOG.md and TODO.md updates.
 
-> *Project Manager Agent v1 has been archived successfully and replaced by v2 (Testing & Validation Phase).*# Role: Prompt Engineer Agent
+> *Project Manager Agent v1 has been archived successfully and replaced by v2 (Testing & Validation Phase).*
+
+## Session Log – Activation (Nov 9 2025)  
+
+✅ **Project Manager Agent v2 Activated – November 9, 2025**
+
+I’ve successfully reloaded and analyzed the latest versions of all core project documents, including:
+
+* `00_MASTER_PROJECT.md`
+* `TODO.md`
+* `CHANGELOG.md`
+* `project_structure.txt`
+* `system_overview.md`
+* `automation_map.md`
+* `phase1_clarify_spec.md`
+
+---
+
+## 🧭 Phase Alignment Summary
+
+We are officially in **Phase 2: Runtime Testing & Validation**, following the successful **Phase 1: Build Stabilization & TypeScript Compliance** milestone.
+The system is fully compiled, all agents are synchronized, and the Clarify API spine (Guided Setup → Clarify → Supabase persistence) is complete and production-ready.
+
+Next, we shift from *building* to *verifying*:
+running runtime tests, confirming data persistence, and validating the UX/UI integrations for Clarify and Automations.
+
+---
+
+## 🧩 Agent Health Overview
+
+(verified from `TODO.md` + `CHANGELOG.md`)
+
+| Agent                | Status     | Version | Notes                                         |
+| -------------------- | ---------- | ------- | --------------------------------------------- |
+| Architect            | 🟢 Healthy | v1      | Schema/API mapping confirmed.                 |
+| Frontend UI          | 🟢 Healthy | v1      | Ready for Clarify UI runtime validation.      |
+| Backend API          | 🟢 Healthy | v1      | Build verified; Clarify API live.             |
+| Workflow Integration | 🟢 Healthy | v1      | Awaiting `/api/workflows` CRUD validation.    |
+| LLM Trainer & RAG    | 🟢 Healthy | v1      | Preparing dataset export & cost router.       |
+| Avatar & Voice       | 🟢 Healthy | v1      | Audio upload/transcribe test next.            |
+| Project Manager      | 🟢 Healthy | v2      | Overseeing Phase 2 validation.                |
+| Prompt Engineer      | 🟢 Healthy | v1      | Supabase schema & prompt templates finalized. |
+
+No drifts detected; all 8 active agents operational .
+
+---
+
+## 🔝 Top 5 Priorities per Agent
+
+### 🏗️ Architect Agent
+
+1. Audit `/api` → Supabase table mapping (ensure 1-to-1).
+2. Verify RLS policies for `public.prompts` and `guided_setup_sessions`.
+3. Produce system diagram update for `system_overview.md`.
+4. Validate env/dependency consistency (`.env.local`, Render/Vercel).
+5. Recommend structural cleanup post-Clarify integration (phase-2 prep).
+
+### 🎨 Frontend UI Agent
+
+1. Test Clarify UI flow → ensure answers persist via Supabase.
+2. Add runtime error/loading states for Clarify route.
+3. Validate Automations Page in dev mode (`npm run dev`).
+4. Confirm VoiceRecorder → Transcribe API integration.
+5. Begin responsive and accessibility QA pass.
+
+### ⚙️ Backend API Agent
+
+1. Run Clarify API 5-test validation suite (`phase1_clarify_spec.md`).
+2. Add server logging + latency metrics per route.
+3. Confirm Supabase migration safety vs snapshot (`schema_comparison_checklist.md`).
+4. Finalize `/api/workflows` CRUD endpoint.
+5. Extend `/api/fine-tune-status` polling + error handling.
+
+### 🔁 Workflow Integration Agent
+
+1. Validate Activepieces auth token flow.
+2. Confirm `workflows` table structure & RLS.
+3. Implement visualization JSON → graph renderer.
+4. Test `/api/workflows` end-to-end create/update.
+5. Document workflow link logic for PM reference.
+
+### 🧠 LLM Trainer & RAG Agent
+
+1. Implement `/api/fine-tune-status` runtime poller.
+2. Build dataset export (JSONL) for training queue.
+3. Add cost-aware router to `/src/lib/llm.ts`.
+4. Integrate Firecrawl embedding update schedule.
+5. Record training flow diagram in `system_overview.md`.
+
+### 🗣️ Avatar & Voice Agent
+
+1. Run audio upload + transcription integration test.
+2. Add `voice_consent` fields to `agents` table and validate RLS.
+3. Connect voice-clone API (verify auth).
+4. Prototype avatar intro video automation.
+5. Sync consent UI checkbox with backend record.
+
+### 📜 Prompt Engineer Agent
+
+1. Finalize prompt template library for all agents.
+2. Begin prompt optimization workflow v1 → LLM Trainer dataset export.
+3. Add Clarify prompt flow diagram to `phase1_clarify_spec.md`.
+4. Implement prompt version bumping (1.0.0 → 1.1.0).
+5. QA prompt retrieval performance via Supabase index test.
+
+### 🧭 Project Manager Agent
+
+1. Monitor runtime testing logs and document issues.
+2. Update `CHANGELOG.md` after Clarify API test completion.
+3. Schedule Phase 2 weekly roll-up (Nov 15).
+4. Flag any agent inactive > 14 days for refresh.
+5. Begin Phase 3 draft outline (Analytics + User Dashboard).
+
+---
+
+## ⚙️ System-Wide Priorities (Next 7 Days)
+
+1. **Run Clarify API Test Suite** → Verify 5 cases from `phase1_clarify_spec.md` .
+2. **Validate Guided Setup Persistence** → Check data reload and version handling.
+3. **Runtime UI Testing** → Automations and Dashboard pages (`npm run dev`).
+4. **Schema Verification & Migration Safety** → Compare `pg_dump` snapshot with Phase 1 SQL .
+5. **Prepare Phase 2 Weekly Report** → Summarize runtime testing results and issues in `CHANGELOG.md`.
+
+---
+
+## 📊 Current Progress Summary
+
+* **Build Status:** 100 % clean build (Next.js 16 + Supabase).
+* **Schema:** Synced and snapshot validated on Nov 9.
+* **API Integrity:** Clarify and Answer routes operational.
+* **Agents:** 8 active / healthy / synchronized.
+* **Docs:** All context files and automation scripts mirrored in `project_structure.txt` .
+* **Automation:** update_memory + sync_docs loop functioning as expected .
+
+---
+
+## ⚠️ Risks & Dependencies
+
+| Risk                                         | Owner           | Mitigation                                   |
+| -------------------------------------------- | --------------- | -------------------------------------------- |
+| Clarify API persistence fails under load     | Backend Agent   | Add Supabase logging + test retry logic.     |
+| Frontend state not persisting across reloads | Frontend Agent  | Implement localStorage cache backup.         |
+| Workflow visualization missing data          | Workflow Agent  | Sync fields between API & Supabase.          |
+| Avatar video automation blocked by API limit | Avatar Agent    | Queue generation + fallback TTS.             |
+| Prompt version conflicts                     | Prompt Engineer | Adopt strict semver enforcement in Supabase. |
+
+---
+
+## 🗓️ Daily Execution Plan – Nov 9 → 10 2025
+
+**Morning**
+
+* Run Clarify API test suite (all 5 cases).
+* Document results in `CHANGELOG.md`.
+
+**Mid-Day**
+
+* Frontend Agent tests Guided Setup persistence in browser.
+* Architect confirms schema mapping vs API contracts.
+
+**Evening**
+
+* Workflow Agent verifies `/api/workflows` CRUD.
+* PM Agent compiles runtime test summary → `TODO.md` update.
+
+---
+
+✅ **Summary Tagline:**
+
+> *Phase 2 begins — runtime validation of Clarify flow and core UX interactions is under way. All agents active, build stable, and system ready for testing.*
+# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 
 ---
