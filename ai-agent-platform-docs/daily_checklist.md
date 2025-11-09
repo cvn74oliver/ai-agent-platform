@@ -1,5 +1,7 @@
 🔁 Daily Checklist – AI Agent Platform
 
+🏗️ Current Phase: [Phase 2 – Runtime Testing & Validation]
+
 Last updated: November 2025
 
 ⸻
@@ -22,11 +24,15 @@ npm run dev
 
    ✅ Reminder: If significant updates were made yesterday, also share TODO.md and CHANGELOG.md so the PM Agent works from the latest information.
 	6.	Review the Project Manager’s Daily Plan and confirm priorities before starting work.
+	7. Verify Agent Health & Version Consistency:
+  		 • Open TODO.md → confirm all agents’ version numbers and reset dates match current context files.
+ 		  • If any agent shows “due for refresh” or “archived,” follow the Agent Activation Checklist before starting work.
 
 ⸻
 
 🧠 During Work Blocks
 	1.	Start every new task with the Project Manager Agent.
+		-  💡 If this task belongs to a new project phase (e.g., Build → Testing), make sure the Project Manager Agent logs this transition in CHANGELOG.md and updates TODO.md with the new phase header.
 	    •	Explain what you’re working on or what problem you need to solve.
 	    •	The PM Agent will decide which specialist agent should handle it and usually give you a “handoff message” to copy.
     2. Work with the assigned specialist Agent (Architect, Frontend, Backend, etc.).
@@ -42,6 +48,10 @@ npm run dev
     	•	/handoff → when you’re passing a task between agents.
     	•	/summarize_session → after work is finished, to generate a clean summary of what was done.
                  💡 Note: You can run /summarize_session immediately after completing a short task, or wait until the end of the day if you’re doing multiple tasks with the same agent.
+		-	⚙️ When switching between agents on the same issue:
+				• Run /handoff in the current chat before moving to the next agent.
+				• Paste the full /handoff message at the top of the new agent’s chat.
+				• This keeps the cross-agent context consistent and ensures version tagging continuity.
 	4.	When the agent finishes its task
     	•	Test or review the result locally in VS Code (e.g., run npm run dev, check the output).
     	•	Copy any relevant results from the chat:
@@ -116,6 +126,12 @@ Please update TODO.md and CHANGELOG.md accordingly.
     	•	00_MASTER_PROJECT.md has updated session summaries.
 	    •	CHANGELOG.md includes today’s notes.
     	•	All backups completed successfully.
+
+	6. 6. If any agent version is being closed or replaced:
+		• Ask the agent for its final context update (Closeout Summary).
+		• Paste its final message into the corresponding *_CONTEXT.md file under:
+			### 🏁 [Agent Name] v[#] – Closeout Summary ([Date])
+		• Update TODO.md and CHANGELOG.md to record the archive date.
 
 📝 Note:
 Skip /summarize_session for any agents that didn’t actively work today. Their context will remain unchanged until their next task.
