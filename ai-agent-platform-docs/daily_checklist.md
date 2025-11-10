@@ -150,7 +150,7 @@ Skip /summarize_session for any agents that didn’t actively work today. Their 
 ⸻
 
 💡 Tip
-If no agent worked today, skip the /summarize_session step and simply run:
+If no agent worked today, skip the /summarize_session step and simply run (run from the /web directory):
 ./automation/update_memory.sh
 ./automation/sync_docs_to_github.sh
 to keep your documentation and backups up to date.
