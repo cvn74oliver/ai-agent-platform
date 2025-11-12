@@ -307,3 +307,17 @@ Now that the full build compiles successfully, proceed with live testing and age
 - [x] Project Manager Agent  
 
 ✅ *All active and operational post-build.*
+
+### 🧠 Next Tasks – Post Clarify Modal Integration (Nov 13)
+
+1. **Thread Persistence**
+   - Store each Clarify conversation per onboarding field in Supabase `onboarding_summary` or a `clarify_threads` JSON field.
+2. **Auto Mic Activation**
+   - When modal opens, auto-start the `VoiceRecorder`.
+3. **UI Polish**
+   - Add scroll-to-bottom for long threads.
+   - Improve modal transitions and colors.
+4. **Refactor Prep**
+   - Plan for Frontend Agent to handle modal animation pass.
+5. **Testing**
+   - Verify voice flow end-to-end in live environment.
