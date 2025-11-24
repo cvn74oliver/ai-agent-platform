@@ -10,6 +10,7 @@
 │   ├── 07_PROJECT_MANAGER_CONTEXT.md
 │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
 │   ├── agent_activation_checklist.md
+│   ├── ARCHIVE_TODO_HISTORY.md
 │   ├── automation_map.md
 │   ├── CHANGELOG.md
 │   ├── daily_checklist.md
@@ -62,7 +63,17 @@
     │   ├── docs_2025-11-08_15-33-37.tgz
     │   ├── docs_2025-11-08_15-56-24.tgz
     │   ├── docs_2025-11-08_15-57-00.tgz
-    │   └── docs_2025-11-09_07-35-00.tgz
+    │   ├── docs_2025-11-09_07-35-00.tgz
+    │   ├── docs_2025-11-09_07-35-52.tgz
+    │   ├── docs_2025-11-09_07-47-30.tgz
+    │   ├── docs_2025-11-09_07-58-42.tgz
+    │   ├── docs_2025-11-09_08-22-31.tgz
+    │   ├── docs_2025-11-09_08-33-09.tgz
+    │   ├── docs_2025-11-10_08-21-17.tgz
+    │   ├── docs_2025-11-10_09-38-16.tgz
+    │   ├── docs_2025-11-12_09-17-39.tgz
+    │   ├── docs_2025-11-12_09-59-31.tgz
+    │   └── docs_2025-11-24_17-12-35.tgz
     ├── docs
     │   ├── 00_MASTER_PROJECT.md
     │   ├── 01_ARCHITECT_CONTEXT.md
@@ -74,6 +85,7 @@
     │   ├── 07_PROJECT_MANAGER_CONTEXT.md
     │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
     │   ├── agent_activation_checklist.md
+    │   ├── ARCHIVE_TODO_HISTORY.md
     │   ├── automation_map.md
     │   ├── CHANGELOG.md
     │   ├── daily_checklist.md
@@ -108,6 +120,7 @@
     │   │   ├── api
     │   │   │   ├── activate-agent
     │   │   │   ├── agent-chat
+    │   │   │   ├── agents
     │   │   │   ├── analyze-voice
     │   │   │   ├── crawl
     │   │   │   ├── deploy-fine-tune
@@ -140,6 +153,7 @@
     │   │   └── settings
     │   │       └── page.tsx
     │   ├── components
+    │   │   ├── ClarifyModal.tsx
     │   │   ├── ScenarioRecorder.tsx
     │   │   └── VoiceRecorder.tsx
     │   ├── lib
@@ -157,4 +171,4 @@
     │   └── supabase_schema_snapshot_2025-11-09.sql
     └── tsconfig.json
 
-44 directories, 114 files
+45 directories, 127 files
