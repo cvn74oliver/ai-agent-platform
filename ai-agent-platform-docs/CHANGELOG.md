@@ -162,3 +162,35 @@ Next phase begins runtime testing for API flows and UI validation.
 - End-to-end “Get Clarification” flow functional
 - Users can speak or type clarification questions in a modal chat
 - Sessions save and retrieve clarification threads successfully
+
+### November 13, 2025 – Clarify Threads Persistence in Edit Agent
+
+**New:**
+- `web/src/app/api/agents/clarify/route.ts`
+  - New Clarify endpoint for Edit Agent use.
+  - Accepts `{ agent_id, field_key, user_question }` and returns `{ ok, clarification }`.
+  - Uses OpenAI with per-field context from `onboarding_summary`.
+
+- `web/src/components/ClarifyModal.tsx`
+  - Dynamic title based on `fieldKey` (e.g. “Got a question about the tone?”).
+  - Shows threaded conversation between user and AI for the active field.
+
+- `web/src/app/agents/[id]/page.tsx`
+  - Integrated ClarifyModal into Edit Agent.
+  - Added per-field “🗣 Get Clarification” buttons in the onboarding summary section.
+  - Implemented `clarify_threads` state and Supabase persistence.
+  - `handleClarifySend` now:
+    - Appends user + AI messages to `clarifyThread`,
+    - Synchronizes with `agent.clarify_threads[fieldKey]`,
+    - Immediately persists `clarify_threads` to Supabase.
+
+**Result:**
+- Clarification threads now persist per onboarding field on the Edit Agent page.
+- Threads survive modal close, page refresh, and can be used for future UX (badges, indicators, analytics).
+
+### November 24, 2025 — Clarify Persistence Finalized
+
+- Added immediate Supabase persistence for clarify threads.
+- Updated Edit Agent workflows for consistent thread loading.
+- Cleaned and restructured TODO.md (migrated historical logs to archive).
+- PM Agent v2 session confirmed active and healthy.

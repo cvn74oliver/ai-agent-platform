@@ -451,3 +451,52 @@ Implement per-question Clarify thread persistence and auto-focus voice recorder.
 
 **Status:**  
 🟢 Stable build — Clarify Modal live and functional.
+
+### 🗓️ November 13, 2025 – Clarify Threads Persistence & Edit Agent Integration
+
+**Objective:**  
+Extend the Clarify experience from the Guided Setup flow into the Edit Agent screen, and ensure each onboarding field (tone, mission, audience, etc.) has its own persistent clarification thread.
+
+**Summary of Work:**
+- Added `clarify_threads` JSONB column support to the `agents` table and wired it into the Edit Agent page.
+- Integrated `ClarifyModal` into `/agents/[id]`:
+  - Modal title now reflects the active field (e.g., “Got a question about the tone?”).
+  - Each onboarding_summary field has its own “🗣 Get Clarification” button.
+- Implemented per-field Clarify threads:
+  - `clarifyThread` state holds the current modal thread.
+  - `agent.clarify_threads[key]` holds the persisted thread in React state and Supabase.
+- Created a dedicated Clarify API for Edit Agent:
+  - New route: `/api/agents/clarify`
+  - Accepts `{ agent_id, field_key, user_question }`
+  - Loads `onboarding_summary[field_key]` for context
+  - Calls OpenAI with a field-specific clarifying prompt
+  - Returns `{ ok: true, clarification: "..." }`.
+- Updated Clarify flow to save immediately:
+  - `handleClarifySend` now:
+    - Appends user + AI messages to the thread
+    - Updates `agent.clarify_threads[fieldKey]` in state
+    - Writes updated `clarify_threads` back to Supabase immediately (no longer relying on Save Agent for Clarify persistence).
+
+**Result:**
+- Clarify conversations are now:
+  - Per-field (tone, mission, audience, etc.)
+  - Persisted to Supabase
+  - Automatically restored when reopening the Clarify modal or reloading the page.
+
+**Next Focus:**
+- Visual indicators for fields that have clarification history (e.g., a 💬 badge).
+- Auto-scroll to the latest message in ClarifyModal threads.
+- Additional voice-first UX polish (optional auto-focus of recorder on modal open).
+
+**Status:**  
+🟢 Clarify UX and persistence for Edit Agent are stable and production-ready.
+
+### 🗓️ November 24, 2025 – Clarify Persistence Finalization & Modal Polish Begin
+
+- Completed full Clarify thread persistence for Edit Agent page.
+- Confirmed immediate Supabase persistence in handleClarifySend.
+- Verified real-time thread loading after modal reopen and page reload.
+- Updated ClarifyModal with dynamic field titles.
+- Synced TODO.md to a clean, forward-looking structure.
+- Archived large historical TODO contents into _ARCHIVE_TODO_HISTORY.md_.
+- PM Agent v2 scope confirmed; no version upgrade required.
