@@ -194,3 +194,35 @@ Next phase begins runtime testing for API flows and UI validation.
 - Updated Edit Agent workflows for consistent thread loading.
 - Cleaned and restructured TODO.md (migrated historical logs to archive).
 - PM Agent v2 session confirmed active and healthy.
+
+### November 25, 2025 — Guided Setup Milestones & RAG Link Pipeline
+
+**Guided Setup Milestones**
+
+- Fixed the Phase 1 milestone progression in `/api/guided-setup/answer` so all 10 onboarding questions (company, mission, tone, audience, topics, guardrails, rag_links, crawl_domains, formats, constraints) are asked in sequence before refinement.
+- Ensured `guided_setup_sessions.state_json` is properly updated on each answer by switching the answer route to use the Supabase admin client and normalizing `state.current_key` behavior.
+- Corrected duplicate destructuring and control-flow bugs that previously caused premature finalization or repeated questions.
+
+**Refine & Rewrite Behavior**
+
+- Verified that `finalRefine()` rewrites onboarding fields (company, mission, tone, audience, topics, guardrails, formats, constraints) into more professional, prompt-engineer-level copies before finalization.
+- Simplified the refine follow-up logic so that the system no longer logs synthetic “will ask 1 follow-up(s)” messages when no real followups are present.
+- Prepared the refine codepath to support a future “score to 10/10 with followups” loop as a dedicated follow-on task.
+
+**RAG & Crawl URL Pipeline**
+
+- Fixed `sanitizeRewritten()` so that `rag_links` and `crawl_domains` are preserved when the model returns them as strings (not just arrays).
+- Updated `finalize()` in `/api/guided-setup/answer` to:
+  - Normalize `rag_links` and `crawl_domains` into clean URL arrays for `agents.rag_sources` and `agents.crawl_domains` using `extractUrls`.
+  - Store the refined fields into `onboarding_summary` without dropping link fields.
+- Updated the Agent Summary page to render `rag_links` and `crawl_domains` coherently in the “Data & Links” section so that RAG sources and crawlable domains are visible and editable.
+
+**Edit Agent UI Consistency**
+
+- Adjusted the URL-related textareas (RAG Sources and Crawl Domains) on `/agents/[id]` so they use the same font, padding, and styling as other onboarding fields.
+- Reduced visual duplication between onboarding summary fields and knowledge source sections, laying the groundwork for a cleaner single-source-of-truth UX.
+
+**Status**
+
+- Guided Setup now supports full milestone collection, a single refine pass, and clean insertion of RAG + crawl URLs into agent records.
+- The system is ready for the next phase: implementing a guided refine loop that can ask targeted followup questions until the agent prompt reaches a 10/10 quality score.
