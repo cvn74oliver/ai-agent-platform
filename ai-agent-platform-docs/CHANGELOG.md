@@ -4,8 +4,9 @@ Backend Agent Activated – November 6 2025
 Workflows Agent Activated – November 6 2025
 LLM Trainer Agent Activated – November 6 2025
 Avatar Voice Agent Activated – November 6 2025
-Project Manager Agent Activated – November 6 2025
+Project Manager Agent v1 Activated – November 6 2025 (archived)
 Prompt Engineer Agent Activated – November 8 2025
+Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
@@ -226,3 +227,8 @@ Next phase begins runtime testing for API flows and UI validation.
 
 - Guided Setup now supports full milestone collection, a single refine pass, and clean insertion of RAG + crawl URLs into agent records.
 - The system is ready for the next phase: implementing a guided refine loop that can ask targeted followup questions until the agent prompt reaches a 10/10 quality score.
+
+Agent Refresh – November 25 2025
+Project Manager Agent v2 retired and replaced with version 3.
+Context reloaded successfully and session reset to prevent drift.
+
