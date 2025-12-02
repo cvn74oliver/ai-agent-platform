@@ -75,7 +75,12 @@
     │   ├── docs_2025-11-12_09-59-31.tgz
     │   ├── docs_2025-11-24_17-12-35.tgz
     │   ├── docs_2025-11-24_17-16-29.tgz
-    │   └── docs_2025-11-25_18-52-29.tgz
+    │   ├── docs_2025-11-25_18-52-29.tgz
+    │   ├── docs_2025-11-25_19-24-54.tgz
+    │   ├── docs_2025-11-28_12-19-54.tgz
+    │   ├── docs_2025-11-28_12-26-27.tgz
+    │   ├── docs_2025-11-28_18-31-57.tgz
+    │   └── docs_2025-11-29_21-39-12.tgz
     ├── docs
     │   ├── 00_MASTER_PROJECT.md
     │   ├── 01_ARCHITECT_CONTEXT.md
@@ -133,6 +138,7 @@
     │   │   │   ├── generate-voice
     │   │   │   ├── generate-workflow
     │   │   │   ├── guided-setup
+    │   │   │   ├── rag
     │   │   │   ├── relevance-check
     │   │   │   └── transcribe-audio
     │   │   ├── auth
@@ -156,6 +162,7 @@
     │   │       └── page.tsx
     │   ├── components
     │   │   ├── ClarifyModal.tsx
+    │   │   ├── ImproveQualityModal.tsx
     │   │   ├── ScenarioRecorder.tsx
     │   │   └── VoiceRecorder.tsx
     │   ├── lib
@@ -173,4 +180,4 @@
     │   └── supabase_schema_snapshot_2025-11-09.sql
     └── tsconfig.json
 
-45 directories, 129 files
+46 directories, 135 files
