@@ -13,6 +13,7 @@
 │   ├── ARCHIVE_TODO_HISTORY.md
 │   ├── automation_map.md
 │   ├── CHANGELOG.md
+│   ├── CURRENT_STATE.md
 │   ├── daily_checklist.md
 │   ├── monthly_checklist.md
 │   ├── operational_workflow
@@ -83,7 +84,9 @@
     │   ├── docs_2025-11-29_21-39-12.tgz
     │   ├── docs_2025-12-02_15-27-30.tgz
     │   ├── docs_2025-12-05_11-46-30.tgz
-    │   └── docs_2025-12-07_16-17-56.tgz
+    │   ├── docs_2025-12-07_16-17-56.tgz
+    │   ├── docs_2025-12-07_16-18-52.tgz
+    │   └── docs_2025-12-13_15-14-54.tgz
     ├── docs
     │   ├── 00_MASTER_PROJECT.md
     │   ├── 01_ARCHITECT_CONTEXT.md
@@ -183,4 +186,4 @@
     │   └── supabase_schema_snapshot_2025-11-09.sql
     └── tsconfig.json
 
-46 directories, 138 files
+46 directories, 141 files
