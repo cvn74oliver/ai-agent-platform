@@ -1,6 +1,6 @@
 ⚙️ Automation Map – AI Agent Platform
 
-Last updated: November 2025
+Last updated: December 2025
 
 This document lists every automated process in the AI Agent Platform, what triggers it, what it updates, and who oversees it.
 It provides a quick visual guide to what runs hands-off versus what you still control manually.
@@ -22,8 +22,9 @@ It’s the master reference for understanding which scripts, agents, and systems
 • Marks timestamp of last sync in terminal output.
 	2.	sync_docs_to_github.sh
 • Triggered automatically after update_memory.sh via the Shortcut or run manually.
-• Copies /web/docs into the public ai-agent-platform-docs GitHub repo.
-• Commits and pushes changes with an auto-generated message.
+• Syncs authoritative documentation from the ai-agent-platform-docs repo into /web/docs as a generated mirror.
+• Non-destructive by design; aborts if required files (e.g., CURRENT_STATE.md) are missing.
+• Commits and pushes changes to the public docs repo with an auto-generated message.
 	3.	macOS Shortcut – “Sync Docs”
 • One-click or Siri command that runs both scripts together.
 • Shows success notification on completion.
@@ -33,6 +34,7 @@ It’s the master reference for understanding which scripts, agents, and systems
 • At end of week: summarizes progress and appends to CHANGELOG.md.
 • Tracks “Agent Session Health” and flags any agent older than two weeks for reset.
 • Can trigger agent activation workflow automatically if drift detected.
+• Anchors all decisions to CURRENT_STATE.md as the single source of truth.
 	5.	Role Agents (Architect, Frontend, Backend, etc.)
 • Auto-reference their context files when resumed with /resume_role.
 • Produce daily /summarize_session outputs used by PM Agent for roll-ups.
@@ -45,7 +47,7 @@ It’s the master reference for understanding which scripts, agents, and systems
 • Auto-updates when sync_docs_to_github.sh runs.
 • Provides permanent public links used inside ChatGPT prompts.
 	8.	Backups System
-• Each run of update_memory.sh stores a .tgz archive of /docs.
+• Each run of update_memory.sh stores a .tgz archive of the current documentation snapshot.
 • Older backups can be manually pruned monthly.
 • Restoration instructions live in troubleshooting_recovery.md.
 
@@ -66,6 +68,7 @@ It’s the master reference for understanding which scripts, agents, and systems
 	3.	Refresh or archive ChatGPT agent sessions when prompted.
 	4.	Replace expired API keys.
 	5.	Verify backups or GitHub sync occasionally.
+	6. Never edit generated docs in /web/docs directly; always edit the authoritative ai-agent-platform-docs repo.
 
 ⸻
 
