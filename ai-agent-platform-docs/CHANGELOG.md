@@ -232,3 +232,23 @@ Agent Refresh – November 25 2025
 Project Manager Agent v2 retired and replaced with version 3.
 Context reloaded successfully and session reset to prevent drift.
 
+---
+
+### December 2025 — LLM Training Studio + Prompt Engineer Evidence Pack (PM v4)
+
+- Stabilized Agent Summary → Training Readiness flow:
+  - Next training suggestion opens modal
+  - Save & Next continues loop
+  - Save & Finish triggers rewrite (with visible “Updating…” UX)
+  - Close/Esc prompts to Save & Finish if draft exists
+  - Empty Save & Finish runs rewrite if at least one example was saved in session
+- Orchestrator improvements:
+  - canonical topic mapping + seeded core topics
+  - avoid repeating last question verbatim
+  - dynamic question generation via LLM using evidence
+- Prompt Engineer improvements:
+  - improve-quality evaluator now uses recent fine_tune_examples as evidence
+  - recalculate-quality now uses evidence pack, merges rewritten fields, preserves dynamic fields (product list), and stores finalRefine score/comment
+- UX polish:
+  - “Processing…” for Save & Next/Finish
+  - larger textarea rows for readability (mission/topics/guardrails/product_list)

@@ -1,6 +1,6 @@
 🤖 Agent Activation & Management Checklist
 
-Last updated: November 2025
+Last updated: December 2025
 
 This file contains the exact instructions and copy-ready prompts for creating, refreshing, or retiring any AI Agent chat inside the AI Agent Platform Project in ChatGPT.
 Use this every time an agent chat is started or replaced so that each one loads the correct context, sets its goals, and reports its status.
@@ -39,8 +39,9 @@ Use these inside ChatGPT exactly as written. They are just shorthand headers tha
 
 Before You Begin
 1. Confirm that all documentation in /web/docs/ is up to date.
+   • Verify `CURRENT_STATE.md` exists and reflects the current working system.
    • Run ./automation/update_memory.sh
-   • Run ./automation/sync_docs_to_github.sh
+   • Run ./automation/sync_docs_to_github.sh (non-destructive)
 2. Open the latest TODO.md to review current Agent Session Health.
 3. Make sure you are inside the correct ChatGPT Project (AI Agent Platform).
 4. If reactivating an existing agent (same role, new version), confirm its prior context file remains in use.
@@ -66,6 +67,7 @@ Step 2 – Paste The Standard Activation Prompt
    • For the Project Manager – use “Initial Project Manager Agent Activation Prompt.”
 3. Replace [ROLE NAME] and the file name with the correct values for that agent.  
 4. Paste the completed prompt into the ChatGPT message box.
+   • Recommended for complex work: also paste `project_structure.txt` and `system_overview.md` so the agent has full architectural context.
 
 5. Send the message in ChatGPT.  
 6. Wait for the agent’s confirmation message that it has loaded and summarized its context.  
@@ -169,7 +171,7 @@ Your objectives:
 1. Read and fully understand the context above.  
 2. Confirm that you have successfully loaded the Project Manager Agent context.  
 3. Summarize your responsibilities, dependencies, and primary functions in your own words.  
-4. Review the latest 00_MASTER_PROJECT.md, TODO.md, and CHANGELOG.md (you will be provided the current versions right after this message).  
+4. Review the latest 00_MASTER_PROJECT.md, TODO.md, CHANGELOG.md, and CURRENT_STATE.md (you will be provided the current versions right after this message).  
 5. Generate today’s top 5 priorities for each active agent (Architect, Frontend, Backend, Workflow, LLM Trainer, Avatar & Voice).  
 6. Verify that the Agent Session Health list in TODO.md is accurate and flag any agents due for refresh.  
 7. Summarize overall project status, including current progress, risks, and key dependencies.  
@@ -230,6 +232,8 @@ After confirming the new agent is working:
 • Run ./automation/update_memory.sh to merge and back up docs.
 • Run ./automation/sync_docs_to_github.sh to push changes to GitHub.
 
+⚠️ Safety note: `sync_docs_to_github.sh` must never delete documentation files. If it aborts due to missing files (e.g., CURRENT_STATE.md), restore docs before re-running.
+
 This ensures your new session’s context and status are captured in the master documentation and backups.
 
 ⸻
@@ -287,6 +291,8 @@ Optional Enhancements
 Add an “Agent Version” line inside each context file so you always know which version an agent is running.
 Append a “Session Notes” section where each agent briefly records what changed during its active period.
 The Project Manager Agent can automatically check these reset dates each week and remind you when any agent exceeds two weeks of activity without refresh.
+
+Add a short note reminding future agents to proactively roll versions when chats become long or code-heavy. Reference the context/token guidance in CURRENT_STATE.md.
 
 ⸻
 

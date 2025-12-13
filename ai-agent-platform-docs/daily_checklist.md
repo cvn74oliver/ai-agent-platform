@@ -2,7 +2,18 @@
 
 🏗️ Current Phase: [Phase 2 – Runtime Testing & Validation]
 
-Last updated: November 2025
+Last updated: December 2025
+
+📌 Single Source of Truth
+Before starting any work, open and review:
+
+web/docs/CURRENT_STATE.md
+
+This file confirms:
+• What is working right now
+• Known issues and stability notes
+• The golden-path verification steps
+• Immediate next priorities
 
 ⸻
 
@@ -11,12 +22,22 @@ Last updated: November 2025
 cd web
 	2.	Run local dev server:
 npm run dev
-	3.	Open http://localhost:3000￼ to verify the app loads.
-	4.	Run automation scripts to refresh documentation snapshots:
+	3.	Open http://localhost:3000 to verify the app loads.
+	4.	Run the Golden Path test (from CURRENT_STATE.md):
+	   • Open an existing agent
+	   • Next training suggestion → Save & Next
+	   • Save & Finish → confirm rewrite + quality update
+
+	   🚨 If this fails, stop and fix regressions before continuing.
+	5. Run automation scripts to refresh documentation snapshots:
 ```bash
 ./automation/update_memory.sh
 ./automation/sync_docs_to_github.sh
 ```
+
+💡 Safety note:
+`sync_docs_to_github.sh` is intentionally non-destructive. If it aborts, confirm that `CURRENT_STATE.md` exists locally before retrying.
+
 	5. Open ChatGPT → Project Manager Agent → send:
    /update_master  
    Load the current 00_MASTER_PROJECT.md snapshot below and generate today’s top 3 priorities per role.  
@@ -132,6 +153,10 @@ Please update TODO.md and CHANGELOG.md accordingly.
 		• Paste its final message into the corresponding *_CONTEXT.md file under:
 			### 🏁 [Agent Name] v[#] – Closeout Summary ([Date])
 		• Update TODO.md and CHANGELOG.md to record the archive date.
+
+	7. Context / token window check (recommended):
+		• If today’s chat involved heavy debugging, many file pastes, or feels long, plan a clean rollover to the next agent version.
+		• Ensure CURRENT_STATE.md, TODO.md, and CHANGELOG.md are up to date before activating the next version.
 
 📝 Note:
 Skip /summarize_session for any agents that didn’t actively work today. Their context will remain unchanged until their next task.

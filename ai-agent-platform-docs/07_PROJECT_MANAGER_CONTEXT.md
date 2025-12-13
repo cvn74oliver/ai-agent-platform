@@ -1,6 +1,6 @@
 🗂️ Project Manager Agent Context
 
-Last updated: November 2025
+Last updated: December 2025
 
 Role & Scope
 
@@ -531,3 +531,37 @@ Stabilize the Guided Setup → Refine → Finalize pipeline for new agent creati
 
 **Next Focus:**  
 Design and implement a robust refine loop that can ask targeted followup questions until the agent prompt reaches a 10/10 quality score (within reasonable pass and followup limits), and align Guided Setup Clarify behavior with the Edit Agent Clarify experience.
+
+---
+
+## 🏁 Project Manager Agent v4 – Closeout Summary (December 13, 2025)
+
+**Status:** Stable milestone reached; documentation and workflows recovered and hardened.
+
+### Key Outcomes
+- Recovered from destructive documentation rollback caused by `sync_docs_to_github.sh` using a mirror/delete strategy.
+- Restored documentation as authoritative project memory (TODO, CHANGELOG, Context, Checklists).
+- Introduced `CURRENT_STATE.md` as the **single source of truth** for:
+  - what is working right now,
+  - known issues and stability notes,
+  - golden-path verification,
+  - immediate next priorities.
+- Updated Daily, Weekly, and Monthly Checklists to:
+  - require Golden Path verification,
+  - reference `CURRENT_STATE.md`,
+  - include agent version / context-window rollover discipline.
+- Hardened `sync_docs_to_github.sh` to be **non-destructive** and to abort if `CURRENT_STATE.md` is missing.
+- Confirmed that **only documentation files were affected** by the rollback; application code was never deleted.
+
+### Operational Lessons Captured
+- Never mirror documentation with deletion enabled unless syncing the entire authoritative folder.
+- Always verify the Golden Path before and after running automation scripts.
+- Proactively roll Project Manager agent versions at clean milestones to avoid context drift.
+
+### Handoff Notes for Project Manager Agent v5
+- Start by reading `CURRENT_STATE.md`.
+- Run the Golden Path test before making any changes.
+- Next logical technical step: **Canonicalize Fine-Tune Preview topics using shared normalization logic**.
+- Follow the updated Daily / Weekly / Monthly checklists for stability hygiene.
+
+> *Project Manager Agent v4 is formally closed at a stable checkpoint with hardened documentation workflows and clear next steps.*

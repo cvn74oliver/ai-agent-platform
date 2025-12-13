@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: <month day, year>_
+_Last Updated: December 13, 2025_
 
 ---
 
@@ -82,11 +82,13 @@ Render / Vercel Hosts       Firecrawl / Activepieces / Make
 2. **Documentation Memory**
    - Each agent’s work, decisions, and summaries are saved to `/web/docs/*.md`.
    - `00_MASTER_PROJECT.md` = unified snapshot of all role contexts.
+   - `CURRENT_STATE.md` = single source of truth for what is working now, known issues, golden-path verification, and immediate next steps.
    - The `update_memory.sh` script merges everything automatically.
 
 3. **Public Docs (Reference Only)**
    - `/ai-agent-platform-docs` (GitHub repo) hosts public copies of `/web/docs/` for agents and collaborators to reference.
    - The `sync_docs_to_github.sh` script updates it with one command.
+   ⚠️ Note: The sync script is intentionally non-destructive and must never delete documentation files. If required files (e.g., CURRENT_STATE.md) are missing locally, the sync aborts.
 
 4. **Automation Scripts**
    - `automation/update_memory.sh` → backs up and merges docs.
@@ -106,7 +108,7 @@ Render / Vercel Hosts       Firecrawl / Activepieces / Make
    - Optional: quarterly planning template (`planning/Q1_2026_Plan.md`).
 
 7. **Memory & Backup**
-   - Every `update_memory.sh` run creates a compressed backup (`/backups/docs_<timestamp>.tgz`).
+   - Every `update_memory.sh` run creates a compressed backup (`/backups/docs_<timestamp>.tgz`). Backups capture the current docs state at run time and should be verified before relying on them for restore.
    - You can restore or review any previous snapshot if needed.
 
 ---
