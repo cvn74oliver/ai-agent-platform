@@ -16,7 +16,7 @@
 │   ├── CURRENT_STATE.md
 │   ├── daily_checklist.md
 │   ├── monthly_checklist.md
-│   ├── operational_workflow
+│   ├── operational_workflow.md
 │   ├── phase1_clarify_spec.md
 │   ├── project_structure.txt
 │   ├── schema_comparison_checklist.md
@@ -26,7 +26,6 @@
 │   └── weekly_checklist.md
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
-├── package-lock.json
 ├── package.json
 ├── project_structure.txt
 ├── supabase
@@ -37,56 +36,6 @@
     │   ├── generate_project_tree.sh
     │   ├── sync_docs_to_github.sh
     │   └── update_memory.sh
-    ├── backups
-    │   ├── docs_2025-11-06_15-14-29.tgz
-    │   ├── docs_2025-11-06_15-31-15.tgz
-    │   ├── docs_2025-11-06_16-07-31.tgz
-    │   ├── docs_2025-11-06_16-24-44.tgz
-    │   ├── docs_2025-11-06_16-38-00.tgz
-    │   ├── docs_2025-11-06_17-21-42.tgz
-    │   ├── docs_2025-11-06_17-43-12.tgz
-    │   ├── docs_2025-11-06_17-48-49.tgz
-    │   ├── docs_2025-11-06_19-37-23.tgz
-    │   ├── docs_2025-11-06_19-46-15.tgz
-    │   ├── docs_2025-11-06_20-16-38.tgz
-    │   ├── docs_2025-11-06_20-33-42.tgz
-    │   ├── docs_2025-11-06_21-16-19.tgz
-    │   ├── docs_2025-11-06_21-33-11.tgz
-    │   ├── docs_2025-11-06_21-40-38.tgz
-    │   ├── docs_2025-11-06_22-21-39.tgz
-    │   ├── docs_2025-11-06_22-27-51.tgz
-    │   ├── docs_2025-11-07_12-01-08.tgz
-    │   ├── docs_2025-11-08_10-09-02.tgz
-    │   ├── docs_2025-11-08_10-37-14.tgz
-    │   ├── docs_2025-11-08_10-40-16.tgz
-    │   ├── docs_2025-11-08_10-53-21.tgz
-    │   ├── docs_2025-11-08_12-12-49.tgz
-    │   ├── docs_2025-11-08_15-33-37.tgz
-    │   ├── docs_2025-11-08_15-56-24.tgz
-    │   ├── docs_2025-11-08_15-57-00.tgz
-    │   ├── docs_2025-11-09_07-35-00.tgz
-    │   ├── docs_2025-11-09_07-35-52.tgz
-    │   ├── docs_2025-11-09_07-47-30.tgz
-    │   ├── docs_2025-11-09_07-58-42.tgz
-    │   ├── docs_2025-11-09_08-22-31.tgz
-    │   ├── docs_2025-11-09_08-33-09.tgz
-    │   ├── docs_2025-11-10_08-21-17.tgz
-    │   ├── docs_2025-11-10_09-38-16.tgz
-    │   ├── docs_2025-11-12_09-17-39.tgz
-    │   ├── docs_2025-11-12_09-59-31.tgz
-    │   ├── docs_2025-11-24_17-12-35.tgz
-    │   ├── docs_2025-11-24_17-16-29.tgz
-    │   ├── docs_2025-11-25_18-52-29.tgz
-    │   ├── docs_2025-11-25_19-24-54.tgz
-    │   ├── docs_2025-11-28_12-19-54.tgz
-    │   ├── docs_2025-11-28_12-26-27.tgz
-    │   ├── docs_2025-11-28_18-31-57.tgz
-    │   ├── docs_2025-11-29_21-39-12.tgz
-    │   ├── docs_2025-12-02_15-27-30.tgz
-    │   ├── docs_2025-12-05_11-46-30.tgz
-    │   ├── docs_2025-12-07_16-17-56.tgz
-    │   ├── docs_2025-12-07_16-18-52.tgz
-    │   └── docs_2025-12-13_15-14-54.tgz
     ├── docs
     │   ├── 00_MASTER_PROJECT.md
     │   ├── 01_ARCHITECT_CONTEXT.md
@@ -101,9 +50,11 @@
     │   ├── ARCHIVE_TODO_HISTORY.md
     │   ├── automation_map.md
     │   ├── CHANGELOG.md
+    │   ├── CURRENT_STATE.md
     │   ├── daily_checklist.md
     │   ├── monthly_checklist.md
     │   ├── operational_workflow
+    │   ├── operational_workflow.md
     │   ├── phase1_clarify_spec.md
     │   ├── project_structure.txt
     │   ├── schema_comparison_checklist.md
@@ -128,27 +79,72 @@
     │   ├── app
     │   │   ├── agents
     │   │   │   ├── [id]
+    │   │   │   │   ├── activate
+    │   │   │   │   ├── chat
+    │   │   │   │   ├── fine-tune
+    │   │   │   │   ├── page.tsx
+    │   │   │   │   ├── playground
+    │   │   │   │   ├── summary
+    │   │   │   │   └── wow
     │   │   │   ├── new
+    │   │   │   │   └── page.tsx
     │   │   │   └── page.tsx
     │   │   ├── api
     │   │   │   ├── activate-agent
+    │   │   │   │   └── route.ts
     │   │   │   ├── agent-chat
+    │   │   │   │   └── route.ts
     │   │   │   ├── agents
+    │   │   │   │   ├── clarify
+    │   │   │   │   ├── feedback
+    │   │   │   │   ├── fine-tune
+    │   │   │   │   ├── improve-quality
+    │   │   │   │   ├── knowledge-stats
+    │   │   │   │   ├── playground
+    │   │   │   │   ├── recalculate-quality
+    │   │   │   │   ├── save-summary
+    │   │   │   │   ├── sync-knowledge
+    │   │   │   │   ├── training-stats
+    │   │   │   │   └── usage
     │   │   │   ├── analyze-voice
+    │   │   │   │   └── route.ts
     │   │   │   ├── crawl
+    │   │   │   │   └── route.ts
+    │   │   │   ├── dashboard
+    │   │   │   │   └── metrics
     │   │   │   ├── deploy-fine-tune
+    │   │   │   │   └── route.ts
     │   │   │   ├── feedback
+    │   │   │   │   └── route.ts
     │   │   │   ├── fine-tune
+    │   │   │   │   └── route.ts
     │   │   │   ├── fine-tune-status
+    │   │   │   │   └── route.ts
     │   │   │   ├── generate-agent
+    │   │   │   │   └── route.ts
     │   │   │   ├── generate-voice
+    │   │   │   │   └── route.ts
     │   │   │   ├── generate-workflow
+    │   │   │   │   └── route.ts
     │   │   │   ├── guided-setup
+    │   │   │   │   ├── add-notes
+    │   │   │   │   ├── answer
+    │   │   │   │   ├── clarify
+    │   │   │   │   ├── end
+    │   │   │   │   ├── route.ts
+    │   │   │   │   ├── start
+    │   │   │   │   └── submitAnswer.ts
     │   │   │   ├── rag
+    │   │   │   │   ├── ingest
+    │   │   │   │   ├── run
+    │   │   │   │   └── schedule
     │   │   │   ├── relevance-check
+    │   │   │   │   └── route.ts
     │   │   │   └── transcribe-audio
+    │   │   │       └── route.ts
     │   │   ├── auth
     │   │   │   └── callback
+    │   │   │       └── page.tsx
     │   │   ├── automations
     │   │   │   └── page.tsx
     │   │   ├── components
@@ -172,6 +168,7 @@
     │   │   ├── ScenarioRecorder.tsx
     │   │   └── VoiceRecorder.tsx
     │   ├── lib
+    │   │   ├── fine_tune_topics.ts
     │   │   └── supabase.ts
     │   ├── tools
     │   │   └── image_gen.ts
@@ -184,6 +181,33 @@
     │   │   ├── route.ts
     │   │   └── seed_prompts.sql
     │   └── supabase_schema_snapshot_2025-11-09.sql
-    └── tsconfig.json
+    ├── tsconfig.json
+    └── web
+        └── docs
+            ├── 00_MASTER_PROJECT.md
+            ├── 01_ARCHITECT_CONTEXT.md
+            ├── 02_FRONTEND_CONTEXT.md
+            ├── 03_BACKEND_CONTEXT.md
+            ├── 04_WORKFLOWS_CONTEXT.md
+            ├── 05_LLM_TRAINER_CONTEXT.md
+            ├── 06_AVATAR_VOICE_CONTEXT.md
+            ├── 07_PROJECT_MANAGER_CONTEXT.md
+            ├── 08_PROMPT_ENGINEER_CONTEXT.md
+            ├── agent_activation_checklist.md
+            ├── ARCHIVE_TODO_HISTORY.md
+            ├── automation_map.md
+            ├── CHANGELOG.md
+            ├── CURRENT_STATE.md
+            ├── daily_checklist.md
+            ├── monthly_checklist.md
+            ├── operational_workflow
+            ├── operational_workflow.md
+            ├── phase1_clarify_spec.md
+            ├── project_structure.txt
+            ├── schema_comparison_checklist.md
+            ├── system_overview.md
+            ├── TODO.md
+            ├── troubleshooting_recovery.md
+            └── weekly_checklist.md
 
-46 directories, 141 files
+74 directories, 137 files
