@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: December 13, 2025_
+_Last Updated: February 13, 2026_
 
 ---
 
@@ -60,6 +60,7 @@ Supabase (DB/Auth)          OpenAI API
 │                           │
 ▼                           ▼
 Render / Vercel Hosts       Firecrawl / Activepieces / Make
+| **RAG Background Worker (Custom API)** | Backend Job Processor | Processes `rag_jobs`, crawls URLs, generates embeddings, writes `rag_documents`, updates job status. | Triggered automatically by `/api/rag/schedule` (run_now=true) or manually via `/api/rag/run`. |
 
 ---
 
@@ -72,12 +73,41 @@ Render / Vercel Hosts       Firecrawl / Activepieces / Make
 
 ## 🔗 System Relationships (Simple View)
 
+ChatGPT Agents  
+     ⇄  
+Docs (.md files in /web/docs)  
+     ⇄  
+Local Automation Scripts  
+     ⇄  
+GitHub Docs Mirror  
+     ⇄  
+Next.js Frontend (localhost / Vercel)  
+     ⇄  
+Supabase (DB + Auth + RLS)  
+     ⇄  
+OpenAI API (Chat + Embeddings)  
+     ⇄  
+RAG Worker (rag_jobs → rag_documents)  
+     ⇄  
+Firecrawl / External Crawlers
+
 ---
 
 ## ⚙️ How the System Works (High Level)
 1. **Local Environment**
    - You develop locally in `web/` using Next.js + Supabase + OpenAI APIs.
    - Run locally with `npm run dev` → available at `http://localhost:3000`.
+
+1.5 **RAG Sync & Incremental Crawling**
+   - `/api/rag/schedule` creates a `rag_jobs` row and seeds `rag_documents`.
+   - Modes:
+     - `delta` → skips exact duplicate non-wildcard URLs.
+     - `full` → forces re-crawl of all configured seeds.
+   - Wildcards (e.g., `/*`) must still be scanned in delta mode to discover new pages.
+   - Jobs run server-side and continue even if the user leaves the page.
+   - Progress is inferred by:
+     - `rag_jobs.status`
+     - Count of `rag_documents` written per `job_id`.
 
 2. **Documentation Memory**
    - Each agent’s work, decisions, and summaries are saved to `/web/docs/*.md`.
@@ -121,6 +151,7 @@ Render / Vercel Hosts       Firecrawl / Activepieces / Make
 | End of Day | Summarize sessions + run both scripts | Saves progress, merges docs, and pushes updates |
 | Weekly | Friday check-ins + changelog review | Ensures team direction and documentation accuracy |
 | Monthly | Backups + API key rotation + planning | Keeps system secure and future-ready |
+| RAG Sync | Click Sync New/Changed or Force Full Resync | Creates rag_jobs + seeds rag_documents + background crawl + embedding generation |
 
 ---
 
@@ -162,6 +193,31 @@ Render / Vercel Hosts       Firecrawl / Activepieces / Make
 | Daily | `/web/docs/daily_checklist.md` | Morning–Evening flow |
 | Weekly | `/web/docs/weekly_checklist.md` | Friday wrap-up |
 | Monthly | `/web/docs/monthly_checklist.md` | Backup, security, planning |
+
+---
+
+## 📊 Analytics & Sessions Architecture
+
+Tables:
+- `agent_sessions`
+- `agent_events`
+
+Flow:
+Playground call →
+- OpenAI chat response
+- Token usage recorded
+- `agent_sessions` row inserted
+- `agent_events` row inserted
+
+Dashboard Metrics:
+- Total sessions
+- Playground sessions
+- Token usage
+- Estimated cost
+- Approx human minutes saved
+
+Note:
+If sessions show zero, ensure Playground is inserting `agent_sessions` rows correctly.
 
 ---
 
@@ -212,3 +268,38 @@ If you ever lose context:
 This system turns ChatGPT into a structured, multi-agent development team that never forgets context, stays version-controlled, and keeps human oversight simple.
 
 When in doubt, **run your checklists** and **update memory** — those two things keep everything working flawlessly.
+
+## RAG Architecture (Phase 3 – Incremental + Background Processing)
+
+Core Tables:
+- `rag_jobs`
+- `rag_documents`
+- `rag_chunks`
+
+Flow:
+Agent Summary  
+→ `/api/rag/schedule`  
+→ `rag_jobs` row (status = pending)  
+→ seed `rag_documents` created  
+→ background `/api/rag/run` worker  
+→ crawl + chunk + embed  
+→ update `rag_jobs.status` (completed / failed)
+
+Modes:
+- `delta`
+  - Skips exact duplicate non-wildcard URLs
+  - Optionally skips wildcard re-crawl
+  - Designed for incremental updates
+- `full`
+  - Forces re-crawl of all configured seeds
+
+Progress Model:
+- `rag_jobs.status`
+- `rag_documents` count per `job_id`
+- `updated_at` timestamp
+
+Important:
+- Jobs continue even if the user leaves the page.
+- Wildcards require scanning to discover new pages.
+- External domains may block crawler (403).
+- Embeddings are stored using `text-embedding-3-small`.

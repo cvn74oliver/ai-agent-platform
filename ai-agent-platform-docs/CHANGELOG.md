@@ -252,3 +252,132 @@ Context reloaded successfully and session reset to prevent drift.
 - UX polish:
   - “Processing…” for Save & Next/Finish
   - larger textarea rows for readability (mission/topics/guardrails/product_list)
+
+  ---
+
+## 2026-02-11 — Major Milestone: Intelligence Layer Phase Begins
+
+### Stability Achieved
+- Recalculate Quality optimized (fast path + force refine).
+- Improve Quality uses evidence pack from fine_tune_examples.
+- Fine-Tune Preview canonical topic normalization implemented.
+- Orchestrator and Preview now share shared normalization helper.
+- Golden Path passes consistently.
+- AbortError handling hardened.
+- Schema response_format 400 error resolved.
+- Clarify + Edit Agent threads stable and persistent.
+
+### Architectural Shift
+Transition from:
+Build & Stabilization (Phase 1–2)
+→ Intelligence & Visibility Layer (Phase 3).
+
+Next focus:
+- Analytics logging
+- Agent naming refinement
+- Functional automations
+- Org structure visualization
+- Avatar system prototype
+
+System is stable and ready for growth phase.
+
+---
+
+## 2026-02-13 — RAG Sync Optimization, Playground Intelligence Fix, and Job Monitoring
+
+### RAG Sync Architecture Upgrade
+- Implemented **delta vs full sync modes** in `/api/rag/schedule`.
+- Delta mode:
+  - Avoids re-inserting exact (non-wildcard) seeds already present.
+  - Skips wildcard reprocessing unless explicitly forced.
+- Full mode:
+  - Forces complete resync of all configured RAG sources and crawl domains.
+- Added `include_wildcards` control flag.
+- Added TTL support (`ttl_hours`) for future stale-document detection.
+- `run_now` defaults to true (fire-and-forget worker trigger).
+- Confirmed jobs continue running server-side even if user leaves page.
+
+### RAG Worker Trigger Behavior
+- `/api/rag/schedule` now auto-triggers `/api/rag/run` asynchronously.
+- Manual “Run Sync Worker” button retained for development override.
+- Eliminated repeated 404 polling issue from earlier builds.
+- Job creation no longer fails due to non-existent `meta` column in `rag_jobs`.
+
+### RAG Job Monitoring + UI Feedback
+- Implemented client-side polling of:
+  - `rag_jobs.status`
+  - `rag_jobs.error`
+  - `rag_jobs.updated_at`
+  - `rag_documents` count (proxy progress metric)
+- Added Agent Summary RAG status panel:
+  - Last scheduled timestamp
+  - Mode (delta/full)
+  - Job ID
+  - Status
+  - Processed count
+- Confirmed jobs continue processing independently of UI lifecycle.
+
+### Playground Intelligence Fix (Critical)
+- Fixed embedding parsing from Supabase (`pgvector` normalization).
+- Corrected variable shadowing bug in RAG retrieval.
+- Added URL keyword scoring boost for link-based queries.
+- Confirmed blog URL retrieval now returns exact article links.
+- Added strict URL hallucination prevention rules in system prompt.
+- Verified top-3 blog article query now correctly returns:
+  https://blog.curativemushrooms.com/the-top-3-medicinal-mushrooms-to-improve-brain-function/
+
+### Session Analytics Layer
+- Playground now logs:
+  - `agent_sessions` (tokens, cost estimate, human-minutes proxy)
+  - `agent_events` (rag_used, rag_chunk_count, last_user_message)
+- Dashboard metrics reflect real Playground usage.
+- Confirmed session counts increase after chat interactions.
+
+### Stability Notes
+- Delta sync correctly returns “0 queued” when no new sources are detected.
+- Full resync queues all sources as expected.
+- Manual worker execution during active full sync is safe.
+- No regression observed in Clarify, Guided Setup, or Fine-Tune flows.
+
+Status:
+RAG system upgraded from brute-force scraper to controlled sync engine with monitoring.
+Playground retrieval now fully operational and link-aware.
+System stable and ready for Intelligence Phase continuation.
+
+---
+
+## 2026-02-13 — Governance Reset & Documentation Normalization
+
+### Documentation Architecture Cleanup
+- Clarified separation of responsibilities between:
+  - `CHANGELOG.md` (historical log only)
+  - Daily / Weekly / Monthly Checklists (operational execution only)
+  - `PROJECT_MANAGER_CONTEXT.md` (continuity memory)
+  - `CURRENT_STATE.md` (single source of system truth)
+- Removed log-style entries from checklist files and restored them to pure checklist format.
+- Standardized recurring checklist philosophy: no historical entries, no milestone notes.
+
+### Project Manager Continuity Stabilization
+- Updated:
+  - `PROJECT_MANAGER_CONTEXT.md`
+  - `AGENT_ACTIVATION_CHECKLIST.md`
+  - `AUTOMATION_MAP.md`
+  - `SYSTEM_OVERVIEW.md`
+  - `SCHEMA_COMPARISON_CHECKLIST.md`
+  - `PHASE1_CLARIFY_SPEC.md`
+  - `OPERATIONAL_WORKFLOW.md`
+- Ensured all documentation reflects:
+  - RAG delta/full sync logic
+  - Evidence-pack powered Prompt Engineer
+  - Stable Playground session analytics
+  - Job-based RAG monitoring architecture
+
+### Result
+The documentation layer is now aligned with the current architecture state.
+System governance structure stabilized for future PM agent transitions.
+
+Status:
+Platform fully stable. Documentation synchronized. Ready for controlled transition to next Project Manager version.
+
+---
+---

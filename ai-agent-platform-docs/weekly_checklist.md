@@ -1,4 +1,3 @@
-
 # 📅 Weekly Checklist – AI Agent Platform
 
 📌 Weekly Source of Truth
@@ -36,3 +35,25 @@ This file confirms:
 
 ## Sunday (Optional)
 - Skim `CURRENT_STATE.md` and `00_MASTER_PROJECT.md` → confirm next-week priorities and system stability notes are aligned.
+
+## Weekly Stability & Architecture Review
+
+1. Review RAG behavior:
+   - Confirm delta sync does not unnecessarily re-scrape non-wildcard URLs.
+   - Confirm full resync properly rebuilds ingestion set.
+   - Confirm jobs continue server-side even if user leaves page.
+
+2. Review Playground + RAG retrieval:
+   - Ask at least one URL-based question.
+   - Confirm retrieved links come from actual RAG context.
+   - Confirm no hallucinated URLs appear.
+
+3. Review analytics logging:
+   - Confirm new playground sessions create:
+     • agent_sessions rows
+     • agent_events rows
+   - Confirm dashboard metrics reflect recent activity.
+
+4. Review UI indicators:
+   - Confirm RAG job status, processed count, and timestamps display correctly.
+   - Confirm no repeated polling errors in terminal.

@@ -1,16 +1,18 @@
 🧯 Troubleshooting & Recovery Guide – AI Agent Platform
 
-Last updated: November 2025
+Last updated: February 2026
 
-This file is your quick-reference manual for fixing common issues with the AI Agent Platform. It describes typical symptoms, what they mean, and how to recover quickly.
+This file is your quick-reference manual for diagnosing and recovering from issues in the AI Agent Platform. It reflects the current architecture (Next.js 16 + Supabase + OpenAI + RAG worker).
 
 ⸻
 
 🧠 General Philosophy
-	1.	Stay calm – most issues come from environment or credentials.
-	2.	Always read the error message first – it almost always tells you the cause.
-	3.	Restart npm run dev before you start debugging.
-	4.	Never delete /web/docs or /web/backups; those folders are your safety net.
+
+1. Stay calm – most issues are environment, keys, or background jobs.
+2. Read the error message first – it almost always tells you what failed.
+3. Restart npm run dev before deep debugging.
+4. Never delete /web/docs or /web/backups – those are your recovery safety net.
+5. Background jobs (RAG, fine-tuning) continue server-side even if you leave the page.
 
 ⸻
 
@@ -18,16 +20,35 @@ This file is your quick-reference manual for fixing common issues with the AI Ag
 
 npm run dev won’t start
 
-Symptoms: “command not found: next” or “module not found.”
-Fix: Verify Node and npm are installed, delete the node_modules folder, reinstall dependencies with npm install, then run npm run dev.
+Symptoms:
+- “command not found: next”
+- “module not found”
+- Turbopack build error
 
-Port already in use (usually 3000)
+Fix:
+1. Confirm Node and npm are installed.
+2. Delete node_modules.
+3. Run npm install.
+4. Delete .next.
+5. Run npm run dev again.
 
-Fix: Close any other app using that port (for example, by rebooting or killing the process) and rerun npm run dev.
+Turbopack “cannot reassign const” error
+
+Cause:
+A variable declared with const was later reassigned (common during rapid RAG edits).
+
+Fix:
+Change const to let for variables that are reassigned (e.g., docs arrays in RAG routes).
+
+Port 3000 already in use
+
+Fix:
+Close the conflicting process or reboot your machine, then rerun npm run dev.
 
 Build errors after dependency updates
 
-Fix: Delete the .next folder, rebuild, and restart the local server.
+Fix:
+Delete .next, restart npm run dev, and confirm all environment variables still exist.
 
 ⸻
 
@@ -35,34 +56,165 @@ Fix: Delete the .next folder, rebuild, and restart the local server.
 
 Supabase connection errors
 
-Cause: Wrong URL or service role key in .env.local.
-Fix: Check that NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY match the keys shown in the Supabase dashboard under Settings → API.
+Cause:
+Wrong URL or service role key in .env.local.
+
+Fix:
+Verify:
+- NEXT_PUBLIC_SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
+
+Match exactly with Supabase → Settings → API.
 
 OpenAI key not working
 
-Cause: Expired or revoked key.
-Fix: Generate a new key at platform.openai.com/account/api-keys￼ and update .env.local.
+Cause:
+Expired, revoked, or missing key.
+
+Fix:
+Generate a new key at platform.openai.com/account/api-keys
+Update OPENAI_API_KEY in .env.local.
+
+Embedding failures
+
+Cause:
+Wrong embedding model or invalid key.
+
+Fix:
+Ensure:
+EMBEDDING_MODEL=text-embedding-3-small
+and key is valid.
 
 Firecrawl / Activepieces / Make API failing
 
-Fix: Verify that your API keys are valid and saved in .env.local.
-If timeouts continue, confirm the APIs are online via their status pages.
+Fix:
+- Confirm API keys exist in .env.local.
+- Check provider status page.
+- Watch for rate limits.
 
 ⸻
 
 ☁️ Deployment Issues
 
-Site not updating on Vercel
-
-Fix: Push the latest code to GitHub, then trigger a redeploy from the Vercel dashboard.
-If the deployment fails, review Vercel’s build logs for missing environment variables.
-
-Backend API on Render not responding
+Vercel not updating
 
 Fix:
-	1.	Open the Render dashboard and check your service logs.
-	2.	Increase instance memory or timeout if needed.
-	3.	Confirm all required environment variables (Supabase, OpenAI, etc.) are added to Render.
+1. Push to GitHub.
+2. Trigger redeploy in Vercel.
+3. Check build logs for missing environment variables.
+
+Render backend not responding
+
+Fix:
+1. Check Render logs.
+2. Confirm Supabase + OpenAI keys exist in Render.
+3. Increase timeout or memory if scraping large wildcard domains.
+
+⸻
+
+🗃️ Supabase / Database Problems
+
+RLS performance warnings
+
+If Supabase Performance Advisor shows:
+auth_rls_initplan
+
+This means policies use auth.uid() per row.
+
+Fix:
+Replace:
+auth.uid()
+
+With:
+(select auth.uid())
+
+This improves performance but is not urgent in development.
+
+Multiple permissive policy warnings
+
+If Supabase warns about multiple permissive policies, consolidate overlapping policies for each role + action to reduce execution overhead.
+
+Queries not saving
+
+Fix:
+- Confirm table and column names match.
+- Confirm service role key hasn’t rotated.
+- Check Supabase status page.
+
+⸻
+
+🧠 RAG (Retrieval) Issues
+
+Sync New/Changed does nothing
+
+Explanation:
+In delta mode, if no new non-wildcard URLs are detected, 0 documents will queue.
+
+This is correct behavior.
+
+Wildcard domains (/*) still require scanning to discover new URLs.
+
+Force Full Resync re-scrapes everything intentionally.
+
+RAG job shows “pending” forever
+
+Fix:
+Click “Run Sync Worker” (dev only).
+Check /api/rag/run logs.
+Check rag_jobs table for status changes.
+
+Progress counter always shows 0
+
+Explanation:
+Progress is inferred from rag_documents written for that job_id.
+If job_id is missing or polling is not running, UI cannot show progress.
+
+Verify:
+- lastRagJobId exists
+- rag_jobs row exists
+- rag_documents rows are inserting with correct job_id
+
+Agent cannot retrieve known blog URLs
+
+Fix:
+1. Confirm rag_documents rows exist with source_url populated.
+2. Confirm embeddings exist.
+3. Confirm retrieveRagContext is ranking results.
+4. Ensure URL & LINK RULES are enforced in system prompt.
+
+If needed:
+Force Full Resync and re-run worker.
+
+⸻
+
+🤖 AI Agent / Playground Issues
+
+Playground returns “Failed to get a reply”
+
+Fix:
+- Check OpenAI API response status.
+- Confirm CHAT_MODEL is valid.
+- Check terminal logs for OpenAI 4xx or 5xx errors.
+
+Agent says it “doesn’t know link” even though RAG exists
+
+Cause:
+Either:
+- Similarity threshold too high
+- URL ranking not boosted
+- Embeddings missing
+
+Fix:
+- Lower minSim threshold
+- Confirm URL boost logic
+- Confirm embeddings are stored
+
+Agent losing memory
+
+Explanation:
+Chat sessions are stateless unless logged to agent_sessions.
+
+This is expected behavior.
 
 ⸻
 
@@ -70,79 +222,67 @@ Fix:
 
 Sync script fails
 
-If you see rsync or Git errors, confirm that both the local and remote docs repos exist.
-Re-run ./automation/sync_docs_to_github.sh.
-If Git reports “not a repository,” reclone your public ai-agent-platform-docs repo.
+Run:
+./automation/update_memory.sh
+./automation/sync_docs_to_github.sh
 
-Permission denied when pushing
+If Git reports “not a repository”:
+Reclone the docs repo.
 
-If GitHub rejects a push, log in again using:
-gh auth login (requires GitHub CLI)
-and confirm your Git configuration has your correct name and email.
+Permission denied
 
-⸻
+Run:
+gh auth login
 
-🗃️ Supabase / Database Problems
-
-Queries not saving or auth failing
-
-Fix:
-	1.	Check that Supabase’s status page shows no outage.
-	2.	Verify table and column names in your API routes match the database schema.
-	3.	Make sure your service role key in .env.local has not been rotated or revoked.
-
-⸻
-
-🤖 AI Agent / Chat Issues
-
-Voice analysis or transcription fails
-
-Fix:
-	•	Ensure your microphone has browser permission.
-	•	Verify MEDIA_VOICE_API_KEY is active and correct.
-	•	Check console logs for /api/analyze-voice or /api/transcribe-audio errors.
-
-Fine-tuning process stuck
-
-Fix:
-	•	Check the /api/fine-tune-status route directly to confirm job progress.
-	•	Verify the training dataset exists in Supabase Storage.
-	•	Ensure your OpenAI account still has fine-tune quota.
-
-Agents losing memory or ChatGPT context
-
-Explanation: ChatGPT sessions expire naturally.
-Fix: Start a new chat and paste the latest version of that role’s .md context between
----BEGIN CONTEXT--- and ---END CONTEXT---.
+Confirm Git config:
+git config --global user.name
+git config --global user.email
 
 ⸻
 
 💾 Backup & Recovery
 
-Restore a previous docs snapshot
+Restore documentation snapshot
 
-Go to /web/backups, find the correct docs_<date>.tgz file, and extract it back into /web/docs to restore the project documentation to that point in time.
+Go to:
+/web/backups
 
-Lost local project files
+Extract docs_<date>.tgz back into /web/docs.
 
-If your project folder is corrupted or deleted, reclone it from GitHub and copy the most recent /web/docs backup back into place. All other configuration can be rebuilt from those docs.
+Lost local project
+
+Reclone from GitHub.
+Restore latest docs backup.
+Reinstall dependencies.
+
+All operational knowledge lives in /web/docs.
 
 ⸻
 
 🧭 Quick “Something’s Wrong” Checklist
-	1.	Read the terminal error message.
-	2.	Verify all environment variables in .env.local.
-	3.	Restart npm run dev.
-	4.	Check Supabase and Vercel dashboards for outages.
-	5.	Run ./automation/update_memory.sh to rebuild docs.
-	6.	Run ./automation/sync_docs_to_github.sh to ensure your docs are backed up.
+
+1. Read terminal error message.
+2. Verify .env.local keys.
+3. Restart npm run dev.
+4. Check Supabase dashboard.
+5. Check Vercel or Render logs.
+6. Confirm rag_jobs + rag_documents rows exist.
+7. Run:
+   ./automation/update_memory.sh
+   ./automation/sync_docs_to_github.sh
 
 ⸻
 
 🧩 When All Else Fails
-	1.	Run update_memory.sh to back up all current docs.
-	2.	Copy /web/docs somewhere safe.
-	3.	Delete node_modules and .next, reinstall dependencies, and rerun npm run dev.
-	4.	If the problem persists, open a new GitHub Issue describing what changed just before the failure.
 
-Your backups and .md documentation mean no data is ever truly lost.
+1. Run update_memory.sh to back up docs.
+2. Copy /web/docs somewhere safe.
+3. Delete node_modules and .next.
+4. npm install
+5. npm run dev
+6. If issue persists, open a GitHub Issue documenting:
+   - What changed
+   - Exact error message
+   - Which environment (local / Vercel / Render)
+
+Your .md documentation + backups mean no architectural knowledge is ever lost.

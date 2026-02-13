@@ -1,52 +1,58 @@
-# TODO — Active Tasks (as of December 2025)
+# ✅ TODO — AI Agent Platform (Web)
 
-## 🧠 Clarify UX Enhancements (Edit Agent)
-- [x] Add per-field clarify badge (💬 if thread exists)
-- [x] Auto-scroll thread to bottom on open and on new message
-- [ ] Auto-start microphone when modal opens (optional)
+_Last updated: 2026-02-13_
 
-## 🎤 Voice & Modal Polish
-- [ ] Add subtle fade/slide animation to ClarifyModal
-- [ ] Improve message bubble styling and spacing
+## 🔥 Current Focus (This Week)
+1) **RAG Reliability + UX**
+   - [x] Make **Sync New/Changed** incremental for exact URLs (no duplicate seed rows)
+   - [x] Clarify wildcard behavior in UI (“wildcards require scanning to discover new URLs”)
+   - [x] Add **job status + processed count** in Agent Summary (poll rag_jobs + rag_documents)
+   - [x] Prevent accidental double-run (disable “Run Sync Worker” while a job is running)
+   - [x] Improve progress UX (basic status panel + polling added; refine later for % estimation)
+   - [ ] Persist last RAG job metadata in UI after page refresh (re-hydrate from rag_jobs + auto-load latest job on mount)
+   - [ ] Decide: keep “Run Sync Worker” as dev-only or remove once dedicated background worker (cron/queue) is live
 
-## 🧩 Guided Setup – Refine Loop to 10/10
-- [ ] Update `finalRefine()` system prompt and output contract so it always returns at least one field-targeted followup when score < 10
-- [ ] Wire followup handling through `runRefinePhase()` and `parseFollowup()`
-- [ ] Implement refine loop until score >= 10 or max passes reached
-- [ ] Ensure followups update `state.fields` + `onboarding_summary`
-- [ ] Log final quality score + refine pass count in agent record; optionally show in UI
+2) **Dashboard Analytics (High-Level “At a Glance”)**
+   - [ ] Confirm /api/dashboard/metrics is stable + matches dashboard UI cards
+   - [ ] Add small charts (7d / 30d usage, sessions, tokens, cost)
+   - [ ] Add “Top Agents” list (sessions, tokens, cost, minutes saved)
+   - [ ] Add “RAG Health” panel (latest jobs, errors by domain, last run timestamps)
+   - [ ] Add cost breakdown per agent (7d / 30d) using agent_sessions totals
 
-## 🧩 Guided Setup Alignments
-- [ ] Align `/api/guided-setup/clarify` logic with Edit Agent Clarify flow
-- [ ] Ensure both flows share the same field definitions and tone/goals
+3) **Playground UX + Logging**
+   - [x] Ensure agent_sessions row is created per playground call (and agent_events per call)
+   - [ ] Improve session naming (short, human-friendly auto-title)
+   - [x] Ensure RAG answers can return exact URLs when present in retrieved context
+   - [ ] Add “Show sources used” toggle (for debugging trust)
+   - [ ] Add lightweight session history panel (last 5 sessions per agent)
 
-## 🧬 LLM Training UX & Data Integrity
-- [x] Add “Processing…” state for Save & Next/Finish
-- [x] Add dedupe guard: don’t ask the exact same question twice in a row
-- [ ] Canonicalize fine-tune preview topics (group variants using normalizeTopic)
-- [ ] Ensure Improve Quality Q&A answers are logged as evidence in fine_tune_examples with a consistent source/tag
+---
 
-## 🧠 Prompt Engineer: Use All Evidence
-- [x] recalculate-quality uses evidence pack from fine_tune_examples
-- [ ] Enhance evidence pack to include key RAG/crawl summaries (and later product catalog)
-- [ ] Improve rewrite quality (less “short/childlike”): add minimum depth rules for company/mission/topics/guardrails and “FAQ examples” section
+## ✅ Completed / Major Milestones
+- [x] Agent Summary page upgraded: dynamic textarea expansion for long blocks (mission/guardrails/etc.)
+- [x] Quality pipeline stabilized:
+  - “Recalculate” = fast path
+  - “Force Full Rewrite” = expensive path
+  - Added guardrails to prevent both buttons behaving like full rewrite
+- [x] Fine-tune dataset preview, next training suggestion, and Q&A improvement flow working
+- [x] RAG ingestion pipeline working end-to-end (schedule → run → documents ingested)
+- [x] Playground RAG retrieval fixed to correctly surface **exact blog URLs** when present
 
-## 🛒 Product Catalog (First-class, not guesswork)
-- [ ] Create `agent_products` (agent_id, name, category, url, active, last_seen_at, source)
-- [ ] Crawl store → populate agent_products
-- [ ] Inject product catalog into Prompt Engineer evidence pack
-- [ ] Render products in UI (clickable/editable) and generate product_list
+---
 
-## ⚙️ Workflow / Backend Roadmap
-- [ ] Finalize `/api/workflows` CRUD
-- [ ] Add Activepieces integration testing
-- [ ] Build workflow visualization payload for UI
+## 🧱 Known Issues / Risks
+- Support center (support.curativemushrooms.com) often returns **HTTP 403** during crawl → expected unless we add auth/crawler headers.
+- In dev, “run_now” fire-and-forget fetch may time out (HeadersTimeout / AbortError). Job can still be queued and run separately.
+- Wildcard crawl patterns (/*) inherently require scanning to discover new pages → “delta” cannot magically detect changes without scanning.
+- RAG progress tracking currently approximates progress via rag_documents count (not true total-discovered URL count for wildcards).
+- Progress bar for wildcard crawls cannot be exact without a pre-discovery phase; current implementation shows processed count + status only.
 
-## 🧑‍💻 Platform Stability & PM Hygiene
-- [ ] Fix dev determinism (remove duplicate lockfile warning / set turbopack.root / disable Turbopack fallback doc)
-- [ ] Keep CURRENT_STATE.md updated before rolling agent versions
+---
 
-## ▶️ Next Logical Steps (Post-Stabilization)
-- [ ] Canonicalize Fine-Tune Preview using same normalizeTopic logic as orchestrator
-- [ ] Centralize shared helpers (normalizeTopic, evidence builder) into `/web/src/lib/`
-- [ ] Prepare Project Manager Agent v5 activation
+## 🗺️ Next Targets (After This Week)
+- Dedicated RAG background worker (separate process / queue-driven, no manual trigger required)
+- Background worker hardening (retry logic, rate limiting, domain-level error reporting)
+- Agent org-tree visualization (roles / hierarchy)
+- Better agent naming model (short role-like titles, editable)
+- Automations framework MVP (run an agent workflow end-to-end)
+- “Aha moment” avatar + face card (image + persona, later voice/video)

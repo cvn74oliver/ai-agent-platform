@@ -1,6 +1,6 @@
 ⚙️ Automation Map – AI Agent Platform
 
-Last updated: December 2025
+Last updated: February 2026
 
 This document lists every automated process in the AI Agent Platform, what triggers it, what it updates, and who oversees it.
 It provides a quick visual guide to what runs hands-off versus what you still control manually.
@@ -25,6 +25,13 @@ It’s the master reference for understanding which scripts, agents, and systems
 • Syncs authoritative documentation from the ai-agent-platform-docs repo into /web/docs as a generated mirror.
 • Non-destructive by design; aborts if required files (e.g., CURRENT_STATE.md) are missing.
 • Commits and pushes changes to the public docs repo with an auto-generated message.
+   2a. RAG Knowledge Sync (Delta / Full)
+   • Triggered from Agent Summary page via “Sync New/Changed” (delta) or “Force Full Resync”.
+   • Creates a rag_jobs row in Supabase (status = pending).
+   • Seeds rag_documents rows for drive sources and crawl domains.
+   • In delta mode, avoids duplicating existing exact URLs.
+   • Wildcards (/*) are only reprocessed in full mode unless explicitly included.
+   • Automatically triggers /api/rag/run (fire-and-forget) so the job continues even if the user leaves the page.
 	3.	macOS Shortcut – “Sync Docs”
 • One-click or Siri command that runs both scripts together.
 • Shows success notification on completion.
@@ -39,6 +46,11 @@ It’s the master reference for understanding which scripts, agents, and systems
 • Auto-reference their context files when resumed with /resume_role.
 • Produce daily /summarize_session outputs used by PM Agent for roll-ups.
 • Their summaries are merged and backed up by update_memory.sh.
+   5a. Playground Session Logging
+   • Every Playground interaction creates an agent_sessions row.
+   • Token usage, cost estimate, and approximate human minutes are recorded.
+   • agent_events rows log each interaction for analytics.
+   • Dashboard aggregates these metrics for 7-day and 30-day windows.
 	6.	Supabase / Vercel / Render Integrations
 • External automation: deploys automatically from GitHub main branch.
 • Supabase maintains live database/auth; Vercel builds and hosts frontend; Render handles long-running jobs.
@@ -55,6 +67,7 @@ It’s the master reference for understanding which scripts, agents, and systems
 
 🧩 Semi-Automated Processes
 
+• RAG Job Progress Polling: Summary page polls rag_jobs and rag_documents to show status, processed count, and last update timestamp.
 • Agent Activation: the PM Agent flags drifts, but you confirm and run the activation checklist manually.
 • Key Rotation: reminder generated monthly; you replace keys in .env.local.
 • Quarterly Planning: PM Agent drafts next-quarter goals; you approve.
@@ -77,6 +90,8 @@ It’s the master reference for understanding which scripts, agents, and systems
 Automated
 – update_memory.sh
 – sync_docs_to_github.sh
+– RAG job auto-trigger (/api/rag/run)
+– Playground analytics logging (agent_sessions + agent_events)
 – macOS Shortcut “Sync Docs”
 – PM Agent daily/weekly summaries
 – GitHub public docs updates

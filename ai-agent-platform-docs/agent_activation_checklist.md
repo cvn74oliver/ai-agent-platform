@@ -1,6 +1,6 @@
 🤖 Agent Activation & Management Checklist
 
-Last updated: December 2025
+Last updated: February 13, 2026
 
 This file contains the exact instructions and copy-ready prompts for creating, refreshing, or retiring any AI Agent chat inside the AI Agent Platform Project in ChatGPT.
 Use this every time an agent chat is started or replaced so that each one loads the correct context, sets its goals, and reports its status.
@@ -62,7 +62,7 @@ Step 1 – Create The Chat
 Step 2 – Paste The Standard Activation Prompt
 
 1. In ChatGPT, open the new chat you created in Step 1.  
-2. 2. Copy the appropriate activation prompt from below:
+2. Copy the appropriate activation prompt from below:
    • For regular agents – use “Initial Activation Prompt – Most Agents.”
    • For the Project Manager – use “Initial Project Manager Agent Activation Prompt.”
 3. Replace [ROLE NAME] and the file name with the correct values for that agent.  
@@ -357,3 +357,8 @@ When a major project phase changes (e.g., Build → Testing → Deployment):
 2. Activate the next version using the same context file and updated objectives.
 3. Add a Phase Transition entry to CHANGELOG.md.
 4. Sync documentation immediately after the first successful build or deploy of the new phase.
+
+Phase 3 Activation – February 2026
+Transitioned from Build Stabilization → Intelligence & Analytics Phase.
+RAG scheduling logic introduced.
+Dashboard metrics live.

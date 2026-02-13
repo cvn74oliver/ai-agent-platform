@@ -1,49 +1,147 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2025-12-13  
-Project Manager: v4
+Last updated: 2026-02-13  
+Project Manager: v6 (active)
 
-## What is working
+---
 
-### LLM Training (Agent Summary → Training Readiness)
-- Next training suggestion returns high-quality questions (dynamic LLM wording).
-- Save & Next: logs example + moves to next question with visible Processing state.
-- Save & Finish: triggers Prompt Engineer sync + re-score with visible “Updating…” banner.
-- Close/Esc in LLM mode prompts to Save & Finish if draft exists.
-- If user clicks Save & Finish with empty answer AFTER saving >=1 example in session, rewrite still runs.
+# 🟢 System Health
 
-### Prompt Engineer (Prompt/RAG quality)
-- recalculate-quality:
-  - uses evidence pack from fine_tune_examples (recent examples)
-  - merges rewritten fields onto existing onboarding_summary (preserves dynamic fields)
-  - stores finalRefine score/comment
-- improve-quality:
-  - evaluator uses recent fine_tune_examples evidence for better followups
+Build: Clean  
+Golden Path: Passing  
+Agents: Healthy  
+Documentation: Synced  
+Clarify Flow: Stable  
+Recalculate Quality: Optimized (fast path + force refine)  
+Fine-Tune Preview: Canonicalized & grouped  
+Orchestrator: Using shared normalization helper  
+RAG Retrieval: Active (embedding + cosine + URL boost)  
+RAG Sync Modes: Delta + Full implemented  
+RAG Worker: Auto-trigger on schedule (manual trigger retained for dev)  
+Dashboard Metrics: Live (sessions, tokens, cost, time proxy)  
 
-### Orchestrator
-- Canonical topic normalization + question bank exist
-- Avoids repeating last question verbatim
-- Avoids repeating last topic when close in score
-- Dynamic question generation via LLM (topic/dimension + evidence)
+---
 
-## Known pain points / pending
-- Fine-tune preview shows many raw topic variants (needs canonical grouping).
-- Product list not yet sourced from a product catalog crawler (needs agent_products table + crawl ingestion).
-- Dev environment: multiple lockfiles warning; Turbopack panic has occurred (“Item already exists”).
+# 🔧 What Is Fully Working
 
-## Golden path test (5 minutes)
-1) Open an existing agent summary.
-2) Click “Next training suggestion”.
-3) Answer one → Save & Next → confirm new question appears.
-4) Save & Finish → confirm rewrite runs + quality updates.
-5) Preview fine-tune data → confirm counts increment.
+## Agent Summary Page
+- Recalculate Quality (fast path)
+- Force Full Rewrite
+- Improve Quality with Q&A
+- Clarify threads per-field (persistent)
+- Fine-Tune Preview with grouped canonical topics
+- RAG Sync New/Changed (delta mode)
+- RAG Force Full Resync
+- Manual “Run Sync Worker” (dev tool)
+- RAG Job status polling (Supabase-driven)
+- Processed document count display
+- Job status + last update timestamp visible
+- Non-blocking sync (safe to navigate away)
 
-## Agent version & context window guidance
-Roll to next agent version when:
-- chat is long and code-heavy (many file pastes/debug loops),
-- drift symptoms appear,
-- or after a clean milestone (golden path passes).
-Ask: “Ballpark how close are we to token/context limit?”
+## Playground
+- Session logging (agent_sessions)
+- Event logging (agent_events)
+- Token usage capture
+- Approx cost + human-time estimation
+- RAG embedding retrieval active
+- Blog URL boost logic for link queries
+- Strict URL safety rules (no fabricated URLs)
+- Correct article link retrieval confirmed
 
-## PM handoff note
-Any new PM should read CURRENT_STATE.md first, then TODO.md and CHANGELOG.md, then run the golden path.
+## LLM Training
+- Save & Next
+- Save & Finish
+- Evidence pack usage
+- Prompt rewrite merge (non-destructive)
+- Quality score storage
+- Feedback logging into fine_tune_examples
+
+## RAG System
+- rag_jobs creation
+- rag_documents seeding
+- Delta mode skips existing exact URLs
+- Wildcard detection logic
+- Full resync supported
+- Fire-and-forget worker trigger
+- Progress proxy via document count
+- Supabase polling-based status updates
+
+## Backend Stability
+- evaluateQuality stable
+- finalRefine stable
+- AbortError handled safely
+- Schema validation fixed
+- Evidence compaction implemented
+- Embedding normalization hardened
+- Cosine similarity retrieval functioning
+
+---
+
+# 🚀 Current Focus
+
+Phase 3 — Intelligence & Infrastructure Expansion
+
+Active initiatives:
+
+1. RAG Incremental Optimization
+   - Avoid unnecessary re-scrapes
+   - Improve delta behavior for non-wildcard sources
+   - Potential snapshot system for wildcard tracking
+
+2. Analytics Expansion
+   - Cross-agent dashboard rollup
+   - Cost per agent visualization
+   - Session trends over time
+
+3. Workflow Automation Layer
+   - Move beyond Playground-only usage
+   - Introduce production-triggered agent_sessions
+   - Connect agents to automation pipelines
+
+4. Org & Agent Architecture
+   - Naming cleanup
+   - Avatar foundation
+   - Multi-agent orchestration mapping
+
+---
+
+# 🧪 Golden Path (Must Always Pass)
+
+1. Next training suggestion works.
+2. Save & Next works.
+3. Save & Finish triggers rewrite.
+4. Preview shows grouped canonical topics.
+5. Quality score updates correctly.
+6. RAG Sync schedules job correctly.
+7. RAG Run processes documents.
+8. Playground retrieves correct URLs from RAG.
+9. Session + event logging records usage.
+
+If broken → fix immediately.
+
+---
+
+# ⚠ Known Issues / Acceptable Limitations
+
+- Wildcard domains require full discovery scans to detect new URLs.
+- No native progress bar (using document-count proxy).
+- Background worker still single-process (no distributed queue yet).
+- Lockfile warning (non-critical).
+- OpenAI timeouts possible under heavy refine (acceptable).
+
+---
+
+# 🧠 Strategic Position
+
+The system has transitioned from “debugging mode” to “infrastructure stabilization.”
+
+Core pillars now operational:
+- Prompt Engineering Loop
+- RAG Retrieval Engine
+- Usage Analytics Foundation
+- Training Data Canonicalization
+- Job-based Knowledge Sync System
+
+We are entering controlled platform expansion mode.
+
+v6 active. System stabilized. Platform entering expansion phase.

@@ -2,7 +2,7 @@
 
 🏗️ Current Phase: [Phase 2 – Runtime Testing & Validation]
 
-Last updated: December 2025
+Last updated: February 13, 2026
 
 📌 Single Source of Truth
 Before starting any work, open and review:
@@ -29,7 +29,7 @@ npm run dev
 	   • Save & Finish → confirm rewrite + quality update
 
 	   🚨 If this fails, stop and fix regressions before continuing.
-	5. Run automation scripts to refresh documentation snapshots:
+	5. Run automation scripts to refresh documentation snapshots (from /web directory):
 ```bash
 ./automation/update_memory.sh
 ./automation/sync_docs_to_github.sh
@@ -38,14 +38,14 @@ npm run dev
 💡 Safety note:
 `sync_docs_to_github.sh` is intentionally non-destructive. If it aborts, confirm that `CURRENT_STATE.md` exists locally before retrying.
 
-	5. Open ChatGPT → Project Manager Agent → send:
+	6. Open ChatGPT → Project Manager Agent → send:
    /update_master  
    Load the current 00_MASTER_PROJECT.md snapshot below and generate today’s top 3 priorities per role.  
    (Paste or link the latest master project file here)  
 
    ✅ Reminder: If significant updates were made yesterday, also share TODO.md and CHANGELOG.md so the PM Agent works from the latest information.
-	6.	Review the Project Manager’s Daily Plan and confirm priorities before starting work.
-	7. Verify Agent Health & Version Consistency:
+	7.	Review the Project Manager’s Daily Plan and confirm priorities before starting work.
+	8. Verify Agent Health & Version Consistency:
   		 • Open TODO.md → confirm all agents’ version numbers and reset dates match current context files.
  		  • If any agent shows “due for refresh” or “archived,” follow the Agent Activation Checklist before starting work.
 
@@ -73,6 +73,11 @@ npm run dev
 				• Run /handoff in the current chat before moving to the next agent.
 				• Paste the full /handoff message at the top of the new agent’s chat.
 				• This keeps the cross-agent context consistent and ensures version tagging continuity.
+    • After any RAG schedule or schema-related changes, verify:
+        - rag_jobs row created successfully
+        - rag_documents rows inserted
+        - Job status transitions from pending → completed (or failed)
+        - No repeating 404s in terminal
 	4.	When the agent finishes its task
     	•	Test or review the result locally in VS Code (e.g., run npm run dev, check the output).
     	•	Copy any relevant results from the chat:
@@ -102,7 +107,13 @@ Nov 7 2025 – Backend Agent resolved Supabase auth bug.
 ./automation/update_memory.sh
 ./automation/sync_docs_to_github.sh
 ```
-	    •	This merges all context updates into 00_MASTER_PROJECT.md, creates a backup, and pushes to GitHub.
+
+💡 After any schema or routes work that changes project structure:
+```bash
+bash web/automation/generate_project_tree.sh
+```
+
+    • This regenerates project structure documentation after route/schema changes.
 
 ⸻
 

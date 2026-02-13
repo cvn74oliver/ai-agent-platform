@@ -1,6 +1,7 @@
 # Phase 1 Clarify Spec  
 _Guided Setup → Clarification → Supabase Persistence_  
-Last Updated: November 8, 2025  
+Last Updated: November 13, 2025  
+Version: 1.0.1  
 
 ---
 
@@ -43,11 +44,8 @@ CREATE POLICY select_prompts_active
 CREATE POLICY modify_prompts_service
   ON public.prompts FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-----
+### Related Table: `guided_setup_sessions`
 
-Related Table
-
-guided_setup_sessions.state_json
 Stores per-session clarification responses, e.g.:
 {
   "last_saved": "2025-11-08T16:05:00Z",
@@ -96,18 +94,20 @@ Response Example
 
 Error Examples
 
-    - ROMPT_NOT_FOUND – invalid or missing ID/version
+    - PROMPT_NOT_FOUND – invalid or missing ID/version
     - INVALID_REQUEST – missing required parameters
 
 🔍 Test Plan
 
-| # | Test                                  | Expected Result                                   |
-| - | ------------------------------------- | ------------------------------------------------- |
-| 1 | Retrieve prompt by valid ID/version   | `{ ok:true, data.prompt.id == prompt_id }`        |
-| 2 | Post clarification response → persist | `responses[]` updated; `last_saved` refreshed     |
-| 3 | Simulate back-navigation              | Prompt reloads with previous answers              |
-| 4 | Invalid prompt_id                     | `{ ok:false, error.code:"PROMPT_NOT_FOUND" }`     |
-| 5 | Version bump (1.0.0→1.1.0)            | Latest active version returned if version omitted |
+| # | Test                                      | Expected Result                                                       |
+|---|-------------------------------------------|-----------------------------------------------------------------------|
+| 1 | Retrieve prompt by valid ID/version       | `{ ok:true, data.prompt.id == prompt_id }`                            |
+| 2 | Post clarification response → persist     | `responses[]` updated; `last_saved` refreshed                         |
+| 3 | Simulate back-navigation                  | Prompt reloads with previously stored answers                         |
+| 4 | Invalid prompt_id                         | `{ ok:false, error.code:"PROMPT_NOT_FOUND" }`                         |
+| 5 | Version bump (1.0.0 → 1.1.0)              | Latest active version returned if version omitted                     |
+| 6 | Multiple clarification submissions        | Responses append correctly without overwriting prior answers          |
+| 7 | Session reload after browser refresh      | `state_json` restored accurately from Supabase                        |
 
 🧱 Implementation Status
 
@@ -122,4 +122,8 @@ Error Examples
 🧭 Notes
 
 This spec is the canonical reference for all agents when developing or debugging the Guided Setup Clarify feature.
-Any changes to schema or endpoint contracts must be recorded here and versioned (v1.0.0+).
+
+Change Management Rules:
+- Any schema changes must be reflected in both this document and the Supabase migration history.
+- Any API contract change must increment the version number and be recorded in CHANGELOG.md.
+- Breaking changes require explicit migration notes.

@@ -1,6 +1,6 @@
 🗂️ Project Manager Agent Context
 
-Last updated: December 2025
+Last updated: February 13, 2026
 
 Role & Scope
 
@@ -565,3 +565,104 @@ Design and implement a robust refine loop that can ask targeted followup questio
 - Follow the updated Daily / Weekly / Monthly checklists for stability hygiene.
 
 > *Project Manager Agent v4 is formally closed at a stable checkpoint with hardened documentation workflows and clear next steps.*
+
+---
+
+## Session Log – February 11, 2026 — Phase 3 Activation
+
+Project Status:
+System stable. Golden Path verified. Intelligence layer approved.
+
+Key Decisions:
+- Move forward with Option A (Analytics-first approach).
+- Establish Intelligence Layer before expanding automation complexity.
+- Introduce organization visualization architecture.
+- Begin UI professionalization (agent naming & cards).
+
+Next Phase:
+Phase 3 — Intelligence, Visibility, and Structure.
+
+Primary Goal:
+Transform the platform from “working system” → “intelligent system.”
+
+No agent drift detected.
+All core agents healthy.
+PM v5 continues oversight.
+
+---
+
+## Session Log – Work Summary (Feb 12–13 2026)
+
+### ✅ Major Wins
+- Stabilized “Agent Summary” UX:
+  - Dynamic textarea auto-expansion across all onboarding fields
+  - Clarify threads persist and display correctly
+- Quality pipeline stabilized:
+  - Recalculate (fast) vs Force Full Rewrite (slow) behave correctly
+  - Reduced OpenAI retry/abort failure impact; prevented “everything runs full rewrite” regression
+- RAG pipeline progressed to real usability:
+  - Added schedule modes (delta vs full) and wildcard handling behavior
+  - Confirmed RAG run can ingest large URL sets and populate rag_documents
+  - Fixed Playground to surface **exact URLs** when the link exists in retrieved RAG context
+- Dashboard analytics MVP:
+  - Dashboard now shows non-zero real metrics once sessions/events exist
+  - Identified that missing agent_sessions rows can cause partial “zero” analytics
+
+### ⚠️ Known Issues / Observations
+- support.curativemushrooms.com returns HTTP 403 for many pages during crawl; treat as “blocked” unless crawler auth is added.
+- Fire-and-forget run_now can throw HeadersTimeout/AbortError in dev; job may still run separately.
+- Wildcard crawl domains require scanning to discover new URLs; true “delta-only” is not possible for existing wildcards.
+
+### 🎯 Next Priorities
+1) Dashboard: charts + top agents + RAG health panel
+2) RAG: improve incremental logic + add progress/status UI that persists across refresh (read from rag_jobs + rag_documents count)
+3) Playground: better session naming + “show sources used” toggle for debug trust
+
+## Session Log – Work Summary (Feb 13, 2026)
+
+### RAG & Dashboard Stabilization Phase
+
+The system transitioned from raw ingestion testing to operational intelligence validation.
+
+Key Improvements:
+- Introduced delta vs full RAG scheduling logic.
+- Prevented duplicate seed insertion in delta mode.
+- Added automatic job completion when no new sources detected.
+- Verified RAG retrieval returns exact URLs in Playground.
+- Dashboard metrics now reflect real agent_sessions activity.
+
+System Status:
+🟢 Production build stable  
+🟢 Agents healthy  
+🟢 RAG retrieval functional  
+🟡 RAG incremental logic optimized but wildcard detection limited  
+🔴 External support site blocked by 403
+
+Next Focus:
+- Persistent RAG job progress visualization
+- Dashboard refinement (charts + RAG health panel)
+- Improve incremental crawl efficiency
+
+## 🏁 Project Manager Agent v5 – Closeout Snapshot (February 13, 2026)
+
+**Status:** Stable RAG & Analytics baseline reached.
+
+### Key Outcomes
+- RAG schedule route hardened (delta vs full, wildcard handling, no-op completion behavior).
+- `run_now` fire-and-forget behavior stabilized (AbortError non-fatal).
+- Playground RAG retrieval returns exact source URLs when present.
+- Dashboard metrics reflect real `agent_sessions` activity.
+- Incremental RAG logic optimized; wildcard limitation documented.
+
+### Operational Notes
+- Delta mode skips existing exact URLs.
+- Wildcard domains still require scanning for discovery.
+- RAG jobs auto-complete when no new sources are detected.
+- Support site 403 behavior documented as an external block.
+
+### Next Logical Focus
+- Persistent RAG job progress UI.
+- Dashboard intelligence panel (RAG health + ingestion state).
+- Session naming improvements in Playground.
+
+**Checkpoint:** System stable. Safe turnover point for PM v6.
