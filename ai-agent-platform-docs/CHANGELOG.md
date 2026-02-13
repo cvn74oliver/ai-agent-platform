@@ -381,3 +381,8 @@ Platform fully stable. Documentation synchronized. Ready for controlled transiti
 
 ---
 ---
+
+Project Manager Agent v6 Activated – February 2026
+Refreshed after RAG delta/full scheduling implementation.
+Analytics & Intelligence phase confirmed stable.
+All documentation synchronized and Git history cleaned.

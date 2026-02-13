@@ -56,3 +56,5 @@ _Last updated: 2026-02-13_
 - Better agent naming model (short role-like titles, editable)
 - Automations framework MVP (run an agent workflow end-to-end)
 - “Aha moment” avatar + face card (image + persona, later voice/video)
+
+Project Manager Agent – healthy (v6 activated Feb 2026)
