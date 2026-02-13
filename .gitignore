@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# next build output
+.next/
+**/.next/
+
+# logs
+*.log
+
+# mac
+.DS_Store
