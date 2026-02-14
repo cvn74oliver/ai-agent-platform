@@ -2,6 +2,16 @@
 
 _Last updated: 2026-02-13_
 
+## Agent Session Health
+- Project Manager — healthy (v6, Feb 13 2026)
+- Architect — healthy
+- Backend — healthy
+- Frontend — healthy
+- Workflow — healthy
+- LLM Trainer — healthy
+- Avatar & Voice — healthy
+- Prompt Engineer — healthy
+
 ## 🔥 Current Focus (This Week)
 1) **RAG Reliability + UX**
    - [x] Make **Sync New/Changed** incremental for exact URLs (no duplicate seed rows)
