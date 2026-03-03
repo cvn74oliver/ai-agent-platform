@@ -61,6 +61,30 @@ Never assume Codex "knows the architecture."
 
 ---
 
+## ✅ STEP 3A — Terminal + Supabase (Only If Needed)
+
+**Codex can only run terminal commands if it has terminal access in that session.**
+- If the session does not include terminal execution, Codex must provide commands and **ask the Project Manager/Oliver to run them**.
+
+### Do we need Docker?
+- **NO** for hosted Supabase-only work (remote DB). You can still create/apply migrations to the hosted database via Supabase CLI/SQL.
+- **YES** only if you want **local Supabase** (containers) for offline testing, `supabase start`, and local DB diff workflows.
+
+### Schema changes (EXTRA-HIGH)
+If a task touches schema/RLS/migrations:
+- Reasoning Level must be **EXTRA-HIGH**
+- Must include a **rollback plan** and **explicit approval** before execution.
+
+### Hosted Supabase schema workflow (no Docker)
+When changing schema against hosted Supabase:
+- Create a migration file (SQL)
+- Apply it to the hosted DB (or provide the exact SQL to run in the Supabase SQL editor)
+- Verify with a post-check query
+
+**Never** silently change schema as a “side quest.”
+
+---
+
 ## ✅ STEP 4 — State the Objective Clearly
 
 Every Codex task must include:
@@ -103,39 +127,9 @@ Immediately halt execution if:
 - Prompt guardrails are being removed
 - Escalation logic is being weakened
 - Core contract fields are being reduced
+- A schema change is requested but there is no rollback plan
 
 Return to Project Manager for review.
-
----
-
-## 🎯 Your Role (Oliver)
-
-Your responsibilities are simple:
-
-1. Choose the Feature Domain.
-2. Start the correct Codex chat session.
-3. Name the chat session using this format:
-
-   DOMAIN — Short Task Description
-
-   Example:
-   RAG — Fix Drive Chunk Deduplication
-   FineTune — Improve Coverage Scoring
-   Dashboard — Add Training Readiness Graph
-
-4. Attach only the files relevant to that domain.
-5. Approve reasoning level if HIGH or above.
-6. Stop execution if anything feels unclear.
-7. Remember: there is no activation ritual. Your first message is the first scoped task.
-
-You do NOT need to:
-- Manage architecture mid-task
-- Debug line-by-line
-- Rewrite Codex responses manually
-
-If something feels off:
-→ Pause  
-→ Return to Project Manager  
 
 ---
 
@@ -162,7 +156,7 @@ Before closing a Codex session:
 
 - Confirm feature domain remained contained
 - Confirm compile passes
-- Confirm no schema changes occurred (unless planned)
+- Confirm no schema changes occurred (unless explicitly approved and logged)
 - Confirm logs will be updated if architecture changed
 
 Then:
@@ -213,6 +207,7 @@ Always structure that first task like this:
 ```
 Feature Domain: <CHOOSE ONE>
 Reasoning Level: <LOW | MEDIUM | HIGH | EXTRA-HIGH>
+Terminal Access: <YES | NO> (If NO, Codex must output exact commands for Oliver to run.)
 
 Files:
 @path/to/file1

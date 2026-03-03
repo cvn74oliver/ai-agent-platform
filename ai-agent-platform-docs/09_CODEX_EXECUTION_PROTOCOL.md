@@ -1,235 +1,193 @@
+# AI Agent Platform — Codex Execution Protocol
+
+**Purpose:** This document defines exactly how Oliver + Project Manager (PM) + Codex collaborate so Codex accelerates development **without** causing architectural drift.
+
+Codex is powerful. This protocol is the guardrail.
+
+---
+
+## 1. ROLES
+
+### ChatGPT / PM
+- Architect + planner
+- Risk controller
+- Scope / feature-boundary manager
+- Writes Codex tasks (structured)
+- Verifies outputs + regression risk
+
+### Codex
+- Code writer + multi-file editor
+- Terminal executor (when available)
+- Debug loop runner (within scope)
+- Refactor engine (only when explicitly requested)
+
+**Rule:** Codex executes. PM designs. Oliver approves the domain.
+
+---
+
 ## 2. FEATURE DOMAIN CONTROL (PLAIN ENGLISH VERSION)
 
-A “Feature Domain” simply means:
+A **Feature Domain** simply means:
 
-→ The specific PART OF THE PLATFORM we are editing right now.
+→ The specific **PART OF THE PLATFORM** we are editing right now.
 
-It does NOT mean:
+It does **NOT** mean:
 - A separate AI model
 - A special Codex configuration
 - A hidden system layer
 - A different OpenAI key
 
 It ONLY means:
-“What area of the app are we modifying?”
+
+> “What area of the app are we modifying?”
 
 That’s it.
 
-### 🔹 Official Feature Domains (Defined Clearly)
+### Official Feature Domains
 
 These are the ONLY domains in this system:
 
-1. RAG Ingestion & Retrieval  
-   - Drive scraping  
-   - Web crawling  
-   - Embedding generation  
-   - Chunking logic  
-   - rag_documents  
-   - rag_jobs  
-   - Retrieval queries  
+1. **RAG Ingestion & Retrieval**
+   - Drive scraping
+   - Web crawling
+   - Embedding generation
+   - Chunking logic
+   - `rag_documents`
+   - `rag_jobs`
+   - Retrieval queries
 
-2. Prompt Contract / Summary Rewrite Engine  
-   - onboarding_summary  
-   - recalculate-quality route  
-   - Prompt Engineer logic  
-   - Preservation rules  
-   - Guardrails merging  
-   - Quality scoring  
+2. **Prompt Contract / Summary Rewrite Engine**
+   - `onboarding_summary`
+   - `recalculate-quality` route
+   - Prompt Engineer logic
+   - Preservation rules
+   - Guardrails merging
+   - Quality scoring
 
-3. Fine-Tuning System  
-   - fine_tune_examples  
-   - Training orchestration  
-   - Dataset preview  
-   - Coverage logic  
-   - Feedback ingestion  
+3. **Fine-Tuning System**
+   - `fine_tune_examples`
+   - Training orchestration
+   - Dataset preview
+   - Coverage logic
+   - Feedback ingestion
 
-4. Agent Runtime (Production Inference)  
-   - Live agent responses  
-   - Prompt assembly  
-   - RAG retrieval at runtime  
-   - Inference pipeline  
+4. **Agent Runtime (Production Inference)**
+   - Live agent responses
+   - Prompt assembly
+   - RAG retrieval at runtime
+   - Inference pipeline
 
-5. Workflow / Automation Engine  
-   - Activepieces / Make integrations  
-   - Trigger logic  
-   - External tool calls  
-   - Webhooks  
+5. **Workflow / Automation Engine**
+   - Activepieces / Make integrations
+   - Trigger logic
+   - External tool calls
+   - Webhooks
 
-6. Dashboard Intelligence Layer  
-   - Usage stats  
-   - Analytics  
-   - Reporting  
-   - Training readiness panels  
+6. **Dashboard Intelligence Layer**
+   - Usage stats
+   - Analytics
+   - Reporting
+   - Training readiness panels
 
-These domains are structural boundaries.
-
-They are not theoretical.
+These domains are **structural boundaries**.
 They map directly to parts of the codebase.
 
-────────────────────────────────────────────────────────────
+---
 
-### 🔹 How Oliver Uses Feature Domains (Simple Process)
+## 3. HOW OLIVER USES FEATURE DOMAINS
 
-Oliver’s workflow should look like this:
+Oliver’s workflow:
 
 1. Decide which part of the platform we are editing.
 2. Open the correct Codex chat session.
-3. Name that chat session after the domain.
-   Examples:
-   - “RAG — Embedding Fix”
-   - “Prompt Engine — Rewrite Logic”
-   - “Fine-Tune — Coverage System”
+3. Name that session after the domain.
+   - Example: `RAG — Drive PDF parsing`
+   - Example: `Prompt Engine — Rewrite logic`
 4. Attach ONLY the files related to that domain.
-5. Do not mix domains inside one chat thread.
+5. Do not mix domains inside one Codex thread.
 
-That is all “Feature Domain Control” means.
+---
 
-────────────────────────────────────────────────────────────
+## 4. HOW CODEX KNOWS WHAT IT IS ALLOWED TO TOUCH
 
-### 🔹 How Codex Knows What It Is Allowed To Touch
-
-Codex does NOT automatically understand the architecture.
+Codex **does not** automatically understand your architecture.
 
 Codex only sees:
-- The files attached using @ references
-- The instructions given in the task
+- The files you attach (explicit @file list)
+- The instructions you provide in the task
 
 Codex does NOT:
-- See the entire repository automatically
+- See the entire repo automatically
 - Know which system layer it is in
 - Infer architecture boundaries
 
-That is why:
-We explicitly list the files in every task.
+**Hard Rule:** If a file is not attached, Codex must not modify it.
 
-If a file is not attached, Codex must not modify it.
+---
 
-────────────────────────────────────────────────────────────
+## 5. ONE THREAD = ONE DOMAIN
 
-### 🔹 One Thread = One Domain Rule
+A single Codex chat session must only touch **one** of the six domains.
 
-A single Codex chat session must only touch ONE of the six domains above.
-
-If we need to edit another domain:
-
+If we need another domain:
 1. Stop.
 2. Open a new Codex chat session.
 3. Name it after the new domain.
 4. Attach only those files.
 
-No cross-domain mixing.
-
 This prevents architectural drift.
 
-────────────────────────────────────────────────────────────
+---
 
-### 🔹 If Oliver Is Unsure
+## 6. REASONING LEVEL REQUIREMENT
 
-If unsure at any time, Oliver asks:
+Every Codex task must include **exactly one** reasoning level:
 
-“What domain are we in right now?”
+- **LOW**
+  - UI tweaks
+  - Minor text changes
+  - Small non-logic edits
 
-The PM must answer clearly using one of the six official domains.
+- **MEDIUM**
+  - Single route modifications
+  - Isolated feature changes
 
-That is the only decision required.
+- **HIGH**
+  - Multi-file logic adjustments
+  - Retrieval logic changes
+  - Internal API changes
 
-────────────────────────────────────────────────────────────
+- **EXTRA-HIGH**
+  - Schema changes
+  - Architectural shifts
+  - Cross-domain rewrites
+  - Contract field logic modifications
 
-## 3. REASONING LEVEL REQUIREMENT
+**EXTRA-HIGH requires explicit confirmation before execution.**
 
-Every Codex task must include EXACTLY ONE reasoning level:
+---
 
-LOW
-- UI tweaks
-- Minor text changes
-- Small non-logic edits
-
-MEDIUM
-- Single route modifications
-- Isolated feature changes
-
-HIGH
-- Multi-file logic adjustments
-- Retrieval logic changes
-- Internal API changes
-
-EXTRA-HIGH
-- Schema changes
-- Architectural shifts
-- Cross-domain rewrites
-- Contract field logic modifications
-
-EXTRA-HIGH requires explicit confirmation before execution.
-
-────────────────────────────────────────────────────────────
-
-## 4. TASK STRUCTURE REQUIREMENT
+## 7. TASK STRUCTURE REQUIREMENT
 
 Every Codex task must include:
 
-1. Reasoning Level
-2. Feature Domain
-3. Explicit file list using @file references
-4. Objective block:
+1) Reasoning Level
+2) Feature Domain
+3) Explicit file list using `@file` references
+4) Objective block:
    - What is wrong
    - Desired outcome
-   - Constraints
+   - Constraints (what must NOT be changed)
    - Performance considerations
    - Regression protections
 
-
 Codex must not infer intent.
 
-────────────────────────────────────────────────────────────
+---
 
-### 🔹 IMPORTANT: Codex Does NOT “Know the Platform”
-
-Codex does not understand your app unless you tell it.
-
-It does not:
-- Know which files belong to RAG
-- Know which files belong to fine-tune
-- Know which files belong to runtime
-- Know your schema protection rules
-- Know your preservation logic
-
-It only sees what you attach.
-
-That is why every task MUST:
-- Declare the Feature Domain
-- Declare the Reasoning Level
-- List explicit @file references
-
-Without that structure, Codex will guess.
-Guessing causes drift.
-
-────────────────────────────────────────────────────────────
-
-Codex must NOT:
-- Modify files not explicitly declared in the task file list.
-- Create new files unless explicitly authorized in the task.
-- Expand refactors beyond the declared file scope.
-
-### 🔹 SIMPLE CODEX EXECUTION CHECKLIST (FOR OLIVER)
-
-Before running a Codex task, Oliver should confirm:
-
-□ Feature Domain declared  
-□ Reasoning level declared  
-□ Files explicitly listed with @ references  
-□ Objective clearly stated  
-□ No cross-domain drift  
-
-If those five boxes are checked, it is safe to execute.
-
-If they are not, do NOT proceed.
-
-────────────────────────────────────────────────────────────
-
-## 5. ARCHITECTURAL PROTECTION RULES
+## 8. ARCHITECTURAL PROTECTION RULES
 
 The following systems are canonical:
-
 - Q&A-derived contract fields
 - Guardrails
 - Escalation policies
@@ -244,125 +202,79 @@ Codex must never:
 - Remove escalation logic
 - Delete guardrails
 - Override preservation logic
-- Refactor without scope declaration
+- Refactor outside scope
 
-────────────────────────────────────────────────────────────
+---
 
-## 6. SCHEMA MODIFICATION RULE
+## 9. SCHEMA MODIFICATION RULE
 
-Database schema changes require:
-
+Schema changes require:
 - EXTRA-HIGH reasoning level
 - Explicit PM approval
 - Update to:
-  - schema_comparison_checklist.md
-  - CHANGELOG.md
-  - CURRENT_STATE.md
+  - `schema_comparison_checklist.md` (if present)
+  - `CHANGELOG.md`
+  - `CURRENT_STATE.md`
 
-No schema drift allowed.
+No schema drift.
 
-────────────────────────────────────────────────────────────
+---
 
-## 7. RATE LIMIT DISCIPLINE
+## 10. RATE LIMIT DISCIPLINE
 
 Codex usage consumes:
 - 5-hour limit
 - Weekly limit
 
 PM must:
-- Choose lowest viable reasoning level
-- Break large tasks into sequential smaller tasks
+- Choose the lowest viable reasoning level
+- Break big tasks into smaller sequential tasks
 - Avoid unnecessary retries
 - Warn before high-cost execution
 
-If a task risks heavy usage:
+If a task risks heavy usage, say:
 
-"This is an EXTRA-HIGH reasoning task and may consume significant rate limit. Confirm before proceeding."
+> “This is an EXTRA-HIGH reasoning task and may consume significant rate limit. Confirm before proceeding.”
 
-────────────────────────────────────────────────────────────
+---
 
-## 8. FAILURE HANDLING PROTOCOL
+## 11. FAILURE HANDLING
 
 If Codex fails twice on the same issue:
-
-1. Stop execution.
+1. Stop.
 2. Summarize:
    - What failed
    - Where
    - Why
-3. Return control to PM.
+3. Return control to PM for clarification.
 4. Do not continue blind retries.
 
-────────────────────────────────────────────────────────────
+---
 
-## 9. EXECUTION STANDARD
+## 12. EXECUTION STANDARD
 
 Codex must:
-
 - Write code
-- Run required terminal commands
+- Run required terminal commands (when available)
 - Validate compile output
 - Resolve type errors
 - Confirm working state
 - Report success cleanly
 
-Avoid manual copy/paste debug loops unless ambiguity exists.
+Avoid long manual back-and-forth debug cycles unless something is ambiguous.
 
-────────────────────────────────────────────────────────────
+---
 
-## 10. THREAD DISCIPLINE
+## 13. CODEX SESSION HEADER (PASTE AT TOP OF EVERY NEW CODEX THREAD)
 
-Codex threads are scoped.
-
-Never:
-- Continue unrelated feature work in same thread
-- Perform exploratory refactors outside declared objective
-- Expand scope without PM instruction
-
-────────────────────────────────────────────────────────────
-
-## 11. OBSERVABILITY FIRST
-
-We operate in:
-
-- Architecture-first mode
-- Integrity-first mode
-- Observability-first mode
-
-We are no longer in “make it work” mode.
-
-────────────────────────────────────────────────────────────
-
-## 12. FINAL PRINCIPLE
-
-Codex executes.
-PM designs.
-
-Codex is a tool.
-Architecture remains human-controlled.
-
-This protocol overrides any convenience shortcuts.
-
-────────────────────────────────────────────────────────────
-
-## 13. CODEX SESSION ACTIVATION STANDARD
-
-Codex does NOT require a long personality prompt like Project Manager agents.
-
-Codex is a scoped execution engine.
-
-Each Codex session must begin with a lightweight execution header.
-
-### 🔹 Codex Session Header (Paste at Top of Every New Codex Thread)
-
-```
+```text
 Codex Execution Mode
 
 You are operating under the AI Agent Platform Codex Execution Protocol.
 
 Rules:
 - Only modify explicitly attached files.
-- Do not expand scope beyond declared objective.
+- Do not expand scope beyond the declared objective.
 - Do not create new files unless authorized.
 - Do not refactor outside the declared feature domain.
 - Stop immediately if architecture intent is unclear.
@@ -370,43 +282,61 @@ Rules:
 Wait for structured task.
 ```
 
-This header ensures:
-- Scope discipline
-- File boundary enforcement
-- No architectural drift
+---
 
-It replaces the need for a long activation prompt.
+## 14. SIMPLE CODEX EXECUTION CHECKLIST (FOR OLIVER)
 
-────────────────────────────────────────────────────────────
+Before running a Codex task:
 
-## 14. CODEX SESSION START CHECKLIST (FOR OLIVER)
+- [ ] Feature Domain declared
+- [ ] Reasoning level declared
+- [ ] Files explicitly listed with @ references
+- [ ] Objective clearly stated
+- [ ] No cross-domain drift
 
-Before executing a Codex task:
+If any box is unchecked, do NOT proceed.
 
-□ Feature Domain selected  
-□ New Codex thread created  
-□ Thread named after domain (e.g., “RAG — Embedding Fix”)  
-□ Codex Session Header pasted  
-□ Files attached using @ references  
-□ Reasoning level declared  
-□ Objective clearly defined  
+---
 
-If any box is unchecked, do NOT execute.
+## 15. SUPABASE / DATABASE WORKFLOW (IMPORTANT CLARIFICATION)
 
-────────────────────────────────────────────────────────────
+### Does Codex “have access to Supabase”?
+- Codex does **not** automatically have access to your Supabase Dashboard in Chrome.
+- Codex can work with Supabase **through the terminal** if you provide:
+  - the right files (migrations, schema SQL, etc.), and/or
+  - the Supabase CLI setup details.
 
-## 15. IMPORTANT CLARIFICATION
+### Docker: do you need it?
+**No, not always.**
 
-Codex does NOT:
-- Persist architectural memory
-- Know the repository structure automatically
-- Understand domain boundaries unless declared
-- Enforce preservation rules unless instructed
+You only need Docker if you want to run **local Supabase**:
+- `supabase start`
+- `supabase stop`
+- `supabase status`
+- local db reset / local services
 
-Architecture control remains human-owned.
+If you only want to operate against **hosted Supabase** (remote project), Docker is NOT required.
+
+### Hosted Supabase (no Docker required)
+Use these patterns:
+- `supabase login`
+- `supabase link --project-ref <ref>`
+- migrations / SQL applied to the remote DB (via CLI workflows)
+
+Note: `supabase status` is primarily for local stack health and will fail without Docker.
+
+### If we do schema work
+Schema changes are EXTRA-HIGH and must:
+- be explicitly approved
+- be written as migrations (preferred)
+- be logged in `CHANGELOG.md` + `CURRENT_STATE.md`
+
+---
+
+## 16. FINAL PRINCIPLE
 
 Codex executes.
 PM designs.
-Oliver approves domain.
+Oliver approves the domain.
 
-────────────────────────────────────────────────────────────
+This protocol overrides convenience shortcuts.

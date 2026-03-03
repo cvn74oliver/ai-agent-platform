@@ -456,3 +456,18 @@ System stable. PDF ingestion verified. Retrieval weighting active. Rewrite engin
 
 Status:
 Docs are being refreshed to reduce drift and support PM v7 activation.
+
+
+## 2026-03-03 — Codex Workflow Refinement + Supabase CLI Login (PM v6)
+
+### Codex workflow refinement
+- Clarified that Codex is primarily for **multi-file edits + terminal-driven debug loops**; single-file micro-edits can be handled directly to reduce overhead.
+- Reconfirmed Feature Domain discipline: one domain per Codex thread (RAG, Prompt Contract, Fine-Tuning, Runtime, Workflow, Dashboard).
+- Reconfirmed Canonical Authority: Q&A-derived contract fields > manual examples > RAG (Drive/URL).
+
+### Supabase / schema tooling
+- Confirmed Supabase CLI login is working locally (prerequisite for schema/migration workflows).
+- Documented that Docker is **optional** for most day-to-day work; recommended only if/when we need local Postgres via Supabase CLI (`supabase start`) or local migration testing.
+
+Status:
+Governance tightened. Codex workflow is now hybrid (direct edits for small changes, Codex for multi-file + terminal loops). Supabase CLI access confirmed.

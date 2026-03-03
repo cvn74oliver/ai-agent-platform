@@ -31,8 +31,9 @@
 ├── package.json
 ├── project_structure.txt
 ├── supabase
-│   └── migrations
-│       └── 20251108205407_remote_schema.sql
+│   ├── migrations
+│   │   └── 20251108205407_remote_schema.sql
+│   └── supabase
 └── web
     ├── automation
     │   ├── generate_project_tree.sh
@@ -214,4 +215,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-74 directories, 141 files
+75 directories, 141 files
