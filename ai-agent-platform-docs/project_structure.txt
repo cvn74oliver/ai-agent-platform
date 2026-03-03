@@ -9,6 +9,8 @@
 │   ├── 06_AVATAR_VOICE_CONTEXT.md
 │   ├── 07_PROJECT_MANAGER_CONTEXT.md
 │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
+│   ├── 09_CODEX_EXECUTION_PROTOCOL.md
+│   ├── 10_CODEX_SESSION_CHECKLIST.md
 │   ├── agent_activation_checklist.md
 │   ├── ARCHIVE_TODO_HISTORY.md
 │   ├── automation_map.md
@@ -46,6 +48,8 @@
     │   ├── 06_AVATAR_VOICE_CONTEXT.md
     │   ├── 07_PROJECT_MANAGER_CONTEXT.md
     │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
+    │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
+    │   ├── 10_CODEX_SESSION_CHECKLIST.md
     │   ├── agent_activation_checklist.md
     │   ├── ARCHIVE_TODO_HISTORY.md
     │   ├── automation_map.md
@@ -210,4 +214,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-74 directories, 137 files
+74 directories, 141 files
