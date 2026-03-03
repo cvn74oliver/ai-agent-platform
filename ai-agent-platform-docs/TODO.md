@@ -1,9 +1,7 @@
 # ✅ TODO — AI Agent Platform (Web)
+_Last updated: 2026-03-03 (v6 Stabilized • Handoff Ready • Pending PM v7 Activation)_
 
-_Last updated: 2026-02-13_
-
-## Agent Session Health
-- Project Manager — healthy (v6, Feb 13 2026)
+- Project Manager — healthy (v6, preparing v7 activation, Mar 3 2026)
 - Architect — healthy
 - Backend — healthy
 - Frontend — healthy
@@ -13,29 +11,34 @@ _Last updated: 2026-02-13_
 - Prompt Engineer — healthy
 
 ## 🔥 Current Focus (This Week)
-1) **RAG Reliability + UX**
-   - [x] Make **Sync New/Changed** incremental for exact URLs (no duplicate seed rows)
-   - [x] Clarify wildcard behavior in UI (“wildcards require scanning to discover new URLs”)
-   - [x] Add **job status + processed count** in Agent Summary (poll rag_jobs + rag_documents)
-   - [x] Prevent accidental double-run (disable “Run Sync Worker” while a job is running)
-   - [x] Improve progress UX (basic status panel + polling added; refine later for % estimation)
-   - [ ] Persist last RAG job metadata in UI after page refresh (re-hydrate from rag_jobs + auto-load latest job on mount)
-   - [ ] Decide: keep “Run Sync Worker” as dev-only or remove once dedicated background worker (cron/queue) is live
+---
+1) **PM v7 Activation + Clean Handoff (PRIMARY PRIORITY)**
+   - [x] RAG ingestion verified (Drive + URL, embeddings confirmed)
+   - [x] Retrieval weighting hierarchy implemented (Drive boost, product intent tuning)
+   - [x] Canonical merge protection in rewrite engine (no silent field shrinking)
+   - [x] Strict JSON schema enforcement for evaluate + refine
+   - [x] Rewrite gating by quality threshold (fast vs forced path separation)
+   - [x] Circuit breaker for OpenAI abort/socket failures
+   - [ ] Create final v6 tag + snapshot commit
+   - [ ] Activate Project Manager v7 (fresh context thread)
+   - [ ] Enforce Feature Domain isolation in Codex tasks (no cross-domain mixing)
+   - [ ] Confirm v7 adopts Codex Execution Protocol as canonical
 
-2) **Dashboard Analytics (High-Level “At a Glance”)**
-   - [ ] Confirm /api/dashboard/metrics is stable + matches dashboard UI cards
-   - [ ] Add small charts (7d / 30d usage, sessions, tokens, cost)
-   - [ ] Add “Top Agents” list (sessions, tokens, cost, minutes saved)
-   - [ ] Add “RAG Health” panel (latest jobs, errors by domain, last run timestamps)
-   - [ ] Add cost breakdown per agent (7d / 30d) using agent_sessions totals
+2) **Observability + Confidence Layer (Post-v7)**
+   - [ ] Add rewrite influence log (which fields were expanded vs preserved)
+   - [ ] Add optional debug mode to display RAG chunk influence during rewrite
+   - [ ] Add rewrite diff viewer (before vs after comparison)
+   - [ ] Add retrieval inspection panel in Playground
+   - [ ] Add quality score trend tracking
 
-3) **Playground UX + Logging**
-   - [x] Ensure agent_sessions row is created per playground call (and agent_events per call)
-   - [ ] Improve session naming (short, human-friendly auto-title)
-   - [x] Ensure RAG answers can return exact URLs when present in retrieved context
-   - [ ] Add “Show sources used” toggle (for debugging trust)
-   - [ ] Add lightweight session history panel (last 5 sessions per agent)
-
+3) **Fine-Tune Weighting Formalization**
+   - [ ] Confirm final weighting hierarchy:
+         Q&A refinement (canonical contract)
+         → Manual fine-tune examples
+         → RAG (Drive prioritized over URL)
+         → Crawl-only evidence
+   - [ ] Document weighting model inside SYSTEM_OVERVIEW.md
+   - [ ] Add automated regression guard for guardrails/escalation policy
 ---
 
 ## ✅ Completed / Major Milestones
@@ -56,6 +59,8 @@ _Last updated: 2026-02-13_
 - Wildcard crawl patterns (/*) inherently require scanning to discover new pages → “delta” cannot magically detect changes without scanning.
 - RAG progress tracking currently approximates progress via rag_documents count (not true total-discovered URL count for wildcards).
 - Progress bar for wildcard crawls cannot be exact without a pre-discovery phase; current implementation shows processed count + status only.
+- Prompt rewrite engine does not yet surface which retrieved RAG chunks influenced rewritten blocks (observability gap).
+- Prompt rewrite engine currently relies on truncated RAG evidence pack (top-N chunks) to control token usage; full-document semantic influence is achieved via embeddings, not raw inclusion.
 
 ---
 
@@ -67,4 +72,4 @@ _Last updated: 2026-02-13_
 - Automations framework MVP (run an agent workflow end-to-end)
 - “Aha moment” avatar + face card (image + persona, later voice/video)
 
-Project Manager Agent – healthy (v6 activated Feb 2026)
+Project Manager Agent – v6 stabilized • v7 activation pending • System integrity intact

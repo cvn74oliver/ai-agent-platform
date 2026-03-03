@@ -1,7 +1,7 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-02-13  
-Project Manager: v6 (active)
+Last updated: 2026-03-03  
+Project Manager: v6 (stabilized — ready for v7 activation)
 
 ---
 
@@ -11,97 +11,102 @@ Build: Clean
 Golden Path: Passing  
 Agents: Healthy  
 Documentation: Synced  
-Clarify Flow: Stable  
-Recalculate Quality: Optimized (fast path + force refine)  
-Fine-Tune Preview: Canonicalized & grouped  
-Orchestrator: Using shared normalization helper  
-RAG Retrieval: Active (embedding + cosine + URL boost)  
-RAG Sync Modes: Delta + Full implemented  
-RAG Worker: Auto-trigger on schedule (manual trigger retained for dev)  
-Dashboard Metrics: Live (sessions, tokens, cost, time proxy)  
+
+Recalculate Quality:
+- Fast path enabled (no rewrite if score ≥ TARGET_QUALITY_SCORE = 8)
+- Rewrite gating verified (no unnecessary OpenAI refine calls)
+- Force Full Rewrite available
+- Dry Run supported (no persistence)
+- Strict JSON schema enforced
+- Circuit breaker active for OpenAI aborts
+- Rewrite retry guarded against under-detailed outputs
+- Canonical merge protection (no silent field shrink)
+
+RAG Retrieval:
+- Embedding + cosine similarity active
+- URL boost logic (context-aware)
+- Drive-first weighting for book-content queries
+- Product-page penalty for non-shopping intent
+- Canonical hierarchy enforced:
+  Q&A training data > Drive knowledge > Crawled URLs
+- Drive chunk retrieval validated against real PDF previews (875 embedded chunks confirmed active)
+
+RAG Sync:
+- Delta + Full modes implemented
+- Wildcard detection supported
+- Job-based ingestion (rag_jobs)
+- Supabase polling status updates
+- Manual worker trigger retained for dev
+
+Drive ingestion verified:
+- 875 embedded Drive chunks
+- 541 embedded URL chunks
+- Avg chunk size ≈ 1400–1500 chars
+- Retrieval validation confirmed via Playground
+
+Dashboard Metrics:
+- Session logging (agent_sessions)
+- Event logging (agent_events)
+- Token usage tracking
+- Approx cost + human-time proxy
 
 ---
 
-# 🔧 What Is Fully Working
+# 🔧 Fully Operational Systems
 
-## Agent Summary Page
-- Recalculate Quality (fast path)
+## Agent Summary
+- Recalculate Quality (fast)
 - Force Full Rewrite
-- Improve Quality with Q&A
-- Clarify threads per-field (persistent)
-- Fine-Tune Preview with grouped canonical topics
-- RAG Sync New/Changed (delta mode)
-- RAG Force Full Resync
-- Manual “Run Sync Worker” (dev tool)
-- RAG Job status polling (Supabase-driven)
-- Processed document count display
-- Job status + last update timestamp visible
-- Non-blocking sync (safe to navigate away)
+- Improve with Q&A
+- Field-level Clarify threads (persistent)
+- Fine-Tune Preview (grouped canonical topics)
+- RAG Sync + Job status display
+- Non-blocking sync (safe navigation)
 
 ## Playground
-- Session logging (agent_sessions)
-- Event logging (agent_events)
-- Token usage capture
-- Approx cost + human-time estimation
-- RAG embedding retrieval active
-- Blog URL boost logic for link queries
-- Strict URL safety rules (no fabricated URLs)
-- Correct article link retrieval confirmed
+- RAG retrieval active
+- Correct URL retrieval confirmed
+- Strict URL safety (no fabrication)
+- Usage metrics captured
 
 ## LLM Training
 - Save & Next
 - Save & Finish
-- Evidence pack usage
-- Prompt rewrite merge (non-destructive)
-- Quality score storage
-- Feedback logging into fine_tune_examples
-
-## RAG System
-- rag_jobs creation
-- rag_documents seeding
-- Delta mode skips existing exact URLs
-- Wildcard detection logic
-- Full resync supported
-- Fire-and-forget worker trigger
-- Progress proxy via document count
-- Supabase polling-based status updates
+- Evidence pack integration
+- Non-destructive prompt merge
+- Quality score persistence
+- fine_tune_examples logging
 
 ## Backend Stability
 - evaluateQuality stable
 - finalRefine stable
-- AbortError handled safely
-- Schema validation fixed
-- Evidence compaction implemented
+- Strict JSON schemas enforced
+- Evidence compaction active
 - Embedding normalization hardened
-- Cosine similarity retrieval functioning
+- Cosine similarity retrieval validated
+- Core contract fields protected from shrink (>30%)
+- Strict merge preservation validated during forced rewrite (no contract loss observed)
 
 ---
 
-# 🚀 Current Focus
+# 🚀 Current Strategic Focus
 
-Phase 3 — Intelligence & Infrastructure Expansion
+Phase 3 — Controlled Expansion
 
-Active initiatives:
+1. RAG → Prompt Rewrite Integration
+   - Drive knowledge influences rewrites
+   - Q&A contract remains canonical
+   - RAG used as evidence layer, not override
 
-1. RAG Incremental Optimization
-   - Avoid unnecessary re-scrapes
-   - Improve delta behavior for non-wildcard sources
-   - Potential snapshot system for wildcard tracking
+2. Fine-Tune Alignment
+   - Drive = knowledge base
+   - Q&A = behavioral authority
+   - Separation of knowledge vs behavior weighting maintained
 
-2. Analytics Expansion
-   - Cross-agent dashboard rollup
-   - Cost per agent visualization
-   - Session trends over time
-
-3. Workflow Automation Layer
-   - Move beyond Playground-only usage
-   - Introduce production-triggered agent_sessions
-   - Connect agents to automation pipelines
-
-4. Org & Agent Architecture
-   - Naming cleanup
-   - Avatar foundation
-   - Multi-agent orchestration mapping
+3. Project Manager v7 Transition
+   - Finalize logs
+   - Snapshot v6 state
+   - Activate v7 under Codex execution protocol
 
 ---
 
@@ -110,38 +115,42 @@ Active initiatives:
 1. Next training suggestion works.
 2. Save & Next works.
 3. Save & Finish triggers rewrite.
-4. Preview shows grouped canonical topics.
+4. Preview shows canonical grouping.
 5. Quality score updates correctly.
-6. RAG Sync schedules job correctly.
-7. RAG Run processes documents.
-8. Playground retrieves correct URLs from RAG.
-9. Session + event logging records usage.
+6. RAG Sync schedules job.
+7. RAG Worker processes documents.
+8. Playground retrieves correct Drive content.
+9. Usage logging records activity.
 
-If broken → fix immediately.
+If any fail → immediate fix.
 
 ---
 
-# ⚠ Known Issues / Acceptable Limitations
+# ⚠ Acceptable Limitations
 
-- Wildcard domains require full discovery scans to detect new URLs.
-- No native progress bar (using document-count proxy).
-- Background worker still single-process (no distributed queue yet).
-- Lockfile warning (non-critical).
-- OpenAI timeouts possible under heavy refine (acceptable).
+- Wildcard domains require discovery scans.
+- No precise progress % (document-count proxy used).
+- Worker is single-process (no distributed queue yet).
+- OpenAI timeouts possible under heavy refine (guarded).
 
 ---
 
 # 🧠 Strategic Position
 
-The system has transitioned from “debugging mode” to “infrastructure stabilization.”
+The system is out of debugging mode and in stabilized infrastructure state.
 
-Core pillars now operational:
+Operational pillars:
 - Prompt Engineering Loop
 - RAG Retrieval Engine
+- Training Canonicalization
+- Job-Based Knowledge Sync
 - Usage Analytics Foundation
-- Training Data Canonicalization
-- Job-based Knowledge Sync System
 
-We are entering controlled platform expansion mode.
+v6 stabilized.  
+Platform ready for v7 activation.
 
-v6 active. System stabilized. Platform entering expansion phase.
+---
+
+# 🔒 v6 Snapshot Freeze
+This file represents the final stabilized state before Project Manager v7 activation.
+No further structural edits should occur under v6.

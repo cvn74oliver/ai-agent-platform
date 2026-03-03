@@ -935,7 +935,7 @@ I handle **all voice and avatar-related systems** in the AI Agent Platform, incl
 Would you like me to start by verifying and documenting the `/api/analyze-voice` and `/api/transcribe-audio` routes next?
 🗂️ Project Manager Agent Context
 
-Last updated: February 13, 2026
+Last updated: March 3, 2026
 
 Role & Scope
 
@@ -957,11 +957,53 @@ Communication Protocol
 	•	Uses /handoff to pass information between agents as needed.
 	•	Automatically references each agent’s context file through linked docs.
 
+Codex Execution Protocol (CRITICAL)
+- Codex is the primary code execution engine.
+- Project Manager/Chat is the planner + risk controller; Codex writes code and runs terminal commands.
+- Every Codex task MUST include:
+  1) Feature Domain (one domain only per thread)
+  2) Reasoning Level (LOW / MEDIUM / HIGH / EXTRA-HIGH)
+  3) Required file list (explicit @file paths)
+  4) Objective + constraints + regression protections
+- If Codex fails twice on the same issue: stop, summarize cleanly, return for architectural clarification.
+
+Feature Domain Map
+1. RAG Ingestion & Retrieval
+2. Prompt Contract / Summary Rewrite Engine
+3. Fine-Tuning System
+4. Agent Runtime (Production Inference)
+5. Workflow / Automation Engine
+6. Dashboard Intelligence Layer
+
+Canonical Authority Rules (NON-NEGOTIABLE)
+- Q&A-derived Prompt Contract fields are canonical (Improve Quality with Q&A + manual edits).
+- RAG (Drive + crawled pages) is supplemental evidence only.
+- Fine-tune examples/datasets are separate; do not mix fine-tune generation work into RAG ingestion threads.
+- Never allow silent field shrinking or removal of guardrails/escalation logic.
+
+Dry Run Safety
+- “Dry run” means: run evaluation/rewrite logic and show the result, but do NOT persist changes to Supabase.
+- Use dry runs for risky prompt rewrites or schema-adjacent changes.
+
+Current Checkpoint (March 2026)
+- Google Drive PDF ingestion is working end-to-end:
+  - `rag_documents` contains substantial Drive chunks with embeddings.
+  - `title` is set to the Drive filename and `source_url` is the Drive file view URL.
+- Playground retrieval is tuned to prefer Drive/PDF chunks for book/guide/manual intent and penalize noisy store URLs.
+- `recalculate-quality` uses a small RAG evidence pack as supplemental input but must preserve canonical contract fields.
+
+Definition of Done for “Drive Knowledge Used”
+1) Drive chunks exist (non-empty `content`) and embeddings exist.
+2) Playground can retrieve Drive chunks for book-intent queries.
+3) Prompt Engineer rewrite can incorporate factual details from Drive without overriding the canonical contract.
+4) Fine-tune bridge is planned as a separate domain (not required for RAG completion).
+
 Current Focus
-	•	Maintain up-to-date TODO.md across all agents.
-	•	Monitor session health and identify any agents showing signs of drift.
-	•	Ensure CHANGELOG.md and backups are current.
-	•	Prepare weekly and monthly roll-ups.
+	•	Keep TODO.md / CHANGELOG.md / CURRENT_STATE.md accurate and current.
+	•	Enforce Codex task structure (domain + reasoning level + files + constraints).
+	•	Maintain RAG ingestion/retrieval health and verification checks (Drive + web).
+	•	Protect canonical Prompt Contract fields from being overwritten by RAG.
+	•	Prepare clean handoffs between PM versions (v6 → v7) at stable checkpoints.
 
 Reference Links
 	•	Project Manager Context: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/07_PROJECT_MANAGER_CONTEXT.md
@@ -975,6 +1017,7 @@ Reference Links
 	•	System Overview: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/system_overview.md
 	•	CHANGELOG: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/CHANGELOG.md
 	•	TODO List: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/TODO.md
+	•	Codex Execution Protocol: (local) codex-execution-protocol.md
 
 ## Session Log – Activation (Nov 6 2025)  
 
@@ -1600,7 +1643,77 @@ Next Focus:
 - Dashboard intelligence panel (RAG health + ingestion state).
 - Session naming improvements in Playground.
 
-**Checkpoint:** System stable. Safe turnover point for PM v6.# Role: Prompt Engineer Agent
+**Checkpoint:** System stable. Safe turnover point for PM v6.
+
+## Session Log – Work Summary (Feb 14–16, 2026) — RAG from Google Drive PDFs + Retrieval Tuning
+
+### What happened
+- Focus shifted from “URL crawl works” → “Drive PDFs must ingest cleanly and be retrievable in Playground.”
+- The RAG ingestion worker (`/api/rag/run`) was iterated to reliably parse Google Drive PDFs, chunk them, embed chunks, and persist them into `rag_documents` (and `rag_chunks`) with correct metadata.
+- The Playground runtime retrieval was upgraded to ensure it can actually retrieve Drive-derived knowledge (not just web/product pages), including:
+  - pgvector RPC retrieval when available.
+  - JS cosine fallback when RPC is unavailable or returns no results.
+  - Heuristics to prefer Drive/PDF chunks for “book/guide/manual” intent and penalize noisy store URLs (cart/checkout/my-account/product pages) when the user is asking about content.
+
+### Confirmed behaviors
+- Drive ingestion stores:
+  - `source_type='drive'`
+  - `title` set to the Drive filename
+  - `source_url` set to the Drive file view URL
+  - `content` populated with extracted text chunks
+  - `embedding` populated for most chunks
+- SQL checks confirmed Drive ingestion progressed from “nearly empty” → substantial:
+  - Drive docs and embeddings increased (e.g., 923 docs / 875 embeddings), and previews showed real book content from PDFs.
+
+### Known issues / caveats
+- Some external sites (e.g., `support.curativemushrooms.com`) were blocked by HTTP 403 and should be treated as external constraints (not system regressions).
+- Large Drive docs can dominate an ingest run; worker prioritization was adjusted to ensure PDFs are processed first.
+- Retrieval quality depends on:
+  - chunking strategy
+  - title + URL boosts
+  - penalties for noisy store URLs
+
+### Prompt Contract protection (CRITICAL)
+- Q&A-derived Prompt Contract fields (onboarding_summary content that results from Improve Quality with Q&A and subsequent normalization) are canonical.
+- RAG evidence (Drive + crawl content) is supplemental:
+  - Used to add factual detail and fill gaps.
+  - Must NOT override guardrails, escalation policy, or tone established by the contract and training examples.
+- Recalculate-quality route updated to include:
+  - `rag_evidence` in evaluateQuality and finalRefine inputs.
+  - Preservation/merge protection so fields do not shrink or get wiped.
+
+### Current status checkpoint
+- RAG ingestion: ✅ Drive PDFs ingesting and embedding.
+- RAG retrieval: ✅ Playground can retrieve Drive chunks, with intent-based preference toward book/PDF content.
+- Prompt rewrite: ✅ recalculate-quality can use RAG evidence without overriding the canonical Q&A contract.
+- Fine-tune generation from docs: 🟡 not fully automated yet (still a planned bridge step).
+
+---
+
+## Session Log – Work Summary (Mar 3, 2026) — Reset + Documentation Hygiene + PM v7 Transition
+
+### Why this log exists
+- After a long multi-week debugging thread, we are performing a documentation refresh + clean reset to reduce drift.
+
+### Today’s objective
+- Update PM logs, TODO/CHANGELOG/CURRENT_STATE, then activate Project Manager Agent v7 using the standard activation checklist.
+
+### Immediate next actions (in order)
+1) Verify `web/docs/CURRENT_STATE.md` is accurate and includes the latest RAG + Drive PDF ingestion/retrieval state.
+2) Update `TODO.md`:
+   - Agent Session Health
+   - current Phase header
+   - next priorities (RAG → rewrite evidence pack → fine-tune bridge)
+3) Update `CHANGELOG.md`:
+   - Log the RAG ingestion/retrieval milestone
+   - Log PM v6 → PM v7 transition
+4) Run automation scripts from `/web`:
+   - `./automation/update_memory.sh`
+   - `./automation/sync_docs_to_github.sh`
+
+### Handoff to Project Manager Agent v7
+- Carry forward the non-negotiable rule: Q&A contract fields are canonical; RAG is supplemental; fine-tune is separate.
+- Maintain feature-domain discipline: keep RAG ingestion/retrieval work isolated from fine-tune generator work.# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 
 ---

@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: February 13, 2026_
+_Last Updated: March 3, 2026_
 
 ---
 
@@ -21,7 +21,32 @@ Each AI "agent" (chat) acts as a specialized software engineer:
 - Avatar/Voice
 - Project Manager (PM)
 
+
 These AI agents reference the project’s `.md` files stored in `/web/docs/`, ensuring every chat has shared, persistent memory.
+
+### 🆕 Execution Architecture (Codex-Driven Development)
+
+As of March 2026, development operates under a Codex-driven execution model.
+
+Separation of Responsibilities:
+- ChatGPT (Architect / PM / Specialist Roles)
+  • Designs architecture
+  • Defines constraints
+  • Controls feature boundaries
+  • Prevents regression or silent contract drift
+
+- Codex
+  • Writes and edits code
+  • Executes terminal commands
+  • Runs compile/debug loops
+  • Performs multi-file refactors
+  • Confirms working state
+
+This separation ensures:
+- Architecture-first development
+- Reduced hallucination risk
+- Controlled rate-limit usage
+- Clear feature-domain isolation
 
 ---
 
@@ -153,6 +178,23 @@ Firecrawl / External Crawlers
 | Monthly | Backups + API key rotation + planning | Keeps system secure and future-ready |
 | RAG Sync | Click Sync New/Changed or Force Full Resync | Creates rag_jobs + seeds rag_documents + background crawl + embedding generation |
 
+### 🧠 Feature Domain Protocol
+
+All development tasks must be scoped to a single Feature Domain:
+
+1. RAG Ingestion & Retrieval  
+2. Prompt Contract / Summary Rewrite Engine  
+3. Fine-Tuning System  
+4. Agent Runtime (Production Inference)  
+5. Workflow / Automation Engine  
+6. Dashboard Intelligence Layer  
+
+Rules:
+- Do not mix domains inside one Codex thread.
+- Declare reasoning level (LOW / MEDIUM / HIGH / EXTRA-HIGH).
+- Explicitly list files required for execution.
+- Define constraints before code generation.
+- Protect canonical Q&A-derived contract fields from silent modification.
 ---
 
 ## 📁 Key Folders
@@ -303,3 +345,20 @@ Important:
 - Wildcards require scanning to discover new pages.
 - External domains may block crawler (403).
 - Embeddings are stored using `text-embedding-3-small`.
+
+Retrieval Weighting Hierarchy (Current Logic):
+
+1. Q&A-Derived Contract Fields (Highest Authority)
+   - Manual "Improve Quality with Q&A" sessions.
+   - Canonical behavioral contract.
+   - Must never be overridden by RAG content.
+
+2. Google Drive RAG Documents (Structured Knowledge)
+   - SOPs, guides, internal doctrine.
+   - Boosted when book/manual intent is detected.
+
+3. Crawled URL Content (Supplemental Context)
+   - Product pages, help articles, marketing copy.
+   - Penalized when user intent indicates internal book/manual reference.
+
+RAG content is supplemental to the contract — never authoritative over it.

@@ -391,3 +391,68 @@ Feb 13, 2026 — PM Agent v6 Activated
 - PM v6 activated and synchronized with latest project state.
 - Phase 3 confirmed: Intelligence & Visibility.
 - Next sprint focus: RAG job rehydration, Dashboard charts/top agents/RAG health panel, Playground trust layer.
+
+---
+
+## 2026-03-03 — RAG PDF Validation, Retrieval Weighting, and PM v7 Transition Prep
+
+### RAG Drive Ingestion Validation
+- Verified Google Drive ingestion pipeline is operational.
+- Confirmed 923 Drive documents indexed, 875 with embeddings.
+- Confirmed non-null content for 875 Drive chunks.
+- Verified PDF parsing stores raw extracted text (not summaries).
+- Confirmed table-of-contents style text and page markers (e.g., "55 | Page") present in stored chunks.
+
+### Retrieval Weighting Upgrade
+- Implemented retrieval weighting hierarchy:
+  1. Q&A-derived contract fields (canonical authority)
+  2. Manual Improve Quality examples (fine_tune_examples evidence pack)
+  3. Drive RAG documents (boosted for book/PDF intent)
+  4. Crawled URL content (penalized for noisy product/account routes)
+- Added Drive boost for book/PDF intent queries.
+- Added product page penalty when user intent is informational (not transactional).
+- Added deduplication by source_url during ranking.
+
+### Prompt Rewrite Architecture Confirmation
+- Confirmed Q&A-derived onboarding fields are preserved via merge-protection logic.
+- Confirmed rewrite logic prevents field shrinking below 70% of prior length.
+- Confirmed dynamic fields (product_list, escalation_policy, etc.) protected from unintended wipe.
+- Verified RAG evidence pack injected into evaluateQuality() and finalRefine().
+
+### Observability Notes
+- Confirmed rag_documents counts by source_type.
+- Confirmed embeddings exist for Drive and URL sources.
+- Confirmed Playground retrieval returns Drive content when book-intent detected.
+- No active ingestion failures.
+
+### Governance Decision
+- Declared readiness for Project Manager Agent v7 activation.
+- Governance reset planned to prevent context drift.
+- Phase Focus: RAG → Prompt Rewrite Integration Completion.
+
+Status:
+System stable. PDF ingestion verified. Retrieval weighting active. Rewrite engine RAG-aware. Ready for PM v7 transition.
+
+
+## 2026-03-03 — Documentation Refresh + Codex Execution Protocol (PM v6)
+
+### Documentation + Governance
+- Began PM v7 transition prep by re-aligning documentation to current architecture state.
+- Reconfirmed governance rules:
+  - Q&A-derived onboarding contract fields are canonical.
+  - RAG is supplemental.
+  - Fine-tune examples are evidence for the Prompt Engineer.
+
+### Codex Execution Protocol
+- Added a dedicated **Codex Execution Protocol** document to standardize how PM ↔ Codex tasks are scoped and executed.
+- Standardized requirements for Codex tasks:
+  - Reasoning level
+  - Feature domain isolation
+  - Explicit file list
+  - Constraints / regression protections
+
+### Local Dev Recovery Note
+- Resolved local dev startup confusion by confirming `npm run dev` must be executed from the `web/` app directory (Next.js 16 app).
+
+Status:
+Docs are being refreshed to reduce drift and support PM v7 activation.
