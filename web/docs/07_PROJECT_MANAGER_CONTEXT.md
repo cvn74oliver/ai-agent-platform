@@ -1,6 +1,6 @@
 🗂️ Project Manager Agent Context
 
-Last updated: February 13, 2026
+Last updated: March 4, 2026
 
 Role & Scope
 
@@ -22,11 +22,65 @@ Communication Protocol
 	•	Uses /handoff to pass information between agents as needed.
 	•	Automatically references each agent’s context file through linked docs.
 
+Codex Execution Protocol (CRITICAL)
+- Codex is the primary code execution engine.
+- Project Manager/Chat is the planner + risk controller; Codex writes code and runs terminal commands.
+- Every Codex task MUST include:
+  1) Feature Domain (one domain only per thread)
+  2) Reasoning Level (LOW / MEDIUM / HIGH / EXTRA-HIGH)
+  3) Required file list (explicit @file paths)
+  4) Objective + constraints + regression protections
+- If Codex fails twice on the same issue: stop, summarize cleanly, return for architectural clarification.
+
+Lightweight Codex Usage Rule
+- Codex is required for:
+  • Multi-file edits
+  • Schema changes
+  • Cross-domain architectural changes
+  • Tasks requiring terminal execution or build verification
+- Project Manager may directly edit single-file documentation or minor logic updates without invoking Codex.
+- Avoid unnecessary Codex delegation to reduce overhead and prevent redundant review layers.
+
+Feature Domain Map
+1. RAG Ingestion & Retrieval
+2. Prompt Contract / Summary Rewrite Engine
+3. Fine-Tuning System
+4. Agent Runtime (Production Inference)
+5. Workflow / Automation Engine
+6. Dashboard Intelligence Layer
+
+Canonical Authority Rules (NON-NEGOTIABLE)
+- Q&A-derived Prompt Contract fields are canonical (Improve Quality with Q&A + manual edits).
+- RAG (Drive + crawled pages) is supplemental evidence only.
+- Fine-tune examples/datasets are separate; do not mix fine-tune generation work into RAG ingestion threads.
+- Never allow silent field shrinking or removal of guardrails/escalation logic.
+
+Dry Run Safety
+- “Dry run” means: run evaluation/rewrite logic and show the result, but do NOT persist changes to Supabase.
+- Use dry runs for risky prompt rewrites or schema-adjacent changes.
+
+Current Checkpoint (March 2026)
+- Google Drive PDF ingestion is working end-to-end:
+  - `rag_documents` contains substantial Drive chunks with embeddings.
+  - `title` is set to the Drive filename and `source_url` is the Drive file view URL.
+- Playground retrieval is tuned to prefer Drive/PDF chunks for book/guide/manual intent and penalize noisy store URLs.
+- `recalculate-quality` uses a small RAG evidence pack as supplemental input but must preserve canonical contract fields.
+
+- Codex protocol updated to support lightweight single-file edits without mandatory Codex escalation.
+- Docker is NOT required for hosted Supabase usage; schema updates may be performed via Supabase SQL Editor or CLI migrations when necessary.
+
+Definition of Done for “Drive Knowledge Used”
+1) Drive chunks exist (non-empty `content`) and embeddings exist.
+2) Playground can retrieve Drive chunks for book-intent queries.
+3) Prompt Engineer rewrite can incorporate factual details from Drive without overriding the canonical contract.
+4) Fine-tune bridge is planned as a separate domain (not required for RAG completion).
+
 Current Focus
-	•	Maintain up-to-date TODO.md across all agents.
-	•	Monitor session health and identify any agents showing signs of drift.
-	•	Ensure CHANGELOG.md and backups are current.
-	•	Prepare weekly and monthly roll-ups.
+	•	Keep TODO.md / CHANGELOG.md / CURRENT_STATE.md accurate and current.
+	•	Enforce Codex task structure (domain + reasoning level + files + constraints).
+	•	Maintain RAG ingestion/retrieval health and verification checks (Drive + web).
+	•	Protect canonical Prompt Contract fields from being overwritten by RAG.
+	•	Prepare clean handoffs between PM versions (v6 → v7) at stable checkpoints.
 
 Reference Links
 	•	Project Manager Context: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/07_PROJECT_MANAGER_CONTEXT.md
@@ -40,131 +94,8 @@ Reference Links
 	•	System Overview: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/system_overview.md
 	•	CHANGELOG: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/CHANGELOG.md
 	•	TODO List: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/TODO.md
+	•	Codex Execution Protocol: (local) codex-execution-protocol.md
 
-## Session Log – Activation (Nov 6 2025)  
-
-/resume_role
-You are the PROJECT MANAGER AGENT for the AI Agent Platform project.
-This is your first activation. Review all context and confirm full understanding before making any recommendations.
-
----BEGIN CONTEXT---
-🗂️ Project Manager Agent Context
-
-Last updated: November 2025
-
-Role & Scope
-
-The Project Manager Agent oversees the coordination, scheduling, and synchronization of all other AI agents in the AI Agent Platform project.
-It ensures smooth collaboration, prevents context drift, and maintains project continuity.
-
-Core Responsibilities
-	•	Review and interpret 00_MASTER_PROJECT.md daily.
-	•	Generate and update daily priorities in TODO.md.
-	•	Track session health for all agents.
-	•	At the end of each week, summarize overall progress and append updates to CHANGELOG.md.
-	•	Manage agent resets and reactivations when sessions drift or expire.
-	•	Report any inconsistencies or dependencies between roles.
-	•	Provide Oliver with clear summaries, risks, and next steps.
-
-Communication Protocol
-	•	Interacts with Oliver daily for approvals or high-level direction.
-	•	Uses /summarize_session to generate end-of-day summaries.
-	•	Uses /handoff to pass information between agents as needed.
-	•	Automatically references each agent’s context file through linked docs.
-
-Current Focus
-	•	Maintain up-to-date TODO.md across all agents.
-	•	Monitor session health and identify any agents showing signs of drift.
-	•	Ensure CHANGELOG.md and backups are current.
-	•	Prepare weekly and monthly roll-ups.
-
-Reference Links
-	•	Project Manager Context: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/07_PROJECT_MANAGER_CONTEXT.md
-	•	Master Project Overview: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/system_overview.md
-	•	Agent Activation Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/agent_activation_checklist.md
-	•	Daily Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/daily_checklist.md
-	•	Weekly Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/weekly_checklist.md
-	•	Monthly Checklist: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/monthly_checklist.md
-	•	Automation Map: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/automation_map.md
-	•	Troubleshooting & Recovery Guide: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/troubleshooting_recovery.md
-	•	System Overview: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/system_overview.md
-	•	CHANGELOG: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/CHANGELOG.md
-	•	TODO List: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/TODO.md
-
----END CONTEXT---
-
-Your objectives:
-1. Read and fully understand the context above.  
-2. Confirm that you have successfully loaded the Project Manager Agent context.  
-3. Summarize your responsibilities, dependencies, and primary functions in your own words.  
-4. Review the latest 00_MASTER_PROJECT.md, TODO.md, and CHANGELOG.md (you will be provided the current versions right after this message).  
-5. Generate today’s top 5 priorities for each active agent (Architect, Frontend, Backend, Workflow, LLM Trainer, Avatar & Voice).  
-6. Verify that the Agent Session Health list in TODO.md is accurate and flag any agents due for refresh.  
-7. Summarize overall project status, including current progress, risks, and key dependencies.  
-8. End your output with a concise daily plan for Oliver to review and approve before execution.
-
-✅ **Project Manager Agent Activated**
-
-I’ve successfully loaded and reviewed the **Project Manager Agent Context** for the AI Agent Platform project.
-
----
-
-### 🧭 Summary in My Own Words
-
-I am responsible for **coordinating and synchronizing** all agents in the AI Agent Platform — ensuring that every role (Architect, Backend, Frontend, Workflow, LLM Trainer, Avatar & Voice, etc.) stays aligned with project goals, documentation, and deadlines.
-
-My core functions include:
-
-* Maintaining **project structure and consistency** across all documentation (`00_MASTER_PROJECT.md`, `TODO.md`, `CHANGELOG.md`).
-* **Tracking session health** for all agents and reactivating or refreshing any that drift or lose context.
-* Producing **daily, weekly, and monthly reports** that summarize progress, risks, and next steps.
-* Acting as the **central coordination hub**, handing off relevant updates or dependencies between agents.
-* Providing **Oliver** with a clear, high-level **status dashboard** and actionable **daily plan**.
-
-Dependencies:
-
-* I depend on all role agents (Architect, Backend, Frontend, etc.) for current operational status and deliverables.
-* I rely on `Supabase`, `Next.js`, and GitHub documentation to cross-reference system alignment.
-* I serve as the **liaison between agents** and Oliver — ensuring no information gaps or overlaps.
-
----
-
-### 🧩 Key Files I Maintain
-
-| File                   | Purpose                                                           |
-| ---------------------- | ----------------------------------------------------------------- |
-| `00_MASTER_PROJECT.md` | The central definition of project architecture and role scopes.   |
-| `TODO.md`              | Daily and per-agent action list with health tracking.             |
-| `CHANGELOG.md`         | Historical log of progress, updates, and resets.                  |
-| `automation_map.md`    | Overview of all automation integrations between tools and agents. |
-
----
-
-### 🧠 Next Step
-
-To proceed, please provide the **current versions** of:
-
-* `00_MASTER_PROJECT.md`
-* `TODO.md`
-* `CHANGELOG.md`
-
-Once those are received, I will:
-
-1. Analyze each for accuracy and freshness.
-2. Generate **today’s Top 5 priorities** for each active agent:
-
-   * Architect
-   * Frontend
-   * Backend
-   * Workflow Integration
-   * LLM Trainer
-   * Avatar & Voice
-3. Verify and flag any agents in the **Session Health** list needing refresh or reactivation.
-4. Deliver a **concise overall project status summary** and a **daily plan** for Oliver’s review and approval.
-
----
-
-**Ready for next input:** please paste or upload the latest versions of the three core files so I can complete today’s coordination cycle.
 
 ## Session Log – Work Summary (Nov 8 2025)
 
@@ -666,3 +597,73 @@ Next Focus:
 - Session naming improvements in Playground.
 
 **Checkpoint:** System stable. Safe turnover point for PM v6.
+
+## Session Log – Work Summary (Feb 14–16, 2026) — RAG from Google Drive PDFs + Retrieval Tuning
+
+### What happened
+- Focus shifted from “URL crawl works” → “Drive PDFs must ingest cleanly and be retrievable in Playground.”
+- The RAG ingestion worker (`/api/rag/run`) was iterated to reliably parse Google Drive PDFs, chunk them, embed chunks, and persist them into `rag_documents` (and `rag_chunks`) with correct metadata.
+- The Playground runtime retrieval was upgraded to ensure it can actually retrieve Drive-derived knowledge (not just web/product pages), including:
+  - pgvector RPC retrieval when available.
+  - JS cosine fallback when RPC is unavailable or returns no results.
+  - Heuristics to prefer Drive/PDF chunks for “book/guide/manual” intent and penalize noisy store URLs (cart/checkout/my-account/product pages) when the user is asking about content.
+
+### Confirmed behaviors
+- Drive ingestion stores:
+  - `source_type='drive'`
+  - `title` set to the Drive filename
+  - `source_url` set to the Drive file view URL
+  - `content` populated with extracted text chunks
+  - `embedding` populated for most chunks
+- SQL checks confirmed Drive ingestion progressed from “nearly empty” → substantial:
+  - Drive docs and embeddings increased (e.g., 923 docs / 875 embeddings), and previews showed real book content from PDFs.
+
+### Known issues / caveats
+- Some external sites (e.g., `support.curativemushrooms.com`) were blocked by HTTP 403 and should be treated as external constraints (not system regressions).
+- Large Drive docs can dominate an ingest run; worker prioritization was adjusted to ensure PDFs are processed first.
+- Retrieval quality depends on:
+  - chunking strategy
+  - title + URL boosts
+  - penalties for noisy store URLs
+
+### Prompt Contract protection (CRITICAL)
+- Q&A-derived Prompt Contract fields (onboarding_summary content that results from Improve Quality with Q&A and subsequent normalization) are canonical.
+- RAG evidence (Drive + crawl content) is supplemental:
+  - Used to add factual detail and fill gaps.
+  - Must NOT override guardrails, escalation policy, or tone established by the contract and training examples.
+- Recalculate-quality route updated to include:
+  - `rag_evidence` in evaluateQuality and finalRefine inputs.
+  - Preservation/merge protection so fields do not shrink or get wiped.
+
+### Current status checkpoint
+- RAG ingestion: ✅ Drive PDFs ingesting and embedding.
+- RAG retrieval: ✅ Playground can retrieve Drive chunks, with intent-based preference toward book/PDF content.
+- Prompt rewrite: ✅ recalculate-quality can use RAG evidence without overriding the canonical Q&A contract.
+- Fine-tune generation from docs: 🟡 not fully automated yet (still a planned bridge step).
+
+---
+
+## Session Log – Work Summary (Mar 3, 2026) — Reset + Documentation Hygiene + PM v7 Transition
+
+### Why this log exists
+- After a long multi-week debugging thread, we are performing a documentation refresh + clean reset to reduce drift.
+
+### Today’s objective
+- Update PM logs, TODO/CHANGELOG/CURRENT_STATE, then activate Project Manager Agent v7 using the standard activation checklist.
+
+### Immediate next actions (in order)
+1) Verify `web/docs/CURRENT_STATE.md` is accurate and includes the latest RAG + Drive PDF ingestion/retrieval state.
+2) Update `TODO.md`:
+   - Agent Session Health
+   - current Phase header
+   - next priorities (RAG → rewrite evidence pack → fine-tune bridge)
+3) Update `CHANGELOG.md`:
+   - Log the RAG ingestion/retrieval milestone
+   - Log PM v6 → PM v7 transition
+4) Run automation scripts from `/web`:
+   - `./automation/update_memory.sh`
+   - `./automation/sync_docs_to_github.sh`
+
+### Handoff to Project Manager Agent v7
+- Carry forward the non-negotiable rule: Q&A contract fields are canonical; RAG is supplemental; fine-tune is separate.
+- Maintain feature-domain discipline: keep RAG ingestion/retrieval work isolated from fine-tune generator work.

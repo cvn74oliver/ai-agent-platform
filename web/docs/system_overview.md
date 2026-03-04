@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: February 13, 2026_
+_Last Updated: March 3, 2026_
 
 ---
 
@@ -21,7 +21,55 @@ Each AI "agent" (chat) acts as a specialized software engineer:
 - Avatar/Voice
 - Project Manager (PM)
 
+
 These AI agents reference the project’s `.md` files stored in `/web/docs/`, ensuring every chat has shared, persistent memory.
+
+### 🆕 Execution Architecture (Codex-Driven Development)
+
+As of March 2026, development operates under a Codex-driven execution model.
+
+Separation of Responsibilities:
+- ChatGPT (Architect / PM / Specialist Roles)
+  • Designs architecture
+  • Defines constraints
+  • Controls feature boundaries
+  • Prevents regression or silent contract drift
+
+- Codex
+  • Writes and edits code
+  • Executes terminal commands
+  • Runs compile/debug loops
+  • Performs multi-file refactors
+  • Confirms working state
+
+This separation ensures:
+- Architecture-first development
+- Reduced hallucination risk
+- Controlled rate-limit usage
+- Clear feature-domain isolation
+
+---
+
+### 🧠 Hybrid Execution Model (Important Clarification)
+
+Not every change requires Codex.
+
+The system now operates under a **Hybrid Model**:
+
+• Single-file edits, documentation updates, and lightweight logic adjustments  
+  → Can be handled directly in ChatGPT (Project Manager / Specialist role).  
+
+• Multi-file refactors, compile loops, terminal-dependent changes, schema migrations, or risky structural edits  
+  → Must be delegated to Codex.
+
+Purpose:
+- Reduce unnecessary execution overhead.
+- Avoid bureaucratic slowdowns.
+- Preserve architectural safety for high-impact changes.
+
+Decision Rule:
+If the task affects more than one file OR requires running terminal commands → use Codex.
+Otherwise → direct edit is acceptable.
 
 ---
 
@@ -35,7 +83,7 @@ Below is the full list of all major systems, APIs, and platforms that power the 
 |------------------|-------|------------------------|-------------|
 | **Next.js** | Frontend Framework | React-based framework running locally (`npm run dev`) and deployed to Vercel for production. | Serves the web app at `localhost:3000` (dev) and on Vercel (live). |
 | **Node.js + npm** | Runtime & Package Manager | Executes the Next.js app and installs all dependencies. | Installed locally on MacBook. |
-| **Supabase** | Backend-as-a-Service (Database + Auth + Storage) | Provides PostgreSQL database, user authentication, row-level security, and storage for files and logs. | Connected through `src/lib/supabase.ts`. |
+| **Supabase** | Backend-as-a-Service (Database + Auth + Storage) | Provides PostgreSQL database, user authentication, row-level security, and storage for files and logs. | Connected through `src/lib/supabase.ts`. Schema changes may be executed via Supabase Dashboard OR Supabase CLI (if linked locally). |
 | **Vercel** | Frontend Hosting | Hosts the deployed version of the Next.js frontend (production build). | Linked to GitHub main branch for auto-deploys. |
 | **Render** | Backend Hosting | Handles long-running API routes or background jobs (if needed). | Deploys selected backend services and APIs. |
 | **GitHub** | Version Control & Public Docs | Stores the source code (private repo) and the `/ai-agent-platform-docs` public documentation repo. | Sync handled via `sync_docs_to_github.sh`. |
@@ -153,6 +201,23 @@ Firecrawl / External Crawlers
 | Monthly | Backups + API key rotation + planning | Keeps system secure and future-ready |
 | RAG Sync | Click Sync New/Changed or Force Full Resync | Creates rag_jobs + seeds rag_documents + background crawl + embedding generation |
 
+### 🧠 Feature Domain Protocol
+
+All development tasks must be scoped to a single Feature Domain:
+
+1. RAG Ingestion & Retrieval  
+2. Prompt Contract / Summary Rewrite Engine  
+3. Fine-Tuning System  
+4. Agent Runtime (Production Inference)  
+5. Workflow / Automation Engine  
+6. Dashboard Intelligence Layer  
+
+Rules:
+- Do not mix domains inside one Codex thread.
+- Declare reasoning level (LOW / MEDIUM / HIGH / EXTRA-HIGH).
+- Explicitly list files required for execution.
+- Define constraints before code generation.
+- Protect canonical Q&A-derived contract fields from silent modification.
 ---
 
 ## 📁 Key Folders
@@ -184,6 +249,29 @@ Firecrawl / External Crawlers
 - The public docs repo should only contain `.md` documentation.
 - Regularly rotate API keys (monthly checklist).
 - Always verify Supabase RLS rules are active.
+
+---
+
+## 🗄️ Supabase Schema Management
+
+There are two ways schema changes can be made:
+
+1. Supabase Dashboard (manual SQL in browser)  
+2. Supabase CLI (local, via terminal)
+
+The Supabase CLI is optional.
+
+If installed and linked:
+- Codex can generate migration SQL files.
+- You can run `supabase db push` locally.
+- Schema changes become version-controlled.
+
+If not installed:
+- Schema changes must be executed manually in the Supabase Dashboard.
+- Codex can still generate the SQL — you paste it into the browser.
+
+Installing Docker is ONLY required if using Supabase CLI locally.
+It is NOT required for normal development.
 
 ---
 
@@ -303,3 +391,90 @@ Important:
 - Wildcards require scanning to discover new pages.
 - External domains may block crawler (403).
 - Embeddings are stored using `text-embedding-3-small`.
+
+Retrieval Weighting Hierarchy (Current Logic):
+
+1. Q&A-Derived Contract Fields (Highest Authority)
+   - Manual "Improve Quality with Q&A" sessions.
+   - Canonical behavioral contract.
+   - Must never be overridden by RAG content.
+
+2. Google Drive RAG Documents (Structured Knowledge)
+   - SOPs, guides, internal doctrine.
+   - Boosted when book/manual intent is detected.
+
+3. Crawled URL Content (Supplemental Context)
+   - Product pages, help articles, marketing copy.
+   - Penalized when user intent indicates internal book/manual reference.
+
+RAG content is supplemental to the contract — never authoritative over it.
+---
+
+## Agent Runtime + Tool System v1
+
+This section defines the production inference control loop and tool-governance model for Agent Runtime.
+
+### 1) Plan -> Approve -> Execute Loop
+- Agents must generate an explicit execution plan before running any tools.
+- The plan must list: objective, intended tool actions, expected outputs, and risk level per action.
+- No tool execution is allowed until the plan is approved through the runtime approval path.
+- After approval, execution proceeds only for approved actions; any scope change requires re-plan and re-approval.
+
+### 2) Tool Registry Concept
+The Tool Registry is the canonical control plane for all runtime tool usage.
+
+Registry requirements:
+- `tools`: named tool definitions available to runtime agents.
+- `tool actions`: granular operations per tool (read/list/create/update/delete/execute variants).
+- `authentication`: required auth method and credential policy for each tool/action.
+- `risk levels`: policy classification per action (for example: low, medium, high) used for gating and approvals.
+
+Behavioral rules:
+- Agents may invoke only registered tools and registered actions.
+- Unregistered tools/actions are blocked by default.
+- Authentication and risk policy must be resolved from registry metadata at execution time.
+
+### 3) Approval Queue Model
+Approval is maturity-based and follows a controlled progression:
+- `new hire`: all non-trivial actions require explicit human approval.
+- `confidence`: repeated correct behavior earns scoped auto-approval for low-risk actions.
+- `graduation`: agent can auto-execute approved low-risk patterns, while medium/high-risk actions remain gated.
+
+Queue requirements:
+- Every pending action enters an approval queue with plan context, tool/action, risk level, and rationale.
+- Approvers can approve, reject, or request revision.
+- Rejections and revisions feed back into agent confidence scoring.
+
+### 4) Audit Logging Requirements
+All runtime decisions and tool operations must be fully auditable.
+
+Minimum log fields:
+- timestamp
+- agent identifier
+- session/run identifier
+- plan version
+- tool + action
+- authentication context (policy reference, not raw secrets)
+- risk level
+- approval decision (approved/rejected/revised), approver, and decision timestamp
+- execution result (success/failure) and error summary
+
+Audit principles:
+- Logs must preserve end-to-end traceability from plan creation through final execution result.
+- Logs must be immutable or append-only in practice.
+- Logs must support operational review, incident analysis, and compliance reporting.
+
+### 5) MVP Pilot Example: Gmail Inbox Assistant
+Pilot objective: validate Agent Runtime tool governance on a constrained, high-utility workflow.
+
+Pilot workflow:
+- Scan inbox.
+- Classify email categories (important, routine, junk/spam-like).
+- Label/archive junk messages.
+- Flag important emails for user attention.
+- Enforce approval gating before any destructive or user-visible state change.
+
+MVP gating policy:
+- Read/classify steps can run under low-risk policy.
+- Label/archive and other state-changing actions require approval unless agent maturity policy explicitly allows them.
+- Any uncertain classification escalates to approval queue instead of auto-action.

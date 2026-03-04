@@ -21,8 +21,10 @@ export async function POST(req: Request) {
         : {}
 
     // --- Normalize RAG sources (Drive/Dropbox/etc) ---
+    // NOTE: agents.rag_sources is JSONB in the DB. We always write a JSON ARRAY
+    // (including empty []) so downstream scheduling doesn't see `{}`.
     const rawRagLinks = (summary as any).rag_links
-    let rag_sources: string[] | null = null
+    let rag_sources: string[] = []
 
     if (Array.isArray(rawRagLinks)) {
       rag_sources = rawRagLinks
@@ -36,8 +38,9 @@ export async function POST(req: Request) {
     }
 
     // --- Normalize crawl domains (URLs / wildcards) ---
+    // NOTE: agents.crawl_domains is JSONB in the DB. Always write a JSON ARRAY.
     const rawCrawl = (summary as any).crawl_domains
-    let crawl_domains: string[] | null = null
+    let crawl_domains: string[] = []
 
     if (Array.isArray(rawCrawl)) {
       crawl_domains = rawCrawl
@@ -50,18 +53,15 @@ export async function POST(req: Request) {
         .filter(Boolean)
     }
 
-    // Build update payload – only include rag_sources / crawl_domains
-    // if we actually found values (so we don’t accidentally nuke them with null)
+    // Build update payload.
+    // IMPORTANT: rag_sources + crawl_domains are derived from onboarding_summary.
+    // We ALWAYS write them (including empty arrays) so they accurately reflect
+    // the Summary page and so the scheduler doesn't treat `{}` as "no sources".
     const updatePayload: Record<string, any> = {
       onboarding_summary,
       additional_notes,
-    }
-
-    if (rag_sources && rag_sources.length > 0) {
-      updatePayload.rag_sources = rag_sources
-    }
-    if (crawl_domains && crawl_domains.length > 0) {
-      updatePayload.crawl_domains = crawl_domains
+      rag_sources,     // jsonb array
+      crawl_domains,   // jsonb array
     }
 
     const { data, error } = await supabase

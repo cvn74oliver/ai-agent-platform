@@ -381,3 +381,117 @@ Platform fully stable. Documentation synchronized. Ready for controlled transiti
 
 ---
 ---
+
+Project Manager Agent v6 Activated – February 2026
+Refreshed after RAG delta/full scheduling implementation.
+Analytics & Intelligence phase confirmed stable.
+All documentation synchronized and Git history cleaned.
+
+Feb 13, 2026 — PM Agent v6 Activated
+- PM v6 activated and synchronized with latest project state.
+- Phase 3 confirmed: Intelligence & Visibility.
+- Next sprint focus: RAG job rehydration, Dashboard charts/top agents/RAG health panel, Playground trust layer.
+
+---
+
+## 2026-03-03 — RAG PDF Validation, Retrieval Weighting, and PM v7 Transition Prep
+
+### RAG Drive Ingestion Validation
+- Verified Google Drive ingestion pipeline is operational.
+- Confirmed 923 Drive documents indexed, 875 with embeddings.
+- Confirmed non-null content for 875 Drive chunks.
+- Verified PDF parsing stores raw extracted text (not summaries).
+- Confirmed table-of-contents style text and page markers (e.g., "55 | Page") present in stored chunks.
+
+### Retrieval Weighting Upgrade
+- Implemented retrieval weighting hierarchy:
+  1. Q&A-derived contract fields (canonical authority)
+  2. Manual Improve Quality examples (fine_tune_examples evidence pack)
+  3. Drive RAG documents (boosted for book/PDF intent)
+  4. Crawled URL content (penalized for noisy product/account routes)
+- Added Drive boost for book/PDF intent queries.
+- Added product page penalty when user intent is informational (not transactional).
+- Added deduplication by source_url during ranking.
+
+### Prompt Rewrite Architecture Confirmation
+- Confirmed Q&A-derived onboarding fields are preserved via merge-protection logic.
+- Confirmed rewrite logic prevents field shrinking below 70% of prior length.
+- Confirmed dynamic fields (product_list, escalation_policy, etc.) protected from unintended wipe.
+- Verified RAG evidence pack injected into evaluateQuality() and finalRefine().
+
+### Observability Notes
+- Confirmed rag_documents counts by source_type.
+- Confirmed embeddings exist for Drive and URL sources.
+- Confirmed Playground retrieval returns Drive content when book-intent detected.
+- No active ingestion failures.
+
+### Governance Decision
+- Declared readiness for Project Manager Agent v7 activation.
+- Governance reset planned to prevent context drift.
+- Phase Focus: RAG → Prompt Rewrite Integration Completion.
+
+Status:
+System stable. PDF ingestion verified. Retrieval weighting active. Rewrite engine RAG-aware. Ready for PM v7 transition.
+
+
+## 2026-03-03 — Documentation Refresh + Codex Execution Protocol (PM v6)
+
+### Documentation + Governance
+- Began PM v7 transition prep by re-aligning documentation to current architecture state.
+- Reconfirmed governance rules:
+  - Q&A-derived onboarding contract fields are canonical.
+  - RAG is supplemental.
+  - Fine-tune examples are evidence for the Prompt Engineer.
+
+### Codex Execution Protocol
+- Added a dedicated **Codex Execution Protocol** document to standardize how PM ↔ Codex tasks are scoped and executed.
+- Standardized requirements for Codex tasks:
+  - Reasoning level
+  - Feature domain isolation
+  - Explicit file list
+  - Constraints / regression protections
+
+### Local Dev Recovery Note
+- Resolved local dev startup confusion by confirming `npm run dev` must be executed from the `web/` app directory (Next.js 16 app).
+
+Status:
+Docs are being refreshed to reduce drift and support PM v7 activation.
+
+
+## 2026-03-03 — Codex Workflow Refinement + Supabase CLI Login (PM v6)
+
+### Codex workflow refinement
+- Clarified that Codex is primarily for **multi-file edits + terminal-driven debug loops**; single-file micro-edits can be handled directly to reduce overhead.
+- Reconfirmed Feature Domain discipline: one domain per Codex thread (RAG, Prompt Contract, Fine-Tuning, Runtime, Workflow, Dashboard).
+- Reconfirmed Canonical Authority: Q&A-derived contract fields > manual examples > RAG (Drive/URL).
+
+### Supabase / schema tooling
+- Confirmed Supabase CLI login is working locally (prerequisite for schema/migration workflows).
+- Documented that Docker is **optional** for most day-to-day work; recommended only if/when we need local Postgres via Supabase CLI (`supabase start`) or local migration testing.
+
+Status:
+Governance tightened. Codex workflow is now hybrid (direct edits for small changes, Codex for multi-file + terminal loops). Supabase CLI access confirmed.
+
+---
+
+## 2026-03-04 — Golden Path Health Check Script Added
+
+### What changed
+- Added a runnable **Golden Path** health check script under the `web/` app to quickly verify the platform’s core “happy path” is working.
+- Added an npm script entry so the check can be run consistently from the terminal.
+
+### How to run
+- From the `web/` directory:
+  - `npm run golden-path`
+  - If the script supports agent-scoped checks, run with:
+    - `AGENT_ID="<agent-id>" npm run golden-path`
+
+### Why this matters
+- Reduces manual clicking during pre-sync verification.
+- Provides a repeatable, low-friction gate before running:
+  - `./automation/update_memory.sh`
+  - `./automation/generate_project_tree.sh`
+  - `./automation/sync_docs_to_github.sh`
+
+Status:
+Golden Path automation added and ready for routine pre-sync verification.

@@ -17,66 +17,42 @@ type RagDocumentRow = {
   job_id: string
   source_type: string | null
   source_url: string | null
+  title: string | null
   content: string | null
   embedding: number[] | null
 }
 
-// Helper: Parse Postgres float array column (may be string or array)
-function parsePgFloatArray(v: unknown): number[] | null {
-  // pgvector (Supabase) may come back as an object; try common shapes.
-  if (v && typeof v === 'object') {
-    const anyV: any = v
-    const candidate =
-      anyV?.data ||
-      anyV?.value ||
-      anyV?.vector ||
-      anyV?.embedding ||
-      null
+// -----------------------------------------------------------------------------
+// Embedding helpers (robust parsing + cosine similarity)
+// -----------------------------------------------------------------------------
 
-    if (Array.isArray(candidate)) {
-      const out = candidate.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n))
-      return out.length ? out : null
-    }
-
-    // Some clients serialize as { "0": 0.1, "1": 0.2, ... }
-    const vals = Object.values(anyV)
-    if (vals.length && vals.every((x) => typeof x === 'number')) {
-      return (vals as number[]).filter((n) => Number.isFinite(n))
-    }
-  }
-
+function parseEmbedding(v: unknown): number[] | null {
+  if (!v) return null
   if (Array.isArray(v)) {
     const out = v.map((x) => Number(x)).filter((n) => Number.isFinite(n))
     return out.length ? out : null
   }
-
   if (typeof v === 'string') {
-    // Common Postgres array string format: "{1,2,3}" or "[1,2,3]"
     const t = v.trim()
     const inner = t.startsWith('{') && t.endsWith('}') ? t.slice(1, -1) : t
     const inner2 = inner.startsWith('[') && inner.endsWith(']') ? inner.slice(1, -1) : inner
-    const parts = inner2
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean)
-
-    const nums = parts
-      .map((p) => Number(p))
-      .filter((n) => Number.isFinite(n))
-
+    const parts = inner2.split(',').map((p) => p.trim()).filter(Boolean)
+    const nums = parts.map((p) => Number(p)).filter((n) => Number.isFinite(n))
     return nums.length ? nums : null
+  }
+
+  // Some clients serialize as objects; attempt numeric values.
+  if (typeof v === 'object') {
+    const vals = Object.values(v as any)
+    if (vals.length && vals.every((x) => typeof x === 'number')) {
+      const out = (vals as number[]).filter((n) => Number.isFinite(n))
+      return out.length ? out : null
+    }
   }
 
   return null
 }
 
-function normalizeEmbedding(v: unknown): number[] | null {
-  return parsePgFloatArray(v)
-}
-
-/**
- * Simple cosine similarity between two vectors
- */
 function cosineSimilarity(a: number[], b: number[]): number {
   if (!a.length || !b.length || a.length !== b.length) return 0
   let dot = 0
@@ -91,6 +67,137 @@ function cosineSimilarity(a: number[], b: number[]): number {
   }
   if (!na || !nb) return 0
   return dot / (Math.sqrt(na) * Math.sqrt(nb))
+}
+
+function normalizeText(v: unknown): string {
+  return typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : ''
+}
+
+function urlKeywordScore(url: string, q: string): number {
+  const u = (url || '').toLowerCase()
+  if (!u) return 0
+
+  const tokens = (q || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/g, ''))
+    .filter((t) => t.length >= 4)
+    .slice(0, 12)
+
+  if (tokens.length === 0) return 0
+
+  let hit = 0
+  for (const t of tokens) {
+    if (u.includes(t)) hit++
+  }
+  return hit / tokens.length
+}
+
+async function retrieveRagContextJsFallback(opts: {
+  supabase: any
+  agentId: string
+  queryText: string
+  topK: number
+  minSim: number
+}): Promise<
+  {
+    content: string
+    source_type: string | null
+    source_url: string | null
+    similarity: number
+  }[]
+> {
+  const { supabase, agentId, queryText, topK, minSim } = opts
+
+  // NOTE: This is a fallback for environments where pgvector/RPC isn't available or isn't wired.
+  // We keep limits conservative to avoid heavy CPU.
+  const wantsLink = /\b(link|url|article|blog)\b/i.test(queryText || '')
+  const preferDrive = isBookIntent(queryText)
+
+  const queryEmbedding = await embedText(queryText)
+  if (!queryEmbedding) return []
+
+  // Fetch a bigger set so we can rank in JS.
+  // Prefer recent docs, but pull enough to include Drive.
+  const maxDocs = wantsLink ? 2500 : 1500
+
+  const { data: docsRecent, error: docsErr } = await supabase
+    .from('rag_documents')
+    .select('id, source_type, source_url, title, content, embedding, created_at')
+    .eq('agent_id', agentId)
+    .not('content', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(maxDocs)
+
+  if (docsErr) {
+    console.warn('[playground] JS fallback rag_documents query error:', docsErr)
+    return []
+  }
+
+  const docs = Array.isArray(docsRecent) ? (docsRecent as any[]) : []
+  if (!docs.length) return []
+
+  const scored = docs
+    .map((d) => {
+      const emb = parseEmbedding(d?.embedding)
+      const content = normalizeText(d?.content)
+      const title = normalizeText(d?.title)
+      const url = typeof d?.source_url === 'string' ? d.source_url : ''
+
+      if (!emb || !content) return null
+
+      // Base sim
+      let sim = cosineSimilarity(emb, queryEmbedding)
+
+      // Apply consistent boosts/penalties (title/link boost, drive boost, junk-url penalty)
+      sim = applyRetrievalAdjustments({
+        baseSim: sim,
+        sourceType: (d?.source_type ?? null) as string | null,
+        sourceUrl: url || null,
+        title,
+        queryText,
+        wantsLink,
+        preferDrive,
+      })
+
+      return {
+        content,
+        source_type: (d?.source_type ?? null) as string | null,
+        source_url: (d?.source_url ?? null) as string | null,
+        similarity: sim,
+      }
+    })
+    .filter(Boolean) as {
+    content: string
+    source_type: string | null
+    source_url: string | null
+    similarity: number
+  }[]
+
+  scored.sort((a, b) => b.similarity - a.similarity)
+
+  const seen = new Set<string>()
+  const deduped = scored.filter((r) => {
+    const urlKey = String(r?.source_url || '')
+    if (!urlKey) return true
+    if (seen.has(urlKey)) return false
+    seen.add(urlKey)
+    return true
+  })
+
+  const threshold = wantsLink ? Math.min(minSim, 0.2) : minSim
+  const top = deduped.filter((r) => r.similarity >= threshold).slice(0, topK)
+
+  console.log(
+    '[playground] RAG retrieved chunks (JS fallback):',
+    top.map((t) => ({
+      sim: t.similarity.toFixed(3),
+      url: t.source_url,
+      type: t.source_type,
+    }))
+  )
+
+  return top
 }
 
 /**
@@ -130,6 +237,97 @@ async function embedText(text: string): Promise<number[] | null> {
  *  - rag_documents (filter by job_id, take most recent N)
  *  - JS cosine similarity to rank chunks
  */
+function vectorLiteralFromArray(vec: number[]): string {
+  // PostgREST accepts pgvector input as a string like "[0.1,0.2,...]"
+  return `[${vec.join(',')}]`
+}
+
+function urlBadnessPenalty(url: string, queryText?: string): number {
+  const u = (url || '').toLowerCase()
+  if (!u) return 0
+
+  // Always penalize noisy e-commerce/account URLs
+  if (u.includes('/my-account')) return 0.30
+  if (u.includes('/cart')) return 0.25
+  if (u.includes('/checkout')) return 0.25
+  if (u.includes('add_to_compare')) return 0.35
+  if (u.includes('add_to_wishlist')) return 0.35
+  if (u.includes('add-to-cart=')) return 0.35
+  if (u.includes('?')) return 0.08
+
+  // If user is asking about book/PDF content (not buying), de-prioritize store product pages
+  const qt = String(queryText || '')
+  if (qt && isBookIntent(qt) && u.includes('/product/')) return 0.22
+
+  return 0
+}
+
+function isBookIntent(q: string): boolean {
+  const t = (q || '').toLowerCase()
+  return (
+    t.includes('table of contents') ||
+    t.includes('toc') ||
+    t.includes('chapter') ||
+    t.includes('page ') ||
+    t.includes('section') ||
+    t.includes('in the book') ||
+    t.includes('in the guide') ||
+    t.includes('this guide') ||
+    t.includes('pdf') ||
+    t.includes('ebook') ||
+    t.includes('book') ||
+    t.includes('manual')
+  )
+}
+
+function productPagePenalty(url: string, queryText: string): number {
+  const u = (url || '').toLowerCase()
+  if (!u) return 0
+
+  // If the user is asking about book/PDF content, product pages are often the wrong source.
+  // Keep a small extra penalty here; main penalty is in urlBadnessPenalty.
+  if (isBookIntent(queryText) && u.includes('/product/')) return 0.06
+
+  return 0
+}
+
+function applyRetrievalAdjustments(opts: {
+  baseSim: number
+  sourceType: string | null
+  sourceUrl: string | null
+  title: string
+  queryText: string
+  wantsLink: boolean
+  preferDrive: boolean
+}): number {
+  let sim = Number.isFinite(opts.baseSim) ? opts.baseSim : 0
+
+  // Title boost helps when users search by filename (esp. Drive PDFs)
+  if (opts.title) {
+    const tBoost = urlKeywordScore(opts.title, opts.queryText)
+    sim = Math.max(sim, 0.20 + tBoost * 0.80)
+  }
+
+  // Link intent boost
+  if (opts.wantsLink && opts.sourceUrl) {
+    const uBoost = urlKeywordScore(opts.sourceUrl, opts.queryText)
+    sim = Math.max(sim, 0.15 + uBoost * 0.85)
+  }
+
+  // When the user is asking about *book/guide/PDF content*, heavily prefer Drive chunks.
+  if (opts.sourceType === 'drive') {
+    sim += opts.preferDrive ? 0.28 : 0.12
+  }
+
+  // Penalize junk URLs + product pages (when not shopping)
+  if (opts.sourceUrl) {
+    sim -= urlBadnessPenalty(opts.sourceUrl, opts.queryText)
+    sim -= productPagePenalty(opts.sourceUrl, opts.queryText)
+  }
+
+  return sim
+}
+
 async function retrieveRagContext(opts: {
   supabase: any
   agentId: string
@@ -146,198 +344,186 @@ async function retrieveRagContext(opts: {
     similarity: number
   }[]
 > {
-  const {
-    supabase,
-    agentId,
-    queryText,
-    maxJobs = 10,
-    maxDocs = 800,
-    topK = 5,
-    minSim = 0.25,
-  } = opts
+  const { supabase, agentId, queryText, topK = 5, minSim = 0.25 } = opts
 
-  const qLower = (queryText || '').toLowerCase()
   const wantsLink = /\b(link|url|article|blog)\b/i.test(queryText || '')
+  const preferDrive = isBookIntent(queryText)
 
-  function urlKeywordScore(url: string, q: string): number {
-    const u = (url || '').toLowerCase()
-    if (!u) return 0
-
-    // Simple overlap scoring
-    const tokens = q
-      .toLowerCase()
-      .split(/\s+/)
-      .map((t) => t.replace(/[^a-z0-9]/g, ''))
-      .filter((t) => t.length >= 4)
-      .slice(0, 12)
-
-    if (tokens.length === 0) return 0
-    let hit = 0
-    for (const t of tokens) {
-      if (u.includes(t)) hit++
-    }
-    return hit / tokens.length
-  }
-
-  // 1️⃣ Embed the query text
+  // 1) Embed query
   const queryEmbedding = await embedText(queryText)
   if (!queryEmbedding) {
     console.warn('[playground] No query embedding — skipping RAG.')
     return []
   }
 
-  // 2️⃣ Fetch recent *completed* jobs for this agent
-const { data: jobs, error: jobsErr } = await supabase
-  .from('rag_jobs')
-  .select('id, status')
-  .eq('agent_id', agentId)
-  // For now, include all non-failed jobs so we still use docs even if status
-  // is still "pending". Later, when your worker marks jobs "completed",
-  // we can tighten this to .eq('status', 'completed').
-  .neq('status', 'failed')
-  .order('created_at', { ascending: false })
-  .limit(maxJobs)
+  // ---------------------------------------------------------------------------
+  // Drive-first retrieval for "book/PDF" questions.
+  // IMPORTANT: pgvector RPC may return mostly URL pages; boosts don't help if
+  // no Drive rows are returned. So we do an explicit Drive-only pass first.
+  // ---------------------------------------------------------------------------
+  if (preferDrive) {
+    try {
+      const driveMaxDocs = 2500
+      const { data: driveDocs, error: driveErr } = await supabase
+        .from('rag_documents')
+        .select('id, source_type, source_url, title, content, embedding, created_at')
+        .eq('agent_id', agentId)
+        .eq('source_type', 'drive')
+        .not('content', 'is', null)
+        .not('embedding', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(driveMaxDocs)
 
-if (jobs && jobs.length) {
-  console.log(
-    '[playground] Using rag_jobs IDs:',
-    jobs.map((j: any) => `${j.id} (${j.status})`)
-  )
-}
+      if (driveErr) {
+        console.warn('[playground] drive-first rag_documents query error (non-fatal):', driveErr)
+      } else {
+        const docs = Array.isArray(driveDocs) ? (driveDocs as any[]) : []
 
-  if (jobsErr) {
-    console.error('[playground] rag_jobs query error:', jobsErr)
-    return []
-  }
+        const scoredDrive = docs
+          .map((d) => {
+            const emb = parseEmbedding(d?.embedding)
+            const content = normalizeText(d?.content)
+            const title = normalizeText(d?.title)
+            const url = typeof d?.source_url === 'string' ? d.source_url : ''
+            if (!emb || !content) return null
 
-  if (!jobs || jobs.length === 0) {
-    console.log('[playground] No completed rag_jobs for this agent yet.')
-    return []
-  }
+            let sim = cosineSimilarity(emb, queryEmbedding)
+            sim = applyRetrievalAdjustments({
+              baseSim: sim,
+              sourceType: 'drive',
+              sourceUrl: url || null,
+              title,
+              queryText,
+              wantsLink,
+              preferDrive: true,
+            })
 
-  // 3️⃣ Fetch recent document chunks for this agent.
-  // We intentionally do NOT depend on rag_jobs status here.
-  // The worker may leave jobs as pending while documents/chunks are already written.
+            return {
+              content,
+              source_type: 'drive' as const,
+              source_url: (d?.source_url ?? null) as string | null,
+              similarity: sim,
+            }
+          })
+          .filter(Boolean) as {
+          content: string
+          source_type: 'drive'
+          source_url: string | null
+          similarity: number
+        }[]
 
-const { data: docsRecent, error: docsErr } = await supabase
-  .from('rag_documents')
-  .select('*')
-  .eq('agent_id', agentId)
-  .order('created_at', { ascending: false })
-  .limit(maxDocs)
+        scoredDrive.sort((a, b) => b.similarity - a.similarity)
 
-if (docsErr) {
-  console.error('[playground] rag_documents (by agent_id) query error:', docsErr)
-  return []
-}
+        const threshold = wantsLink ? Math.min(minSim, 0.2) : minSim
+        const topDrive = scoredDrive.filter((r) => r.similarity >= threshold).slice(0, topK)
 
-let docs = (docsRecent || []) as any[]
-
-// If user wants a link, pull extra blog docs to improve hit rate
-if (wantsLink) {
-  const { data: blogDocs, error: blogErr } = await supabase
-    .from('rag_documents')
-    .select('*')
-    .eq('agent_id', agentId)
-    .ilike('source_url', '%blog.curativemushrooms.com%')
-    .order('created_at', { ascending: false })
-    .limit(2000)
-
-  if (blogErr) {
-    console.warn('[playground] rag_documents (blog) query error (non-fatal):', blogErr)
-  } else if (Array.isArray(blogDocs) && blogDocs.length > 0) {
-    const byId = new Map<string, any>()
-    for (const d of docs) byId.set(String(d.id), d)
-    for (const d of blogDocs) byId.set(String(d.id), d)
-    docs = Array.from(byId.values())
-  }
-}
-
-if (!docs || docs.length === 0) {
-  console.log('[playground] No rag_documents available for this agent yet.')
-  return []
-}
-
-  // 4️⃣ Compute cosine similarity in Node
-  const pickText = (row: any): string | null => {
-    const candidates = [
-      row?.content,
-      row?.chunk,
-      row?.chunk_text,
-      row?.text,
-      row?.raw_text,
-      row?.page_text,
-    ]
-
-    for (const c of candidates) {
-      if (typeof c === 'string') {
-        const t = c.trim()
-        if (t) return t
+        if (topDrive.length > 0) {
+          console.log(
+            '[playground] RAG retrieved chunks (drive-first):',
+            topDrive.map((t) => ({
+              sim: Number(t.similarity || 0).toFixed(3),
+              url: t.source_url,
+              type: t.source_type,
+            }))
+          )
+          return topDrive
+        }
       }
+    } catch (e) {
+      console.warn('[playground] drive-first retrieval threw (non-fatal):', e)
     }
-
-    return null
   }
 
-  const usable = (docs as any[]).map((d: any) => {
-    const emb = normalizeEmbedding(d?.embedding)
-    const content = pickText(d)
-    return { ...d, __emb: emb, __content: content }
-  })
+  // 2) Try pgvector RPC first (fast + scalable)
+  try {
+    const fetchCount = wantsLink ? Math.max(topK * 6, 30) : Math.max(topK * 8, 80)
+    const queryVec = vectorLiteralFromArray(queryEmbedding)
 
-  const usableCount = usable.filter((d) => Array.isArray(d.__emb) && typeof d.__content === 'string').length
-  const embType = typeof (docs?.[0] as any)?.embedding
-
-  console.log('[playground] rag_docs loaded:', {
-    total: docs.length,
-    usable: usableCount,
-    sample_embedding_type: embType,
-    sample_has_content: typeof (docs?.[0] as any)?.content === 'string',
-  })
-
-  const scored = usable
-    .filter((d) => Array.isArray(d.__emb) && typeof d.__content === 'string')
-    .map((d) => {
-    const sim = cosineSimilarity(d.__emb as number[], queryEmbedding)
-    const url = (d.source_url || d.url || d.source || null) as any
-    const urlBoost = wantsLink && typeof url === 'string' ? urlKeywordScore(url, queryText) : 0
-
-    // For link requests, allow URL overlap to influence ranking strongly.
-    const blended = wantsLink ? Math.max(sim, 0.15 + urlBoost * 0.85) : sim
-
-    return {
-      content: d.__content as string,
-      source_type: d.source_type,
-      source_url: url,
-      similarity: blended,
-    }
+    const { data, error } = await supabase.rpc('match_rag_documents', {
+      p_agent_id: agentId,
+      p_query_embedding: queryVec,
+      p_match_count: fetchCount,
     })
 
-  // 5️⃣ Sort by similarity desc, filter threshold, slice topK
-  const top = scored
-    .filter((d) => d.similarity >= (wantsLink ? Math.min(minSim, 0.2) : minSim))
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, topK)
+    if (error) {
+      console.warn('[playground] match_rag_documents rpc error (will fallback):', error)
+    } else {
+      const rows = Array.isArray(data) ? data : []
 
-  if (top.length === 0) {
-    const best = scored
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 3)
-      .map((t) => ({ sim: Number(t.similarity.toFixed(3)), url: t.source_url }))
-    console.log('[playground] No chunks met threshold', { minSim, best })
+      if (rows.length > 0) {
+        const normalized = rows
+          .map((r: any) => {
+            const content = normalizeText(r?.content)
+            const title = normalizeText(r?.title)
+            const url = typeof r?.source_url === 'string' ? r.source_url : ''
+
+            // Some RPCs return distance instead of similarity.
+            // We standardize on similarity where higher is better.
+            let sim = typeof r?.similarity === 'number' ? r.similarity : 0
+            if (typeof r?.distance === 'number' && sim === 0) {
+              sim = 1 - r.distance
+            }
+
+            // Apply consistent boosts/penalties
+            sim = applyRetrievalAdjustments({
+              baseSim: sim,
+              sourceType: (r?.source_type ?? null) as string | null,
+              sourceUrl: url || null,
+              title,
+              queryText,
+              wantsLink,
+              preferDrive,
+            })
+
+            return {
+              content,
+              source_type: (r?.source_type ?? null) as string | null,
+              source_url: (r?.source_url ?? null) as string | null,
+              similarity: sim,
+            }
+          })
+          .filter((r: any) => typeof r?.content === 'string' && r.content.length > 0)
+
+        normalized.sort((a: any, b: any) => b.similarity - a.similarity)
+
+        const seen = new Set<string>()
+        const deduped = normalized.filter((r: any) => {
+          const urlKey = String(r?.source_url || '')
+          if (!urlKey) return true
+          if (seen.has(urlKey)) return false
+          seen.add(urlKey)
+          return true
+        })
+
+        const threshold = wantsLink ? Math.min(minSim, 0.2) : minSim
+        const top = deduped.filter((r: any) => r.similarity >= threshold).slice(0, topK)
+
+        console.log(
+          '[playground] RAG retrieved chunks (pgvector):',
+          top.map((t: any) => ({
+            sim: Number(t.similarity || 0).toFixed(3),
+            url: t.source_url,
+            type: t.source_type,
+          }))
+        )
+
+        if (top.length > 0) return top
+      }
+    }
+  } catch (e) {
+    console.warn('[playground] match_rag_documents rpc threw (will fallback):', e)
   }
 
-  console.log(
-    '[playground] RAG retrieved chunks:',
-    top.map((t) => ({
-      sim: t.similarity.toFixed(3),
-      url: t.source_url,
-      type: t.source_type,
-    }))
-  )
-
-  return top
+  // 3) JS cosine fallback (works with float8[] embeddings)
+  return retrieveRagContextJsFallback({
+    supabase,
+    agentId,
+    queryText,
+    topK,
+    minSim,
+  })
 }
+
 
 export async function POST(req: Request) {
   try {

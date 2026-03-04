@@ -15,6 +15,7 @@ export default function AgentSummaryPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [recalcLoading, setRecalcLoading] = useState(false) // 👈 add this
+  const [recalcDryRun, setRecalcDryRun] = useState(false)
   const [llmFinishSyncLoading, setLlmFinishSyncLoading] = useState(false)
   const [isTraining, setIsTraining] = useState(false)
   const [showClarify, setShowClarify] = useState(false)
@@ -40,6 +41,117 @@ export default function AgentSummaryPage() {
   const [ragJobStatus, setRagJobStatus] = useState<string | null>(null)
   const [ragJobError, setRagJobError] = useState<string | null>(null)
   const [ragJobUpdatedAt, setRagJobUpdatedAt] = useState<string | null>(null)
+  const [ragJobIsStale, setRagJobIsStale] = useState(false)
+
+  // --- Helper: RAG status helpers ---
+  function isActiveRagStatus(status: string | null): boolean {
+    if (!status) return false
+    const s = status.toLowerCase()
+    return [
+      'queued',
+      'pending',
+      'running',
+      'processing',
+      'in_progress',
+      'in-progress',
+      'started',
+      'working',
+    ].includes(s)
+  }
+
+  function isTerminalRagStatus(status: string | null): boolean {
+    if (!status) return false
+    const s = status.toLowerCase()
+    return [
+      'completed',
+      'complete',
+      'done',
+      'succeeded',
+      'success',
+      'failed',
+      'error',
+      'cancelled',
+      'canceled',
+    ].includes(s)
+  }
+
+    function prettyRagStatus(status: string | null, isStale: boolean): string {
+      const raw = status || 'unknown'
+      const s = raw.toLowerCase()
+      let label = raw
+
+      if (s === 'pending' || s === 'queued') label = 'Queued (waiting to start)'
+      else if (
+        s === 'running' ||
+        s === 'processing' ||
+        s === 'in_progress' ||
+        s === 'in-progress' ||
+        s === 'started' ||
+        s === 'working'
+      ) {
+        label = 'Running'
+      } else if (
+        s === 'completed' ||
+        s === 'complete' ||
+        s === 'done' ||
+        s === 'success' ||
+        s === 'succeeded'
+      ) {
+        label = 'Completed'
+      } else if (s === 'failed' || s === 'error') {
+        label = 'Failed'
+      } else if (s === 'cancelled' || s === 'canceled') {
+        label = 'Cancelled'
+      }
+
+      return isStale ? `${label} (stale)` : label
+    }
+
+    function fmt(n: number | null | undefined): string {
+      if (typeof n !== 'number' || !Number.isFinite(n)) return '0'
+      return n.toLocaleString()
+    }
+
+    function parseRagProgress(raw: string | null): {
+  isProgress: boolean
+  phase: 'drive' | 'web' | 'other'
+  headline: string
+  detail?: string
+} {
+  const s = String(raw || '').trim()
+  if (!s) return { isProgress: false, phase: 'other', headline: '' }
+
+  // We store live progress in rag_jobs.error as strings like:
+  // "running: drive file X chunks=123 (embedding...)" or "running: web processed=..."
+  if (!s.toLowerCase().startsWith('running:')) {
+    return { isProgress: false, phase: 'other', headline: s }
+  }
+
+  const lower = s.toLowerCase()
+  const phase: 'drive' | 'web' | 'other' = lower.includes('drive')
+    ? 'drive'
+    : lower.includes('web')
+    ? 'web'
+    : 'other'
+
+  const body = s.replace(/^running:\s*/i, '')
+
+  // If it contains "file", make headline be that file line
+  const fileIdx = body.toLowerCase().indexOf('file ')
+  if (fileIdx >= 0) {
+    const headline = body.slice(fileIdx).trim()
+    const prefix = body.slice(0, fileIdx).trim()
+    return {
+      isProgress: true,
+      phase,
+      headline,
+      detail: prefix || undefined,
+    }
+  }
+
+  return { isProgress: true, phase, headline: body }
+}
+
   const [trainingStats, setTrainingStats] = useState<{
     total_examples: number
     examples_by_type: Record<string, number>
@@ -188,6 +300,80 @@ console.log('[debug] 🔍 Agent Summary Query:', { id: params.id, data, error })
     }
     loadAgent()
   }, [params?.id, supabase])
+
+  // --- Rehydrate latest RAG job after refresh ---
+  useEffect(() => {
+    if (!agent?.id) return
+
+    // If we already have a job id (e.g., user just scheduled one this session), don't override.
+    if (lastRagJobId) return
+
+    let cancelled = false
+
+    async function rehydrateLatestJob() {
+      try {
+        // NOTE: We only select columns we know exist (status/error/created_at/updated_at).
+        // If additional columns exist (mode/document_count), we can extend later safely.
+        const { data: jobs, error: jobErr } = await supabase
+          .from('rag_jobs')
+          .select('id, status, error, created_at, updated_at')
+          .eq('agent_id', agent.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (cancelled) return
+
+        if (jobErr) {
+          console.warn('[RAG rehydrate] rag_jobs query error:', jobErr)
+          return
+        }
+
+        const job = Array.isArray(jobs) ? jobs[0] : null
+        if (!job?.id) return
+        // Always remember the latest job id for display and for “Run Sync Worker” resume.
+        setLastRagJobId(String(job.id))
+
+        // Always show last known status/error timestamps
+        setRagJobStatus(job.status ?? null)
+        setRagJobError(job.error ?? null)
+        setRagJobUpdatedAt(job.updated_at ? new Date(job.updated_at).toLocaleString() : null)
+
+        // Best-effort: show last scheduled timestamp based on created_at
+        if (job.created_at) {
+          setLastRagQueuedAt(new Date(job.created_at).toLocaleString())
+        }
+
+        // Only attach the poller for RECENT active jobs.
+        // This prevents an old "pending/queued" job from weeks ago from causing endless polling.
+        const status = (job.status ?? null) as string | null
+        const createdAtMs = job.created_at ? new Date(job.created_at).getTime() : 0
+        const updatedAtMs = job.updated_at ? new Date(job.updated_at).getTime() : 0
+        const lastTouch = Math.max(createdAtMs, updatedAtMs)
+        const ageMs = lastTouch ? Date.now() - lastTouch : Number.POSITIVE_INFINITY
+        const RECENT_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
+        const isStale = ageMs > RECENT_WINDOW_MS
+        setRagJobIsStale(isStale)
+
+        if (isActiveRagStatus(status) && ageMs <= RECENT_WINDOW_MS) {
+          setRagRunMsg(`Status: ${job.status}`)
+        } else {
+          // Do NOT set lastRagJobId → poller won't start. Still show status in UI.
+          if (status) {
+            setRagRunMsg(`Status: ${status}${ageMs > RECENT_WINDOW_MS ? ' (stale)' : ''}`)
+          }
+        }
+      } catch (err) {
+        console.warn('[RAG rehydrate] unexpected error:', err)
+      }
+    }
+
+    rehydrateLatestJob()
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent?.id])
 
     useEffect(() => {
     if (!agent?.id) return
@@ -535,6 +721,7 @@ async function recalculateQuality(forceRefine?: unknown) {
       body: JSON.stringify({
         agent_id: agent.id,
         ...(forceRefine === true ? { force_refine: true } : {}),
+        ...(recalcDryRun ? { dry_run: true } : {}),
       }),
     })
 
@@ -559,7 +746,9 @@ async function recalculateQuality(forceRefine?: unknown) {
     setOnboardingKey((k) => k + 1)
     setLastRecalcAt(new Date().toLocaleString())
     showToast(
-      forceRefine === true
+      recalcDryRun
+        ? '🧪 Dry run complete — no changes were saved.'
+        : forceRefine === true
         ? '✅ Full rewrite complete (forced refine).'
         : '✅ Quality score recalculated (fast).',
       6000
@@ -696,7 +885,7 @@ async function runKnowledgeNow() {
 
   // If we don't have a job id, we can still attempt to run by agent_id
   // (server can decide latest job).
-  const jobId = lastRagJobId
+  const jobId = ragJobIsStale ? null : lastRagJobId
 
   try {
     setRagRunErr(null)
@@ -723,6 +912,16 @@ async function runKnowledgeNow() {
     }
 
     setRagRunMsg('✅ Knowledge sync worker started (or continued). Refreshing stats…')
+    // Mark job as active/not-stale so the UI poller can show live progress.
+    setRagJobIsStale(false)
+    if (!ragJobStatus || ragJobStatus === 'pending') setRagJobStatus('running')
+    const returnedJobId = data?.data?.last_job_id
+
+    if (returnedJobId) {
+      setLastRagJobId(String(returnedJobId))
+      setRagJobStatus('running')
+      setRagJobIsStale(false)
+    }
 
     // Small delay so the worker can update job status/chunks.
     await new Promise((r) => setTimeout(r, 500))
@@ -1171,6 +1370,7 @@ useEffect(() => {
         setRagJobStatus(job.status ?? null)
         setRagJobError(job.error ?? null)
         setRagJobUpdatedAt(job.updated_at ? new Date(job.updated_at).toLocaleString() : null)
+        setRagJobIsStale(false)
       }
 
       const { count, error: cntErr } = await supabase
@@ -1183,43 +1383,17 @@ useEffect(() => {
         setRagProcessedCount(count)
       }
 
-      const status = job?.status
-      if (status === 'completed' || status === 'failed') {
+      const status = job?.status ?? null
+
+      // Stop polling once the job is terminal (support multiple terminal labels)
+      if (isTerminalRagStatus(status)) {
         if (interval) clearInterval(interval)
       }
 
-      // Refresh UI stats while running
-      if (status && status !== 'completed' && status !== 'failed') {
-        try {
-          const ks = await fetch('/api/agents/knowledge-stats', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agent_id: agent.id }),
-          })
-          const ksData = await ks.json()
-          if (ksData?.ok) setKnowledgeStats(ksData.data)
-        } catch {}
+      // Refresh UI stats ONLY while job is actively running
+      // NOTE: Do not refresh knowledge-stats/training-stats on every poll (too noisy + confusing). Stats update on page load and after manual actions.
 
-        try {
-          const ts = await fetch('/api/agents/training-stats', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agent_id: agent.id }),
-          })
-          const tsData = await ts.json()
-          if (tsData?.ok) setTrainingStats(tsData.data)
-        } catch {}
-      }
 
-      const queued = typeof lastRagQueuedCount === 'number' ? lastRagQueuedCount : null
-      const processed = typeof count === 'number' ? count : null
-      const pieces = [
-        job?.status ? `Status: ${job.status}` : null,
-        processed != null ? `Processed: ${processed}` : null,
-        queued != null && queued > 0 ? `Queued: ${queued}` : null,
-      ].filter(Boolean)
-
-      if (pieces.length) setRagRunMsg(pieces.join(' • '))
     } catch (err) {
       console.warn('[RAG poll] error:', err)
     }
@@ -1233,7 +1407,7 @@ useEffect(() => {
     if (interval) clearInterval(interval)
   }
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [lastRagJobId, agent?.id])
+}, [lastRagJobId, agent?.id, ragJobIsStale])
 
   if (loading)
     return (
@@ -1323,6 +1497,17 @@ useEffect(() => {
               • <span className="font-semibold">Improve with Q&amp;A</span> suggests targeted questions to
                 push the quality score higher.
             </p>
+
+            <label className="flex items-center gap-2 text-[11px] text-gray-400 select-none">
+              <input
+                type="checkbox"
+                checked={recalcDryRun}
+                onChange={(e) => setRecalcDryRun(e.target.checked)}
+                className="h-3 w-3"
+              />
+              Dry Run
+              <span className="text-gray-500">(don’t save changes)</span>
+            </label>
 
             <div className="flex flex-wrap gap-2 justify-end">
               <button
@@ -2099,7 +2284,9 @@ useEffect(() => {
               onClick={() => syncKnowledge('delta')}
               disabled={syncLoading}
               className={`px-4 py-2 rounded text-xs font-medium whitespace-nowrap ${
-                syncLoading ? 'bg-gray-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+                syncLoading
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
               }`}
             >
               {syncLoading ? 'Scheduling…' : '🟢 Sync New/Changed'}
@@ -2109,7 +2296,9 @@ useEffect(() => {
               onClick={() => syncKnowledge('full')}
               disabled={syncLoading}
               className={`px-4 py-2 rounded text-xs font-medium whitespace-nowrap ${
-                syncLoading ? 'bg-gray-600 cursor-not-allowed' : 'bg-rose-700 hover:bg-rose-600'
+                syncLoading
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : 'bg-rose-700 hover:bg-rose-600'
               }`}
             >
               {syncLoading ? 'Scheduling…' : '🔴 Force Full Resync'}
@@ -2117,9 +2306,9 @@ useEffect(() => {
 
             <button
               onClick={runKnowledgeNow}
-              disabled={ragRunLoading || syncLoading || !lastRagJobId}
+              disabled={ragRunLoading || syncLoading}
               className={`px-4 py-2 rounded text-xs font-medium whitespace-nowrap ${
-                (ragRunLoading || syncLoading || !lastRagJobId)
+                (ragRunLoading || syncLoading)
                   ? 'bg-gray-600 cursor-not-allowed'
                   : 'bg-slate-700 hover:bg-slate-600'
               }`}
@@ -2153,17 +2342,66 @@ useEffect(() => {
                     <span className="font-mono">{lastRagJobId}</span>
                   </div>
                 )}
-                <div>
-                  <span className="text-gray-400">Status:</span>{' '}
-                  <span className="font-mono">{ragJobStatus || 'unknown'}</span>
-                  {typeof ragProcessedCount === 'number' && (
-                    <>
-                      {' '}
-                      <span className="text-gray-500">•</span>{' '}
-                      <span className="font-mono">Processed {ragProcessedCount}</span>
-                    </>
-                  )}
-                </div>
+<div>
+  <span className="text-gray-400">Status:</span>{' '}
+  <span className="font-mono">{prettyRagStatus(ragJobStatus, ragJobIsStale)}</span>
+
+  <span className="text-gray-500">•</span>{' '}
+  <span className="font-mono">Saved {fmt(ragProcessedCount)} pages</span>
+
+  {typeof lastRagQueuedCount === 'number' && lastRagQueuedCount > 0 && (
+    <>
+      {' '}
+      <span className="text-gray-500">•</span>{' '}
+      <span className="font-mono">Queued {fmt(lastRagQueuedCount)}</span>
+    </>
+  )}
+</div>
+
+{/* Progress bar */}
+{(() => {
+  const savedPages = typeof ragProcessedCount === 'number' ? ragProcessedCount : 0
+  const sources = typeof lastRagQueuedCount === 'number' ? lastRagQueuedCount : null
+  const isRunning = isActiveRagStatus(ragJobStatus)
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+        {(() => {
+        const p = parseRagProgress(ragJobError)
+        const phaseLabel = p.isProgress
+          ? p.phase === 'drive'
+            ? 'Drive'
+            : p.phase === 'web'
+            ? 'Web'
+            : null
+          : null
+
+        return (
+          <span>
+            {isRunning ? 'Progress: working…' : 'Progress: —'}
+            {phaseLabel ? ` (${phaseLabel})` : ''}
+          </span>
+        )
+      })()}
+        {typeof sources === 'number' && sources > 0 && (
+          <span className="font-mono text-gray-500">
+            {fmt(savedPages)} pages saved • {fmt(sources)} sources
+          </span>
+        )}
+      </div>
+
+      <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+        <div className="h-2 w-1/2 rounded-full bg-emerald-600/60 animate-pulse" />
+      </div>
+
+      <div className="mt-1 text-gray-500">
+        Saved = pages successfully added to this agent’s knowledge. “Sources” = crawl domains + links queued.
+        We can’t show an exact % because total pages is unknown ahead of time.
+      </div>
+    </div>
+  )
+})()}
                 {ragJobUpdatedAt && (
                   <div>
                     <span className="text-gray-400">Last update:</span>{' '}
@@ -2171,16 +2409,41 @@ useEffect(() => {
                   </div>
                 )}
                 {ragJobError && (
-                  <div className="text-red-300">
-                    <span className="font-semibold">Job error:</span> {ragJobError}
-                  </div>
+                  (() => {
+                    const p = parseRagProgress(ragJobError)
+                    const isFailed = String(ragJobStatus || '').toLowerCase() === 'failed'
+
+                    // If it looks like our live progress string, show it as “Current step”.
+                    if (p.isProgress) {
+                      return (
+                        <div className="mt-1 rounded border border-gray-800 bg-gray-950/40 px-2 py-1">
+                          <div className="text-[11px] text-gray-400">Current step</div>
+                          <div className="text-[11px] text-gray-200 font-mono break-words">
+                            {p.headline}
+                          </div>
+                          {p.detail && (
+                            <div className="text-[10px] text-gray-500 font-mono break-words mt-0.5">
+                              {p.detail}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    // Otherwise, treat it as a real error/message.
+                    return (
+                      <div className={isFailed ? 'text-red-300' : 'text-amber-200'}>
+                        <span className="font-semibold">Job message:</span> {ragJobError}
+                      </div>
+                    )
+                  })()
                 )}
                 {ragRunErr && (
                   <div className="text-red-300">
                     <span className="font-semibold">Run error:</span> {ragRunErr}
                   </div>
                 )}
-                {ragRunMsg && <div className="text-gray-400">{ragRunMsg}</div>}
+               
               </div>
 
               <div className="text-gray-500">
@@ -2189,6 +2452,9 @@ useEffect(() => {
             </div>
           </div>
         )}
+        <div className="text-gray-500">
+          Processed = number of pages successfully saved into this agent’s knowledge library for this sync.
+        </div>
       </div>
     </div>
 

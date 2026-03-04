@@ -1,6 +1,6 @@
 🤖 Agent Activation & Management Checklist
 
-Last updated: February 13, 2026
+Last updated: March 3, 2026
 
 This file contains the exact instructions and copy-ready prompts for creating, refreshing, or retiring any AI Agent chat inside the AI Agent Platform Project in ChatGPT.
 Use this every time an agent chat is started or replaced so that each one loads the correct context, sets its goals, and reports its status.
@@ -42,6 +42,8 @@ Before You Begin
    • Verify `CURRENT_STATE.md` exists and reflects the current working system.
    • Run ./automation/update_memory.sh
    • Run ./automation/sync_docs_to_github.sh (non-destructive)
+   • Run ./automation/generate_project_tree.sh (from /web) so project_structure.txt is current
+   • If git push fails due to missing upstream branch, run: git push --set-upstream origin main
 2. Open the latest TODO.md to review current Agent Session Health.
 3. Make sure you are inside the correct ChatGPT Project (AI Agent Platform).
 4. If reactivating an existing agent (same role, new version), confirm its prior context file remains in use.
@@ -59,31 +61,71 @@ Step 1 – Create The Chat
 
 ⸻
 
-Step 2 – Paste The Standard Activation Prompt
+Step 2 – Single Message Activation (Required)
 
-1. In ChatGPT, open the new chat you created in Step 1.  
-2. Copy the appropriate activation prompt from below:
-   • For regular agents – use “Initial Activation Prompt – Most Agents.”
-   • For the Project Manager – use “Initial Project Manager Agent Activation Prompt.”
-3. Replace [ROLE NAME] and the file name with the correct values for that agent.  
-4. Paste the completed prompt into the ChatGPT message box.
-   • Recommended for complex work: also paste `project_structure.txt` and `system_overview.md` so the agent has full architectural context.
+1. Open the new chat you created in Step 1.
+2. Copy the appropriate activation prompt below for that role.
+3. Replace placeholders like [ROLE NAME] and file names.
+4. Attach ALL required documentation directly in this SAME first message.
+5. Paste the completed activation prompt at the top of the message.
+6. After all attachments are added, type at the bottom:
 
-5. Send the message in ChatGPT.  
-6. Wait for the agent’s confirmation message that it has loaded and summarized its context.  
-7. Once confirmed, copy the full activation prompt you used (including the pasted context) and the agent’s entire response.  
-8. Open that agent’s context file in /web/docs/ and paste both under a new heading like:
+   All files uploaded — proceed.
 
-   ## Session Log – Activation (Nov 6 2025)  
-   (Paste the activation prompt and the agent’s response here)
-9. Save the file when finished.
-10. If this is a reactivation (v2 or later), verify that the previous Closeout Summary is present at the bottom of the same context file.
-    Add a one-line note above it:
-    > Project Manager Agent v2 Activated – Phase 2 (Runtime Testing & Validation) – Nov 9 2025
+7. Send the message.
+8. Wait for the agent to confirm it has loaded context and summarized responsibilities.
+9. Copy BOTH the activation message and the full agent response.
+10. Paste them into the corresponding context file under:
 
-⸻
+   ## Session Log – Activation (DATE – v#)
 
-Initial Activation Prompt – Most Agents:
+11. Save the file.
+
+---
+
+### 🔁 Turnover Snapshot Block (Required for Version Upgrades)
+
+When replacing an existing agent version (v2, v3, etc.), include a **Turnover Snapshot** section inside the SAME first activation message.
+
+This block must:
+• Be concise and mechanical
+• Use bullet points only
+• Describe current phase, system status, and outstanding risks
+• Avoid narrative language or brainstorming
+
+Structure example:
+
+🧭 TURNOVER SNAPSHOT FROM PREVIOUS SESSION (v# → v#)
+
+Current Phase:
+- [Short phase label]
+
+System Status:
+- [Bullet summary of working components]
+- [Recent stabilizations]
+
+Outstanding Risks:
+- [Only unresolved or deferred items]
+
+Immediate Objective For New Version:
+1. Confirm synchronization
+2. Verify documentation alignment
+3. Regenerate priorities
+4. Await directive
+
+Important:
+• The Turnover Snapshot is part of the activation message.
+• Do NOT send it as a second message.
+• Activation must remain a single-message event with all files attached.
+
+---
+
+Important:
+• Activation must be done in ONE message only.
+• Do not split activation across multiple messages.
+• The first message IS the activation message.
+
+---
 
 /resume_role
 You are the [ROLE NAME] AGENT for the AI Agent Platform project.
@@ -175,6 +217,7 @@ Your objectives:
 5. Generate today’s top 5 priorities for each active agent (Architect, Frontend, Backend, Workflow, LLM Trainer, Avatar & Voice).  
 6. Verify that the Agent Session Health list in TODO.md is accurate and flag any agents due for refresh.  
 7. Summarize overall project status, including current progress, risks, and key dependencies.  
+8. Confirm you understand and will enforce the Codex Execution Protocol and Feature Domain workflow when delegating tasks.
 8. End your output with a concise daily plan for Oliver to review and approve before execution.
 
 ⸻
@@ -197,6 +240,7 @@ Your objectives:
 5. Regenerate the top 5 current priorities for each active agent (Architect, Frontend, Backend, Workflow, LLM Trainer, Avatar & Voice).  
 6. Update the Agent Session Health list based on the newest TODO.md.  
 7. Provide a refreshed overall project summary, highlighting differences from the prior version.  
+8. Confirm you understand and will enforce the Codex Execution Protocol and Feature Domain workflow when delegating tasks.
 8. End your response with a short daily or weekly plan for Oliver to confirm before execution.
 
 ⸻
@@ -231,6 +275,7 @@ After confirming the new agent is working:
 
 • Run ./automation/update_memory.sh to merge and back up docs.
 • Run ./automation/sync_docs_to_github.sh to push changes to GitHub.
+• If you updated project_structure.txt, re-run ./automation/sync_docs_to_github.sh again to mirror the refreshed tree into /web/docs.
 
 ⚠️ Safety note: `sync_docs_to_github.sh` must never delete documentation files. If it aborts due to missing files (e.g., CURRENT_STATE.md), restore docs before re-running.
 
@@ -238,22 +283,34 @@ This ensures your new session’s context and status are captured in the master 
 
 ⸻
 
-Step 6 – Provide Updated Files and Summary to the Project Manager Agent (PM Agents Only)
+Step 6 – Project Manager Sync (Single Message Rule)
 
-After syncing, open the Project Manager Agent chat and send the latest full project snapshot so it can synchronize with the current system state.
+When activating or refreshing the Project Manager Agent:
 
-1. Paste or upload the following files in order:
+1. Send ALL required files in ONE message (NO EXCEPTIONS):
+   • 07_PROJECT_MANAGER_CONTEXT.md  (MANDATORY – defines PM authority & rules)
    • 00_MASTER_PROJECT.md  
+   • CURRENT_STATE.md  
    • TODO.md  
    • CHANGELOG.md  
    • project_structure.txt  
-   • system_overview.md
-   • automation_map.md (include when activating or after any automation changes)
-2. Record a Loom video explaining everything that you want this project manager to know and be like, and all the details about the project. Once you're done, download the video and its captions, and include them as attachments in your project, along with a text summary of everything the project manager needs to know about those attachments and what you need to say. (if needed)
-3. Type “All files uploaded — proceed.” once finished.
-4. Wait for the Project Manager Agent to analyze them and generate its coordination summary, agent priorities, and daily plan.
+   • system_overview.md  
+   • 09_CODEX_EXECUTION_PROTOCOL.md  
+   • 10_CODEX_SESSION_CHECKLIST.md  
 
-⸻
+   The Project Manager Context file is NOT optional.
+   It defines:
+   - Role authority
+   - Canonical rules (Q&A contract vs RAG vs Fine-tune)
+   - Codex delegation protocol
+   - Feature domain map
+   - Stabilization checkpoints
+
+   If 07_PROJECT_MANAGER_CONTEXT.md is not attached, activation is invalid.
+
+   ⚠️ The Project Manager Context file must ALWAYS be attached during activation or reactivation. Never remove it from the activation package.
+
+---
 
 Step 7 – Archive and Version Tagging (After Activation)
 
@@ -298,10 +355,9 @@ Add a short note reminding future agents to proactively roll versions when chats
 
 Quick Recap
 
-Notice that an agent is losing accuracy → open a new chat inside the AI Agent Platform Project → paste the appropriate activation prompt → confirm understanding with /health_check → update the Session Health list → add a note to the CHANGELOG → run the update and sync scripts.
+Notice drift or version change → open a new chat inside the AI Agent Platform Project → prepare a single activation message → attach all required files → include the Turnover Snapshot (if upgrading versions) → paste the activation prompt → send → confirm context load with /health_check → update Session Health → update CHANGELOG → run update and sync scripts.
 
-Following this one sequence keeps all agents current, stable, and fully aware of the latest project state.
-If an agent ever breaks, you can rebuild it from scratch in under three minutes with zero data loss.
+This ensures continuity, prevents drift, and guarantees clean leadership transitions between agent versions.
 
 ⸻
 

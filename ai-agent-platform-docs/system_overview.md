@@ -408,3 +408,75 @@ Retrieval Weighting Hierarchy (Current Logic):
    - Penalized when user intent indicates internal book/manual reference.
 
 RAG content is supplemental to the contract — never authoritative over it.
+
+## Agent Runtime + Tool System v1
+
+This section defines the production inference control loop and tool-governance model for Agent Runtime.
+
+### 1) Plan -> Approve -> Execute Loop
+- Agents must generate an explicit execution plan before running any tools.
+- The plan must list: objective, intended tool actions, expected outputs, and risk level per action.
+- No tool execution is allowed until the plan is approved through the runtime approval path.
+- After approval, execution proceeds only for approved actions; any scope change requires re-plan and re-approval.
+
+### 2) Tool Registry Concept
+The Tool Registry is the canonical control plane for all runtime tool usage.
+
+Registry requirements:
+- `tools`: named tool definitions available to runtime agents.
+- `tool actions`: granular operations per tool (read/list/create/update/delete/execute variants).
+- `authentication`: required auth method and credential policy for each tool/action.
+- `risk levels`: policy classification per action (for example: low, medium, high) used for gating and approvals.
+
+Behavioral rules:
+- Agents may invoke only registered tools and registered actions.
+- Unregistered tools/actions are blocked by default.
+- Authentication and risk policy must be resolved from registry metadata at execution time.
+
+### 3) Approval Queue Model
+
+Approval is maturity-based and follows a controlled progression:
+- `new hire`: all non-trivial actions require explicit human approval.
+- `confidence`: repeated correct behavior earns scoped auto-approval for low-risk actions.
+- `graduation`: agent can auto-execute approved low-risk patterns, while medium/high-risk actions remain gated.
+
+Confidence must be tracked per agent **per tool action** and **per workflow/SOP**. Auto-approval is granted only within that specific scoped boundary (agent + action, or agent + workflow version) and must not generalize to other actions or workflows.
+
+Queue requirements:
+- Every pending action enters an approval queue with plan context, tool/action, risk level, and rationale.
+- Approvers can approve, reject, or request revision.
+- Rejections and revisions feed back into agent confidence scoring.
+
+### 4) Audit Logging Requirements
+All runtime decisions and tool operations must be fully auditable.
+
+Minimum log fields:
+- timestamp
+- agent identifier
+- session/run identifier
+- plan version
+- tool + action
+- authentication context (policy reference, not raw secrets)
+- risk level
+- approval decision (approved/rejected/revised), approver, and decision timestamp
+- execution result (success/failure) and error summary
+
+Audit principles:
+- Logs must preserve end-to-end traceability from plan creation through final execution result.
+- Logs must be immutable or append-only in practice.
+- Logs must support operational review, incident analysis, and compliance reporting.
+
+### 5) MVP Pilot Example: Gmail Inbox Assistant
+Pilot objective: validate Agent Runtime tool governance on a constrained, high-utility workflow.
+
+Pilot workflow:
+- Scan inbox.
+- Classify email categories (important, routine, junk/spam-like).
+- Label/archive junk messages.
+- Flag important emails for user attention.
+- Enforce approval gating before any destructive or user-visible state change.
+
+MVP gating policy:
+- Read/classify steps can run under low-risk policy.
+- Label/archive and other state-changing actions require approval unless agent maturity policy explicitly allows them.
+- Any uncertain classification escalates to approval queue instead of auto-action.

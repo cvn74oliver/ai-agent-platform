@@ -164,6 +164,13 @@ type EvidenceExample = {
   created_at?: string | null
 }
 
+type RagEvidence = {
+  source_type?: string | null
+  source_url?: string | null
+  created_at?: string | null
+  content?: string | null
+}
+
 const EVAL_RESPONSE_FORMAT = {
   type: 'json_schema',
   json_schema: {
@@ -195,9 +202,7 @@ const REFINE_RESPONSE_FORMAT = {
       properties: {
         rewritten: {
           type: 'object',
-          // IMPORTANT: OpenAI requires additionalProperties=false for object schemas.
           additionalProperties: false,
-          // We allow a superset of known onboarding fields + dynamic-but-supported fields.
           properties: {
             agent_type: { type: 'string' },
             company: { type: 'string' },
@@ -218,7 +223,6 @@ const REFINE_RESPONSE_FORMAT = {
             rag_links: { type: 'array', items: { type: 'string' } },
             crawl_domains: { type: 'array', items: { type: 'string' } },
           },
-          // Do not require any specific rewritten keys; model may omit unused fields.
           required: [
             'agent_type',
             'company',
@@ -246,10 +250,34 @@ const REFINE_RESPONSE_FORMAT = {
   },
 } as const
 
+function buildFieldDiff(opts: {
+  before: any
+  after: any
+  keys: string[]
+}): Array<{ key: string; before: string | null; after: string | null; delta_chars: number }> {
+  const out: Array<{ key: string; before: string | null; after: string | null; delta_chars: number }> = []
+  const b = opts.before || {}
+  const a = opts.after || {}
+
+  for (const key of opts.keys) {
+    const beforeVal = typeof b?.[key] === 'string' ? b[key] : null
+    const afterVal = typeof a?.[key] === 'string' ? a[key] : null
+
+    // Only include keys that actually changed (including added/removed)
+    if ((beforeVal ?? '') !== (afterVal ?? '')) {
+      const delta = (afterVal ? afterVal.length : 0) - (beforeVal ? beforeVal.length : 0)
+      out.push({ key, before: beforeVal, after: afterVal, delta_chars: delta })
+    }
+  }
+
+  return out
+}
+
 export async function POST(req: Request) {
   const supabase = await getSupabaseAdmin()
 
-  const { agent_id, force_refine } = await req.json()
+  const { agent_id, force_refine, dry_run } = await req.json()
+  const dryRun = dry_run === true
   const forceRefine = force_refine === true
   if (!agent_id) {
     return NextResponse.json(
@@ -295,11 +323,33 @@ export async function POST(req: Request) {
 
   const recentExamples: EvidenceExample[] = (exRows || []) as any
 
-    const evalExamples = compactEvidence(recentExamples, 10)
-    const refineExamples = compactEvidence(recentExamples, 8)
+  // RAG evidence pack: recent embedded knowledge chunks (Drive + crawled pages)
+  // We keep this small to avoid huge prompts.
+  const { data: ragRows, error: ragErr } = await supabase
+    .from('rag_documents')
+    .select('source_type, source_url, content, created_at')
+    .eq('agent_id', agent_id)
+    .not('content', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(60)
+
+  if (ragErr) {
+    console.error('[recalculate-quality] rag_documents load error:', ragErr)
+  }
+
+  const ragEvidence: RagEvidence[] = compactRagEvidence((ragRows || []) as any, 10)
+
+  console.log('[recalculate-quality] rag evidence pack:', {
+    total_rows: Array.isArray(ragRows) ? ragRows.length : 0,
+    packed: ragEvidence.length,
+    sample_url: ragEvidence?.[0]?.source_url || null,
+  })
+
+  const evalExamples = compactEvidence(recentExamples, 10)
+  const refineExamples = compactEvidence(recentExamples, 8)
 
   // 2) Evaluate quality
-  const evalResult = await evaluateQuality(state, evalExamples)
+  const evalResult = await evaluateQuality(state, evalExamples, ragEvidence)
   const score = typeof evalResult.score === 'number' ? evalResult.score : null
   const comment = typeof evalResult.comment === 'string' ? evalResult.comment : null
 
@@ -323,7 +373,7 @@ export async function POST(req: Request) {
     forceRefine || (typeof score === 'number' && score < TARGET_QUALITY_SCORE)
 
   const refineResult = !evalFailed && !openAIRecentlyAborted && needsRefine
-    ? await finalRefine(state, refineExamples)
+    ? await finalRefine(state, refineExamples, ragEvidence)
     : { ok: false, rewritten: state.fields, followups: [], score: null, comment: null }
 
   console.log('[recalculate-quality] refine ran?', {
@@ -375,6 +425,71 @@ export async function POST(req: Request) {
     }
   }
 
+    // Protect core contract fields from being unintentionally reduced
+  const coreContractFields = [
+    'company',
+    'mission',
+    'audience',
+    'topics',
+    'guardrails',
+    'formats',
+    'constraints',
+    'product_list',
+    'products_services_supported',
+    'common_issue_categories',
+    'escalation_policy',
+    'custom_notes',
+  ] as const
+
+  for (const key of coreContractFields) {
+    const oldVal =
+      typeof existingFields?.[key] === 'string'
+        ? existingFields[key].trim()
+        : null
+
+    const newVal =
+      typeof rewrittenAny?.[key] === 'string'
+        ? rewrittenAny[key].trim()
+        : null
+
+    if (oldVal && newVal) {
+      // If rewrite shrank field drastically (more than 30%), preserve original
+      if (newVal.length < oldVal.length * 0.7) {
+        ;(mergedFields as any)[key] = oldVal
+      }
+    }
+
+    // If rewrite removed the field entirely, preserve original
+    if (oldVal && !newVal) {
+      ;(mergedFields as any)[key] = oldVal
+    }
+  }
+
+  const contractKeysForDiff = [
+    'agent_type',
+    'company',
+    'mission',
+    'tone',
+    'audience',
+    'topics',
+    'guardrails',
+    'formats',
+    'constraints',
+    'product_list',
+    'products_services_supported',
+    'common_issue_categories',
+    'escalation_policy',
+    'custom_notes',
+    'rag_links',
+    'crawl_domains',
+  ]
+
+  const fieldDiff = buildFieldDiff({
+    before: existingFields,
+    after: mergedFields,
+    keys: contractKeysForDiff,
+  })
+
   // 4) Build primary prompt (same pattern as finalize in guided-setup)
   const f = mergedFields
   const promptParts = [
@@ -401,6 +516,35 @@ export async function POST(req: Request) {
       : typeof f.crawl_domains === 'string'
       ? extractUrls(f.crawl_domains)
       : []
+
+  // ─────────────────────────────────────────────
+  // DRY RUN: compute everything but do NOT write to the DB.
+  // This is used to safely validate that RAG evidence is influencing the rewrite
+  // without risking overwriting Q&A-earned contract fields.
+  // ─────────────────────────────────────────────
+  if (dryRun) {
+    return NextResponse.json({
+      ok: true,
+      data: {
+        dry_run: true,
+        agent_id,
+        score: finalScore,
+        comment: finalComment,
+        eval: {
+          score: score,
+          comment: comment,
+          followups: evalResult.followups,
+        },
+        refine: {
+          ran: refineResult.ok,
+          forced: forceRefine,
+        },
+        diff: fieldDiff,
+        // Helpful for debugging / UI preview (but do not persist)
+        preview_onboarding_summary: mergedFields,
+      },
+    })
+  }
 
   // 5) Update the agent with new fields + quality score
   const { data: updated, error: updErr } = await supabase
@@ -436,7 +580,11 @@ export async function POST(req: Request) {
    Shared helpers: evaluateQuality + finalRefine
 ─────────────────────────────────────────────────────────────────── */
 
-async function evaluateQuality(state: State, recentExamples: EvidenceExample[]): Promise<{
+async function evaluateQuality(
+  state: State,
+  recentExamples: EvidenceExample[],
+  ragEvidence: RagEvidence[]
+): Promise<{
   score: number | null
   comment: string | null
   followups: string[]
@@ -457,6 +605,7 @@ You will:
 4. Identify any missing or unclear information and generate up to 3 targeted follow-up questions that, if answered, would most improve the agent’s prompt.
 5. You will also be given recent training/feedback examples (Q/A pairs). Use them to infer missing details and avoid asking follow-ups for info already answered in examples.
    If examples reveal compliance risks or missing product/service context, mention it explicitly.
+6. You will also be given a small RAG evidence pack (rag_evidence) sourced from crawled pages + Google Drive. Use it to infer missing details and strengthen your evaluation.
 
 Return ONLY valid JSON with all keys:
 {
@@ -470,6 +619,7 @@ Return ONLY valid JSON with all keys:
     {
       fields: state.fields,
       recent_examples: recentExamples,
+      rag_evidence: ragEvidence,
     },
     null,
     2
@@ -520,7 +670,11 @@ Return ONLY valid JSON with all keys:
   }
 }
 
-async function finalRefine(state: State, recentExamples: EvidenceExample[]): Promise<{
+async function finalRefine(
+  state: State,
+  recentExamples: EvidenceExample[],
+  ragEvidence: RagEvidence[]
+): Promise<{
   ok: boolean
   rewritten: Fields
   followups: string[]
@@ -542,7 +696,20 @@ IMPORTANT: The current agent definition blocks are too short. Your job is to exp
 You will:
 1. Analyze all the provided fields (agent_type, company, mission, tone, audience, topics, guardrails, rag_links, crawl_domains, formats, constraints, plus any dynamic fields).
 2. Use agent_type to understand what kind of agent this is (e.g., Customer Support, Sales, Marketing Writer, Technical Assistant) and tailor all rewrites to that job.
-3. Use the recent training/feedback examples as an evidence pack. If examples reveal products, disclaimers, common customer questions, escalation steps, or compliance risks, include them.
+3. Use the recent training/feedback examples as the PRIMARY authoritative signal.
+   - These examples reflect deliberate Improve Quality with Q&A refinement and manual training.
+   - If there is any tension between examples and RAG evidence, the examples ALWAYS win.
+   - Do not remove, weaken, or override policies clearly expressed in examples.
+
+3b. You will also be given a small RAG evidence pack (rag_evidence) sourced from crawled pages + Google Drive.
+   - Use it ONLY to add accurate, factual detail or fill gaps.
+   - Do NOT let RAG evidence override tone, guardrails, escalation logic, or positioning established in the fields or examples.
+   - RAG evidence is supplemental, not authoritative.
+
+3c. PRESERVATION REQUIREMENT:
+   - Treat the existing field content as a canonical contract shaped by iterative Q&A refinement.
+   - Expand and clarify it, but do NOT shrink, delete, or substantially change intent unless explicitly contradicted by examples.
+   - Never remove escalation logic, safety boundaries, or product definitions already present.
 4. Assign a numeric quality score from 0–10.
 5. Rewrite every field clearly and consistently. ALWAYS paraphrase the user’s wording. Do NOT copy long paragraphs verbatim.
 
@@ -590,6 +757,7 @@ Return ONLY valid JSON with all keys:
     {
       fields: state.fields,
       recent_examples: recentExamples,
+      rag_evidence: ragEvidence,
     },
     null,
     2
@@ -763,4 +931,25 @@ function compactEvidence(examples: EvidenceExample[], limit: number): EvidenceEx
 function extractUrls(text: string): string[] {
   const matches = text.match(/https?:\/\/[^\s,]+/g) || []
   return matches.map((u) => u.trim())
+}
+function compactRagEvidence(rows: RagEvidence[], limit: number): RagEvidence[] {
+  const out: RagEvidence[] = []
+  const seen = new Set<string>()
+
+  for (const r of rows || []) {
+    const url = typeof r?.source_url === 'string' ? r.source_url : ''
+    if (url && seen.has(url)) continue
+    if (url) seen.add(url)
+
+    out.push({
+      source_type: r?.source_type ?? null,
+      source_url: r?.source_url ?? null,
+      created_at: r?.created_at ?? null,
+      content: truncateText(r?.content, 700),
+    })
+
+    if (out.length >= limit) break
+  }
+
+  return out
 }
