@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-03 (v6 Stabilized • Handoff Ready • Pending PM v7 Activation)_
+_Last updated: 2026-03-03 (v6 Stabilized • Handoff Ready • Hybrid Codex Model Confirmed)_
 
 - Project Manager — healthy (v6, preparing v7 activation, Mar 3 2026)
 - Architect — healthy
@@ -11,6 +11,35 @@ _Last updated: 2026-03-03 (v6 Stabilized • Handoff Ready • Pending PM v7 Act
 - Prompt Engineer — healthy
 
 ## 🔥 Current Focus (This Week)
+---
+
+## 🧠 Codex Operating Model (Updated Mar 2026)
+---
+**Execution Philosophy (Hybrid Model):**
+- Single-file edits → Project Manager may edit directly in chat (no Codex required).
+- Multi-file logic changes → Use Codex with declared Feature Domain.
+- Schema / Supabase structural changes → Use Codex only if Supabase CLI is connected.
+- Refactors affecting multiple layers → Codex required.
+
+**Feature Domain Discipline (Non-Negotiable):**
+Each Codex thread must stay within ONE domain:
+1) RAG Ingestion & Retrieval  
+2) Prompt Contract / Summary Rewrite Engine  
+3) Fine-Tuning System  
+4) Agent Runtime (Production Inference)  
+5) Workflow / Automation Engine  
+6) Dashboard Intelligence Layer  
+
+No cross-domain edits in a single Codex thread.
+
+**Important Clarifications:**
+- Docker is NOT required unless running Supabase locally.
+- Supabase schema updates require Supabase CLI login (remote projects supported).
+- Q&A-derived Prompt Contract fields remain canonical authority.
+- RAG is supplemental evidence only.
+- Fine-tune dataset generation is a separate domain.
+
+This model reduces bureaucracy, avoids redundant Codex calls, and preserves system integrity.
 ---
 1) **PM v7 Activation + Clean Handoff (PRIMARY PRIORITY)**
    - [x] RAG ingestion verified (Drive + URL, embeddings confirmed)

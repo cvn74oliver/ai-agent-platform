@@ -80,6 +80,8 @@
     │   ├── vercel.svg
     │   └── window.svg
     ├── README.md
+    ├── scripts
+    │   └── golden-path.mjs
     ├── src
     │   ├── app
     │   │   ├── agents
@@ -215,4 +217,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-75 directories, 141 files
+76 directories, 142 files

@@ -1,7 +1,7 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-03  
-Project Manager: v6 (stabilized — ready for v7 activation)
+Last updated: 2026-03-04  
+Project Manager: v7 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
 
@@ -9,8 +9,28 @@ Project Manager: v6 (stabilized — ready for v7 activation)
 
 Build: Clean  
 Golden Path: Passing  
+Golden Path Health Check:
+- Automated validation script implemented (`web/scripts/golden-path.mjs`)
+- Run from `/web` directory using:
+  AGENT_ID="your-agent-id" npm run golden-path
+- Script verifies the full operational pipeline:
+    1. Training orchestrator responds
+    2. Feedback logging works
+    3. Recalculate quality (dry-run) succeeds
+    4. Fine‑tune preview endpoint responds
+    5. Playground query executes
+    6. Usage logging endpoint records activity
+- PASS indicates the platform core loop is operational.
+- FAIL indicates infrastructure break (API route, env config, or server not running).
+
 Agents: Healthy  
 Documentation: Synced  
+
+Execution Model:
+- Hybrid (ChatGPT direct edits + Codex multi-file execution)
+- Codex required only for multi-file, terminal, or schema-impacting tasks
+- Single-file edits may be handled directly by Project Manager
+- Domain isolation enforced (see Codex Execution Protocol)
 
 Recalculate Quality:
 - Fast path enabled (no rewrite if score ≥ TARGET_QUALITY_SCORE = 8)
@@ -108,9 +128,17 @@ Phase 3 — Controlled Expansion
    - Snapshot v6 state
    - Activate v7 under Codex execution protocol
 
+4. Hybrid Execution Governance
+   - Codex reserved for multi-file or system-level changes
+   - Direct PM edits allowed for single-file adjustments
+   - Supabase schema edits default to Dashboard unless migration required
+   - Domain isolation enforced for all Codex threads
+
 ---
 
 # 🧪 Golden Path (Must Always Pass)
+
+Automated check available via `npm run golden-path` (preferred quick verification).
 
 1. Next training suggestion works.
 2. Save & Next works.
@@ -151,6 +179,27 @@ Platform ready for v7 activation.
 
 ---
 
-# 🔒 v6 Snapshot Freeze
-This file represents the final stabilized state before Project Manager v7 activation.
-No further structural edits should occur under v6.
+# 🔒 Version Snapshot
+
+v6 is formally archived.
+
+v7 is now active under:
+- Codex Hybrid Execution Model
+- Domain isolation discipline
+- Canonical contract protection rules
+
+All future structural changes must be logged in CHANGELOG.md and reflected here.
+
+---
+
+# 🧪 Operational Safety Tools
+
+Golden Path Script:
+- Location: `web/scripts/golden-path.mjs`
+- Command: `npm run golden-path`
+- Purpose: rapid system health verification before and after structural changes.
+
+Recommended Usage:
+- Run before starting development sessions.
+- Run after major changes (RAG, prompt pipeline, schema edits).
+- Run before activating a new Project Manager agent version.

@@ -471,3 +471,27 @@ Docs are being refreshed to reduce drift and support PM v7 activation.
 
 Status:
 Governance tightened. Codex workflow is now hybrid (direct edits for small changes, Codex for multi-file + terminal loops). Supabase CLI access confirmed.
+
+---
+
+## 2026-03-04 — Golden Path Health Check Script Added
+
+### What changed
+- Added a runnable **Golden Path** health check script under the `web/` app to quickly verify the platform’s core “happy path” is working.
+- Added an npm script entry so the check can be run consistently from the terminal.
+
+### How to run
+- From the `web/` directory:
+  - `npm run golden-path`
+  - If the script supports agent-scoped checks, run with:
+    - `AGENT_ID="<agent-id>" npm run golden-path`
+
+### Why this matters
+- Reduces manual clicking during pre-sync verification.
+- Provides a repeatable, low-friction gate before running:
+  - `./automation/update_memory.sh`
+  - `./automation/generate_project_tree.sh`
+  - `./automation/sync_docs_to_github.sh`
+
+Status:
+Golden Path automation added and ready for routine pre-sync verification.

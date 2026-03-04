@@ -50,6 +50,29 @@ This separation ensures:
 
 ---
 
+### 🧠 Hybrid Execution Model (Important Clarification)
+
+Not every change requires Codex.
+
+The system now operates under a **Hybrid Model**:
+
+• Single-file edits, documentation updates, and lightweight logic adjustments  
+  → Can be handled directly in ChatGPT (Project Manager / Specialist role).  
+
+• Multi-file refactors, compile loops, terminal-dependent changes, schema migrations, or risky structural edits  
+  → Must be delegated to Codex.
+
+Purpose:
+- Reduce unnecessary execution overhead.
+- Avoid bureaucratic slowdowns.
+- Preserve architectural safety for high-impact changes.
+
+Decision Rule:
+If the task affects more than one file OR requires running terminal commands → use Codex.
+Otherwise → direct edit is acceptable.
+
+---
+
 ---
 
 ## 🧰 Software & Services Used
@@ -60,7 +83,7 @@ Below is the full list of all major systems, APIs, and platforms that power the 
 |------------------|-------|------------------------|-------------|
 | **Next.js** | Frontend Framework | React-based framework running locally (`npm run dev`) and deployed to Vercel for production. | Serves the web app at `localhost:3000` (dev) and on Vercel (live). |
 | **Node.js + npm** | Runtime & Package Manager | Executes the Next.js app and installs all dependencies. | Installed locally on MacBook. |
-| **Supabase** | Backend-as-a-Service (Database + Auth + Storage) | Provides PostgreSQL database, user authentication, row-level security, and storage for files and logs. | Connected through `src/lib/supabase.ts`. |
+| **Supabase** | Backend-as-a-Service (Database + Auth + Storage) | Provides PostgreSQL database, user authentication, row-level security, and storage for files and logs. | Connected through `src/lib/supabase.ts`. Schema changes may be executed via Supabase Dashboard OR Supabase CLI (if linked locally). |
 | **Vercel** | Frontend Hosting | Hosts the deployed version of the Next.js frontend (production build). | Linked to GitHub main branch for auto-deploys. |
 | **Render** | Backend Hosting | Handles long-running API routes or background jobs (if needed). | Deploys selected backend services and APIs. |
 | **GitHub** | Version Control & Public Docs | Stores the source code (private repo) and the `/ai-agent-platform-docs` public documentation repo. | Sync handled via `sync_docs_to_github.sh`. |
@@ -226,6 +249,29 @@ Rules:
 - The public docs repo should only contain `.md` documentation.
 - Regularly rotate API keys (monthly checklist).
 - Always verify Supabase RLS rules are active.
+
+---
+
+## 🗄️ Supabase Schema Management
+
+There are two ways schema changes can be made:
+
+1. Supabase Dashboard (manual SQL in browser)  
+2. Supabase CLI (local, via terminal)
+
+The Supabase CLI is optional.
+
+If installed and linked:
+- Codex can generate migration SQL files.
+- You can run `supabase db push` locally.
+- Schema changes become version-controlled.
+
+If not installed:
+- Schema changes must be executed manually in the Supabase Dashboard.
+- Codex can still generate the SQL — you paste it into the browser.
+
+Installing Docker is ONLY required if using Supabase CLI locally.
+It is NOT required for normal development.
 
 ---
 
