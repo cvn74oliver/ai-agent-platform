@@ -1,11 +1,16 @@
 'use client'
 
 import { useMemo, useState, type CSSProperties } from 'react'
-import type { RuntimePendingApproval, RuntimeProposedAction } from '@/lib/runtime/types'
+import type {
+  RuntimeMode,
+  RuntimePendingApproval,
+  RuntimeProposedAction,
+} from '@/lib/runtime/types'
 
 type Props = {
   pendingApprovals: RuntimePendingApproval[]
   confidenceByAgentAction: Record<string, Record<string, number>>
+  agentModeByAgentId: Record<string, RuntimeMode>
 }
 
 function shortText(value: string, max = 100) {
@@ -28,12 +33,20 @@ function formatConfidence(
   for (const a of actions) {
     const key = `${a.tool}::${a.action}`
     const n = map[key] ?? 0
-    lines.push(`${a.tool}.${a.action}: ${n} / ${CONFIDENCE_THRESHOLD}`)
+    lines.push(
+      `${a.tool}.${a.action}: ${n} / ${CONFIDENCE_THRESHOLD} ${
+        n >= CONFIDENCE_THRESHOLD ? '✅ eligible' : '⏳ training'
+      }`
+    )
   }
   return lines.join('\n')
 }
 
-export default function ApprovalsTable({ pendingApprovals, confidenceByAgentAction }: Props) {
+export default function ApprovalsTable({
+  pendingApprovals,
+  confidenceByAgentAction,
+  agentModeByAgentId,
+}: Props) {
   const [rows, setRows] = useState<RuntimePendingApproval[]>(pendingApprovals)
   const [submittingIds, setSubmittingIds] = useState<Record<string, boolean>>({})
 
@@ -103,6 +116,7 @@ export default function ApprovalsTable({ pendingApprovals, confidenceByAgentActi
           <th align="left">approval_id</th>
           <th align="left">created_at</th>
           <th align="left">user_request</th>
+          <th align="left">mode</th>
           <th align="left">decision</th>
           <th align="left">confidence</th>
         </tr>
@@ -115,6 +129,7 @@ export default function ApprovalsTable({ pendingApprovals, confidenceByAgentActi
               <td>{item.approval_id}</td>
               <td>{item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
               <td title={item.user_request}>{shortText(item.user_request)}</td>
+              <td>{agentModeByAgentId[item.agent_id] || 'training'}</td>
               <td>
                 <button
                   type="button"

@@ -4,6 +4,8 @@ export type RuntimeProposedAction = {
   args?: unknown
 }
 
+export type RuntimeMode = 'training' | 'guarded'
+
 export const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -78,4 +80,14 @@ export type RuntimeConfidenceActionSummary = {
   approved_count: number
   threshold: number
   eligible_auto: boolean
+}
+
+export type RuntimeModeUpdatePayload = {
+  mode: RuntimeMode
+  updated_at: string
+}
+
+export type RuntimeEligibilityData = {
+  mode: RuntimeMode
+  actions: RuntimeConfidenceActionSummary[]
 }

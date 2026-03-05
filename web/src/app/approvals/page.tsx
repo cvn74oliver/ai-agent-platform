@@ -1,5 +1,9 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
-import type { RuntimePendingApproval, RuntimeProposedAction } from '@/lib/runtime/types'
+import type {
+  RuntimeMode,
+  RuntimePendingApproval,
+  RuntimeProposedAction,
+} from '@/lib/runtime/types'
 import ApprovalsTable from './ApprovalsTable'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +34,10 @@ type ConfidenceUpdatePayload = {
   tool?: string
   action?: string
   new_count?: number
+}
+
+type RuntimeModeUpdatePayload = {
+  mode?: RuntimeMode
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {
@@ -106,6 +114,15 @@ function parseConfidencePayload(value: unknown): ConfidenceUpdatePayload {
   }
 }
 
+function parseModePayload(value: unknown): RuntimeModeUpdatePayload {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : value
+  const record = toRecord(parsed)
+  if (!record) return {}
+  return {
+    mode: record.mode === 'training' || record.mode === 'guarded' ? record.mode : undefined,
+  }
+}
+
 export default async function ApprovalsPage() {
   const supabase = await getSupabaseAdmin()
 
@@ -113,6 +130,7 @@ export default async function ApprovalsPage() {
     { data: requestRows, error: requestError },
     { data: decisionRows, error: decisionError },
     { data: confidenceRows, error: confidenceError },
+    { data: modeRows, error: modeError },
   ] = await Promise.all([
       supabase
         .from('agent_events')
@@ -133,6 +151,12 @@ export default async function ApprovalsPage() {
         .eq('payload->>decision', 'approved')
         .order('created_at', { ascending: false })
         .limit(2000),
+      supabase
+        .from('agent_events')
+        .select('id, agent_id, event_type, created_at, payload')
+        .eq('event_type', 'runtime_mode_update')
+        .order('created_at', { ascending: false })
+        .limit(2000),
     ])
 
   const requests = ((requestRows || []) as AgentEventRow[]).filter(
@@ -143,6 +167,9 @@ export default async function ApprovalsPage() {
   )
   const confidenceUpdates = ((confidenceRows || []) as AgentEventRow[]).filter(
     (row) => row.event_type === 'confidence_update'
+  )
+  const modeUpdates = ((modeRows || []) as AgentEventRow[]).filter(
+    (row) => row.event_type === 'runtime_mode_update'
   )
 
   const latestDecisionByApproval = new Map<string, 'approved' | 'rejected'>()
@@ -205,23 +232,49 @@ export default async function ApprovalsPage() {
     }
   }
 
+  const latestModeByAgentId = new Map<string, RuntimeMode>()
+  for (const row of modeUpdates) {
+    try {
+      if (!row.agent_id || latestModeByAgentId.has(row.agent_id)) continue
+      const payload = parseModePayload(row.payload)
+      if (!payload.mode) continue
+      latestModeByAgentId.set(row.agent_id, payload.mode)
+    } catch {
+      continue
+    }
+  }
+
+  const agentModeByAgentId: Record<string, RuntimeMode> = {}
+  const agentIds = new Set<string>()
+  for (const pending of pendingApprovals) {
+    agentIds.add(pending.agent_id)
+  }
+  for (const agentId of Object.keys(confidenceByAgentAction)) {
+    agentIds.add(agentId)
+  }
+  for (const agentId of agentIds) {
+    agentModeByAgentId[agentId] = latestModeByAgentId.get(agentId) || 'training'
+  }
+
   return (
     <main style={{ padding: 24 }}>
       <h1>Approvals</h1>
 
-      {requestError || decisionError || confidenceError ? (
+      {requestError || decisionError || confidenceError || modeError ? (
         <p>
           Failed to load approvals.
           {requestError ? ` request: ${requestError.message}` : ''}
           {decisionError ? ` decision: ${decisionError.message}` : ''}
           {confidenceError ? ` confidence: ${confidenceError.message}` : ''}
+          {modeError ? ` mode: ${modeError.message}` : ''}
         </p>
       ) : null}
 
-      {!requestError && !decisionError && !confidenceError ? (
+      {!requestError && !decisionError && !confidenceError && !modeError ? (
         <ApprovalsTable
           pendingApprovals={pendingApprovals}
           confidenceByAgentAction={confidenceByAgentAction}
+          agentModeByAgentId={agentModeByAgentId}
         />
       ) : null}
     </main>
