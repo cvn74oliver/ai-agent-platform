@@ -59,3 +59,22 @@ export type RuntimePendingApproval = {
   created_at: string
   user_request: string
 }
+
+export type RuntimeConfidenceUpdatePayload = {
+  approval_id: string
+  tool: string
+  action: string
+  decision: 'approved' | 'rejected'
+  new_count: number
+  threshold: number
+  eligible_auto: boolean
+  updated_at: string
+}
+
+export type RuntimeConfidenceActionSummary = {
+  tool: string
+  action: string
+  approved_count: number
+  threshold: number
+  eligible_auto: boolean
+}
