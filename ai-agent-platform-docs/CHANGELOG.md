@@ -495,3 +495,28 @@ Governance tightened. Codex workflow is now hybrid (direct edits for small chang
 
 Status:
 Golden Path automation added and ready for routine pre-sync verification.
+
+## 2026-03-04 — Agent Runtime Slice #1 (Approval Queue MVP) Shipped (PM v7)
+
+### What shipped
+- Implemented a **schema-free** supervision loop using `agent_events` as the storage layer:
+  - `POST /api/runtime/plan` → inserts `event_type="approval_request"` with payload `{ approval_id, agent_id, user_request, plan_json, proposed_actions, created_at }`.
+  - `POST /api/runtime/approve` → inserts `event_type="approval_decision"` with payload `{ approval_id, decision, reviewer_note?, decided_at }`.
+  - `/approvals` page → server-side admin reads of request/decision events, computes pending approvals, and submits decisions via `fetch('/api/runtime/approve')`.
+- Validated end-to-end locally:
+  - Creating a plan produces a pending approval row.
+  - Clicking Approve/Reject removes the row (decision recorded).
+
+### Governance / protocol updates
+- First successful Codex execution under the **Hybrid Execution Model**:
+  - Plan confirmed before edits.
+  - Scope contained to authorized Runtime files.
+  - No schema changes.
+- Updated runtime governance spec to explicitly require **granular confidence tracking**:
+  - Confidence is tracked per agent **per tool action** and **per workflow/SOP**.
+  - Auto-approval must remain scoped to that boundary (agent + action, agent + workflow version).
+
+### Notes / follow-ups
+- Known polish items for Slice #2:
+  - Return 400 (not 500) for invalid UUID `agent_id` in runtime endpoints.
+  - Replace inline script usage in `/approvals` with a small `use client` component (keep server-only Supabase reads).

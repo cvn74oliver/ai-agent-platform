@@ -1,7 +1,7 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-03 (v6 Stabilized • Handoff Ready • Hybrid Codex Model Confirmed)_
+_Last updated: 2026-03-04 (PM v7 Active • Runtime Slice #1 Shipped • Hybrid Codex Model Confirmed)_
 
-- Project Manager — healthy (v6, preparing v7 activation, Mar 3 2026)
+- Project Manager — healthy (v7 active, Mar 4 2026)
 - Architect — healthy
 - Backend — healthy
 - Frontend — healthy
@@ -12,6 +12,19 @@ _Last updated: 2026-03-03 (v6 Stabilized • Handoff Ready • Hybrid Codex Mode
 
 ## 🔥 Current Focus (This Week)
 ---
+
+1) **Agent Runtime — Approval Queue MVP (Slice #1) (DONE)**
+   - [x] Added /api/runtime/plan (creates approval_request event)
+   - [x] Added /api/runtime/approve (creates approval_decision event)
+   - [x] Added /approvals page (server reads + client fetch approve/reject)
+   - [x] Validated end-to-end locally (approval row appears; approve removes it)
+   - [x] Golden Path passing after changes
+
+2) **Agent Runtime — Slice #2 (Next)**
+   - [ ] Return 400 (not 500) for invalid UUID agent_id in /api/runtime/plan and /api/runtime/approve
+   - [ ] Replace inline <script dangerouslySetInnerHTML> in /approvals with a small `use client` component (keep server-only Supabase reads)
+   - [ ] Add optional viewer to expand/collapse plan_json on approvals row
+   - [ ] Add confidence counters (schema-free MVP via agent_events) OR design minimal schema change as separate EXTRA-HIGH task
 
 ## 🧠 Codex Operating Model (Updated Mar 2026)
 ---
@@ -48,10 +61,10 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
    - [x] Strict JSON schema enforcement for evaluate + refine
    - [x] Rewrite gating by quality threshold (fast vs forced path separation)
    - [x] Circuit breaker for OpenAI abort/socket failures
-   - [ ] Create final v6 tag + snapshot commit
-   - [ ] Activate Project Manager v7 (fresh context thread)
-   - [ ] Enforce Feature Domain isolation in Codex tasks (no cross-domain mixing)
-   - [ ] Confirm v7 adopts Codex Execution Protocol as canonical
+   - [x] Create final v6 tag + snapshot commit
+   - [x] Activate Project Manager v7 (fresh context thread)
+   - [x] Enforce Feature Domain isolation in Codex tasks (no cross-domain mixing)
+   - [x] Confirm v7 adopts Codex Execution Protocol as canonical
 
 2) **Observability + Confidence Layer (Post-v7)**
    - [ ] Add rewrite influence log (which fields were expanded vs preserved)
@@ -79,6 +92,8 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - [x] Fine-tune dataset preview, next training suggestion, and Q&A improvement flow working
 - [x] RAG ingestion pipeline working end-to-end (schedule → run → documents ingested)
 - [x] Playground RAG retrieval fixed to correctly surface **exact blog URLs** when present
+- [x] Agent Runtime Slice #1 shipped: plan → approve endpoints + approvals UI (schema-free via agent_events)
+- [x] Tool/Workflow governance spec updated: granular confidence tracked per agent per tool action and per workflow/SOP
 
 ---
 

@@ -4,6 +4,7 @@ import type {
   RuntimeApproveRequest,
   RuntimeApprovalDecisionPayload,
 } from '@/lib/runtime/types'
+import { isUuid } from '@/lib/runtime/types'
 
 export async function POST(req: Request) {
   try {
@@ -16,9 +17,25 @@ export async function POST(req: Request) {
       )
     }
 
+    const agentId = body.agent_id.trim()
+    if (!isUuid(agentId)) {
+      return NextResponse.json(
+        { ok: false, error: 'agent_id must be a valid UUID' },
+        { status: 400 }
+      )
+    }
+
     if (typeof body.approval_id !== 'string' || !body.approval_id.trim()) {
       return NextResponse.json(
         { ok: false, error: 'approval_id is required' },
+        { status: 400 }
+      )
+    }
+
+    const approvalId = body.approval_id.trim()
+    if (!isUuid(approvalId)) {
+      return NextResponse.json(
+        { ok: false, error: 'approval_id must be a valid UUID' },
         { status: 400 }
       )
     }
@@ -34,7 +51,7 @@ export async function POST(req: Request) {
     const decidedAt = new Date().toISOString()
 
     const payload: RuntimeApprovalDecisionPayload = {
-      approval_id: body.approval_id.trim(),
+      approval_id: approvalId,
       decision: body.decision,
       reviewer_note:
         typeof body.reviewer_note === 'string' && body.reviewer_note.trim()
@@ -45,7 +62,7 @@ export async function POST(req: Request) {
 
     const { error } = await supabase.from('agent_events').insert([
       {
-        agent_id: body.agent_id.trim(),
+        agent_id: agentId,
         event_type: 'approval_decision',
         created_at: decidedAt,
         payload,

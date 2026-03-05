@@ -107,6 +107,16 @@ Dashboard Metrics:
 - Core contract fields protected from shrink (>30%)
 - Strict merge preservation validated during forced rewrite (no contract loss observed)
 
+## Agent Runtime (Slice #1 — Approval Queue MVP)
+- `/api/runtime/plan` endpoint implemented (generates execution plan and logs `approval_request` events).
+- `/api/runtime/approve` endpoint implemented (logs `approval_decision` events).
+- `/approvals` dashboard page implemented:
+  - Server-side admin reads from `agent_events`.
+  - Computes pending approvals (request without decision).
+  - Approve/Reject actions call runtime API via `fetch`.
+- Schema-free MVP implemented using existing `agent_events` table.
+- End‑to‑end validation completed locally (plan → approval → row removal).
+
 ---
 
 # 🚀 Current Strategic Focus
@@ -133,6 +143,13 @@ Phase 3 — Controlled Expansion
    - Direct PM edits allowed for single-file adjustments
    - Supabase schema edits default to Dashboard unless migration required
    - Domain isolation enforced for all Codex threads
+
+5. Agent Runtime Expansion
+   - Approval Queue MVP completed (Slice #1).
+   - Next slice will add:
+     - UUID validation returning 400 errors.
+     - Replace inline approval script with `use client` component.
+     - Introduce confidence tracking (per agent + tool action + workflow).
 
 ---
 
@@ -175,7 +192,7 @@ Operational pillars:
 - Usage Analytics Foundation
 
 v6 stabilized.  
-Platform ready for v7 activation.
+Platform stabilized under PM v7 and runtime supervision loop (Slice #1) now operational.
 
 ---
 

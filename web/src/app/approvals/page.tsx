@@ -1,4 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
+import type { RuntimePendingApproval } from '@/lib/runtime/types'
+import ApprovalsTable from './ApprovalsTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,13 +22,6 @@ type ApprovalRequestPayload = {
 type ApprovalDecisionPayload = {
   approval_id?: string
   decision?: 'approved' | 'rejected'
-}
-
-type PendingApproval = {
-  approval_id: string
-  agent_id: string
-  created_at: string
-  user_request: string
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {
@@ -56,11 +51,6 @@ function parseDecisionPayload(value: unknown): ApprovalDecisionPayload {
         ? record.decision
         : undefined,
   }
-}
-
-function shortText(value: string, max = 100) {
-  if (value.length <= max) return value
-  return `${value.slice(0, max - 3)}...`
 }
 
 export default async function ApprovalsPage() {
@@ -102,7 +92,7 @@ export default async function ApprovalsPage() {
     }
   }
 
-  const pendingApprovals: PendingApproval[] = []
+  const pendingApprovals: RuntimePendingApproval[] = []
   for (const row of requests) {
     try {
       const payload = parseRequestPayload(row.payload)
@@ -134,118 +124,9 @@ export default async function ApprovalsPage() {
         </p>
       ) : null}
 
-      {!requestError && !decisionError && pendingApprovals.length === 0 ? (
-        <p>No pending approvals.</p>
+      {!requestError && !decisionError ? (
+        <ApprovalsTable pendingApprovals={pendingApprovals} />
       ) : null}
-
-      {pendingApprovals.length > 0 ? (
-        <table cellPadding={8} style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <thead>
-            <tr>
-              <th align="left">approval_id</th>
-              <th align="left">created_at</th>
-              <th align="left">user_request</th>
-              <th align="left">decision</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pendingApprovals.map((item) => (
-              <tr key={item.approval_id} data-approval-row={item.approval_id}>
-                <td>{item.approval_id}</td>
-                <td>{item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
-                <td title={item.user_request}>{shortText(item.user_request)}</td>
-                <td>
-                  <button
-                    type="button"
-                    style={{
-                      padding: '6px 10px',
-                      border: '1px solid rgba(255,255,255,0.25)',
-                      background: 'rgba(255,255,255,0.08)',
-                      color: '#fff',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                    }}
-                    data-runtime-decision="approved"
-                    data-agent-id={item.agent_id}
-                    data-approval-id={item.approval_id}
-                  >
-                    Approve
-                  </button>{' '}
-                  <button
-                    type="button"
-                    style={{
-                      padding: '6px 10px',
-                      border: '1px solid rgba(255,255,255,0.25)',
-                      background: 'rgba(255,255,255,0.08)',
-                      color: '#fff',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                    }}
-                    data-runtime-decision="rejected"
-                    data-agent-id={item.agent_id}
-                    data-approval-id={item.approval_id}
-                  >
-                    Reject
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            (() => {
-              async function submitDecision(button) {
-                if (!(button instanceof HTMLButtonElement)) return;
-                const decision = button.getAttribute('data-runtime-decision');
-                const approvalId = button.getAttribute('data-approval-id');
-                const agentId = button.getAttribute('data-agent-id');
-                if (!decision || !approvalId || !agentId) return;
-
-                const allButtons = Array.from(document.querySelectorAll('button[data-approval-id="' + approvalId + '"]'));
-                allButtons.forEach((btn) => { btn.disabled = true; });
-
-                try {
-                  const res = await fetch('/api/runtime/approve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      agent_id: agentId,
-                      approval_id: approvalId,
-                      decision
-                    }),
-                  });
-                  const json = await res.json().catch(() => ({}));
-                  if (!res.ok || !json?.ok) {
-                    const message = (json && typeof json.error === 'string') ? json.error : 'Failed to submit decision.';
-                    alert(message);
-                    allButtons.forEach((btn) => { btn.disabled = false; });
-                    return;
-                  }
-
-                  const row = document.querySelector('[data-approval-row="' + approvalId + '"]');
-                  if (row) row.remove();
-                } catch (err) {
-                  alert('Failed to submit decision.');
-                  allButtons.forEach((btn) => { btn.disabled = false; });
-                }
-              }
-
-              document.addEventListener('click', (event) => {
-                const target = event.target;
-                if (!(target instanceof Element)) return;
-                const button = target.closest('button[data-runtime-decision]');
-                if (!button) return;
-                event.preventDefault();
-                submitDecision(button);
-              });
-            })();
-          `,
-        }}
-      />
     </main>
   )
 }

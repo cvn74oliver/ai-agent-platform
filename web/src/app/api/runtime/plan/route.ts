@@ -6,6 +6,7 @@ import type {
   RuntimeProposedAction,
   RuntimeApprovalRequestPayload,
 } from '@/lib/runtime/types'
+import { isUuid } from '@/lib/runtime/types'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -85,12 +86,22 @@ export async function POST(req: Request) {
       )
     }
 
+    const agentId = body.agent_id.trim()
+    if (!isUuid(agentId)) {
+      return NextResponse.json(
+        { ok: false, error: 'agent_id must be a valid UUID' },
+        { status: 400 }
+      )
+    }
+
     if (typeof body.user_request !== 'string' || !body.user_request.trim()) {
       return NextResponse.json(
         { ok: false, error: 'user_request is required' },
         { status: 400 }
       )
     }
+
+    const userRequest = body.user_request.trim()
 
     const proposedActions = validateProposedActions(body.proposed_actions)
     if (proposedActions === null) {
@@ -103,12 +114,12 @@ export async function POST(req: Request) {
     const supabase = await getSupabaseAdmin()
     const approvalId = crypto.randomUUID()
     const nowIso = new Date().toISOString()
-    const planJson = generatePlanJson(body.user_request.trim(), proposedActions, nowIso)
+    const planJson = generatePlanJson(userRequest, proposedActions, nowIso)
 
     const payload: RuntimeApprovalRequestPayload = {
       approval_id: approvalId,
-      agent_id: body.agent_id.trim(),
-      user_request: body.user_request.trim(),
+      agent_id: agentId,
+      user_request: userRequest,
       plan_json: planJson,
       proposed_actions: proposedActions,
       created_at: nowIso,
@@ -116,7 +127,7 @@ export async function POST(req: Request) {
 
     const { error } = await supabase.from('agent_events').insert([
       {
-        agent_id: body.agent_id.trim(),
+        agent_id: agentId,
         event_type: 'approval_request',
         created_at: nowIso,
         payload,

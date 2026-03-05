@@ -4,6 +4,13 @@ export type RuntimeProposedAction = {
   args?: unknown
 }
 
+export const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function isUuid(value: string): boolean {
+  return UUID_REGEX.test(value)
+}
+
 export type RuntimePlanRequest = {
   agent_id: string
   user_request: string
@@ -44,4 +51,11 @@ export type RuntimeApprovalDecisionPayload = {
   decision: 'approved' | 'rejected'
   reviewer_note?: string
   decided_at: string
+}
+
+export type RuntimePendingApproval = {
+  approval_id: string
+  agent_id: string
+  created_at: string
+  user_request: string
 }

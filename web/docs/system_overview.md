@@ -408,7 +408,6 @@ Retrieval Weighting Hierarchy (Current Logic):
    - Penalized when user intent indicates internal book/manual reference.
 
 RAG content is supplemental to the contract — never authoritative over it.
----
 
 ## Agent Runtime + Tool System v1
 
@@ -435,10 +434,13 @@ Behavioral rules:
 - Authentication and risk policy must be resolved from registry metadata at execution time.
 
 ### 3) Approval Queue Model
+
 Approval is maturity-based and follows a controlled progression:
 - `new hire`: all non-trivial actions require explicit human approval.
 - `confidence`: repeated correct behavior earns scoped auto-approval for low-risk actions.
 - `graduation`: agent can auto-execute approved low-risk patterns, while medium/high-risk actions remain gated.
+
+Confidence must be tracked per agent **per tool action** and **per workflow/SOP**. Auto-approval is granted only within that specific scoped boundary (agent + action, or agent + workflow version) and must not generalize to other actions or workflows.
 
 Queue requirements:
 - Every pending action enters an approval queue with plan context, tool/action, risk level, and rationale.
