@@ -4,6 +4,8 @@ export type RuntimeProposedAction = {
   args?: unknown
 }
 
+export type RuntimeApprovalStatus = 'pending' | 'approved' | 'auto-approved' | 'executed'
+
 export type RuntimeMode = 'training' | 'guarded'
 
 export const UUID_REGEX =
@@ -67,6 +69,10 @@ export type RuntimePendingApproval = {
   created_at: string
   user_request: string
   proposed_actions?: RuntimeProposedAction[]
+  decision?: 'approved' | 'rejected'
+  auto_approved?: boolean
+  executed?: boolean
+  status?: RuntimeApprovalStatus
   auto_approve_eligible?: boolean
 }
 
@@ -97,4 +103,26 @@ export type RuntimeModeUpdatePayload = {
 export type RuntimeEligibilityData = {
   mode: RuntimeMode
   actions: RuntimeConfidenceActionSummary[]
+}
+
+export type RuntimeExecuteRequest = {
+  agent_id: string
+  approval_id: string
+}
+
+export type RuntimeExecutionActionResult = {
+  tool: 'sandbox'
+  action: string
+  success: true
+  echoed_message?: string
+  echoed_args?: unknown
+  wait_ms?: number
+  note?: string
+}
+
+export type RuntimeExecutionResultPayload = {
+  approval_id: string
+  results: RuntimeExecutionActionResult[]
+  executed_at: string
+  success: true
 }

@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
 import type {
+  RuntimeApprovalStatus,
   RuntimeMode,
   RuntimePendingApproval,
   RuntimeProposedAction,
@@ -28,6 +29,11 @@ type ApprovalRequestPayload = {
 type ApprovalDecisionPayload = {
   approval_id?: string
   decision?: 'approved' | 'rejected'
+  auto_approved?: boolean
+}
+
+type ExecutionResultPayload = {
+  approval_id?: string
 }
 
 type ConfidenceUpdatePayload = {
@@ -88,6 +94,16 @@ function parseDecisionPayload(value: unknown): ApprovalDecisionPayload {
       record.decision === 'approved' || record.decision === 'rejected'
         ? record.decision
         : undefined,
+    auto_approved: record.auto_approved === true,
+  }
+}
+
+function parseExecutionPayload(value: unknown): ExecutionResultPayload {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : value
+  const record = toRecord(parsed)
+  if (!record) return {}
+  return {
+    approval_id: typeof record.approval_id === 'string' ? record.approval_id : undefined,
   }
 }
 
@@ -132,33 +148,40 @@ export default async function ApprovalsPage() {
     { data: decisionRows, error: decisionError },
     { data: confidenceRows, error: confidenceError },
     { data: modeRows, error: modeError },
+    { data: executionRows, error: executionError },
   ] = await Promise.all([
-      supabase
-        .from('agent_events')
-        .select('id, agent_id, event_type, created_at, payload')
-        .eq('event_type', 'approval_request')
-        .order('created_at', { ascending: false })
-        .limit(200),
-      supabase
-        .from('agent_events')
-        .select('id, agent_id, event_type, created_at, payload')
-        .eq('event_type', 'approval_decision')
-        .order('created_at', { ascending: false })
-        .limit(200),
-      supabase
-        .from('agent_events')
-        .select('id, agent_id, event_type, created_at, payload')
-        .eq('event_type', 'confidence_update')
-        .eq('payload->>decision', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(2000),
-      supabase
-        .from('agent_events')
-        .select('id, agent_id, event_type, created_at, payload')
-        .eq('event_type', 'runtime_mode_update')
-        .order('created_at', { ascending: false })
-        .limit(2000),
-    ])
+    supabase
+      .from('agent_events')
+      .select('id, agent_id, event_type, created_at, payload')
+      .eq('event_type', 'approval_request')
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase
+      .from('agent_events')
+      .select('id, agent_id, event_type, created_at, payload')
+      .eq('event_type', 'approval_decision')
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase
+      .from('agent_events')
+      .select('id, agent_id, event_type, created_at, payload')
+      .eq('event_type', 'confidence_update')
+      .eq('payload->>decision', 'approved')
+      .order('created_at', { ascending: false })
+      .limit(2000),
+    supabase
+      .from('agent_events')
+      .select('id, agent_id, event_type, created_at, payload')
+      .eq('event_type', 'runtime_mode_update')
+      .order('created_at', { ascending: false })
+      .limit(2000),
+    supabase
+      .from('agent_events')
+      .select('id, agent_id, event_type, created_at, payload')
+      .eq('event_type', 'execution_result')
+      .order('created_at', { ascending: false })
+      .limit(200),
+  ])
 
   const requests = ((requestRows || []) as AgentEventRow[]).filter(
     (row) => row.event_type === 'approval_request'
@@ -172,35 +195,71 @@ export default async function ApprovalsPage() {
   const modeUpdates = ((modeRows || []) as AgentEventRow[]).filter(
     (row) => row.event_type === 'runtime_mode_update'
   )
+  const executions = ((executionRows || []) as AgentEventRow[]).filter(
+    (row) => row.event_type === 'execution_result'
+  )
 
-  const latestDecisionByApproval = new Map<string, 'approved' | 'rejected'>()
+  const latestDecisionByApproval = new Map<
+    string,
+    { decision: 'approved' | 'rejected'; auto_approved: boolean }
+  >()
   for (const row of decisions) {
     try {
       const payload = parseDecisionPayload(row.payload)
       if (!payload.approval_id || !payload.decision) continue
       if (!latestDecisionByApproval.has(payload.approval_id)) {
-        latestDecisionByApproval.set(payload.approval_id, payload.decision)
+        latestDecisionByApproval.set(payload.approval_id, {
+          decision: payload.decision,
+          auto_approved: payload.auto_approved === true,
+        })
       }
     } catch {
       continue
     }
   }
 
-  const pendingApprovals: RuntimePendingApproval[] = []
+  const executedApprovalIds = new Set<string>()
+  for (const row of executions) {
+    try {
+      const payload = parseExecutionPayload(row.payload)
+      if (!payload.approval_id) continue
+      executedApprovalIds.add(payload.approval_id)
+    } catch {
+      continue
+    }
+  }
+
+  const approvalRows: RuntimePendingApproval[] = []
+  const seenApprovalIds = new Set<string>()
   for (const row of requests) {
     try {
       const payload = parseRequestPayload(row.payload)
       const approvalId = payload.approval_id
       const agentId = payload.agent_id || row.agent_id || ''
-      if (!approvalId || !agentId) continue
-      if (latestDecisionByApproval.has(approvalId)) continue
+      if (!approvalId || !agentId || seenApprovalIds.has(approvalId)) continue
+      seenApprovalIds.add(approvalId)
 
-      pendingApprovals.push({
+      const decision = latestDecisionByApproval.get(approvalId)
+      if (decision?.decision === 'rejected') continue
+
+      const executed = executedApprovalIds.has(approvalId)
+      let status: RuntimeApprovalStatus = 'pending'
+      if (executed) {
+        status = 'executed'
+      } else if (decision?.decision === 'approved') {
+        status = decision.auto_approved ? 'auto-approved' : 'approved'
+      }
+
+      approvalRows.push({
         approval_id: approvalId,
         agent_id: agentId,
         created_at: payload.created_at || row.created_at || '',
         user_request: payload.user_request || '',
         proposed_actions: payload.proposed_actions,
+        decision: decision?.decision,
+        auto_approved: decision?.auto_approved === true,
+        executed,
+        status,
       })
     } catch {
       continue
@@ -247,8 +306,8 @@ export default async function ApprovalsPage() {
 
   const agentModeByAgentId: Record<string, RuntimeMode> = {}
   const agentIds = new Set<string>()
-  for (const pending of pendingApprovals) {
-    agentIds.add(pending.agent_id)
+  for (const approval of approvalRows) {
+    agentIds.add(approval.agent_id)
   }
   for (const agentId of Object.keys(confidenceByAgentAction)) {
     agentIds.add(agentId)
@@ -257,40 +316,39 @@ export default async function ApprovalsPage() {
     agentModeByAgentId[agentId] = latestModeByAgentId.get(agentId) || 'training'
   }
 
-  const pendingApprovalsWithEligibility: RuntimePendingApproval[] = pendingApprovals.map(
-    (pending) => {
-      const actions = Array.isArray(pending.proposed_actions) ? pending.proposed_actions : []
-      const agentMap = confidenceByAgentAction[pending.agent_id] || {}
-      const autoApproveEligible =
-        actions.length > 0 &&
-        actions.every((action) => {
-          const key = `${action.tool}::${action.action}`
-          const approvedCount = agentMap[key] ?? 0
-          return approvedCount >= CONFIDENCE_THRESHOLD
-        })
+  const pendingApprovalsWithEligibility: RuntimePendingApproval[] = approvalRows.map((approval) => {
+    const actions = Array.isArray(approval.proposed_actions) ? approval.proposed_actions : []
+    const agentMap = confidenceByAgentAction[approval.agent_id] || {}
+    const autoApproveEligible =
+      actions.length > 0 &&
+      actions.every((action) => {
+        const key = `${action.tool}::${action.action}`
+        const approvedCount = agentMap[key] ?? 0
+        return approvedCount >= CONFIDENCE_THRESHOLD
+      })
 
-      return {
-        ...pending,
-        auto_approve_eligible: autoApproveEligible,
-      }
+    return {
+      ...approval,
+      auto_approve_eligible: autoApproveEligible,
     }
-  )
+  })
 
   return (
     <main style={{ padding: 24 }}>
       <h1>Approvals</h1>
 
-      {requestError || decisionError || confidenceError || modeError ? (
+      {requestError || decisionError || confidenceError || modeError || executionError ? (
         <p>
           Failed to load approvals.
           {requestError ? ` request: ${requestError.message}` : ''}
           {decisionError ? ` decision: ${decisionError.message}` : ''}
           {confidenceError ? ` confidence: ${confidenceError.message}` : ''}
           {modeError ? ` mode: ${modeError.message}` : ''}
+          {executionError ? ` execution: ${executionError.message}` : ''}
         </p>
       ) : null}
 
-      {!requestError && !decisionError && !confidenceError && !modeError ? (
+      {!requestError && !decisionError && !confidenceError && !modeError && !executionError ? (
         <ApprovalsTable
           pendingApprovals={pendingApprovalsWithEligibility}
           confidenceByAgentAction={confidenceByAgentAction}
