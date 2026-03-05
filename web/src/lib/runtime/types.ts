@@ -58,6 +58,7 @@ export type RuntimePendingApproval = {
   agent_id: string
   created_at: string
   user_request: string
+  proposed_actions?: RuntimeProposedAction[]
 }
 
 export type RuntimeConfidenceUpdatePayload = {

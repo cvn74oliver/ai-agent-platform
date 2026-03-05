@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import type { RuntimePendingApproval } from '@/lib/runtime/types'
+import { useMemo, useState, type CSSProperties } from 'react'
+import type { RuntimePendingApproval, RuntimeProposedAction } from '@/lib/runtime/types'
 
 type Props = {
   pendingApprovals: RuntimePendingApproval[]
+  confidenceByAgentAction: Record<string, Record<string, number>>
 }
 
 function shortText(value: string, max = 100) {
@@ -12,7 +13,27 @@ function shortText(value: string, max = 100) {
   return `${value.slice(0, max - 3)}...`
 }
 
-export default function ApprovalsTable({ pendingApprovals }: Props) {
+const CONFIDENCE_THRESHOLD = 10
+
+function formatConfidence(
+  agentId: string,
+  proposedActions: RuntimeProposedAction[] | undefined,
+  confidenceByAgentAction: Record<string, Record<string, number>>
+) {
+  const actions = Array.isArray(proposedActions) ? proposedActions : []
+  if (actions.length === 0) return '—'
+
+  const map = confidenceByAgentAction[agentId] || {}
+  const lines: string[] = []
+  for (const a of actions) {
+    const key = `${a.tool}::${a.action}`
+    const n = map[key] ?? 0
+    lines.push(`${a.tool}.${a.action}: ${n} / ${CONFIDENCE_THRESHOLD}`)
+  }
+  return lines.join('\n')
+}
+
+export default function ApprovalsTable({ pendingApprovals, confidenceByAgentAction }: Props) {
   const [rows, setRows] = useState<RuntimePendingApproval[]>(pendingApprovals)
   const [submittingIds, setSubmittingIds] = useState<Record<string, boolean>>({})
 
@@ -67,6 +88,14 @@ export default function ApprovalsTable({ pendingApprovals }: Props) {
 
   if (!hasRows) return <p>No pending approvals.</p>
 
+  const decisionButtonBaseStyle: CSSProperties = {
+    padding: '6px 10px',
+    border: '1px solid transparent',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontWeight: 600,
+  }
+
   return (
     <table cellPadding={8} style={{ borderCollapse: 'collapse', width: '100%' }}>
       <thead>
@@ -75,6 +104,7 @@ export default function ApprovalsTable({ pendingApprovals }: Props) {
           <th align="left">created_at</th>
           <th align="left">user_request</th>
           <th align="left">decision</th>
+          <th align="left">confidence</th>
         </tr>
       </thead>
       <tbody>
@@ -89,6 +119,14 @@ export default function ApprovalsTable({ pendingApprovals }: Props) {
                 <button
                   type="button"
                   disabled={disabled}
+                  style={{
+                    ...decisionButtonBaseStyle,
+                    borderColor: '#1d4ed8',
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.6 : 1,
+                  }}
                   onClick={() => submitDecision(item.approval_id, 'approved')}
                 >
                   Approve
@@ -96,10 +134,21 @@ export default function ApprovalsTable({ pendingApprovals }: Props) {
                 <button
                   type="button"
                   disabled={disabled}
+                  style={{
+                    ...decisionButtonBaseStyle,
+                    borderColor: '#b91c1c',
+                    background: '#dc2626',
+                    color: '#ffffff',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.6 : 1,
+                  }}
                   onClick={() => submitDecision(item.approval_id, 'rejected')}
                 >
                   Reject
                 </button>
+              </td>
+              <td style={{ whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
+                {formatConfidence(item.agent_id, item.proposed_actions, confidenceByAgentAction)}
               </td>
             </tr>
           )

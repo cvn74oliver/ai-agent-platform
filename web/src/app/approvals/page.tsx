@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
-import type { RuntimePendingApproval } from '@/lib/runtime/types'
+import type { RuntimePendingApproval, RuntimeProposedAction } from '@/lib/runtime/types'
 import ApprovalsTable from './ApprovalsTable'
 
 export const dynamic = 'force-dynamic'
@@ -17,6 +17,7 @@ type ApprovalRequestPayload = {
   agent_id?: string
   user_request?: string
   created_at?: string
+  proposed_actions?: RuntimeProposedAction[]
 }
 
 type ApprovalDecisionPayload = {
@@ -24,8 +25,35 @@ type ApprovalDecisionPayload = {
   decision?: 'approved' | 'rejected'
 }
 
+type ConfidenceUpdatePayload = {
+  decision?: 'approved' | 'rejected'
+  tool?: string
+  action?: string
+  new_count?: number
+}
+
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
+}
+
+function parseProposedActions(value: unknown): RuntimeProposedAction[] | undefined {
+  if (!Array.isArray(value)) return undefined
+
+  const actions: RuntimeProposedAction[] = []
+  for (const item of value) {
+    const record = toRecord(item)
+    if (!record) continue
+
+    const tool = typeof record.tool === 'string' ? record.tool : undefined
+    const action = typeof record.action === 'string' ? record.action : undefined
+    if (!tool || !action) continue
+
+    const parsedAction: RuntimeProposedAction = { tool, action }
+    if ('args' in record) parsedAction.args = record.args
+    actions.push(parsedAction)
+  }
+
+  return actions
 }
 
 function parseRequestPayload(value: unknown): ApprovalRequestPayload {
@@ -37,6 +65,7 @@ function parseRequestPayload(value: unknown): ApprovalRequestPayload {
     agent_id: typeof record.agent_id === 'string' ? record.agent_id : undefined,
     user_request: typeof record.user_request === 'string' ? record.user_request : undefined,
     created_at: typeof record.created_at === 'string' ? record.created_at : undefined,
+    proposed_actions: parseProposedActions(record.proposed_actions),
   }
 }
 
@@ -53,11 +82,38 @@ function parseDecisionPayload(value: unknown): ApprovalDecisionPayload {
   }
 }
 
+function parseConfidencePayload(value: unknown): ConfidenceUpdatePayload {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : value
+  const record = toRecord(parsed)
+  if (!record) return {}
+
+  let newCount: number | undefined
+  if (typeof record.new_count === 'number') {
+    newCount = record.new_count
+  } else if (typeof record.new_count === 'string') {
+    const parsedCount = Number(record.new_count)
+    if (Number.isFinite(parsedCount)) newCount = parsedCount
+  }
+
+  return {
+    decision:
+      record.decision === 'approved' || record.decision === 'rejected'
+        ? record.decision
+        : undefined,
+    tool: typeof record.tool === 'string' ? record.tool : undefined,
+    action: typeof record.action === 'string' ? record.action : undefined,
+    new_count: newCount,
+  }
+}
+
 export default async function ApprovalsPage() {
   const supabase = await getSupabaseAdmin()
 
-  const [{ data: requestRows, error: requestError }, { data: decisionRows, error: decisionError }] =
-    await Promise.all([
+  const [
+    { data: requestRows, error: requestError },
+    { data: decisionRows, error: decisionError },
+    { data: confidenceRows, error: confidenceError },
+  ] = await Promise.all([
       supabase
         .from('agent_events')
         .select('id, agent_id, event_type, created_at, payload')
@@ -70,6 +126,13 @@ export default async function ApprovalsPage() {
         .eq('event_type', 'approval_decision')
         .order('created_at', { ascending: false })
         .limit(200),
+      supabase
+        .from('agent_events')
+        .select('id, agent_id, event_type, created_at, payload')
+        .eq('event_type', 'confidence_update')
+        .eq('payload->>decision', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(2000),
     ])
 
   const requests = ((requestRows || []) as AgentEventRow[]).filter(
@@ -77,6 +140,9 @@ export default async function ApprovalsPage() {
   )
   const decisions = ((decisionRows || []) as AgentEventRow[]).filter(
     (row) => row.event_type === 'approval_decision'
+  )
+  const confidenceUpdates = ((confidenceRows || []) as AgentEventRow[]).filter(
+    (row) => row.event_type === 'confidence_update'
   )
 
   const latestDecisionByApproval = new Map<string, 'approved' | 'rejected'>()
@@ -106,7 +172,34 @@ export default async function ApprovalsPage() {
         agent_id: agentId,
         created_at: payload.created_at || row.created_at || '',
         user_request: payload.user_request || '',
+        proposed_actions: payload.proposed_actions,
       })
+    } catch {
+      continue
+    }
+  }
+
+  const confidenceByAgentAction: Record<string, Record<string, number>> = {}
+  for (const row of confidenceUpdates) {
+    try {
+      if (!row.agent_id) continue
+      const payload = parseConfidencePayload(row.payload)
+      if (
+        payload.decision !== 'approved' ||
+        !payload.tool ||
+        !payload.action ||
+        typeof payload.new_count !== 'number'
+      ) {
+        continue
+      }
+
+      const actionKey = `${payload.tool}::${payload.action}`
+      const agentMap = confidenceByAgentAction[row.agent_id] || {}
+      const current = agentMap[actionKey] ?? Number.NEGATIVE_INFINITY
+      if (payload.new_count > current) {
+        agentMap[actionKey] = payload.new_count
+        confidenceByAgentAction[row.agent_id] = agentMap
+      }
     } catch {
       continue
     }
@@ -116,16 +209,20 @@ export default async function ApprovalsPage() {
     <main style={{ padding: 24 }}>
       <h1>Approvals</h1>
 
-      {requestError || decisionError ? (
+      {requestError || decisionError || confidenceError ? (
         <p>
           Failed to load approvals.
           {requestError ? ` request: ${requestError.message}` : ''}
           {decisionError ? ` decision: ${decisionError.message}` : ''}
+          {confidenceError ? ` confidence: ${confidenceError.message}` : ''}
         </p>
       ) : null}
 
-      {!requestError && !decisionError ? (
-        <ApprovalsTable pendingApprovals={pendingApprovals} />
+      {!requestError && !decisionError && !confidenceError ? (
+        <ApprovalsTable
+          pendingApprovals={pendingApprovals}
+          confidenceByAgentAction={confidenceByAgentAction}
+        />
       ) : null}
     </main>
   )
