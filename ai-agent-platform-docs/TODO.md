@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-04 (PM v7 Active • Runtime Slice #1 Shipped • Hybrid Codex Model Confirmed)_
+_Last updated: 2026-03-05 (PM v7 Active • Runtime Slices #1–#3 Shipped • Hybrid Codex Model Confirmed)_
 
 - Project Manager — healthy (v7 active, Mar 4 2026)
 - Architect — healthy
@@ -13,18 +13,27 @@ _Last updated: 2026-03-04 (PM v7 Active • Runtime Slice #1 Shipped • Hybrid 
 ## 🔥 Current Focus (This Week)
 ---
 
-1) **Agent Runtime — Approval Queue MVP (Slice #1) (DONE)**
+1) **Agent Runtime — Approval Queue MVP (Slice #1–#2) (DONE)**
    - [x] Added /api/runtime/plan (creates approval_request event)
    - [x] Added /api/runtime/approve (creates approval_decision event)
    - [x] Added /approvals page (server reads + client fetch approve/reject)
    - [x] Validated end-to-end locally (approval row appears; approve removes it)
    - [x] Golden Path passing after changes
+   - [x] UUID validation returns 400 for invalid agent_id/approval_id
+   - [x] Replaced inline script with `use client` approvals component
 
-2) **Agent Runtime — Slice #2 (Next)**
-   - [ ] Return 400 (not 500) for invalid UUID agent_id in /api/runtime/plan and /api/runtime/approve
-   - [ ] Replace inline <script dangerouslySetInnerHTML> in /approvals with a small `use client` component (keep server-only Supabase reads)
-   - [ ] Add optional viewer to expand/collapse plan_json on approvals row
-   - [ ] Add confidence counters (schema-free MVP via agent_events) OR design minimal schema change as separate EXTRA-HIGH task
+2) **Agent Runtime — Confidence Engine MVP (Slice #3) (DONE)**
+   - [x] /api/runtime/approve logs confidence_update events per proposed tool.action
+   - [x] /api/runtime/confidence endpoint returns aggregated action confidence
+   - [x] Aggregation uses max payload.new_count (with safe fallback)
+
+3) **Fast-win UI — Show confidence on /approvals (In Progress)**
+   - [ ] Display per-action confidence (e.g., gmail.send_email: 1 / 10) alongside approval rows
+
+4) **Agent Runtime — Slice #4 (Next)**
+   - [ ] Add eligibility endpoint (graduation readiness) based on confidence thresholds
+   - [ ] Add supervisor modes: training / guarded (no auto-execution yet)
+   - [ ] Add optional plan_json expand/collapse viewer on approvals row
 
 ## 🧠 Codex Operating Model (Updated Mar 2026)
 ---
@@ -116,4 +125,4 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - Automations framework MVP (run an agent workflow end-to-end)
 - “Aha moment” avatar + face card (image + persona, later voice/video)
 
-Project Manager Agent – v6 stabilized • v7 activation pending • System integrity intact
+Project Manager Agent – v7 active • Runtime progressing • System integrity intact

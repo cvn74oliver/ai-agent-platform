@@ -516,7 +516,68 @@ Golden Path automation added and ready for routine pre-sync verification.
   - Confidence is tracked per agent **per tool action** and **per workflow/SOP**.
   - Auto-approval must remain scoped to that boundary (agent + action, agent + workflow version).
 
-### Notes / follow-ups
-- Known polish items for Slice #2:
-  - Return 400 (not 500) for invalid UUID `agent_id` in runtime endpoints.
-  - Replace inline script usage in `/approvals` with a small `use client` component (keep server-only Supabase reads).
+
+
+## 2026-03-05 — Agent Runtime Slice #3 (Confidence Engine MVP) Implemented
+
+### What shipped
+- Extended `/api/runtime/approve` to generate **confidence_update** events after a successful approval decision.
+- Confidence is tracked **per agent + tool.action** using the `agent_events` table (schema‑free event sourcing).
+- Each approval decision now:
+  - Looks up the related `approval_request` event by `approval_id`.
+  - Extracts `proposed_actions` from the request payload.
+  - Records a `confidence_update` event for every proposed action.
+
+### Confidence Event Payload
+Each `confidence_update` event records:
+- `approval_id`
+- `tool`
+- `action`
+- `decision`
+- `new_count`
+- `threshold`
+- `eligible_auto`
+- `updated_at`
+
+### New Runtime Endpoint
+Added:
+
+`GET /api/runtime/confidence?agent_id=<uuid>`
+
+Returns aggregated confidence state:
+
+```
+{
+  "ok": true,
+  "data": {
+    "actions": [
+      {
+        "tool": "gmail",
+        "action": "send_email",
+        "approved_count": 1,
+        "threshold": 10,
+        "eligible_auto": false
+      }
+    ]
+  }
+}
+```
+
+Aggregation logic:
+- Uses the **maximum `payload.new_count`** observed for each `(tool, action)` pair.
+- Falls back to counting rows only when `new_count` is missing.
+
+### Governance Notes
+- Event types remain strictly controlled:
+  - `approval_request`
+  - `approval_decision`
+  - `confidence_update`
+- No database migrations were required.
+- The supervision model now supports the progression:
+
+```
+new hire → approvals → confidence accumulation → graduation eligibility
+```
+
+### Outcome
+The runtime supervision loop now supports **confidence accumulation and eligibility tracking**, laying the groundwork for future auto‑execution of trusted actions once thresholds are met.
