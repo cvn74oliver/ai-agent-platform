@@ -9,6 +9,33 @@ import type {
   RuntimeProposedAction,
 } from '@/lib/runtime/types'
 
+const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
+const GMAIL_DRAFTS_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/drafts'
+
+type GmailDraftArgs = {
+  to: string
+  subject: string
+  body: string
+}
+
+type ParsedExecutionAction =
+  | { tool: 'sandbox'; action: RuntimeProposedAction }
+  | { tool: 'gmail'; action: 'draft_email'; args: GmailDraftArgs }
+
+type GoogleRefreshTokenResponse = {
+  access_token?: string
+  expires_in?: number
+  error?: string
+  error_description?: string
+}
+
+type GmailDraftCreateResponse = {
+  id?: string
+  message?: {
+    id?: string
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -58,6 +85,134 @@ function parseProposedActions(value: unknown): RuntimeProposedAction[] | null {
   }
 
   return actions
+}
+
+function parseGmailDraftArgs(args: unknown): GmailDraftArgs | null {
+  if (!isRecord(args)) return null
+
+  const to = typeof args.to === 'string' ? args.to.trim() : ''
+  const subject = typeof args.subject === 'string' ? args.subject : null
+  const body = typeof args.body === 'string' ? args.body : null
+
+  if (!to || subject == null || body == null) return null
+  return { to, subject, body }
+}
+
+function parseExecutionActions(
+  actions: RuntimeProposedAction[]
+): { actions: ParsedExecutionAction[]; error?: 'invalid_gmail' | 'unsupported' } {
+  const parsed: ParsedExecutionAction[] = []
+
+  for (const action of actions) {
+    if (action.tool === 'sandbox') {
+      parsed.push({ tool: 'sandbox', action })
+      continue
+    }
+
+    if (action.tool === 'gmail') {
+      if (action.action !== 'draft_email') {
+        return { actions: [], error: 'invalid_gmail' }
+      }
+
+      const gmailArgs = parseGmailDraftArgs(action.args)
+      if (!gmailArgs) {
+        return { actions: [], error: 'invalid_gmail' }
+      }
+
+      parsed.push({ tool: 'gmail', action: 'draft_email', args: gmailArgs })
+      continue
+    }
+
+    return { actions: [], error: 'unsupported' }
+  }
+
+  return { actions: parsed }
+}
+
+function isExpiredTimestamp(value: unknown): boolean {
+  if (typeof value !== 'string' || !value.trim()) return false
+
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) return false
+
+  return parsed <= Date.now()
+}
+
+function toBase64Url(value: string): string {
+  return Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+
+async function refreshGmailAccessToken(params: {
+  refreshToken: string
+  clientId: string
+  clientSecret: string
+}): Promise<{ accessToken: string; expiresAt: string | null } | null> {
+  const tokenBody = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: params.refreshToken,
+    client_id: params.clientId,
+    client_secret: params.clientSecret,
+  })
+
+  const tokenResponse = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: tokenBody.toString(),
+    cache: 'no-store',
+  })
+
+  const tokenData = (await tokenResponse.json().catch(() => null)) as GoogleRefreshTokenResponse | null
+  if (!tokenResponse.ok || !tokenData?.access_token) {
+    console.error('[runtime/execute] Gmail refresh token error:', tokenData)
+    return null
+  }
+
+  const expiresAt =
+    typeof tokenData.expires_in === 'number'
+      ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+      : null
+
+  return {
+    accessToken: tokenData.access_token,
+    expiresAt,
+  }
+}
+
+async function createGmailDraft(params: {
+  accessToken: string
+  to: string
+  subject: string
+  body: string
+}): Promise<{ draftId: string; messageId: string } | null> {
+  const mimeMessage = [`To: ${params.to}`, `Subject: ${params.subject}`, '', params.body].join('\r\n')
+  const raw = toBase64Url(mimeMessage)
+
+  const gmailResponse = await fetch(GMAIL_DRAFTS_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message: { raw },
+    }),
+    cache: 'no-store',
+  })
+
+  const draftData = (await gmailResponse.json().catch(() => null)) as GmailDraftCreateResponse | null
+  const draftId = typeof draftData?.id === 'string' ? draftData.id : ''
+  const messageId = typeof draftData?.message?.id === 'string' ? draftData.message.id : ''
+
+  if (!gmailResponse.ok || !draftId || !messageId) {
+    console.error('[runtime/execute] Gmail draft create error:', draftData)
+    return null
+  }
+
+  return { draftId, messageId }
 }
 
 function simulateSandboxAction(action: RuntimeProposedAction): RuntimeExecutionActionResult {
@@ -229,22 +384,175 @@ export async function POST(req: Request) {
       )
     }
 
-    const hasNonSandboxAction = proposedActions.some((action) => action.tool !== 'sandbox')
-    if (hasNonSandboxAction) {
+    const parsedExecution = parseExecutionActions(proposedActions)
+    if (parsedExecution.error === 'invalid_gmail') {
+      return NextResponse.json({ ok: false, error: 'Invalid gmail draft arguments' }, { status: 400 })
+    }
+
+    if (parsedExecution.error === 'unsupported') {
       return NextResponse.json(
         { ok: false, error: 'Non-sandbox actions not executable in Slice 6A' },
         { status: 400 }
       )
     }
 
-    const results = proposedActions.map(simulateSandboxAction)
-    const executedAt = new Date().toISOString()
-    const executionPayload: RuntimeExecutionResultPayload = {
-      approval_id: approvalId,
-      results,
-      executed_at: executedAt,
-      success: true,
+    const executionActions = parsedExecution.actions
+    const hasGmailAction = executionActions.some((action) => action.tool === 'gmail')
+
+    let gmailAccessToken = ''
+    if (hasGmailAction) {
+      const { data: agentRow, error: agentError } = await supabase
+        .from('agents')
+        .select('user_id')
+        .eq('id', agentId)
+        .maybeSingle()
+
+      if (agentError) {
+        console.error('[runtime/execute] agent lookup error:', agentError)
+        return NextResponse.json({ ok: false, error: 'Failed to load agent.' }, { status: 500 })
+      }
+
+      const userId = typeof agentRow?.user_id === 'string' ? agentRow.user_id : ''
+      if (!userId) {
+        return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
+      }
+
+      const { data: profileRow, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (profileError) {
+        console.error('[runtime/execute] profile lookup error:', profileError)
+        return NextResponse.json({ ok: false, error: 'Failed to load profile.' }, { status: 500 })
+      }
+
+      const tenantId = typeof profileRow?.tenant_id === 'string' ? profileRow.tenant_id : ''
+      if (!tenantId) {
+        return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
+      }
+
+      const { data: connectionRow, error: connectionError } = await supabase
+        .from('integration_connections')
+        .select('access_token,refresh_token,expires_at')
+        .eq('tenant_id', tenantId)
+        .eq('provider', 'gmail')
+        .maybeSingle()
+
+      if (connectionError) {
+        console.error('[runtime/execute] Gmail connection lookup error:', connectionError)
+        return NextResponse.json({ ok: false, error: 'Failed to load Gmail connection.' }, { status: 500 })
+      }
+
+      const accessToken =
+        typeof connectionRow?.access_token === 'string' ? connectionRow.access_token.trim() : ''
+      const refreshToken =
+        typeof connectionRow?.refresh_token === 'string' ? connectionRow.refresh_token.trim() : ''
+
+      if (!accessToken || !refreshToken) {
+        return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
+      }
+
+      gmailAccessToken = accessToken
+
+      if (isExpiredTimestamp(connectionRow?.expires_at)) {
+        const clientId = process.env.GOOGLE_CLIENT_ID
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+        if (!clientId || !clientSecret) {
+          return NextResponse.json(
+            { ok: false, error: 'Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET.' },
+            { status: 500 }
+          )
+        }
+
+        const refreshedToken = await refreshGmailAccessToken({
+          refreshToken,
+          clientId,
+          clientSecret,
+        })
+
+        if (!refreshedToken) {
+          return NextResponse.json(
+            { ok: false, error: 'Failed to refresh Gmail access token.' },
+            { status: 500 }
+          )
+        }
+
+        gmailAccessToken = refreshedToken.accessToken
+
+        const { error: updateConnectionError } = await supabase
+          .from('integration_connections')
+          .update({
+            access_token: refreshedToken.accessToken,
+            expires_at: refreshedToken.expiresAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('tenant_id', tenantId)
+          .eq('provider', 'gmail')
+
+        if (updateConnectionError) {
+          console.error('[runtime/execute] Gmail connection update error:', updateConnectionError)
+          return NextResponse.json(
+            { ok: false, error: 'Failed to persist refreshed Gmail token.' },
+            { status: 500 }
+          )
+        }
+      }
     }
+
+    const results: RuntimeExecutionActionResult[] = []
+    let draftId: string | null = null
+    let messageId: string | null = null
+
+    for (const action of executionActions) {
+      if (action.tool === 'sandbox') {
+        results.push(simulateSandboxAction(action.action))
+        continue
+      }
+
+      const draft = await createGmailDraft({
+        accessToken: gmailAccessToken,
+        to: action.args.to,
+        subject: action.args.subject,
+        body: action.args.body,
+      })
+
+      if (!draft) {
+        return NextResponse.json({ ok: false, error: 'Failed to create Gmail draft.' }, { status: 500 })
+      }
+
+      draftId = draft.draftId
+      messageId = draft.messageId
+      results.push({
+        tool: 'gmail',
+        action: 'draft_email',
+        success: true,
+        draft_id: draft.draftId,
+        message_id: draft.messageId,
+      })
+    }
+
+    const executedAt = new Date().toISOString()
+    const executionPayload: RuntimeExecutionResultPayload =
+      draftId && messageId
+        ? {
+            approval_id: approvalId,
+            tool: 'gmail',
+            action: 'draft_email',
+            draft_id: draftId,
+            message_id: messageId,
+            executed_at: executedAt,
+            success: true,
+            ...(results.some((result) => result.tool === 'sandbox') ? { results } : {}),
+          }
+        : {
+            approval_id: approvalId,
+            results,
+            executed_at: executedAt,
+            success: true,
+          }
 
     const { error: insertError } = await supabase.from('agent_events').insert([
       {
@@ -261,6 +569,10 @@ export async function POST(req: Request) {
         { ok: false, error: 'Failed to store execution result.' },
         { status: 500 }
       )
+    }
+
+    if (draftId) {
+      return NextResponse.json({ ok: true, data: { executed: true, draft_id: draftId } })
     }
 
     return NextResponse.json({ ok: true, data: { executed: true } })

@@ -110,7 +110,7 @@ export type RuntimeExecuteRequest = {
   approval_id: string
 }
 
-export type RuntimeExecutionActionResult = {
+export type RuntimeSandboxExecutionActionResult = {
   tool: 'sandbox'
   action: string
   success: true
@@ -120,9 +120,25 @@ export type RuntimeExecutionActionResult = {
   note?: string
 }
 
+export type RuntimeGmailExecutionActionResult = {
+  tool: 'gmail'
+  action: 'draft_email'
+  success: true
+  draft_id: string
+  message_id: string
+}
+
+export type RuntimeExecutionActionResult =
+  | RuntimeSandboxExecutionActionResult
+  | RuntimeGmailExecutionActionResult
+
 export type RuntimeExecutionResultPayload = {
   approval_id: string
-  results: RuntimeExecutionActionResult[]
+  results?: RuntimeExecutionActionResult[]
+  tool?: 'gmail'
+  action?: 'draft_email'
+  draft_id?: string
+  message_id?: string
   executed_at: string
   success: true
 }
