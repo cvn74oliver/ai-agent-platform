@@ -51,8 +51,14 @@ export type RuntimeApproveRequest = {
 export type RuntimeApprovalDecisionPayload = {
   approval_id: string
   decision: 'approved' | 'rejected'
+  auto_approved?: boolean
   reviewer_note?: string
   decided_at: string
+}
+
+export type RuntimeAutoApproveRequest = {
+  agent_id: string
+  approval_id: string
 }
 
 export type RuntimePendingApproval = {
@@ -61,6 +67,7 @@ export type RuntimePendingApproval = {
   created_at: string
   user_request: string
   proposed_actions?: RuntimeProposedAction[]
+  auto_approve_eligible?: boolean
 }
 
 export type RuntimeConfidenceUpdatePayload = {

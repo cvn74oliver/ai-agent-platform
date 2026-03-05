@@ -7,6 +7,7 @@ import type {
 import ApprovalsTable from './ApprovalsTable'
 
 export const dynamic = 'force-dynamic'
+const CONFIDENCE_THRESHOLD = 10
 
 type AgentEventRow = {
   id: string
@@ -256,6 +257,25 @@ export default async function ApprovalsPage() {
     agentModeByAgentId[agentId] = latestModeByAgentId.get(agentId) || 'training'
   }
 
+  const pendingApprovalsWithEligibility: RuntimePendingApproval[] = pendingApprovals.map(
+    (pending) => {
+      const actions = Array.isArray(pending.proposed_actions) ? pending.proposed_actions : []
+      const agentMap = confidenceByAgentAction[pending.agent_id] || {}
+      const autoApproveEligible =
+        actions.length > 0 &&
+        actions.every((action) => {
+          const key = `${action.tool}::${action.action}`
+          const approvedCount = agentMap[key] ?? 0
+          return approvedCount >= CONFIDENCE_THRESHOLD
+        })
+
+      return {
+        ...pending,
+        auto_approve_eligible: autoApproveEligible,
+      }
+    }
+  )
+
   return (
     <main style={{ padding: 24 }}>
       <h1>Approvals</h1>
@@ -272,7 +292,7 @@ export default async function ApprovalsPage() {
 
       {!requestError && !decisionError && !confidenceError && !modeError ? (
         <ApprovalsTable
-          pendingApprovals={pendingApprovals}
+          pendingApprovals={pendingApprovalsWithEligibility}
           confidenceByAgentAction={confidenceByAgentAction}
           agentModeByAgentId={agentModeByAgentId}
         />

@@ -99,6 +99,43 @@ export default function ApprovalsTable({
     }
   }
 
+  async function submitAutoApprove(approvalId: string) {
+    const row = rowMap.get(approvalId)
+    if (!row) return
+
+    setSubmittingIds((prev) => ({ ...prev, [approvalId]: true }))
+    try {
+      const res = await fetch('/api/runtime/auto-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: row.agent_id,
+          approval_id: row.approval_id,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json?.ok) {
+        const message =
+          json && typeof json.error === 'string'
+            ? json.error
+            : 'Failed to auto-approve.'
+        alert(message)
+        setSubmittingIds((prev) => ({ ...prev, [approvalId]: false }))
+        return
+      }
+
+      setRows((prev) => prev.filter((item) => item.approval_id !== approvalId))
+      setSubmittingIds((prev) => {
+        const next = { ...prev }
+        delete next[approvalId]
+        return next
+      })
+    } catch {
+      alert('Failed to auto-approve.')
+      setSubmittingIds((prev) => ({ ...prev, [approvalId]: false }))
+    }
+  }
+
   if (!hasRows) return <p>No pending approvals.</p>
 
   const decisionButtonBaseStyle: CSSProperties = {
@@ -131,6 +168,25 @@ export default function ApprovalsTable({
               <td title={item.user_request}>{shortText(item.user_request)}</td>
               <td>{agentModeByAgentId[item.agent_id] || 'training'}</td>
               <td>
+                {item.auto_approve_eligible ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      style={{
+                        ...decisionButtonBaseStyle,
+                        borderColor: '#047857',
+                        background: '#059669',
+                        color: '#ffffff',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        opacity: disabled ? 0.6 : 1,
+                      }}
+                      onClick={() => submitAutoApprove(item.approval_id)}
+                    >
+                      Auto-Approve
+                    </button>{' '}
+                  </>
+                ) : null}
                 <button
                   type="button"
                   disabled={disabled}
