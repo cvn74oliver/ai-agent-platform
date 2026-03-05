@@ -581,3 +581,79 @@ new hire → approvals → confidence accumulation → graduation eligibility
 
 ### Outcome
 The runtime supervision loop now supports **confidence accumulation and eligibility tracking**, laying the groundwork for future auto‑execution of trusted actions once thresholds are met.
+
+## 2026-03-05 — Agent Runtime Slice #4 (Supervisor Mode + Eligibility) Shipped
+
+### What shipped
+- Added supervisor runtime mode (schema-free) stored as `agent_events`:
+  - `POST /api/runtime/mode` → inserts `event_type="runtime_mode_update"` payload `{ mode, updated_at }`.
+- Added eligibility endpoint:
+  - `GET /api/runtime/eligibility?agent_id=<uuid>` → returns `{ mode, actions }` derived from:
+    - latest `runtime_mode_update` (default `training`)
+    - `confidence_update` aggregation using max `payload.new_count` per `tool::action`
+    - `eligible_auto = approved_count >= 10`
+- Updated `/approvals` UI:
+  - Added **mode** column.
+  - Confidence lines include `✅ eligible` or `⏳ training` markers.
+
+### Outcome
+The runtime now supports supervisor governance (training vs guarded) and exposes graduation readiness for each action.
+
+
+## 2026-03-05 — Agent Runtime Slice #5 (Guarded Auto-Approve) Shipped
+
+### What shipped
+- Added guarded-mode auto-approval endpoint:
+  - `POST /api/runtime/auto-approve` → auto-approves a pending request only when:
+    - mode is `guarded`
+    - decision not already recorded
+    - all proposed actions are eligible (Option A: **all actions must be >= 10**)
+  - Writes `approval_decision` payload including `auto_approved: true`.
+- Updated `/approvals` UI:
+  - Shows **Auto-Approve** button only when row is eligible.
+
+### Outcome
+Supervisor clicking is reduced without enabling real-world tool execution yet.
+
+
+## 2026-03-05 — Agent Runtime Slice 6A (Sandbox Execute) Shipped
+
+### What shipped
+- Added sandbox execution pipeline:
+  - `POST /api/runtime/execute` executes only **sandbox** actions (`noop`, `log`, `wait_ms`) with no side effects.
+  - Requires:
+    - mode is `guarded`
+    - an `approval_decision` exists with `decision="approved"`
+    - no prior `execution_result` for the same `approval_id`
+  - Writes `event_type="execution_result"` with payload `{ approval_id, results, executed_at, success:true }`.
+- Updated `/approvals` UI:
+  - Added **status** column (`pending | approved | auto-approved | executed`).
+  - Shows **Execute (sandbox)** only when guarded + approved/auto-approved + not executed + all actions are sandbox.
+
+### Outcome
+The platform now has an end-to-end runtime execution loop with audit logging, proven without external risk.
+
+
+## 2026-03-05 — Integrations (Tenant-Level) + Gmail OAuth Connected
+
+### What shipped
+- Added `integration_connections` table (tenant-scoped OAuth storage) with RLS policies for SELECT/INSERT/UPDATE by tenant.
+- Created a default tenant and assigned the primary user profile to it to enable company-level connections.
+- Implemented Gmail OAuth connect flow:
+  - `GET /api/integrations/gmail/start` → Google OAuth redirect with state cookie.
+  - `GET /api/integrations/gmail/callback` → token exchange + state verification + refresh-token preservation, stores tokens in `integration_connections`.
+- Updated `/settings` with a minimal **Company Integrations** card showing Gmail connected status.
+
+### Outcome
+Tenant-scoped integration storage is operational and Gmail can be connected safely under company governance.
+
+
+## 2026-03-05 — Agent Runtime Slice #7 (Gmail Draft Execution) Shipped
+
+### What shipped
+- Extended runtime execution to support a real tool action (draft-only):
+  - `tool: gmail`, `action: draft_email` → creates a Gmail **draft** (never sends).
+  - Uses `integration_connections` tokens, refreshes access token when expired, and logs `execution_result` with `draft_id` and `message_id`.
+
+### Outcome
+First real “agent did work in the real world” milestone achieved: Plan → Approve → Execute → Gmail draft created.

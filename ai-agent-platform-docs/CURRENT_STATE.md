@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-04  
+Last updated: 2026-03-05  
 Project Manager: v7 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
@@ -117,6 +117,58 @@ Dashboard Metrics:
 - Schema-free MVP implemented using existing `agent_events` table.
 - End‑to‑end validation completed locally (plan → approval → row removal).
 
+## Agent Runtime Execution (Slices 6A–7)
+
+- Runtime supervision ladder now operational:
+  - Plan → Approve → Confidence → Eligibility → Execute.
+- Sandbox execution pipeline implemented:
+  - `/api/runtime/execute` executes sandbox actions safely.
+- Execution logging implemented:
+  - `execution_result` events stored in `agent_events`.
+- UI now displays runtime supervision state:
+  - mode
+  - confidence
+  - approval status
+  - execution status.
+
+## Integrations — Gmail
+
+- Tenant-scoped OAuth integration implemented.
+- Gmail connection stored in `integration_connections`.
+- OAuth flow:
+  - `/api/integrations/gmail/start`
+  - `/api/integrations/gmail/callback`
+- Runtime tool support added:
+  - `gmail.draft_email`
+- Agent execution can now create Gmail drafts (never sends).
+
+---
+
+### Runtime Capability Milestone (March 5, 2026)
+
+The platform successfully completed the first **end‑to‑end autonomous workflow milestone**.
+
+Operational chain verified:
+
+Plan → Approve → Confidence → Eligibility → Auto‑Approve → Execute → External Tool Action
+
+Working runtime example:
+
+- Agent proposes Gmail action (`gmail.draft_email`).
+- Supervisor approves or auto‑approves based on confidence threshold.
+- Execution endpoint validates runtime mode (`guarded`).
+- System executes Gmail draft creation through OAuth integration.
+- Execution result stored in `agent_events`.
+
+Confirmed output:
+
+- Gmail draft created in connected inbox.
+- Execution recorded in `execution_result` event.
+- UI status correctly transitions:
+  `pending → approved → executed`.
+
+This marks the **first real external tool execution by the AI Agent Platform runtime**.
+
 ---
 
 # 🚀 Current Strategic Focus
@@ -145,11 +197,31 @@ Phase 3 — Controlled Expansion
    - Domain isolation enforced for all Codex threads
 
 5. Agent Runtime Expansion
-   - Approval Queue MVP completed (Slice #1).
-   - Next slice will add:
-     - UUID validation returning 400 errors.
-     - Replace inline approval script with `use client` component.
-     - Introduce confidence tracking (per agent + tool action + workflow).
+
+Current runtime supervision ladder:
+
+Plan → Approve → Confidence → Eligibility → Auto‑Approve → Execute
+
+Completed slices:
+
+Slice #1 — Approval Queue MVP
+Slice #2 — UUID validation + approvals UI client component
+Slice #3 — Confidence tracking per tool/action
+Slice #4 — Runtime mode + eligibility endpoint
+Slice #5 — Guarded auto‑approval
+Slice 6A — Sandbox execution engine
+Slice #7 — Gmail draft execution integration
+
+Next capability in development:
+
+Inbox Assistant
+
+- Gmail inbox analysis
+- Batch archive recommendations
+- Conversational approval workflow
+- Runtime assistant agent for operational automation
+
+This will introduce the **first dedicated Runtime Assistant Agent** responsible for inbox management and workflow assistance.
 
 ---
 
@@ -192,7 +264,11 @@ Operational pillars:
 - Usage Analytics Foundation
 
 v6 stabilized.  
-Platform stabilized under PM v7 and runtime supervision loop (Slice #1) now operational.
+Platform stabilized under PM v7.
+
+The **runtime supervision system (Slices 1–7)** is now operational and has successfully executed its first real external action (Gmail draft creation).
+
+The platform has transitioned from infrastructure stabilization into **early autonomous workflow capability**.
 
 ---
 

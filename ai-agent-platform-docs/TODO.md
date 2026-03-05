@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-05 (PM v7 Active • Runtime Slices #1–#3 Shipped • Hybrid Codex Model Confirmed)_
+_Last updated: 2026-03-05 (PM v7 Active • Runtime Slices #1–#6A Complete • Gmail Integration Live • First Real Execution Achieved)_
 
 - Project Manager — healthy (v7 active, Mar 4 2026)
 - Architect — healthy
@@ -11,29 +11,33 @@ _Last updated: 2026-03-05 (PM v7 Active • Runtime Slices #1–#3 Shipped • H
 - Prompt Engineer — healthy
 
 ## 🔥 Current Focus (This Week)
+
 ---
 
-1) **Agent Runtime — Approval Queue MVP (Slice #1–#2) (DONE)**
-   - [x] Added /api/runtime/plan (creates approval_request event)
-   - [x] Added /api/runtime/approve (creates approval_decision event)
-   - [x] Added /approvals page (server reads + client fetch approve/reject)
-   - [x] Validated end-to-end locally (approval row appears; approve removes it)
-   - [x] Golden Path passing after changes
-   - [x] UUID validation returns 400 for invalid agent_id/approval_id
-   - [x] Replaced inline script with `use client` approvals component
+1) Agent Runtime — Supervision Ladder (Slices #1–#6A) (COMPLETE)
+   - [x] Plan → approve endpoints + approvals UI
+   - [x] Confidence accumulation engine
+   - [x] Supervisor mode + eligibility endpoint
+   - [x] Guarded auto-approve
+   - [x] Sandbox execution pipeline
+   - [x] Execution logging + status UI
 
-2) **Agent Runtime — Confidence Engine MVP (Slice #3) (DONE)**
-   - [x] /api/runtime/approve logs confidence_update events per proposed tool.action
-   - [x] /api/runtime/confidence endpoint returns aggregated action confidence
-   - [x] Aggregation uses max payload.new_count (with safe fallback)
+2) Integrations — Gmail OAuth + Draft Execution (COMPLETE)
+   - [x] Tenant-level integration storage
+   - [x] Gmail OAuth connect flow
+   - [x] Runtime Gmail draft creation
 
-3) **Fast-win UI — Show confidence on /approvals (In Progress)**
-   - [ ] Display per-action confidence (e.g., gmail.send_email: 1 / 10) alongside approval rows
+3) Next System Capability — Inbox Assistant (NEXT)
+   - [ ] Create dedicated Inbox Assistant agent
+   - [ ] Add company-level tool permissions
+   - [ ] Implement Gmail inbox listing (read-only)
+   - [ ] Batch archive proposals
+   - [ ] Conversational approval workflow
 
-4) **Agent Runtime — Slice #4 (Next)**
-   - [ ] Add eligibility endpoint (graduation readiness) based on confidence thresholds
-   - [ ] Add supervisor modes: training / guarded (no auto-execution yet)
-   - [ ] Add optional plan_json expand/collapse viewer on approvals row
+4) Performance Improvements
+   - [ ] Playground fast-path (skip RAG for simple prompts)
+   - [ ] Retrieval caching
+   - [ ] Reduce simple prompt latency
 
 ## 🧠 Codex Operating Model (Updated Mar 2026)
 ---

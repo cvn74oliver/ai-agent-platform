@@ -141,6 +141,8 @@
     │   │   │   │   ├── route.ts
     │   │   │   │   ├── start
     │   │   │   │   └── submitAnswer.ts
+    │   │   │   ├── integrations
+    │   │   │   │   └── gmail
     │   │   │   ├── rag
     │   │   │   │   ├── ingest
     │   │   │   │   ├── run
@@ -149,10 +151,16 @@
     │   │   │   │   └── route.ts
     │   │   │   ├── runtime
     │   │   │   │   ├── approve
+    │   │   │   │   ├── auto-approve
+    │   │   │   │   ├── confidence
+    │   │   │   │   ├── eligibility
+    │   │   │   │   ├── execute
+    │   │   │   │   ├── mode
     │   │   │   │   └── plan
     │   │   │   └── transcribe-audio
     │   │   │       └── route.ts
     │   │   ├── approvals
+    │   │   │   ├── ApprovalsTable.tsx
     │   │   │   └── page.tsx
     │   │   ├── auth
     │   │   │   └── callback
@@ -196,6 +204,7 @@
     │   │   └── seed_prompts.sql
     │   └── supabase_schema_snapshot_2025-11-09.sql
     ├── tsconfig.json
+    ├── tsconfig.tsbuildinfo
     └── web
         └── docs
             ├── 00_MASTER_PROJECT.md
@@ -224,4 +233,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-81 directories, 144 files
+88 directories, 146 files
