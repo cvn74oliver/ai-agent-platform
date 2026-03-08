@@ -89,6 +89,13 @@ These are the ONLY domains in this system:
    - Reporting
    - Training readiness panels
 
+7. **Runtime Operations & External Integrations**
+   - Gmail runtime tools (analyze_inbox, review_sender_cluster, archive_messages)
+   - Approval / execution workflow
+   - agent_events lifecycle (approval_request → approval_decision → execution_result)
+   - External API integrations (Google, future tools)
+   - Runtime action evidence + lifecycle tracking
+
 These domains are **structural boundaries**.
 They map directly to parts of the codebase.
 
@@ -181,6 +188,11 @@ Every Codex task must include:
    - Performance considerations
    - Regression protections
 
+When the task involves **runtime automation or external integrations** (for example Gmail actions, workflow triggers, or external APIs), the objective must also explicitly include:
+- Execution surface (API route or worker responsible)
+- Expected event logging behavior (agent_events entries)
+- UI state changes or evidence rendering expectations
+
 Codex must not infer intent.
 
 ---
@@ -231,6 +243,7 @@ PM must:
 - Break big tasks into smaller sequential tasks
 - Avoid unnecessary retries
 - Warn before high-cost execution
+- Prefer delegating large multi‑file edits to Codex rather than manual edits by Oliver
 
 If a task risks heavy usage, say:
 
@@ -340,3 +353,30 @@ PM designs.
 Oliver approves the domain.
 
 This protocol overrides convenience shortcuts.
+
+---
+
+## 17. PROJECT MANAGER VERSION HANDOFF
+
+Project Managers operate in versions (PM‑V1, PM‑V2 … PM‑V8) to avoid context drift.
+
+When handing off between PM versions:
+
+1. Update the following documents before switching sessions:
+   - CHANGELOG.md
+   - TODO.md
+   - CURRENT_STATE.md
+   - SYSTEM_OVERVIEW.md
+   - OPERATIONAL_WORKFLOW.md
+   - AUTOMATION_MAP.md
+
+2. Ensure new architectural systems are documented, including:
+   - Runtime action systems
+   - External integrations
+   - Approval / execution pipelines
+
+3. The new PM must review these documents before issuing Codex tasks.
+
+4. Codex tasks should **not resume until documentation handoff is complete**.
+
+This prevents architecture loss between long development sessions.

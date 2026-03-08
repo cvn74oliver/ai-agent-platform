@@ -657,3 +657,75 @@ Tenant-scoped integration storage is operational and Gmail can be connected safe
 
 ### Outcome
 First real “agent did work in the real world” milestone achieved: Plan → Approve → Execute → Gmail draft created.
+
+---
+
+## 2026-03-08 — Runtime Gmail Review/Archive Loop, Generic Scaffolding, and OAuth Scope Fix (PM v7)
+
+### What shipped
+- Extended the Playground runtime flow from inbox analysis into a full **review → suggest → approve → execute** loop for Gmail.
+- Added reviewed-batch state in Playground:
+  - `runtime_active_batch`
+  - `runtime_review_evidence`
+  - compact UI block showing the **current active reviewed batch**.
+- Added heuristic reviewed-batch suggestion generation for Gmail sender clusters:
+  - `archive_candidates`
+  - `unsubscribe_candidates`
+  - `reply_candidates`
+  - `important_candidates`
+- Added additive **generic runtime scaffolding** metadata so the supervision pattern can transfer to future tools beyond Gmail:
+  - `runtime_active_work_item`
+  - `runtime_evidence_blocks`
+  - `runtime_suggestion_sets`
+- Preserved all Gmail-specific cards while layering the generic structures additively.
+
+### Runtime lifecycle + UX improvements
+- Added lifecycle state resolution for suggestion candidates by reconciling `agent_events` history across:
+  - `approval_request`
+  - `approval_decision`
+  - `execution_result`
+- Candidate states now resolve as:
+  - `ready`
+  - `pending_approval`
+  - `approved`
+  - `executed`
+- Updated Playground UI so:
+  - only `ready` suggestions show approval buttons,
+  - non-ready items show status text,
+  - duplicate controls between generic scaffolding cards and Gmail-specific cards are suppressed.
+- Added archive execution evidence rendering in Playground:
+  - `runtime_archive_evidence`
+  - “Latest Archive Execution Evidence” card with sender, batch title, requested/archived counts, and message IDs.
+
+### Real Gmail archive execution
+- Extended `POST /api/runtime/execute` to support real Gmail action:
+  - `tool: gmail`
+  - `action: archive_messages`
+- Implemented Gmail archive helper using Gmail `batchModify` to remove the `INBOX` label.
+- Confirmed archive behavior matches Gmail semantics:
+  - messages disappear from Inbox,
+  - messages remain in All Mail.
+- Updated `/approvals` so `gmail.archive_messages` is treated as executable once approved.
+
+### Gmail OAuth scope correction
+- Identified root cause of failed archive execution: Gmail connection had been granted read-only scope.
+- Updated Gmail OAuth start flow to request modify-capable scope so archive operations can execute after reconnect.
+- Reconnected Gmail and confirmed approval + execute path succeeds without the prior scope error.
+
+### End-to-end validation
+- Manually validated the following live path:
+  1. Playground asks what to review first.
+  2. Inbox analysis recommends highest-volume sender cluster.
+  3. Sender-cluster review returns sampled messages.
+  4. Archive suggestion is proposed for approval.
+  5. Approval row is approved and executed from `/approvals`.
+  6. Target realtor email disappears from Inbox.
+- Confirmed execution evidence is written and surfaced back into Playground after refresh / next message.
+
+### Known UX follow-up
+- Playground session/chat state is still ephemeral on refresh/navigation.
+- Opening `/approvals` in the same tab currently causes operator friction because returning to Playground clears visible session context.
+- Next PM version should prioritize persistence / rehydration for Playground runtime state and safer navigation behavior.
+
+### Outcome
+The runtime supervision loop now supports a real Gmail cleanup action with visible evidence and a reusable generic scaffolding model for future tools (tax, marketing, operations, etc.).

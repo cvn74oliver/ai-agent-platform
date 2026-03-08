@@ -17,10 +17,19 @@ Feature Domain:
 - Prompt Contract / Summary Rewrite Engine
 - Fine-Tuning System
 - Agent Runtime (Production Inference)
+- Runtime Operations & External Integrations
 - Workflow / Automation Engine
 - Dashboard Intelligence Layer
 
 Never mix domains inside one Codex session.
+
+Runtime Operations includes:
+- Gmail runtime tools (analyze_inbox, review_sender_cluster, archive_messages)
+- Approval → decision → execution lifecycle
+- agent_events evidence tracking
+- External API integrations (Google, future tools)
+
+This domain was introduced after the original architecture and must be treated as separate from Agent Runtime.
 
 If work crosses domains:
 → STOP  
@@ -94,6 +103,7 @@ Every Codex task must include:
 - What must NOT change
 - Any performance constraints
 - Any regression protection rules
+- Execution surface (API route / worker / integration layer) when runtime tools are involved
 
 If constraints are unclear:
 → STOP and clarify before execution.
@@ -130,6 +140,24 @@ Immediately halt execution if:
 - A schema change is requested but there is no rollback plan
 
 Return to Project Manager for review.
+
+---
+
+## 🧭 Project Manager Version Handoff Safety
+
+When a Project Manager version changes (ex: PM‑V7 → PM‑V8), the following files MUST be updated before any new Codex task begins:
+
+- CHANGELOG.md
+- TODO.md
+- CURRENT_STATE.md
+- SYSTEM_OVERVIEW.md
+- OPERATIONAL_WORKFLOW.md
+- AUTOMATION_MAP.md
+- PROJECT_MANAGER_CONTEXT.md
+
+This ensures the next PM inherits the correct architectural state and prevents Codex from executing against outdated assumptions.
+
+Codex sessions must not begin until documentation handoff is complete.
 
 ---
 
@@ -205,7 +233,7 @@ The first message you send in a new session *is the first task*.
 Always structure that first task like this:
 
 ```
-Feature Domain: <CHOOSE ONE>
+Feature Domain: <CHOOSE ONE — RAG | Prompt Contract | FineTune | Agent Runtime | Runtime Ops | Workflow | Dashboard>
 Reasoning Level: <LOW | MEDIUM | HIGH | EXTRA-HIGH>
 Terminal Access: <YES | NO> (If NO, Codex must output exact commands for Oliver to run.)
 
@@ -230,3 +258,16 @@ Do NOT assume Codex sees the full repo.
 Every message that asks Codex to modify code is a scoped task.
 
 ---
+
+## ⚠️ Multi‑File Edit Rule
+
+If a change requires edits across multiple files:
+
+→ Use Codex
+→ Do NOT perform manual edits
+
+If a change touches only a single file and is clearly scoped:
+
+→ The Project Manager may edit via the VS Code Builder integration.
+
+This rule prevents partial edits and architecture drift.

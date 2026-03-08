@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-05 (PM v7 Active • Runtime Slices #1–#6A Complete • Gmail Integration Live • First Real Execution Achieved)_
+_Last updated: 2026-03-08 (PM v7 Closing • Runtime Gmail Assistant Operational • Real Inbox Archive Execution Verified)_
 
 - Project Manager — healthy (v7 active, Mar 4 2026)
 - Architect — healthy
@@ -27,12 +27,17 @@ _Last updated: 2026-03-05 (PM v7 Active • Runtime Slices #1–#6A Complete •
    - [x] Gmail OAuth connect flow
    - [x] Runtime Gmail draft creation
 
-3) Next System Capability — Inbox Assistant (NEXT)
-   - [ ] Create dedicated Inbox Assistant agent
-   - [ ] Add company-level tool permissions
-   - [ ] Implement Gmail inbox listing (read-only)
-   - [ ] Batch archive proposals
-   - [ ] Conversational approval workflow
+3) Inbox Assistant — Operational Runtime (IN PROGRESS)
+   - [x] Gmail inbox metadata analysis tool (gmail.analyze_inbox)
+   - [x] Sender-cluster review tool (gmail.review_sender_cluster)
+   - [x] Batch archive proposal system
+   - [x] Approval → execute pipeline wired end‑to‑end
+   - [x] Gmail archive execution implemented (remove INBOX label via Gmail API)
+   - [x] Execution evidence returned to Playground
+   - [x] Runtime suggestion lifecycle states (ready / pending / approved / executed)
+   - [ ] Playground state persistence across navigation
+   - [ ] Open approvals link should open in new tab
+   - [ ] Refresh reconciliation so Playground detects executions immediately
 
 4) Performance Improvements
    - [ ] Playground fast-path (skip RAG for simple prompts)
@@ -107,10 +112,20 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - [x] Playground RAG retrieval fixed to correctly surface **exact blog URLs** when present
 - [x] Agent Runtime Slice #1 shipped: plan → approve endpoints + approvals UI (schema-free via agent_events)
 - [x] Tool/Workflow governance spec updated: granular confidence tracked per agent per tool action and per workflow/SOP
+- [x] Gmail Inbox Assistant end‑to‑end operational
+  - Inbox analysis → sender cluster review → approval → archive execution
+- [x] First real Gmail inbox archive executed successfully via runtime pipeline
+- [x] Runtime suggestion lifecycle tracking implemented (approval_request → decision → execution_result)
+- [x] Archive execution evidence surfaced in Playground UI
+- [x] Gmail OAuth scope upgraded to include gmail.modify for write operations
 
 ---
 
 ## 🧱 Known Issues / Risks
+- Playground chat history resets on navigation (state not persisted yet).
+- "Open approvals" currently navigates in same tab causing Playground session loss.
+- Runtime suggestion status may require manual refresh to reconcile execution events.
+- Inbox sampling limited to ~25 messages during testing to control API usage.
 - Support center (support.curativemushrooms.com) often returns **HTTP 403** during crawl → expected unless we add auth/crawler headers.
 - In dev, “run_now” fire-and-forget fetch may time out (HeadersTimeout / AbortError). Job can still be queued and run separately.
 - Wildcard crawl patterns (/*) inherently require scanning to discover new pages → “delta” cannot magically detect changes without scanning.
@@ -129,4 +144,4 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - Automations framework MVP (run an agent workflow end-to-end)
 - “Aha moment” avatar + face card (image + persona, later voice/video)
 
-Project Manager Agent – v7 active • Runtime progressing • System integrity intact
+Project Manager Agent – v7 closing handoff complete • Inbox Assistant operational • Ready for PM v8 activation

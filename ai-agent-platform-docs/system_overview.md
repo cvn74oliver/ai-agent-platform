@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 3, 2026_
+_Last Updated: March 8, 2026_
 
 ---
 
@@ -71,7 +71,10 @@ Decision Rule:
 If the task affects more than one file OR requires running terminal commands → use Codex.
 Otherwise → direct edit is acceptable.
 
----
+Operational note:
+- Multi-file implementation, compile/debug, runtime integration, schema, or tool-execution changes must stay in Codex.
+- Single-file documentation edits, small copy tweaks, and tightly scoped one-file changes can be handled directly in ChatGPT through the VS Code / desktop editing path.
+- Project Manager threads should explicitly declare which execution path is being used before work begins.
 
 ---
 
@@ -89,6 +92,7 @@ Below is the full list of all major systems, APIs, and platforms that power the 
 | **GitHub** | Version Control & Public Docs | Stores the source code (private repo) and the `/ai-agent-platform-docs` public documentation repo. | Sync handled via `sync_docs_to_github.sh`. |
 | **ChatGPT (OpenAI)** | AI Development & Collaboration | Used as the “virtual dev team” (Architect, Frontend, Backend, etc.) and for generating/refining code, prompts, and strategies. | Uses `.md` context files for memory. |
 | **OpenAI API** | Core LLM Engine | Powers agent creation, chat interactions, prompt engineering, fine-tuning, embeddings, and model routing. | Accessed in backend routes (e.g., `/api/generate-agent`, `/api/fine-tune`). |
+| **RAG Background Worker (Custom API)** | Backend Job Processor | Processes `rag_jobs`, crawls URLs, generates embeddings, writes `rag_documents`, updates job status. | Triggered automatically by `/api/rag/schedule` (run_now=true) or manually via `/api/rag/run`. |
 | **Firecrawl API** | Data Ingestion / Crawling | Crawls and indexes external pages for RAG training and agent knowledge updates. | Called by `/api/crawl/route.ts`. |
 | **Activepieces** | Workflow Builder | Default no-code automation builder that connects apps/services for each agent’s workflows. | Integrated via API for user workflow creation. |
 | **Make.com API (Integromat)** | Custom Workflow Connector | Alternative workflow system used when Activepieces lacks a needed integration. | Invoked case-by-case from `/api/generate-workflow`. |
@@ -96,6 +100,7 @@ Below is the full list of all major systems, APIs, and platforms that power the 
 | **Bash Scripts** | Automation Utilities | `update_memory.sh` merges docs and backups; `sync_docs_to_github.sh` pushes to GitHub. | Run locally or through macOS Shortcut. |
 | **VS Code** | Code Editor | Used to write and manage all code, docs, and scripts. | Local development environment. |
 | **zsh / Terminal** | Command-Line Interface | Executes local commands (`npm run dev`, automation scripts, git commands). | Default macOS shell environment. |
+
 
 ChatGPT Agents  ⇄  Docs (.md)  ⇄  Local Scripts  ⇄  GitHub (Docs Repo)
 │
@@ -108,7 +113,6 @@ Supabase (DB/Auth)          OpenAI API
 │                           │
 ▼                           ▼
 Render / Vercel Hosts       Firecrawl / Activepieces / Make
-| **RAG Background Worker (Custom API)** | Backend Job Processor | Processes `rag_jobs`, crawls URLs, generates embeddings, writes `rag_documents`, updates job status. | Triggered automatically by `/api/rag/schedule` (run_now=true) or manually via `/api/rag/run`. |
 
 ---
 
@@ -220,17 +224,36 @@ Rules:
 - Protect canonical Q&A-derived contract fields from silent modification.
 ---
 
+### 🧭 Project Manager Threading Protocol
+
+For Project Manager operation, each thread should begin by declaring:
+- PM version in use
+- model
+- reasoning effort
+- feature domain
+- execution path (Codex vs direct edit)
+
+When a PM thread becomes long or spans too many implementation slices, handoff should occur to the next PM version rather than continuing indefinitely in the same thread.
+
+Thread naming guidance:
+- Use feature- or milestone-based names, not narrow temporary implementation names.
+- Avoid naming a long-running thread after a single approval or bug-fix slice if the thread is actually covering a broader system area.
+
+Current operating convention:
+- Multi-file code work = Codex
+- Single-file doc or constrained one-file edits = direct ChatGPT edit
+
 ## 📁 Key Folders
 /ai-agent-platform
 │
 ├─ /web
-│   ├─ /src          # Next.js code
-│   ├─ /automation   # Scripts for memory + GitHub sync
-│   └─ /docs         # Persistent AI memory + checklists
+│  ├─ /src          # Next.js code
+│  ├─ /automation   # Scripts for memory + GitHub sync
+│  └─ /docs         # Persistent AI memory + checklists
 │
-├─ /ai-agent-platform-docs (public GitHub mirror of /web/docs)
+├─ /ai-agent-platform-docs   # Public GitHub mirror of selected docs
 │
-└─ /backups          # Automatic .tgz backups from update_memory.sh
+└─ /backups         # Automatic .tgz backups from update_memory.sh
 
 ---
 
@@ -291,11 +314,7 @@ Tables:
 - `agent_events`
 
 Flow:
-Playground call →
-- OpenAI chat response
-- Token usage recorded
-- `agent_sessions` row inserted
-- `agent_events` row inserted
+Playground call → OpenAI chat response → token usage recorded → `agent_sessions` row inserted → `agent_events` row inserted
 
 Dashboard Metrics:
 - Total sessions
@@ -306,6 +325,10 @@ Dashboard Metrics:
 
 Note:
 If sessions show zero, ensure Playground is inserting `agent_sessions` rows correctly.
+
+Additional runtime session note:
+- `agent_sessions` / `agent_events` are now also serving as the operational history source for runtime proposal state, approval state, execution evidence, and suggestion lifecycle reconstruction in Playground.
+- This event history is now part of the runtime control plane, not just analytics.
 
 ---
 
@@ -480,3 +503,60 @@ MVP gating policy:
 - Read/classify steps can run under low-risk policy.
 - Label/archive and other state-changing actions require approval unless agent maturity policy explicitly allows them.
 - Any uncertain classification escalates to approval queue instead of auto-action.
+
+### 6) Current Gmail Runtime Maturity (March 2026)
+The Gmail runtime pilot has now progressed beyond pure planning and approval UI scaffolding.
+
+Implemented in the current system:
+- Inbox analysis runtime action (`gmail.analyze_inbox`)
+- Sender-cluster review runtime action (`gmail.review_sender_cluster`)
+- Archive runtime action (`gmail.archive_messages`)
+- Approval queue integration for Gmail runtime actions
+- Execute support for approved Gmail archive actions
+- Runtime evidence surfaces in Playground for:
+  - inbox analysis
+  - reviewed batch evidence
+  - archive execution evidence
+- Generic runtime scaffolding now exists alongside Gmail-specific cards:
+  - active work item
+  - evidence blocks
+  - suggestion sets
+
+This means the platform is no longer only proving approval creation — it is now proving end-to-end approval + execute for at least one real Gmail write action.
+
+### 7) Generic Runtime Scaffolding Standard
+The Gmail pilot now doubles as the reference implementation for a platform-wide runtime pattern.
+
+Generic runtime metadata currently established in Playground API:
+- `runtime_active_work_item`
+- `runtime_evidence_blocks`
+- `runtime_suggestion_sets`
+
+Design intent:
+- Gmail is the first live adapter, not the permanent special case.
+- Future tools (tax, marketing, CRM, file ops, etc.) should map into the same generic runtime scaffolding shape.
+- Tool-specific cards may still exist, but the generic structures are the long-term contract that should unify runtime behavior across the platform.
+
+Guiding rule:
+Build tool adapters that feed the generic runtime structures instead of rebuilding custom runtime UI from scratch for each integration.
+
+### 8) Current Known Runtime UX Gaps
+The Gmail pilot also exposed several important UX gaps that are now part of the system understanding:
+
+- Playground session/chat state is not yet durable across refresh or navigation.
+- Opening Approvals in the same tab can destroy Playground context for active testing.
+- Runtime state can lag until Playground is refreshed or a new message is sent.
+- Suggestion lifecycle state now resolves better, but refresh/state continuity still needs a stronger persistent session model.
+
+Implication:
+Runtime execution is now partially real, but operator experience is still pre-polish. Persistence and cross-page continuity are now a priority system concern, not just a UI convenience.
+
+## 🔄 Current Handoff State (March 8, 2026)
+At handoff to the next Project Manager version, the system should be understood as follows:
+
+- Gmail runtime pilot proves the plan -> approve -> execute pattern with a real archive action.
+- Generic runtime scaffolding has been introduced and should now become the default pattern for all future tool domains.
+- The next major system step is not more Gmail-only specialization; it is hardening persistence, continuity, and generalized runtime contracts so other tools can inherit the same framework cleanly.
+- PM turnover discipline is now part of the operating model: versioned PM threads, explicit execution-path selection, and documentation-first handoff updates.
+
+This document should now be read as describing both the original AI dev-team architecture and the emerging runtime operations architecture that will power real agent actions across the platform.

@@ -1601,7 +1601,103 @@ Next Focus:
 
 ### Handoff to Project Manager Agent v7
 - Carry forward the non-negotiable rule: Q&A contract fields are canonical; RAG is supplemental; fine-tune is separate.
-- Maintain feature-domain discipline: keep RAG ingestion/retrieval work isolated from fine-tune generator work.# Role: Prompt Engineer Agent
+- Maintain feature-domain discipline: keep RAG ingestion/retrieval work isolated from fine-tune generator work.
+
+## 🏁 Project Manager Agent v7 – Closeout Snapshot (March 8, 2026)
+
+**Status:** Stable turnover point reached; Runtime/Approval framework moved from Gmail-specific prototype toward reusable cross-tool scaffolding.
+
+### Key Outcomes
+- Inbox Runtime Assistant advanced from passive review UI to a real approval-gated action pipeline.
+- Added reviewed-batch session context in Playground:
+  - `runtime_active_batch`
+  - working-context prompt hints
+  - reviewed-message rendering tied to latest review evidence
+- Added first-pass batch suggestion system for reviewed inbox batches:
+  - archive candidates
+  - unsubscribe candidates
+  - reply candidates
+  - important candidates
+- Added **generic runtime scaffolding** alongside Gmail-specific metadata so the same architectural pattern can transfer to future tools/agents:
+  - `runtime_active_work_item`
+  - `runtime_evidence_blocks`
+  - `runtime_suggestion_sets`
+- Preserved additive design:
+  - Gmail-specific fields remain intact
+  - generic runtime metadata layers on top without breaking current flows
+- Added lifecycle-aware suggestion/proposal state resolution from `agent_events` history:
+  - `ready`
+  - `pending_approval`
+  - `approved`
+  - `executed`
+- Removed duplicate proposal UX so only true ready candidates show actionable approval buttons.
+- Implemented real execution support for `gmail.archive_messages`:
+  - approved runtime actions can now execute
+  - Gmail archive behavior removes the `INBOX` label (message remains in All Mail)
+- Added additive archive execution evidence:
+  - `runtime_archive_evidence`
+  - archive evidence also maps into generic runtime evidence blocks
+- Confirmed end-to-end archive test success after Gmail scope correction:
+  - approve runtime action
+  - execute action
+  - targeted inbox message disappears from Inbox as expected
+
+### Important Operational Findings
+- Playground session state is still **ephemeral on refresh/navigation**.
+  - Reloading or leaving the page clears the visible conversation and runtime context.
+  - This is currently a UX/state persistence issue, not a runtime execution issue.
+- The `Open approvals` navigation currently interrupts the Playground flow because returning to the page loses the session context.
+- Gmail archive execution originally failed because the Google OAuth flow only granted read-style access.
+  - Root cause was in the Gmail connection start route / requested scopes.
+  - After scope correction and reconnect, archive execution succeeded.
+- Current runtime system is now strong enough to treat Gmail as the **reference implementation** for future tool adapters.
+
+### Architectural Direction Confirmed
+The runtime/approval framework is now explicitly heading toward a reusable pattern:
+1. Tool-specific evidence is derived from execution results.
+2. Evidence maps into generic runtime scaffolding.
+3. Suggestions become approval-gated proposed actions.
+4. Approved actions become executable actions.
+5. Execution results feed back into evidence/state so UI reflects real lifecycle status.
+
+This pattern should be reused for future domains such as:
+- tax / accounting actions
+- marketing workflow suggestions
+- CRM/contact actions
+- document operations
+- automation/workflow execution
+
+### Immediate Next Priorities for Project Manager Agent v8
+1. **Playground Session Persistence**
+   - Persist chat + runtime card state across refresh/navigation.
+   - Prevent loss of current reviewed batch when opening Approvals.
+2. **Approvals UX Flow**
+   - Open approvals in a safer flow (new tab/window or preserved return state).
+   - Reduce friction between proposal, approval, execute, and return-to-playground steps.
+3. **Generalize Runtime Executor Contract**
+   - Formalize reusable execution/evidence adapters for non-Gmail tools.
+   - Keep Gmail as the reference adapter while extracting shared patterns.
+4. **Generic Runtime UI Cleanup**
+   - Reduce duplication between Gmail-specific cards and generic scaffolding cards.
+   - Keep generic scaffolding authoritative over time.
+5. **Cross-Tool Expansion Readiness**
+   - Ensure the same approval/evidence/suggestion lifecycle can support tax, marketing, and workflow agents without redesign.
+
+### Handoff Notes for Project Manager Agent v8
+- Treat the Gmail Runtime Assistant as a **foundation slice**, not a one-off inbox feature.
+- Preserve the non-negotiable architectural rule:
+  - Gmail-specific implementations may move faster,
+  - but all new runtime work must be assessed for transferability into the generic runtime scaffolding.
+- Maintain the current execution split:
+  - Codex handles multi-file code changes
+  - PM/Chat only handles single-file doc/minor edits
+- Before new feature work, update:
+  - `CURRENT_STATE.md`
+  - `TODO.md`
+  - `CHANGELOG.md`
+  - any workflow/protocol docs affected by the new runtime framework.
+
+> *Project Manager Agent v7 closes at a strong checkpoint: Gmail archive execution works end to end, lifecycle-aware runtime state is visible in the UI, and the system now has a credible reusable runtime scaffolding pattern for future tool domains.*# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 
 ---

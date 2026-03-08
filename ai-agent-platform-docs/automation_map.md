@@ -1,6 +1,6 @@
 ⚙️ Automation Map – AI Agent Platform
 
-Last updated: February 2026
+Last updated: March 2026
 
 This document lists every automated process in the AI Agent Platform, what triggers it, what it updates, and who oversees it.
 It provides a quick visual guide to what runs hands-off versus what you still control manually.
@@ -51,6 +51,15 @@ It’s the master reference for understanding which scripts, agents, and systems
    • Token usage, cost estimate, and approximate human minutes are recorded.
    • agent_events rows log each interaction for analytics.
    • Dashboard aggregates these metrics for 7-day and 30-day windows.
+
+   5b. Gmail Runtime Actions (Execution Layer)
+   • Triggered when an approval request is executed from the Approvals dashboard.
+   • Supported actions currently include:
+     – gmail.analyze_inbox (collects metadata sample of inbox)
+     – gmail.review_sender_cluster (reviews a sender-specific message batch)
+     – gmail.archive_messages (removes INBOX label from selected messages)
+   • Execution results are written to agent_events with event_type = execution_result.
+   • The Playground reads these results to render evidence cards and update candidate lifecycle status (ready → pending_approval → approved → executed).
 	6.	Supabase / Vercel / Render Integrations
 • External automation: deploys automatically from GitHub main branch.
 • Supabase maintains live database/auth; Vercel builds and hosts frontend; Render handles long-running jobs.

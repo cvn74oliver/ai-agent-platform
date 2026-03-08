@@ -1,6 +1,6 @@
 🤖 Agent Activation & Management Checklist
 
-Last updated: March 3, 2026
+Last updated: March 8, 2026
 
 This file contains the exact instructions and copy-ready prompts for creating, refreshing, or retiring any AI Agent chat inside the AI Agent Platform Project in ChatGPT.
 Use this every time an agent chat is started or replaced so that each one loads the correct context, sets its goals, and reports its status.
@@ -34,6 +34,21 @@ Use these inside ChatGPT exactly as written. They are just shorthand headers tha
 /resume_role  – start or resume an agent’s session using its context file.
 /summarize_session  – ask the agent to summarize what was accomplished in this work block.
 /handoff  – prepare notes for the next agent that depends on its output.
+
+⸻
+
+Codex vs Single‑File Edit Policy
+
+Operational rule for this project:
+
+• Multi‑file edits → handled by Codex sessions.
+• Single‑file edits → handled through the VS Code Builder + ChatGPT integration.
+
+The Project Manager Agent must enforce this rule when delegating engineering tasks. If a task touches multiple files, schemas, APIs, or system contracts, it must be routed to Codex using the Codex Execution Protocol.
+
+This prevents fragmented edits and keeps architectural changes synchronized.
+
+⸻
 
 ⸻
 
@@ -74,6 +89,7 @@ Step 2 – Single Message Activation (Required)
 
 7. Send the message.
 8. Wait for the agent to confirm it has loaded context and summarized responsibilities.
+Tip: If the interface provides links such as “Open approvals,” open them in a new tab to avoid losing the Playground conversation state.
 9. Copy BOTH the activation message and the full agent response.
 10. Paste them into the corresponding context file under:
 
@@ -218,7 +234,7 @@ Your objectives:
 6. Verify that the Agent Session Health list in TODO.md is accurate and flag any agents due for refresh.  
 7. Summarize overall project status, including current progress, risks, and key dependencies.  
 8. Confirm you understand and will enforce the Codex Execution Protocol and Feature Domain workflow when delegating tasks.
-8. End your output with a concise daily plan for Oliver to review and approve before execution.
+9. End your output with a concise daily plan for Oliver to review and approve before execution.
 
 ⸻
 
@@ -241,7 +257,7 @@ Your objectives:
 6. Update the Agent Session Health list based on the newest TODO.md.  
 7. Provide a refreshed overall project summary, highlighting differences from the prior version.  
 8. Confirm you understand and will enforce the Codex Execution Protocol and Feature Domain workflow when delegating tasks.
-8. End your response with a short daily or weekly plan for Oliver to confirm before execution.
+9. End your response with a short daily or weekly plan for Oliver to confirm before execution.
 
 ⸻
 
@@ -350,6 +366,8 @@ Append a “Session Notes” section where each agent briefly records what chang
 The Project Manager Agent can automatically check these reset dates each week and remind you when any agent exceeds two weeks of activity without refresh.
 
 Add a short note reminding future agents to proactively roll versions when chats become long or code-heavy. Reference the context/token guidance in CURRENT_STATE.md.
+
+You may also add a reminder that Playground conversations are not persistent across page refreshes. Agents should treat each activation as stateless unless session storage is implemented in the application layer.
 
 ⸻
 

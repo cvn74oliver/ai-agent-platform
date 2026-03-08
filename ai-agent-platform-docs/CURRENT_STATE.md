@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-05  
+Last updated: 2026-03-08  
 Project Manager: v7 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
@@ -141,6 +141,19 @@ Dashboard Metrics:
 - Runtime tool support added:
   - `gmail.draft_email`
 - Agent execution can now create Gmail drafts (never sends).
+- Inbox analysis runtime tool implemented:
+  - `gmail.analyze_inbox`
+  - Reads inbox metadata sample and derives sender clusters.
+- Sender cluster review tool implemented:
+  - `gmail.review_sender_cluster`
+  - Retrieves sample messages for a specific sender.
+- Inbox archive runtime tool implemented:
+  - `gmail.archive_messages`
+  - Removes the `INBOX` label using Gmail `batchModify`.
+  - Messages remain in **All Mail** (standard Gmail archive behavior).
+- Gmail OAuth scope expanded to support modification:
+  - `gmail.modify` permission now requested during OAuth flow.
+  - Required for archive operations.
 
 ---
 
@@ -168,6 +181,32 @@ Confirmed output:
   `pending → approved → executed`.
 
 This marks the **first real external tool execution by the AI Agent Platform runtime**.
+
+### Runtime Inbox Assistant Milestone (March 8, 2026)
+
+The platform successfully executed its first **automated inbox management action**.
+
+Verified runtime chain:
+
+Analyze Inbox → Review Sender Cluster → Propose Action → Approve → Execute → Gmail Archive
+
+Working runtime example:
+
+- Agent analyzed Gmail inbox metadata.
+- System detected high‑volume sender clusters.
+- Runtime assistant recommended archive candidates.
+- Approval request generated and approved through `/approvals`.
+- `/api/runtime/execute` performed `gmail.archive_messages`.
+- Gmail `batchModify` removed the `INBOX` label.
+
+Verified result:
+
+- Target emails disappeared from Inbox.
+- Messages remained accessible in **All Mail**.
+- Execution recorded in `execution_result` event.
+- Playground UI reflected execution evidence.
+
+This represents the **first real autonomous inbox management workflow executed by the runtime system**.
 
 ---
 
@@ -211,6 +250,10 @@ Slice #4 — Runtime mode + eligibility endpoint
 Slice #5 — Guarded auto‑approval
 Slice 6A — Sandbox execution engine
 Slice #7 — Gmail draft execution integration
+Slice #8 — Gmail inbox analysis runtime tool
+Slice #9 — Sender cluster review runtime tool
+Slice #10 — Gmail archive execution tool
+Slice #11 — Runtime suggestion lifecycle tracking (ready → pending → approved → executed)
 
 Next capability in development:
 
@@ -220,6 +263,12 @@ Inbox Assistant
 - Batch archive recommendations
 - Conversational approval workflow
 - Runtime assistant agent for operational automation
+
+Current status (March 8, 2026):
+- Inbox Assistant MVP is operational.
+- Inbox analysis, sender review, and archive execution are implemented.
+- Runtime UI suggestions are lifecycle‑aware (ready / pending / approved / executed).
+- Remaining improvements focus on UX polish, persistence, and broader batch operations.
 
 This will introduce the **first dedicated Runtime Assistant Agent** responsible for inbox management and workflow assistance.
 
