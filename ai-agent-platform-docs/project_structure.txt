@@ -189,6 +189,9 @@
     │   │   └── VoiceRecorder.tsx
     │   ├── lib
     │   │   ├── fine_tune_topics.ts
+    │   │   ├── integrations
+    │   │   │   └── gmail
+    │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
     │   │   │   └── types.ts
     │   │   └── supabase.ts
@@ -233,4 +236,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-88 directories, 146 files
+90 directories, 147 files
