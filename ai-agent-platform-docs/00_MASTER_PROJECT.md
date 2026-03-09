@@ -1016,6 +1016,20 @@ Current Checkpoint (March 2026)
 - Major milestone logging should now happen continuously during development instead of being deferred to manual end-of-day cleanup.
 - Docker is NOT required for hosted Supabase usage; schema updates may be performed via Supabase SQL Editor or CLI migrations when necessary.
 
+- Playground/Approvals runtime UI baseline is now finalized around an operator-first structure:
+  - Current Step remains the primary control center.
+  - Runtime details/evidence is a lighter bounded drawer with compact, operator-first sections.
+  - Approved/executed approvals rows are compressed for scan speed, while actionable items stay prominent.
+- The Playground runtime dashboard now explicitly separates:
+  - current workflow progress (step-progress for the active cleanup flow), and
+  - overall inbox cleanup progress (currently an honest placeholder, not a fabricated percentage).
+- Known limitation: the system does NOT yet compute a true inbox-wide cleanup percentage or total mailbox coverage metric.
+- Next runtime productization focus is shifting back toward real Gmail cleanup execution quality:
+  - broader inbox analysis windows,
+  - better cluster/category recommendations,
+  - stronger approval trust UX,
+  - and eventual safe use of Gmail-native filtering/category primitives where they reduce platform-side compute.
+
 Definition of Done for “Drive Knowledge Used”
 1) Drive chunks exist (non-empty `content`) and embeddings exist.
 2) Playground can retrieve Drive chunks for book-intent queries.
@@ -1028,6 +1042,8 @@ Current Focus
 	•	Maintain authoritative-doc discipline: edit ai-agent-platform-docs/ first, then let sync automation update mirrors.
 	•	Continue thinning Playground route ownership by extracting remaining controller-owned concerns into dedicated services where appropriate.
 	•	Protect canonical Prompt Contract fields from being overwritten by RAG.
+	•	Stabilize the Gmail cleanup assistant as the first truly compelling runtime use case, prioritizing trust, approvals, and operator clarity.
+	•	Define the real inbox-cleanup progress model before shipping any percentage-based “overall cleanup” claim.
 	•	Prepare clean handoffs between PM versions at stable checkpoints.
 
 Reference Links
@@ -1741,7 +1757,48 @@ Route ownership is now much narrower and primarily focused on:
 Project Manager should proactively include authoritative documentation updates in Codex milestone prompts so logs stay current continuously, reducing end-of-day manual cleanup and improving new-thread continuity.
 
 ### Next likely focus
-Resume technical work from the Playground runtime refactor checkpoint, with documentation updates folded into the normal Codex closeout process rather than treated as a separate manual phase.# Role: Prompt Engineer Agent
+Resume technical work from the Playground runtime refactor checkpoint, with documentation updates folded into the normal Codex closeout process rather than treated as a separate manual phase.
+
+## Session Log – March 9, 2026 — Playground/Approvals UI Baseline + Gmail Cleanup Product Direction
+
+### Accepted UI milestone
+- The Playground runtime dashboard and Approvals queue now have an accepted baseline structure for operator-first runtime work.
+- Playground now emphasizes:
+  - a clear Current Step control center,
+  - bounded runtime evidence/details,
+  - compact cleanup-cluster cards,
+  - and conversation directly below the runtime control area.
+- Approvals now emphasize:
+  - actionable items first,
+  - compressed approved/executed history,
+  - and faster scanning for high-volume runtime actions.
+
+### Important product truth captured
+- The displayed workflow percentage is only step-progress for the current cleanup flow.
+- It is NOT a true total-inbox cleanup metric.
+- The UI now makes that distinction explicit and includes an honest placeholder for overall inbox cleanup progress instead of inventing a misleading percentage.
+
+### Strategic direction confirmed
+The Gmail cleanup assistant should now be treated as the first serious “expert operator” runtime product slice, not just a demo.
+
+That means the next quality bar is:
+- better inbox understanding over larger time windows,
+- better clustering/category recommendations,
+- approval flows that feel high-trust and professional,
+- and action recommendations that can eventually leverage Gmail-native capabilities (filters/categories) when appropriate to reduce unnecessary platform-side processing.
+
+### Near-term implementation direction
+- Start with better advisory quality before trying to automate everything.
+- Use larger review windows and mailbox metadata intelligently.
+- Prefer conservative, reversible actions first.
+- Separate:
+  - sampled analysis quality,
+  - current-flow progress,
+  - and true inbox-wide cleanup coverage.
+- Treat true overall cleanup percentage as a defined product metric that requires explicit methodology, not a UI guess.
+
+### PM operating note
+For this project phase, it is valuable for Oliver to actively test the inbox-cleanup flow as an end user/operator. The PM should treat this as both product QA and product-definition work, using Oliver’s real usage feedback to shape the expert Gmail cleanup experience.# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 
 ---

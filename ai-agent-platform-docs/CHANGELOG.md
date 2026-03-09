@@ -832,3 +832,95 @@ The runtime supervision loop now supports a real Gmail cleanup action with visib
 - Contracts and behavior preserved:
   - No API contract changes.
   - No prompt or runtime approval semantics changes.
+
+### March 9, 2026 — Playground/Approvals UI Polish (Action-First Runtime Surface)
+
+- Playground runtime top area redesigned into an action-first surface:
+  - Compact “Current step” panel.
+  - Single primary CTA in the top runtime panel.
+  - Compact status strip for ready/pending/approved/executed counts.
+- Historical evidence cards are now collapsed by default in Playground:
+  - Reviewed batch evidence
+  - Query-cluster review evidence
+  - Archive execution evidence
+- Approvals queue UI density and hierarchy improved:
+  - Replaced dense table rendering with compact approval cards.
+  - Kept approval semantics/actions unchanged (approve/reject/auto-approve/execute).
+- Scope remained UI-only (no runtime contract, approval semantics, or backend behavior changes).
+
+## 2026-03-09 — Playground/Approvals UI Baseline Finalized (Operator-First Layout)
+
+### Playground UI structure finalized
+- Current Step control center remains the primary operator surface.
+- Runtime details now use a lighter evidence drawer pattern.
+- Runtime evidence ordering is operator-first:
+  - Inbox analysis
+  - Recommended batch
+  - Query cleanup clusters
+  - Sender review proposal
+- Conversation remains a clear secondary work area under runtime controls.
+
+### Query cleanup clusters UI
+- Cluster rows are compact by default.
+- Top 3 clusters are shown first by default.
+- Query/safety/risk/sample preview content is nested behind per-cluster details.
+
+### Approvals UI
+- Pending/actionable approvals remain the highest-emphasis section.
+- Approved/executed rows are compressed for faster scanning.
+
+### Known limitation
+- Workflow progress currently reflects current workflow-step progress, not total inbox cleanup progress.
+
+### Future feature
+- Define and implement a true Inbox Cleanup Progress metric after finalizing:
+  - cleanup numerator definition
+  - denominator/source-of-truth
+  - session-scoped vs cumulative behavior
+
+### Scope
+- UI-only baseline finalization; no backend/runtime contract or approval semantic changes.
+
+## 2026-03-09 — Mailbox Intelligence / Profiling Pass (30-Day, Read-Only)
+
+### What shipped
+- Added a new read-only mailbox profiling layer before broad cleanup waves.
+- Playground runtime API now returns additive metadata:
+  - `runtime_mailbox_profile`
+- Profiling is generated during cleanup discovery using:
+  - Gmail-native query estimates (labels, categories, states, age windows)
+  - bounded recent metadata sampling for sender/subject recurrence
+
+### Profiling model (v1)
+- Window:
+  - default `30` days (`60` day-compatible API shape)
+- Gmail-native signals:
+  - category distribution (`primary/promotions/social/updates/forums`)
+  - unread / starred / important
+  - likely machine-generated traffic estimate
+  - likely human-priority traffic estimate
+  - stale unread backlog estimates (30/60/90d)
+- Computed signals:
+  - sender frequency (bounded sample)
+  - recurring subject patterns (bounded sample)
+- Strategic outputs:
+  - protection candidates
+  - cleanup candidates
+  - rule opportunities
+
+### Cleanup planning impact
+- Query-cluster discovery now uses profiled sender recurrence (not only tiny inbox sample top senders).
+- Cluster rationale now includes recent-window estimate hints where relevant.
+- Approval gating and execution semantics remain unchanged.
+
+### UI support (Playground-only, minimal)
+- Runtime details drawer now includes a compact “Mailbox profile” section:
+  - profile window and key native counts
+  - machine vs human-priority heuristic signals
+  - top senders
+  - protection/cleanup/rule opportunity summaries
+
+### Safety and honesty
+- No mutation behavior added in this pass.
+- No fake global cleanup percentage introduced.
+- Profile counts are explicitly estimates and bounded-sample heuristics.

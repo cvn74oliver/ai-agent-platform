@@ -104,6 +104,19 @@ Dashboard Metrics:
   - Runtime sub-phase timing is now logged via `[playground][runtime-state-timing]`.
   - Dominant `cleanup_plan_ms` path was optimized by parallel cleanup-cluster discovery sampling.
   - Live post-patch rehydrate timing is now roughly ~2–3 seconds (down from ~8–10 seconds).
+- Runtime UI baseline finalized (March 9, 2026):
+  - Action-first “Current step” control center anchors runtime decisions.
+  - Runtime details/evidence are now organized as a lighter drawer with operator-first ordering.
+  - Query cleanup clusters render as compact rows (top 3 by default) with nested query/safety/risk/sample details.
+  - Conversation remains the secondary work area below runtime controls.
+  - Approvals queue keeps actionable items emphasized and compresses approved/executed rows for scanability.
+  - Workflow progress currently represents current workflow-step progress, not total inbox cleanup progress.
+- Mailbox Intelligence / Profiling pass (March 9, 2026):
+  - New additive `runtime_mailbox_profile` metadata is generated in runtime cleanup discovery.
+  - Profiling uses Gmail-native query estimates over a 30-day recent window (60-day compatible shape).
+  - Bounded metadata sampling adds sender-frequency and recurring-subject signals.
+  - Profile now feeds protection candidates, cleanup candidates, and rule-opportunity recommendations.
+  - Query cleanup cluster discovery now uses profiled sender recurrence instead of relying only on tiny inbox samples.
 
 ## LLM Training
 - Save & Next
@@ -160,6 +173,10 @@ Dashboard Metrics:
 - Inbox analysis runtime tool implemented:
   - `gmail.analyze_inbox`
   - Reads inbox metadata sample and derives sender clusters.
+- Mailbox profiling implemented for strategic cleanup planning:
+  - Gmail-native categories/labels/states + age-window estimates
+  - bounded sender/subject recurrence sampling
+  - additive runtime profile metadata for Playground strategy guidance
 - Sender cluster review tool implemented:
   - `gmail.review_sender_cluster`
   - Retrieves sample messages for a specific sender.
@@ -337,6 +354,8 @@ If any fail → immediate fix.
 - No precise progress % (document-count proxy used).
 - Worker is single-process (no distributed queue yet).
 - OpenAI timeouts possible under heavy refine (guarded).
+- Playground workflow progress is step-level for the active cleanup flow; total inbox cleanup progress is not implemented yet.
+- Mailbox profile coverage is estimate-based (Gmail `resultSizeEstimate` + bounded samples), not an exhaustive full-mailbox classification pass.
 
 ---
 

@@ -131,12 +131,26 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
   - OpenAI chat invocation + response/error handling extracted into `playgroundChatService.ts`
 - [x] Playground thin-controller pass:
   - Analytics/session logging extracted into `playgroundAnalyticsService.ts`
+- [x] Playground/Approvals UI polish pass:
+  - Action-first “Current step” runtime panel
+  - Runtime details/evidence drawer with operator-first ordering
+  - Query cleanup clusters: compact rows, top-3 default visibility, nested safety/query details
+  - Conversation preserved as secondary work area under runtime controls
+  - Compact approvals decision card layout with pending emphasis and compressed approved/executed rows
+- [x] Mailbox Intelligence / Profiling pass (read-only, pre-cleanup strategy layer):
+  - Added additive `runtime_mailbox_profile` metadata in Playground runtime API
+  - Default 30-day Gmail-native profile window (60-day compatible contract)
+  - Added sender recurrence + subject-pattern bounded sampling
+  - Added profile-driven protection candidates, cleanup candidates, and rule opportunities
+  - Wired minimal Playground runtime-details profile card (no backend contract break)
 
 ---
 
 ## 🧱 Known Issues / Risks
 - Open approvals still navigates in the same tab (continuity preserved, but UX may still prefer new-tab behavior).
 - Runtime suggestion status may require manual refresh to reconcile execution events.
+- Playground workflow progress currently reflects current workflow-step progress, not total inbox cleanup progress.
+- Runtime mailbox profile is estimate-based by design (Gmail query estimates + bounded sample), not exhaustive full-mailbox classification.
 - Inbox sampling limited to ~25 messages during testing to control API usage.
 - Support center (support.curativemushrooms.com) often returns **HTTP 403** during crawl → expected unless we add auth/crawler headers.
 - In dev, “run_now” fire-and-forget fetch may time out (HeadersTimeout / AbortError). Job can still be queued and run separately.
@@ -155,5 +169,7 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - Better agent naming model (short role-like titles, editable)
 - Automations framework MVP (run an agent workflow end-to-end)
 - “Aha moment” avatar + face card (image + persona, later voice/video)
+- Define and implement true Inbox Cleanup Progress metric (cleaned definition + denominator + session vs cumulative)
+- Add configurable profiling window toggle (30/60 day) in Playground runtime controls once UX contract is finalized
 
 Project Manager Agent – v7 closing handoff complete • Inbox Assistant operational • Ready for PM v8 activation

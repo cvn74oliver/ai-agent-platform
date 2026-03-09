@@ -579,6 +579,29 @@ Remaining UX gap:
 Implication:
 Runtime execution and operator continuity are now stable enough to shift focus from reliability fixes back to UX/polish improvements.
 
+March 9, 2026 UI status update:
+- Playground runtime now uses an action-first top “Current Step” control center with one primary CTA and compact lifecycle status strip.
+- Runtime details/evidence are organized as a lighter drawer with operator-first ordering:
+  - Inbox analysis
+  - Mailbox profile (30-day intelligence snapshot)
+  - Recommended batch
+  - Query cleanup clusters
+  - Sender review proposal
+- Query cleanup clusters are compact by default (top 3 first) with nested query/safety/risk/sample details.
+- Conversation remains the secondary work area under runtime controls.
+- Approvals queue presentation shifted from dense table format to compact decision cards with pending/actionable emphasis and compressed approved/executed rows.
+- Known limitation: workflow progress currently reflects current workflow-step progress, not total inbox cleanup progress.
+- Planned enhancement: define and implement a true Inbox Cleanup Progress metric after product definition is finalized.
+
+Mailbox Intelligence / Profiling status (March 9, 2026):
+- Cleanup planning now includes a read-only profile layer before broad cleanup waves.
+- `discoverGmailCleanupClustersForTenant(...)` now computes additive `mailbox_profile` metadata:
+  - Gmail-native category/state/age-window estimates (30-day default window; 60-day compatible)
+  - bounded sender-frequency and recurring-subject sampling
+  - protection candidates, cleanup candidates, and rule opportunities
+- Playground receives this as additive `runtime_mailbox_profile` metadata.
+- The profile is estimate-oriented (query `resultSizeEstimate` + bounded samples), and remains approval-gated for downstream actions.
+
 ## 🔄 Current Handoff State (March 8, 2026)
 At handoff to the next Project Manager version, the system should be understood as follows:
 
