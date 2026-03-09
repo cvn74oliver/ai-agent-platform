@@ -47,8 +47,29 @@ type RuntimeModeUpdatePayload = {
   mode?: RuntimeMode
 }
 
+type SearchParams = Record<string, string | string[] | undefined>
+
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
+}
+
+function firstSearchParamValue(value: string | string[] | undefined): string | null {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : null
+  return null
+}
+
+function buildSafePlaygroundReturnPath(returnToRaw: string | null): string | null {
+  if (!returnToRaw) return null
+  if (!returnToRaw.startsWith('/') || returnToRaw.startsWith('//')) return null
+
+  try {
+    const url = new URL(returnToRaw, 'http://localhost')
+    url.searchParams.set('runtime_refresh', '1')
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return null
+  }
 }
 
 function parseProposedActions(value: unknown): RuntimeProposedAction[] | undefined {
@@ -140,7 +161,18 @@ function parseModePayload(value: unknown): RuntimeModeUpdatePayload {
   }
 }
 
-export default async function ApprovalsPage() {
+export default async function ApprovalsPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams | Promise<SearchParams>
+}) {
+  const resolvedSearchParams =
+    searchParams && typeof (searchParams as Promise<SearchParams>).then === 'function'
+      ? await (searchParams as Promise<SearchParams>)
+      : (searchParams as SearchParams | undefined) || {}
+  const returnToRaw = firstSearchParamValue(resolvedSearchParams.return_to)
+  const playgroundReturnPath = buildSafePlaygroundReturnPath(returnToRaw)
+
   const supabase = await getSupabaseAdmin()
 
   const [
@@ -333,28 +365,78 @@ export default async function ApprovalsPage() {
     }
   })
 
+  const queueCounts = {
+    pending: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'pending').length,
+    approved: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'approved').length,
+    autoApproved: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'auto-approved')
+      .length,
+    executed: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'executed').length,
+  }
+  const totalQueueItems = pendingApprovalsWithEligibility.length
+  const hasLoadError = Boolean(
+    requestError || decisionError || confidenceError || modeError || executionError
+  )
+
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Approvals</h1>
+    <main className="min-h-screen bg-gray-950 text-gray-100 p-6">
+      <div className="max-w-6xl mx-auto space-y-4">
+        <div className="rounded-xl border border-gray-800 bg-gray-900/80 p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold text-white">Approvals Queue</p>
+              <p className="text-xs text-gray-400">
+                Review, approve, and execute runtime actions in guarded order.
+              </p>
+            </div>
+            {playgroundReturnPath ? (
+              <a
+                href={playgroundReturnPath}
+                className="inline-flex items-center px-3 py-1.5 rounded text-xs font-medium bg-gray-700 hover:bg-gray-600 text-white"
+              >
+                ← Back to Playground
+              </a>
+            ) : null}
+          </div>
 
-      {requestError || decisionError || confidenceError || modeError || executionError ? (
-        <p>
-          Failed to load approvals.
-          {requestError ? ` request: ${requestError.message}` : ''}
-          {decisionError ? ` decision: ${decisionError.message}` : ''}
-          {confidenceError ? ` confidence: ${confidenceError.message}` : ''}
-          {modeError ? ` mode: ${modeError.message}` : ''}
-          {executionError ? ` execution: ${executionError.message}` : ''}
-        </p>
-      ) : null}
+          <div className="grid gap-2 sm:grid-cols-4">
+            <div className="rounded border border-gray-800 bg-gray-950/60 p-2">
+              <p className="text-[11px] uppercase tracking-wide text-gray-400">Total</p>
+              <p className="text-base font-semibold">{totalQueueItems}</p>
+            </div>
+            <div className="rounded border border-amber-900/60 bg-gray-950/60 p-2">
+              <p className="text-[11px] uppercase tracking-wide text-amber-300">Pending</p>
+              <p className="text-base font-semibold">{queueCounts.pending}</p>
+            </div>
+            <div className="rounded border border-blue-900/60 bg-gray-950/60 p-2">
+              <p className="text-[11px] uppercase tracking-wide text-blue-300">Approved</p>
+              <p className="text-base font-semibold">{queueCounts.approved + queueCounts.autoApproved}</p>
+            </div>
+            <div className="rounded border border-emerald-900/60 bg-gray-950/60 p-2">
+              <p className="text-[11px] uppercase tracking-wide text-emerald-300">Executed</p>
+              <p className="text-base font-semibold">{queueCounts.executed}</p>
+            </div>
+          </div>
+        </div>
 
-      {!requestError && !decisionError && !confidenceError && !modeError && !executionError ? (
-        <ApprovalsTable
-          pendingApprovals={pendingApprovalsWithEligibility}
-          confidenceByAgentAction={confidenceByAgentAction}
-          agentModeByAgentId={agentModeByAgentId}
-        />
-      ) : null}
+        {hasLoadError ? (
+          <div className="rounded border border-rose-900/60 bg-rose-950/30 p-3 text-sm text-rose-100">
+            Failed to load approvals.
+            {requestError ? ` request: ${requestError.message}` : ''}
+            {decisionError ? ` decision: ${decisionError.message}` : ''}
+            {confidenceError ? ` confidence: ${confidenceError.message}` : ''}
+            {modeError ? ` mode: ${modeError.message}` : ''}
+            {executionError ? ` execution: ${executionError.message}` : ''}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-gray-800 bg-gray-900/80 p-3">
+            <ApprovalsTable
+              pendingApprovals={pendingApprovalsWithEligibility}
+              confidenceByAgentAction={confidenceByAgentAction}
+              agentModeByAgentId={agentModeByAgentId}
+            />
+          </div>
+        )}
+      </div>
     </main>
   )
 }

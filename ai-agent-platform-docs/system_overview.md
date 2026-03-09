@@ -150,6 +150,7 @@ Firecrawl / External Crawlers
 1. **Local Environment**
    - You develop locally in `web/` using Next.js + Supabase + OpenAI APIs.
    - Run locally with `npm run dev` → available at `http://localhost:3000`.
+   - Playground runtime observability is active via structured `[playground][timing]` server logs, and runtime-state evidence/history loading now runs in parallel to reduce controller wait time.
 
 1.5 **RAG Sync & Incremental Crawling**
    - `/api/rag/schedule` creates a `rag_jobs` row and seeds `rag_documents`.
@@ -562,16 +563,21 @@ Current route ownership is now primarily:
 
 `rehydrate_only` behavior and runtime output shape were preserved through this refactor milestone.
 
-### 8) Current Known Runtime UX Gaps
-The Gmail pilot also exposed several important UX gaps that are now part of the system understanding:
+### 8) Current Runtime UX Status (Updated March 9, 2026)
+The Gmail pilot continuity/performance hardening pass addressed the most disruptive state issues:
 
-- Playground session/chat state is not yet durable across refresh or navigation.
-- Opening Approvals in the same tab can destroy Playground context for active testing.
-- Runtime state can lag until Playground is refreshed or a new message is sent.
-- Suggestion lifecycle state now resolves better, but refresh/state continuity still needs a stronger persistent session model.
+- Playground session/chat/runtime state is now durable across refresh and approvals return flow.
+- Initial mount flicker (dashboard → empty chat → dashboard) has been fixed.
+- Runtime rehydrate latency has been reduced materially via runtime-state bottleneck optimization.
+- Runtime sub-phase timing is now traceable through structured logs:
+  - `[playground][runtime-state-timing]`
+  - `[playground][timing]`
+
+Remaining UX gap:
+- Approvals still open in the same tab by default; continuity is preserved, but a new-tab flow may still be preferable for operators.
 
 Implication:
-Runtime execution is now partially real, but operator experience is still pre-polish. Persistence and cross-page continuity are now a priority system concern, not just a UI convenience.
+Runtime execution and operator continuity are now stable enough to shift focus from reliability fixes back to UX/polish improvements.
 
 ## 🔄 Current Handoff State (March 8, 2026)
 At handoff to the next Project Manager version, the system should be understood as follows:

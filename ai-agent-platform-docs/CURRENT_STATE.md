@@ -94,6 +94,16 @@ Dashboard Metrics:
   - Prompt assembly and RAG retrieval stacks moved out of route.
   - OpenAI chat invocation + response/error handling moved out of route into a dedicated chat service.
   - Analytics/session logging moved out of route into a dedicated analytics service.
+- Runtime latency hardening (March 9, 2026):
+  - Live timing logs confirm `runtime_state_ms` as the dominant phase.
+  - Runtime evidence/history loaders now run in parallel in `stateLoaders.ts` (`Promise.all`).
+  - API contract and runtime behavior remain unchanged.
+- Runtime continuity + performance hardening (March 9, 2026):
+  - Session-aware Playground restore is stable across refresh and approvals return flow.
+  - Initial mount flicker (dashboard → empty chat → dashboard) has been eliminated.
+  - Runtime sub-phase timing is now logged via `[playground][runtime-state-timing]`.
+  - Dominant `cleanup_plan_ms` path was optimized by parallel cleanup-cluster discovery sampling.
+  - Live post-patch rehydrate timing is now roughly ~2–3 seconds (down from ~8–10 seconds).
 
 ## LLM Training
 - Save & Next

@@ -805,3 +805,30 @@ The runtime supervision loop now supports a real Gmail cleanup action with visib
 - Runtime metadata behavior unchanged.
 - `rehydrate_only` behavior unchanged.
 - Gmail/runtime, RAG, prompt, and chat service behavior unchanged.
+
+### March 9, 2026 — Playground Runtime Latency Hardening (runtime_state phase)
+
+- Used live `[playground][timing]` logs from the local `:3000` dev server to isolate latency.
+- Confirmed dominant phase: `runtime_state_ms` (observed ~9–10s on rehydrate and full-chat requests).
+- Applied a narrow runtime-state optimization in `src/lib/runtime/stateLoaders.ts`:
+  - `loadPlaygroundRuntimeStateInputs(...)` now loads independent evidence/history queries in parallel with `Promise.all`.
+- No response contract changes.
+- No prompt wording changes.
+- No runtime proposal/approval semantics changes.
+
+### March 9, 2026 — Playground Continuity + Cleanup Discovery Latency Milestone
+
+- Confirmed live fix for Playground mount-state flicker:
+  - No longer oscillates from runtime dashboard → empty chat → runtime dashboard on first load.
+- Session continuity behavior now stable across refresh and approvals round-trips in live testing.
+- Added internal runtime-state sub-phase timing logs:
+  - `[playground][runtime-state-timing]` with cleanup/evidence breakdown.
+- Identified dominant runtime-state bottleneck as `cleanup_plan_ms`.
+- Applied narrow cleanup discovery performance patch:
+  - Parallelized query-cluster discovery sampling in `discoverGmailCleanupClustersForTenant(...)`.
+- Live post-patch timing showed material improvement:
+  - `rehydrate_only` runtime state dropped from ~7.9s to ~2.2s.
+  - full-chat runtime state dropped from ~7.8s to ~2.6s.
+- Contracts and behavior preserved:
+  - No API contract changes.
+  - No prompt or runtime approval semantics changes.

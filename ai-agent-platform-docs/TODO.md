@@ -35,11 +35,13 @@ _Last updated: 2026-03-09 (PM v7 Closing • Runtime Gmail Assistant Operational
    - [x] Gmail archive execution implemented (remove INBOX label via Gmail API)
    - [x] Execution evidence returned to Playground
    - [x] Runtime suggestion lifecycle states (ready / pending / approved / executed)
-   - [ ] Playground state persistence across navigation
+   - [x] Playground state persistence/continuity across refresh and approvals round-trip
    - [ ] Open approvals link should open in new tab
-   - [ ] Refresh reconciliation so Playground detects executions immediately
+   - [x] Refresh reconciliation so Playground detects executions and runtime state on return
 
 4) Performance Improvements
+   - [x] Reduce sequential runtime-state DB loading in Playground (`stateLoaders` now parallelizes evidence/history queries)
+   - [x] Reduce cleanup-plan runtime-state latency (parallel cleanup-cluster discovery sampling)
    - [ ] Playground fast-path (skip RAG for simple prompts)
    - [ ] Retrieval caching
    - [ ] Reduce simple prompt latency
@@ -133,8 +135,7 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 ---
 
 ## 🧱 Known Issues / Risks
-- Playground chat history resets on navigation (state not persisted yet).
-- "Open approvals" currently navigates in same tab causing Playground session loss.
+- Open approvals still navigates in the same tab (continuity preserved, but UX may still prefer new-tab behavior).
 - Runtime suggestion status may require manual refresh to reconcile execution events.
 - Inbox sampling limited to ~25 messages during testing to control API usage.
 - Support center (support.curativemushrooms.com) often returns **HTTP 403** during crawl → expected unless we add auth/crawler headers.
