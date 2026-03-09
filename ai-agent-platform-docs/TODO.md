@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-08 (PM v7 Closing • Runtime Gmail Assistant Operational • Real Inbox Archive Execution Verified)_
+_Last updated: 2026-03-09 (PM v7 Closing • Runtime Gmail Assistant Operational • Playground Runtime Refactor Milestone Logged)_
 
 - Project Manager — healthy (v7 active, Mar 4 2026)
 - Architect — healthy
@@ -118,6 +118,17 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - [x] Runtime suggestion lifecycle tracking implemented (approval_request → decision → execution_result)
 - [x] Archive execution evidence surfaced in Playground UI
 - [x] Gmail OAuth scope upgraded to include gmail.modify for write operations
+- [x] Playground runtime controller refactor milestone:
+  - Runtime lifecycle logic extracted into `suggestionLifecycle.ts`
+  - Runtime evidence/history loaders extracted into `stateLoaders.ts`
+  - Gmail runtime progression extracted into `gmailRuntimeAssembler.ts`
+  - Runtime orchestration service extracted into `runtimeStateService.ts`
+  - Prompt assembly extracted into `playgroundPromptBuilder.ts`
+  - RAG retrieval stack extracted into `playgroundRagService.ts`
+- [x] Playground thin-controller pass:
+  - OpenAI chat invocation + response/error handling extracted into `playgroundChatService.ts`
+- [x] Playground thin-controller pass:
+  - Analytics/session logging extracted into `playgroundAnalyticsService.ts`
 
 ---
 

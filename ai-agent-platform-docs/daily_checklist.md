@@ -2,12 +2,12 @@
 
 🏗️ Current Phase: [Phase 2 – Runtime Testing & Validation]
 
-Last updated: February 13, 2026
+Last updated: March 9, 2026
 
 📌 Single Source of Truth
 Before starting any work, open and review:
 
-web/docs/CURRENT_STATE.md
+ai-agent-platform-docs/CURRENT_STATE.md
 
 This file confirms:
 • What is working right now
@@ -85,20 +85,24 @@ npm run dev
 	    •	Step-by-step explanations
 	    •	Key notes or bug fixes
     	•	The agent’s /summarize_session output
-	5.	Update the documentation
-    	•	Open the appropriate files in /web/docs/ and paste information where it belongs:
+	5.	Update the documentation (authoritative docs only)
+    	•	Open the appropriate files in /ai-agent-platform-docs/ and paste information where it belongs.
+    	•	Do not edit /web/docs directly; it is a generated mirror, not the source of truth.
+    	•	Use these rules:
     	•	*_CONTEXT.md → paste the agent’s /summarize_session response at the bottom under:
-
-## Session Log – Work Summary (Nov 7 2025)
+```
+## Session Log – Work Summary (Mar 9 2026)
 (Paste the summary and any relevant code notes here)
-
-
-	    •	TODO.md → update task status or add new next steps.
-Example:
-Frontend Agent – Onboarding flow fixed (verified Nov 7 2025)
-    	•	CHANGELOG.md → optional, for notable completions.
-Example:
-Nov 7 2025 – Backend Agent resolved Supabase auth bug.
+```
+    	•	TODO.md → update task status or add new next steps.
+      Example:
+      Frontend Agent – Onboarding flow fixed (verified Mar 9 2026)
+    	•	CHANGELOG.md → append milestone/completion notes; do not delete old entries.
+      Example:
+      Mar 9 2026 – Playground runtime controller refactor milestone recorded.
+    	•	CURRENT_STATE.md → update only the targeted sections that changed.
+    	•	system_overview.md → update only when architecture/boundaries changed.
+    	•	operational_workflow.md / automation_map.md → update only if workflow or automation behavior actually changed.
 
 	6.	Run automations
 	    •	After updating docs, run:
@@ -142,9 +146,9 @@ Paste each response into its corresponding *_CONTEXT.md under a new heading:
 	2.	Notify the Project Manager Agent:
 
 All active agents have submitted their summaries for today.
-Please update TODO.md and CHANGELOG.md accordingly.
+Please update the authoritative docs accordingly: CHANGELOG.md, TODO.md, CURRENT_STATE.md, and system_overview.md if architecture changed.
 
-	3.	Review the PM Agent’s update text → copy and paste it into the appropriate files locally.
+	3.	Review the PM Agent’s update text → apply it only to the appropriate files in /ai-agent-platform-docs/ locally.
 	4.	Run:
 
 ```bash
@@ -155,7 +159,7 @@ Please update TODO.md and CHANGELOG.md accordingly.
     to merge all updates, create a backup, and push changes to GitHub.
 
 	5.	Verify that:
-    	•	00_MASTER_PROJECT.md has updated session summaries.
+    	•	Authoritative docs in ai-agent-platform-docs/ reflect today’s updates before sync.
 	    •	CHANGELOG.md includes today’s notes.
     	•	All backups completed successfully.
 
@@ -179,14 +183,15 @@ Skip /summarize_session for any agents that didn’t actively work today. Their 
 	•	Project Manager Agent produced and confirmed daily plan
 	•	All active agents submitted /summarize_session summaries
 	•	Summaries added to context files (*_CONTEXT.md)
-	•	Project Manager updates logged into TODO and CHANGELOG
+	•	Project Manager updates logged into authoritative docs (TODO, CHANGELOG, CURRENT_STATE, and system_overview when needed)
+	•	/web/docs was not edited manually as source of truth
 	•	Automation scripts run successfully
 	•	GitHub repo synced and backed up
 
 ⸻
 
 💡 Tip
-If no agent worked today, skip the /summarize_session step and simply run (run from the /web directory):
+If no agent worked today, skip the /summarize_session step and simply run the sync scripts (from the /web directory) after confirming your authoritative docs are already current:
 ./automation/update_memory.sh
 ./automation/sync_docs_to_github.sh
 to keep your documentation and backups up to date.

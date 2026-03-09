@@ -127,6 +127,26 @@ If Codex fails twice on the same issue:
 
 ---
 
+## ✅ STEP 6 — Documentation Synchronization + Session Closing (MANDATORY)
+
+After every major milestone, before thread close:
+- Update authoritative docs in `ai-agent-platform-docs/` first.
+- Do **not** use `/web/docs` as source-of-truth edit target.
+- Preserve existing content and perform targeted edits only.
+- Prepare a short handoff note for the next thread.
+
+File-specific safety rules:
+- `CHANGELOG.md` → append-only; never rewrite/delete historical entries.
+- `CURRENT_STATE.md` → update targeted sections only.
+- `system_overview.md` → architecture deltas only.
+- `operational_workflow.md` → process/workflow changes only.
+- `automation_map.md` → automation/system-sync changes only.
+- `TODO.md` → keep open items unless completed, replaced with a more specific task, or explicitly removed with rationale.
+
+Session close is not complete until these documentation checks are done.
+
+---
+
 ## 🛑 HARD STOP CONDITIONS
 
 Immediately halt execution if:
@@ -185,11 +205,13 @@ Before closing a Codex session:
 - Confirm feature domain remained contained
 - Confirm compile passes
 - Confirm no schema changes occurred (unless explicitly approved and logged)
-- Confirm logs will be updated if architecture changed
+- Confirm authoritative documentation synchronization is complete (`ai-agent-platform-docs/` first)
+- Confirm `/web/docs` was not edited as source of truth
 
 Then:
 → Return to Project Manager
-→ Update documentation
+→ Update authoritative documentation safely
+→ Prepare handoff note for next thread
 → Close session
 
 ---

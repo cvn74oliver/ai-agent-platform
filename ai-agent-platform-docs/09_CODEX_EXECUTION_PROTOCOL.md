@@ -278,7 +278,48 @@ Avoid long manual back-and-forth debug cycles unless something is ambiguous.
 
 ---
 
-## 13. CODEX SESSION HEADER (PASTE AT TOP OF EVERY NEW CODEX THREAD)
+## 13. DOCUMENTATION SYNCHRONIZATION + SESSION CLOSING PROTOCOL
+
+After every **major milestone**, Codex must update authoritative project documentation **before thread close**.
+
+Hard rules:
+- `ai-agent-platform-docs/` is the authoritative documentation tree.
+- Never edit `/web/docs` directly as source of truth.
+- Generated `/web/docs` content must come from the documented sync process.
+- Preserve existing documentation content unless a targeted update is required.
+
+File-specific safety rules:
+- `CHANGELOG.md` = append-only. Never rewrite or delete historical entries.
+- `CURRENT_STATE.md` = targeted section updates only. Preserve unrelated sections.
+- `system_overview.md` = targeted architecture updates only.
+- `operational_workflow.md` = update only when workflow/process behavior changes.
+- `automation_map.md` = update only when automation/system-sync behavior changes.
+- `TODO.md` = preserve open items unless completed, replaced by a more specific task, or explicitly removed with rationale.
+
+Required closeout sequence for major sessions:
+1. Summarize what changed.
+2. Apply targeted updates to authoritative docs in `ai-agent-platform-docs/`.
+3. Preserve unrelated content; avoid broad rewrites.
+4. Prepare a short handoff note for the next thread.
+
+---
+
+## 14. SESSION CLOSING PROTOCOL (MANDATORY)
+
+Before closing any major Codex session:
+- Confirm code outcomes and scope boundaries.
+- Confirm authoritative docs were updated safely per Section 13.
+- Confirm `/web/docs` was not used as source-of-truth edit target.
+- Provide a concise handoff note containing:
+  - what changed
+  - what remains open
+  - any known risks or follow-up checks
+
+If documentation synchronization has not been completed, session close is blocked.
+
+---
+
+## 15. CODEX SESSION HEADER (PASTE AT TOP OF EVERY NEW CODEX THREAD)
 
 ```text
 Codex Execution Mode
@@ -297,7 +338,7 @@ Wait for structured task.
 
 ---
 
-## 14. SIMPLE CODEX EXECUTION CHECKLIST (FOR OLIVER)
+## 16. SIMPLE CODEX EXECUTION CHECKLIST (FOR OLIVER)
 
 Before running a Codex task:
 
@@ -311,7 +352,7 @@ If any box is unchecked, do NOT proceed.
 
 ---
 
-## 15. SUPABASE / DATABASE WORKFLOW (IMPORTANT CLARIFICATION)
+## 17. SUPABASE / DATABASE WORKFLOW (IMPORTANT CLARIFICATION)
 
 ### Does Codex “have access to Supabase”?
 - Codex does **not** automatically have access to your Supabase Dashboard in Chrome.
@@ -346,7 +387,7 @@ Schema changes are EXTRA-HIGH and must:
 
 ---
 
-## 16. FINAL PRINCIPLE
+## 18. FINAL PRINCIPLE
 
 Codex executes.
 PM designs.
@@ -356,7 +397,7 @@ This protocol overrides convenience shortcuts.
 
 ---
 
-## 17. PROJECT MANAGER VERSION HANDOFF
+## 19. PROJECT MANAGER VERSION HANDOFF
 
 Project Managers operate in versions (PM‑V1, PM‑V2 … PM‑V8) to avoid context drift.
 

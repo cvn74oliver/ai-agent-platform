@@ -1,6 +1,6 @@
 🗂️ Project Manager Agent Context
 
-Last updated: March 4, 2026
+Last updated: March 9, 2026
 
 Role & Scope
 
@@ -11,6 +11,9 @@ Core Responsibilities
 	•	Review and interpret 00_MASTER_PROJECT.md daily.
 	•	Generate and update daily priorities in TODO.md.
 	•	Track session health for all agents.
+	•	After each major milestone, instruct Codex to update the authoritative docs in ai-agent-platform-docs/ before thread close.
+	•	Treat /web/docs as a generated mirror only, never the source of truth for documentation edits.
+	•	Ensure CHANGELOG.md, CURRENT_STATE.md, TODO.md, and system_overview.md stay aligned with the actual system state.
 	•	At the end of each week, summarize overall progress and append updates to CHANGELOG.md.
 	•	Manage agent resets and reactivations when sessions drift or expire.
 	•	Report any inconsistencies or dependencies between roles.
@@ -31,6 +34,10 @@ Codex Execution Protocol (CRITICAL)
   3) Required file list (explicit @file paths)
   4) Objective + constraints + regression protections
 - If Codex fails twice on the same issue: stop, summarize cleanly, return for architectural clarification.
+- After every major milestone, Codex must update the authoritative docs in ai-agent-platform-docs/ before the session is considered complete.
+- /web/docs is a generated mirror and must not be edited as the documentation source of truth.
+- When documentation updates are needed, prefer surgical edits that preserve history and unrelated content.
+- Use the lowest viable reasoning level, but remember EXTRA-HIGH is available when an architectural task genuinely requires it.
 
 Lightweight Codex Usage Rule
 - Codex is required for:
@@ -48,6 +55,7 @@ Feature Domain Map
 4. Agent Runtime (Production Inference)
 5. Workflow / Automation Engine
 6. Dashboard Intelligence Layer
+7. Runtime Operations & External Integrations
 
 Canonical Authority Rules (NON-NEGOTIABLE)
 - Q&A-derived Prompt Contract fields are canonical (Improve Quality with Q&A + manual edits).
@@ -67,6 +75,10 @@ Current Checkpoint (March 2026)
 - `recalculate-quality` uses a small RAG evidence pack as supplemental input but must preserve canonical contract fields.
 
 - Codex protocol updated to support lightweight single-file edits without mandatory Codex escalation.
+- Playground runtime architecture has been refactored so route.ts is now a much thinner controller.
+- Runtime state loading, Gmail runtime assembly, lifecycle reconciliation, prompt building, and Playground RAG retrieval have each been extracted into dedicated runtime modules.
+- Authoritative project documentation now lives under ai-agent-platform-docs/, while /web/docs is treated as a generated mirror synced by automation.
+- Major milestone logging should now happen continuously during development instead of being deferred to manual end-of-day cleanup.
 - Docker is NOT required for hosted Supabase usage; schema updates may be performed via Supabase SQL Editor or CLI migrations when necessary.
 
 Definition of Done for “Drive Knowledge Used”
@@ -76,11 +88,12 @@ Definition of Done for “Drive Knowledge Used”
 4) Fine-tune bridge is planned as a separate domain (not required for RAG completion).
 
 Current Focus
-	•	Keep TODO.md / CHANGELOG.md / CURRENT_STATE.md accurate and current.
+	•	Keep TODO.md / CHANGELOG.md / CURRENT_STATE.md / system_overview.md accurate after every major milestone.
 	•	Enforce Codex task structure (domain + reasoning level + files + constraints).
-	•	Maintain RAG ingestion/retrieval health and verification checks (Drive + web).
+	•	Maintain authoritative-doc discipline: edit ai-agent-platform-docs/ first, then let sync automation update mirrors.
+	•	Continue thinning Playground route ownership by extracting remaining controller-owned concerns into dedicated services where appropriate.
 	•	Protect canonical Prompt Contract fields from being overwritten by RAG.
-	•	Prepare clean handoffs between PM versions (v6 → v7) at stable checkpoints.
+	•	Prepare clean handoffs between PM versions at stable checkpoints.
 
 Reference Links
 	•	Project Manager Context: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/07_PROJECT_MANAGER_CONTEXT.md
@@ -763,3 +776,34 @@ This pattern should be reused for future domains such as:
   - any workflow/protocol docs affected by the new runtime framework.
 
 > *Project Manager Agent v7 closes at a strong checkpoint: Gmail archive execution works end to end, lifecycle-aware runtime state is visible in the UI, and the system now has a credible reusable runtime scaffolding pattern for future tool domains.*
+
+## Session Log – March 9, 2026 — Documentation Authority + Runtime Refactor Logging Discipline
+
+### What changed
+- Confirmed that ai-agent-platform-docs/ is the authoritative documentation tree for the project.
+- Confirmed that /web/docs is a generated mirror and must not be edited as the source of truth.
+- Updated Codex governance so major milestones should include targeted doc updates before session close, especially for CHANGELOG.md, CURRENT_STATE.md, TODO.md, and system_overview.md.
+- Reduced Playground runtime route ownership through staged extractions into dedicated runtime modules and services.
+
+### Runtime architecture status
+The Playground runtime/controller flow is now split across dedicated modules for:
+- lifecycle/status reconciliation
+- runtime evidence/state loading
+- Gmail runtime assembly
+- runtime orchestration service
+- Playground prompt building
+- Playground RAG retrieval
+
+Route ownership is now much narrower and primarily focused on:
+- request parsing
+- agent/session lookup
+- explicit analyze-inbox proposal trigger logic
+- response shaping
+- OpenAI chat invocation
+- analytics/session logging
+
+### Operational rule going forward
+Project Manager should proactively include authoritative documentation updates in Codex milestone prompts so logs stay current continuously, reducing end-of-day manual cleanup and improving new-thread continuity.
+
+### Next likely focus
+Resume technical work from the Playground runtime refactor checkpoint, with documentation updates folded into the normal Codex closeout process rather than treated as a separate manual phase.

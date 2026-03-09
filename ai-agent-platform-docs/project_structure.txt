@@ -20,6 +20,7 @@
 │   ├── monthly_checklist.md
 │   ├── operational_workflow.md
 │   ├── phase1_clarify_spec.md
+│   ├── playground-runtime-architecture.md
 │   ├── project_structure.txt
 │   ├── schema_comparison_checklist.md
 │   ├── system_overview.md
@@ -61,6 +62,7 @@
     │   ├── operational_workflow
     │   ├── operational_workflow.md
     │   ├── phase1_clarify_spec.md
+    │   ├── playground-runtime-architecture.md
     │   ├── project_structure.txt
     │   ├── schema_comparison_checklist.md
     │   ├── system_overview.md
@@ -81,7 +83,8 @@
     │   └── window.svg
     ├── README.md
     ├── scripts
-    │   └── golden-path.mjs
+    │   ├── golden-path.mjs
+    │   └── playground-route-matrix.mjs
     ├── src
     │   ├── app
     │   │   ├── agents
@@ -193,6 +196,17 @@
     │   │   │   └── gmail
     │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
+    │   │   │   ├── gmailRuntimeAssembler.ts
+    │   │   │   ├── playgroundAgentConfigService.ts
+    │   │   │   ├── playgroundAnalyticsService.ts
+    │   │   │   ├── playgroundChatService.ts
+    │   │   │   ├── playgroundPromptBuilder.ts
+    │   │   │   ├── playgroundRagService.ts
+    │   │   │   ├── playgroundRequestSessionService.ts
+    │   │   │   ├── playgroundResponseBuilder.ts
+    │   │   │   ├── runtimeStateService.ts
+    │   │   │   ├── stateLoaders.ts
+    │   │   │   ├── suggestionLifecycle.ts
     │   │   │   └── types.ts
     │   │   └── supabase.ts
     │   ├── tools
@@ -236,4 +250,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-90 directories, 147 files
+90 directories, 161 files

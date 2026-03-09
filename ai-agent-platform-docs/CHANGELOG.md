@@ -729,3 +729,79 @@ First real “agent did work in the real world” milestone achieved: Plan → A
 
 ### Outcome
 The runtime supervision loop now supports a real Gmail cleanup action with visible evidence and a reusable generic scaffolding model for future tools (tax, marketing, operations, etc.).
+
+---
+
+## 2026-03-09 — Playground Runtime Controller Refactor Milestone
+
+### What shipped
+- Refactored `src/app/api/agents/playground/route.ts` into a thinner controller/surface.
+- Extracted runtime lifecycle/status logic into:
+  - `src/lib/runtime/suggestionLifecycle.ts`
+- Extracted runtime event/session/evidence loading into:
+  - `src/lib/runtime/stateLoaders.ts`
+- Extracted Gmail-specific runtime derivation/progression into:
+  - `src/lib/runtime/gmailRuntimeAssembler.ts`
+- Extracted runtime loading + optional cleanup discovery orchestration into:
+  - `src/lib/runtime/runtimeStateService.ts`
+- Extracted Playground prompt assembly into:
+  - `src/lib/runtime/playgroundPromptBuilder.ts`
+- Extracted Playground RAG retrieval stack (embedding + drive-first + pgvector + JS fallback) into:
+  - `src/lib/runtime/playgroundRagService.ts`
+
+### Behavior parity preserved
+- `rehydrate_only` path behavior preserved.
+- Runtime metadata response shape preserved.
+- Explicit analyze-inbox proposal trigger behavior preserved.
+- OpenAI chat call + analytics logging remain route-owned.
+
+### Documentation note
+- Added authoritative runtime architecture snapshot:
+  - `ai-agent-platform-docs/playground-runtime-architecture.md`
+- `/web/docs` continues as generated mirror output, not authoritative source-of-truth.
+
+---
+
+## 2026-03-09 — Playground Runtime Thin-Controller Pass (Chat Service Extraction)
+
+### What shipped
+- Extracted OpenAI chat invocation and response/error handling from:
+  - `src/app/api/agents/playground/route.ts`
+- New dedicated service:
+  - `src/lib/runtime/playgroundChatService.ts`
+
+### Behavior parity preserved
+- Response JSON shape unchanged.
+- Runtime metadata behavior unchanged.
+- `rehydrate_only` behavior unchanged.
+- Gmail/runtime derivation behavior unchanged.
+- Prompt wording and RAG retrieval behavior unchanged.
+
+### Route ownership after this pass
+- request parsing + controller flow
+- explicit analyze-inbox proposal trigger logic
+- runtime metadata response shaping
+- analytics/session logging
+- chat service invocation (instead of inline fetch/error handling)
+
+---
+
+## 2026-03-09 — Playground Runtime Thin-Controller Pass (Analytics Service Extraction)
+
+### What shipped
+- Extracted Playground analytics/session logging from:
+  - `src/app/api/agents/playground/route.ts`
+- New dedicated service:
+  - `src/lib/runtime/playgroundAnalyticsService.ts`
+
+### Extracted responsibilities
+- Session creation in `agent_sessions` when no current session exists.
+- `playground.call` event logging in `agent_events`.
+- Token usage, cost estimate, and `approx_human_minutes` calculations.
+- Non-fatal analytics failure handling with existing warning semantics.
+
+### Behavior parity preserved
+- Response JSON shape unchanged.
+- Runtime metadata behavior unchanged.
+- `rehydrate_only` behavior unchanged.
+- Gmail/runtime, RAG, prompt, and chat service behavior unchanged.

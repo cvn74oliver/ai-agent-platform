@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 8, 2026_
+_Last Updated: March 9, 2026_
 
 ---
 
@@ -22,7 +22,8 @@ Each AI "agent" (chat) acts as a specialized software engineer:
 - Project Manager (PM)
 
 
-These AI agents reference the project’s `.md` files stored in `/web/docs/`, ensuring every chat has shared, persistent memory.
+These AI agents reference the project’s authoritative `.md` files in `/ai-agent-platform-docs/`.  
+`/web/docs/` is treated as generated mirror output, not source of truth.
 
 ### 🆕 Execution Architecture (Codex-Driven Development)
 
@@ -127,7 +128,7 @@ Render / Vercel Hosts       Firecrawl / Activepieces / Make
 
 ChatGPT Agents  
      ⇄  
-Docs (.md files in /web/docs)  
+Docs (.md files in /ai-agent-platform-docs)  
      ⇄  
 Local Automation Scripts  
      ⇄  
@@ -162,13 +163,14 @@ Firecrawl / External Crawlers
      - Count of `rag_documents` written per `job_id`.
 
 2. **Documentation Memory**
-   - Each agent’s work, decisions, and summaries are saved to `/web/docs/*.md`.
+   - Each agent’s work, decisions, and summaries are saved to `/ai-agent-platform-docs/*.md` (authoritative).
    - `00_MASTER_PROJECT.md` = unified snapshot of all role contexts.
    - `CURRENT_STATE.md` = single source of truth for what is working now, known issues, golden-path verification, and immediate next steps.
    - The `update_memory.sh` script merges everything automatically.
 
 3. **Public Docs (Reference Only)**
-   - `/ai-agent-platform-docs` (GitHub repo) hosts public copies of `/web/docs/` for agents and collaborators to reference.
+   - `/web/docs` is a generated mirror for local app/tooling consumption.
+   - `/ai-agent-platform-docs` is the authoritative project documentation tree.
    - The `sync_docs_to_github.sh` script updates it with one command.
    ⚠️ Note: The sync script is intentionally non-destructive and must never delete documentation files. If required files (e.g., CURRENT_STATE.md) are missing locally, the sync aborts.
 
@@ -249,9 +251,9 @@ Current operating convention:
 ├─ /web
 │  ├─ /src          # Next.js code
 │  ├─ /automation   # Scripts for memory + GitHub sync
-│  └─ /docs         # Persistent AI memory + checklists
+│  └─ /docs         # Generated docs mirror (not source-of-truth)
 │
-├─ /ai-agent-platform-docs   # Public GitHub mirror of selected docs
+├─ /ai-agent-platform-docs   # Authoritative project docs
 │
 └─ /backups         # Automatic .tgz backups from update_memory.sh
 
@@ -301,9 +303,9 @@ It is NOT required for normal development.
 ## 🗓️ Checklists Overview
 | Checklist | Location | Purpose |
 |------------|-----------|----------|
-| Daily | `/web/docs/daily_checklist.md` | Morning–Evening flow |
-| Weekly | `/web/docs/weekly_checklist.md` | Friday wrap-up |
-| Monthly | `/web/docs/monthly_checklist.md` | Backup, security, planning |
+| Daily | `/ai-agent-platform-docs/daily_checklist.md` | Morning–Evening flow |
+| Weekly | `/ai-agent-platform-docs/weekly_checklist.md` | Friday wrap-up |
+| Monthly | `/ai-agent-platform-docs/monthly_checklist.md` | Backup, security, planning |
 
 ---
 
@@ -333,7 +335,7 @@ Additional runtime session note:
 ---
 
 ## 🧭 Long-Term Planning (Optional)
-For quarterly strategy, add a file under `/web/docs/planning/`:
+For quarterly strategy, add a file under `/ai-agent-platform-docs/planning/`:
 Q1_2026_Plan.md
 Q2_2026_Plan.md
 Each file tracks:
@@ -539,6 +541,26 @@ Design intent:
 
 Guiding rule:
 Build tool adapters that feed the generic runtime structures instead of rebuilding custom runtime UI from scratch for each integration.
+
+### 7A) Playground Runtime Controller Refactor (March 2026)
+
+Playground runtime orchestration has been extracted out of `route.ts` into dedicated runtime modules:
+- `suggestionLifecycle.ts`
+- `stateLoaders.ts`
+- `gmailRuntimeAssembler.ts`
+- `runtimeStateService.ts`
+- `playgroundPromptBuilder.ts`
+- `playgroundRagService.ts`
+- `playgroundChatService.ts`
+- `playgroundAnalyticsService.ts`
+
+Current route ownership is now primarily:
+- request/response surface handling
+- explicit `gmail.analyze_inbox` proposal trigger logic
+- chat service invocation
+- analytics service invocation
+
+`rehydrate_only` behavior and runtime output shape were preserved through this refactor milestone.
 
 ### 8) Current Known Runtime UX Gaps
 The Gmail pilot also exposed several important UX gaps that are now part of the system understanding:

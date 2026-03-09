@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-08  
+Last updated: 2026-03-09  
 Project Manager: v7 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
@@ -88,6 +88,12 @@ Dashboard Metrics:
 - Correct URL retrieval confirmed
 - Strict URL safety (no fabrication)
 - Usage metrics captured
+- Runtime orchestration refactor complete:
+  - `route.ts` is now a thinner controller/surface.
+  - Runtime loading/discovery/assembly moved to runtime services/modules.
+  - Prompt assembly and RAG retrieval stacks moved out of route.
+  - OpenAI chat invocation + response/error handling moved out of route into a dedicated chat service.
+  - Analytics/session logging moved out of route into a dedicated analytics service.
 
 ## LLM Training
 - Save & Next
@@ -207,6 +213,29 @@ Verified result:
 - Playground UI reflected execution evidence.
 
 This represents the **first real autonomous inbox management workflow executed by the runtime system**.
+
+### Runtime Playground Refactor Milestone (March 9, 2026)
+
+Playground runtime architecture has been modularized without changing behavior.
+
+Extracted modules now own the previously in-route runtime internals:
+- `src/lib/runtime/suggestionLifecycle.ts`
+- `src/lib/runtime/stateLoaders.ts`
+- `src/lib/runtime/gmailRuntimeAssembler.ts`
+- `src/lib/runtime/runtimeStateService.ts`
+- `src/lib/runtime/playgroundPromptBuilder.ts`
+- `src/lib/runtime/playgroundRagService.ts`
+
+Current route ownership remains:
+- response shaping
+- explicit `gmail.analyze_inbox` proposal trigger logic
+- chat service invocation
+- analytics service invocation
+
+`rehydrate_only` behavior remains preserved.
+
+Reference:
+- `ai-agent-platform-docs/playground-runtime-architecture.md`
 
 ---
 
