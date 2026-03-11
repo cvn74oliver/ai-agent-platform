@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-09  
+Last updated: 2026-03-11  
 Project Manager: v7 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
@@ -117,6 +117,122 @@ Dashboard Metrics:
   - Bounded metadata sampling adds sender-frequency and recurring-subject signals.
   - Profile now feeds protection candidates, cleanup candidates, and rule-opportunity recommendations.
   - Query cleanup cluster discovery now uses profiled sender recurrence instead of relying only on tiny inbox samples.
+- Mailbox profiling freshness/caching stabilization (March 10, 2026):
+  - Cleanup discovery/profile snapshots are cached via `agent_events` (`runtime_cleanup_discovery_snapshot`).
+  - Routine rehydrate paths now reuse fresh cached profile snapshots instead of re-running Gmail discovery every time.
+  - Default profile cache TTL is 30 minutes; stale fallback + cooldown guard reduce repeated expensive refresh attempts.
+  - Explicit profile refresh is available from Playground runtime details.
+  - Freshness is surfaced as `fresh` / `cached` / `stale` with last generated timestamp.
+- Operator cleanup strategy layer (March 10, 2026):
+  - New additive `runtime_cleanup_strategy` is derived from `runtime_mailbox_profile`.
+  - Strategy sections: Protect first, Best first cleanup waves, Rule opportunities, Avoid/review carefully.
+  - Playground prompt now uses this strategy ordering for clearer, decisive inbox guidance.
+  - Playground runtime details now surfaces a compact strategy card for one-glance operator planning.
+- Trust + gating hardening (March 10, 2026):
+  - Runtime dashboard now surfaces a compact trust snapshot (sample size, profile window, metadata scan basis, confidence).
+  - Cleanup action suggestions are not promoted unless a 30-day mailbox profile is present.
+  - With sample-only evidence, assistant guidance remains in analysis/review mode (no cleanup-approval push).
+  - Agent-aware Playground examples now replace hardcoded domain-specific copy.
+- Trust + UX clarity refinement (March 10, 2026):
+  - Current Step and review cards now include explicit “What happens next” blocks.
+  - Runtime CTA copy is action-specific: `Analyze inbox sample`, `Review sender sample`, `Preview matching emails`.
+  - Review steps are explicitly labeled as read-only with no inbox mutation in the current step.
+  - Evidence-basis labels now distinguish quick preview sample vs pattern scan basis/profile window/confidence.
+  - Query-estimate overlap uncertainty is surfaced when Gmail estimate signals converge.
+- Consistency hardening (March 10, 2026):
+  - Playground and Approvals now share explicit queue scope semantics:
+    - session-scoped queue when `session_id` exists
+    - agent-scoped queue fallback when no active session is available
+  - Approvals queue UI now displays explicit scope context.
+  - Runtime approval queue summary now carries scope metadata and enforces strict session filtering in session mode.
+  - Server-authored chat restore added for Playground sessions:
+    - `playground.session_snapshot` events are written per session
+    - rehydrate responses can return `session_messages` for authoritative session restore
+  - `review_query_cluster` approvals are now executable from Approvals.
+  - Sessionless dedupe now only reuses other sessionless requests, preventing cross-session dedupe drift.
+- Reconciliation stabilization pass (March 10, 2026):
+  - Playground now applies a canonical approval-id resolver before rendering candidate/cluster statuses.
+  - Rejected approvals clear pending status across queue chips and cluster/candidate rendering once fresh summary lands.
+  - Approval submit now updates pending queue state immediately (poll remains fallback verification).
+  - Approvals table now updates queue counts and section placement immediately after approve/reject/execute.
+  - Clear conversation retains explicit unresolved-approval visibility for the cleared session.
+  - `rehydrate_only` path now prioritizes cached/stale cleanup profile snapshots and avoids refresh recomputation unless forced.
+  - Follow-up: top Current-Step query-cluster submit now mutates the same immediate cluster-pending state path as manual cluster selection.
+  - Follow-up: cleared-session carryover no longer contributes to queue bubble counts, preventing ghost pending after clear/reset.
+  - Follow-up (March 11): query cleanup cluster pending header now reconciles with canonical queue pending for first-step sender-review submits.
+  - Follow-up (March 11): return-from-approvals runtime refresh now suppresses stale local pending/approved queue state until authoritative summary rehydrates.
+  - Follow-up (March 11): clear conversation no longer carries pending/approved count snapshots in cleared-session context (session-id only informational carryover).
+  - Follow-up (March 11): clear conversation now behaves as chat-only reset; Runtime Operations Dashboard and approval/workflow state remain mounted and authoritative.
+  - Follow-up (March 11): cleared-session message restore suppression prevents old chat transcript repaint while allowing runtime queue/evidence rehydrate.
+  - Follow-up (March 11): approval decision summary card added in both Playground Current Step and Approvals cards with explicit action/scope/selection/safety/effect fields.
+  - Follow-up (March 11): preview-to-batch relationship is now explicit (representative sample vs total selected/estimated scope), including scalable language for larger approval batches.
+  - Follow-up (March 11): approval presentation upgraded to stronger decision-card hierarchy (Action, Scope, Source, Why selected, Risk, Reversible, Safety signals, Exclusions, What happens if approved).
+  - Follow-up (March 11): representative examples now render as compact subject/sender/date rows (instead of prose-only summaries) in both Playground and Approvals.
+  - Follow-up (March 11): shared `ApprovalDecisionCard` component now drives both Playground and Approvals surfaces for one consistent approval visual language.
+  - Follow-up (March 11): hero-row emphasis + collapsible supporting details reduce “debug panel” density and improve large-batch scanability.
+  - Final polish (March 11): affected-count/scope is now visually dominant in the hero area, including compact cards.
+  - Final polish (March 11): representative examples now use a tighter table-like subject/sender/date scan layout with optional snippet only when present.
+  - Workflow correction (March 11): executing a review step now surfaces a dedicated primary **Review Results** state before advancing to next-step approvals.
+  - Workflow correction (March 11): current review evidence is isolated from historical evidence, with historical review/archive cards explicitly demoted and labeled.
+  - Workflow correction (March 11): Review Results now includes operator summary + cluster makeup + recommended next action + future prevention guidance.
+  - Trust correction (March 11): affected counts in approval cards now use structured summary fields with explicit estimate labeling where applicable.
+  - Workflow architecture refinement (March 11): reviewed-batch deep context moved to a dedicated detail surface (`/agents/[id]/playground/review`) with prev/next navigation across reviewed results.
+  - Workflow architecture refinement (March 11): Playground now keeps reviewed-result depth concise and action-oriented, with a direct CTA into full result detail instead of duplicating full evidence inline.
+  - Workflow architecture refinement (March 11): result-scoped chatbot added on review-detail page so Q&A is anchored to one reviewed batch/cluster at a time.
+  - Stale-state cleanup (March 11): current-step promotion now suppresses duplicate re-promotion of the currently reviewed sender/query cluster.
+  - Follow-up separation (March 11): review-detail chatbot now runs in a distinct session origin namespace (`playground_review_detail`) so result-chat traffic cannot contaminate the main Playground workflow thread.
+  - Follow-up lifecycle cleanup (March 11): stale sender/query recommendations are suppressed using reviewed-result history, not only current-item id matching.
+  - Follow-up lifecycle cleanup (March 11): batch suggestions are now result-bound and only surfaced when matching the currently viewed reviewed sender-result context; stale cross-result suggestion residue is demoted.
+  - Follow-up scope reduction (March 11): lower runtime-details historical evidence was compacted into timeline summaries so Playground remains workflow-first.
+  - Final isolation hardening (March 11): added explicit `request_mode` support (`playground` vs `playground_review_detail`) so backend prompt/load behavior is mode-aware, not only session-origin aware.
+  - Final isolation hardening (March 11): review-detail mode now uses a dedicated result-scoped system prompt path and no longer uses the full broad Playground workflow prompt guidance.
+  - Final isolation hardening (March 11): review-detail mode skips full runtime-state assembly and loads only reviewed-result data needed for detail/rehydrate.
+  - Runtime review trust hardening (March 11):
+    - Current-step consequence copy now explicitly states approval-request creation vs inbox mutation timing.
+    - Sender preference controls (`Keep Sender` / `Neutral` / `Deprioritize Sender`) are now available in review-result context.
+    - Review-result summaries now include engagement signals (important/starred/reply-like/unread), evidence mode, confidence, and future-prevention context.
+    - Archive approval summaries now include engagement-backed rationale/exclusions rather than pattern-only framing.
+  - Runtime UX stabilization follow-up (March 11):
+    - Current Step now explicitly separates lifecycle state, next action, and read-only evidence context.
+    - Top-level duplicate latest-review cards were removed to reduce self-referential navigation and visual redundancy.
+    - Runtime-details current-review duplication was reduced to a compact pointer toward the canonical review-detail page.
+    - Main UI recommendation area now surfaces sender preference effect text (Keep/Neutral/Deprioritize) alongside recommendation output.
+    - Main UI now surfaces explicit archive trust summary language (evidence mode, confidence, and protected/excluded signals).
+  - Operator trust + explicit choice stabilization (March 11):
+    - Current Step lifecycle derivation is now centralized via `playgroundWorkflowState.ts` and consumed by Playground UI blocks (lifecycle state, next action, read-only context).
+    - Sender preference controls now use operator-facing wording:
+      - Always keep newsletters from this sender
+      - No preference
+      - Lower priority (more likely archive candidate)
+    - Added lightweight pre-approval customization for archive requests:
+      - exclude senders and representative messages before submitting approval
+      - selected/excluded counts shown before submit
+      - approval payload carries subset metadata (`selection_customization`).
+    - Added explicit trust caveat that opened/open-tracking status is unavailable in this Gmail metadata flow; engagement is inferred from unread/important/starred/reply-like signals.
+    - Approval summaries now surface subset scope (selected vs candidates vs excluded) for archive requests.
+  - Operator usability/scalability follow-up (March 11):
+    - Added grouped archive customization for larger batches (pattern groups + sender groups + message-level controls).
+    - Added a primary Decision Summary/Decision Diff panel in Playground archive flow (reviewed/selected/excluded + risk/confidence + included/excluded examples).
+    - Sender preference was moved into a clearly separate **Future sender policy** area so it is not mistaken for the immediate archive decision.
+    - `ApprovalDecisionCard` now explicitly displays **Total reviewed / Archive selected / Excluded-kept** scope totals.
+  - Review-detail grounding follow-up (March 11):
+    - Scoped chat contract now requires observed-vs-estimated framing and explicit out-of-scope handling before broader workflow advice.
+    - Scoped prompts/context now explicitly include the opened-signal availability caveat to reduce overconfident engagement claims.
+  - Runtime lifecycle scope hardening (March 11):
+    - Session-scoped Playground runtime now filters review/archive evidence to scoped approval ids to reduce stale cross-session sender/query leakage.
+    - Review-detail rehydrate path now applies the same session-scope evidence filtering when a workflow session id is present.
+  - Operations Workspace architecture split (March 11):
+    - Added dedicated operator workspace routes:
+      - `/agents/[id]/operations` (Inbox Overview)
+      - `/agents/[id]/operations/clusters` (Review Clusters)
+      - `/agents/[id]/operations/review` (Review Result Detail)
+      - `/agents/[id]/operations/approvals` (Pending Approvals scope view)
+      - `/agents/[id]/operations/history` (Executed/Timeline history)
+    - Added shared operations shell with left-rail workflow navigation and right-side contextual AI assistant panel.
+    - Playground is now chat-first by default and acts as a handoff surface into Operations workspace.
+    - Legacy dense runtime dashboard remains available only behind debug query (`show_legacy_runtime=1`) in non-production.
+    - Review-detail workspace now includes explicit previous/next reviewed-result navigation for operator continuity.
+    - Operations assistant request mode is now context-aware (`playground` vs `playground_review_detail`) for tighter result-page scoping.
 
 ## LLM Training
 - Save & Next
@@ -187,6 +303,9 @@ Dashboard Metrics:
 - Gmail OAuth scope expanded to support modification:
   - `gmail.modify` permission now requested during OAuth flow.
   - Required for archive operations.
+
+Current limitation:
+- Sender preference controls are currently local/UI-scoped and apply strongest to reviewed-sender/archive recommendation suppression. Query-cluster sender-subset splitting is still heuristic and not yet a full deterministic per-sender partition engine.
 
 ---
 
@@ -356,6 +475,10 @@ If any fail → immediate fix.
 - OpenAI timeouts possible under heavy refine (guarded).
 - Playground workflow progress is step-level for the active cleanup flow; total inbox cleanup progress is not implemented yet.
 - Mailbox profile coverage is estimate-based (Gmail `resultSizeEstimate` + bounded samples), not an exhaustive full-mailbox classification pass.
+- Gmail `resultSizeEstimate` can still produce overlapping counts across related query clusters; UI and assistant now frame these as directional estimates.
+- Profile freshness is currently session/runtime-event driven; it is not yet policy-scheduled on a background cadence.
+- Cleanup strategy recommendations inherit mailbox-profile estimate limits; they are planning guidance, not exhaustive mailbox truth.
+- Bounded mailbox profiling basis is stronger than initial slice (120 metadata messages / 240 id scan), but still intentionally not full-mailbox scanning.
 
 ---
 

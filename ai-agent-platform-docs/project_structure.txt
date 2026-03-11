@@ -92,6 +92,7 @@
     │   │   │   │   ├── activate
     │   │   │   │   ├── chat
     │   │   │   │   ├── fine-tune
+    │   │   │   │   ├── operations
     │   │   │   │   ├── page.tsx
     │   │   │   │   ├── playground
     │   │   │   │   ├── summary
@@ -188,6 +189,9 @@
     │   ├── components
     │   │   ├── ClarifyModal.tsx
     │   │   ├── ImproveQualityModal.tsx
+    │   │   ├── runtime
+    │   │   │   ├── ApprovalDecisionCard.tsx
+    │   │   │   └── OperationsWorkspaceShell.tsx
     │   │   ├── ScenarioRecorder.tsx
     │   │   └── VoiceRecorder.tsx
     │   ├── lib
@@ -196,7 +200,9 @@
     │   │   │   └── gmail
     │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
+    │   │   │   ├── approvalSummary.ts
     │   │   │   ├── gmailRuntimeAssembler.ts
+    │   │   │   ├── operationsWorkspace.ts
     │   │   │   ├── playgroundAgentConfigService.ts
     │   │   │   ├── playgroundAnalyticsService.ts
     │   │   │   ├── playgroundChatService.ts
@@ -204,6 +210,7 @@
     │   │   │   ├── playgroundRagService.ts
     │   │   │   ├── playgroundRequestSessionService.ts
     │   │   │   ├── playgroundResponseBuilder.ts
+    │   │   │   ├── playgroundWorkflowState.ts
     │   │   │   ├── runtimeStateService.ts
     │   │   │   ├── stateLoaders.ts
     │   │   │   ├── suggestionLifecycle.ts
@@ -250,4 +257,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-90 directories, 161 files
+92 directories, 166 files
