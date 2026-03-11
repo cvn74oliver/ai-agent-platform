@@ -1523,3 +1523,197 @@ The runtime supervision loop now supports a real Gmail cleanup action with visib
 - No backend contract removals.
 - No mutation-scope expansion.
 - Approval gating semantics preserved.
+
+## 2026-03-11 — Operations Workspace Clarity + Native Approvals Pass
+
+### Workspace clarity updates
+- Refined Operations left rail into grouped product navigation (Workflow / Queue & Audit / Tools) with clearer active states and queue summary chips.
+- Added sender-level inline inspection in Review Detail (`View this sender’s emails`) so operators can inspect sender-specific samples without scrolling/cross-referencing manually.
+- Added explicit selection hierarchy guidance:
+  1) sender filters
+  2) pattern filters
+  3) message overrides
+  4) final decision summary
+
+### Trust and exclusion transparency
+- Excluded messages now show explicit exclusion reasons (manual, sender setting, pattern setting, keep-policy).
+- Sender inline sample rows and representative-message rows now surface the same exclusion reasoning.
+- Decision Builder now summarizes exclusion-cause counts for auditability.
+
+### Lifecycle/action copy hardening
+- Reviewed-result action copy now avoids misleading review-request duplication:
+  - unreviewed cluster path: `Request preview approval`
+  - reviewed-result mutation path: `Request archive approval for selected messages`
+  - follow-up preview path: `Request additional preview run`
+- Active approval context now shows request type + approval id in operator actions.
+
+### Native Operations approvals/historical surfaces
+- `/agents/[id]/operations/approvals` now supports inline approve/reject/execute using existing runtime APIs (`/api/runtime/approve`, `/api/runtime/execute`) instead of acting as a pure handoff wrapper.
+- Approvals cards now explicitly show request type, approval id, source action, and consequence text for approve/reject.
+- `/agents/[id]/operations/history` now includes richer audit context:
+  - action type
+  - target
+  - originating reviewed context (when available)
+  - outcome summary
+
+### Snapshot loading/performance hardening
+- Added shared session-scoped operations runtime snapshot provider:
+  - `OperationsRuntimeContext` + cached sessionStorage snapshot
+  - stale-while-revalidate loading at shell level
+  - avoids repeated per-page rehydrate fetches during intra-workspace navigation
+- Operations pages now consume shared runtime context instead of each mounting their own direct `/api/agents/playground` rehydrate call.
+
+### Scope / safety
+- No backend contract changes required.
+- No mutation scope expansion.
+- Approval gating semantics preserved.
+
+## 2026-03-11 — Operations Workflow Correctness + Operator Clarity Hardening
+
+### Critical workflow fixes
+- Fixed cluster review routing so `Open review` from clusters always opens the selected `cluster_id` context.
+- Removed review-approval gating from Operations review inspection flow:
+  - cluster inspection is now directly accessible and read-only
+  - approval remains required for mutation actions (archive request -> approve -> execute)
+- Switched review-page navigation model to cluster-queue traversal (`Previous cluster` / `Next cluster`) instead of result-only traversal.
+
+### Review detail trust and usability
+- Added compact interaction signal filters in review detail:
+  - `Unread only`
+  - `Starred/important`
+  - `No interaction 90d` (inferred)
+- Added message-level signal badges where available (`Unread`, `Important`, `Starred`, `Thread participation`) plus explicit note that Gmail opened-status is unavailable in this mode.
+- Added compact single-pattern mode when pattern breakdown has <=1 pattern (reduced panel bloat).
+
+### Operator clarity and approvals language
+- Updated review-page operator actions to remove ambiguous review-request controls and keep one clear mutation path:
+  - `Create archive approval request for selected messages`
+  - explicit consequence copy: no inbox change until approve + execute
+- Updated Operations approvals cards with clearer consequence framing:
+  - `Request`
+  - `Applies to`
+  - `If approved`
+  - `If approved/executed`
+  - `If rejected`
+
+### Workspace shell and assistant context
+- Polished Operations left rail spacing/grouping/active treatment for higher readability and reduced cramped feel.
+- Added page-contextual assistant suggested prompts (Overview / Clusters / Review / Approvals / History) in the AI side panel.
+
+### Runtime snapshot refresh hardening
+- Increased operations snapshot stale-while-revalidate window and added in-memory snapshot cache on top of session storage to reduce unnecessary rehydrate churn during workspace navigation/remounts.
+
+### Scope / safety
+- No backend mutation semantics changed.
+- No approval-execution scope expanded.
+
+## 2026-03-11 — Operations Trust + Signal-Honesty UX Follow-up
+
+### Left-rail production polish
+- Refined operations left-rail item layout (padding/line-height/active-card structure) to remove subtitle overlap and cramped rendering artifacts.
+- Renamed navigation to cluster-first terminology (`Cluster Review Detail`) for workflow consistency.
+
+### Approval model clarity (remove double-approval feel)
+- Review page now explicitly frames action as request creation only, with sequence guidance:
+  1) create request in Cluster Review Detail
+  2) approve/reject in Pending Approvals
+  3) execute approved action
+- Pending Approvals header now states it is the actual approval step and mirrors the same sequence.
+
+### Signal honesty + filter credibility
+- Added explicit evidence-signal disclosure block in review detail:
+  - available signals
+  - inferred/directional signals
+  - unavailable signals
+- Quick filters now degrade honestly:
+  - filters disable when underlying metadata is unavailable for the current sample
+  - inference-based filter is explicitly labeled as inferred
+- Added/kept explicit note that Gmail opened-history is unavailable in this mode.
+
+### Sender insight depth
+- Expanded sender rows with sender analytics summary:
+  - sample share and estimated cluster relationship
+  - pattern mix and dominant type
+  - unread/starred/important availability counts
+  - inferred sender classification
+  - protected/high-priority hint when matched from strategy guidance
+- Kept sender-level inline message inspection and exclusion reason visibility.
+
+### Visual analytics layer (first-pass command-center charts)
+- Overview now includes lightweight charts:
+  - top cluster volume comparison
+  - estimated pattern mix
+  - low-value vs protected split
+- Review detail now includes:
+  - pattern distribution chart
+  - sender contribution chart
+  - selected vs excluded split visualization in Decision Builder
+- All chart labels are estimate-aware/directional where data is not exact.
+
+### Scope / safety
+- No backend execution semantics changed.
+- No mutation scope expansion.
+- Changes are UX/data-presentation hardening only.
+
+## 2026-03-11 — Operations Data-Depth Contract + Evidence Coverage Hardening
+
+### Backend/runtime data contract expansion
+- Expanded Gmail review/discovery metadata payloads to carry richer per-message fields where available:
+  - `thread_id`, `history_id`, `internal_date_ms`
+  - `label_ids`, `category_labels`, `is_in_inbox`
+  - `is_unread`, `is_important`, `is_starred`
+- Increased bounded review sample ceilings used by Gmail analysis/review from 25 to 60 (still bounded, not full-mailbox scanning).
+- Added read-only POST actions in `/api/integrations/gmail/inbox-analysis`:
+  - `review_query_cluster`
+  - `review_sender_cluster`
+  This enables deeper cluster evidence loading without approval/mutation.
+
+### Operations review evidence depth
+- Cluster Review Detail now loads expanded read-only evidence for unreviewed clusters (default 30, optional load to 60).
+- Review page now clearly distinguishes evidence source:
+  - executed review evidence
+  - expanded read-only preview
+  - lightweight fallback sample
+- Added explicit sample-vs-estimate scope treatment:
+  - exact reviewed count
+  - directional estimated cluster count
+  - exact selected subset count used for approval requests
+
+### Signal honesty + filter gating hardening
+- Added reusable signal coverage shaping and wired review filters to actual metadata availability.
+- Filters now follow strict semantics:
+  - actual signal present -> enabled
+  - inferred signal only -> enabled but labeled inferred
+  - unavailable signal -> disabled with explicit unavailable messaging
+- Added explicit signal coverage surface for unread/starred/important/labels/category/date/inbox-state/thread-hint availability counts.
+
+### Sender intelligence improvements
+- Sender rows now include stronger decision-support metrics:
+  - sample share
+  - selected/excluded share and counts
+  - estimated sender relationship to cluster estimate
+  - pattern mix and sender domain
+  - unread/starred/important known counts
+  - thread participation hint count
+  - protected/high-priority overlap hint
+
+### Approval scope clarity
+- Pending Approvals cards now show execution scope details from action args/customization when present:
+  - exact selected count
+  - reviewed/candidate/excluded counts
+  - affected sender count (when derivable)
+  - evidence basis, safety signals, and protected exclusions
+- Review Detail decision builder now explicitly states exact message-id subset scope and evidence basis.
+
+### Overview operator analytics grounding
+- Added operator-question summary block in Overview:
+  - where to start
+  - largest cluster
+  - safest cluster
+  - most mixed/risky cluster
+- Added explicit metadata scan basis disclosure (`metadata_scan_basis`) and estimate caveats for chart interpretation.
+
+### Scope / safety
+- No approval lifecycle semantics changed.
+- No execution/mutation scope expansion.
+- Changes are additive contract depth + evidence-trust hardening.

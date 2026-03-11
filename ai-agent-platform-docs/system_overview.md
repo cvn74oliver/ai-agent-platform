@@ -170,6 +170,56 @@ Firecrawl / External Crawlers
      - Playground is now chat-first and acts as a handoff into Operations workspace for workflow actions.
      - Review-detail operator actions (customize + approval request workflow) now run on dedicated operations pages.
      - The operations shell uses a left-rail workflow navigator plus a right contextual AI side assistant panel.
+   - Operations Workspace follow-up hardening:
+     - Review-detail sender-level inline inspection is available from sender breakdown rows.
+     - Exclusion reasoning is explicit in review message rows (sender/pattern/manual/keep-policy).
+     - Operations approvals now execute inline approve/reject/execute actions using existing runtime APIs.
+     - Operations history now provides richer action audit context (action, target, origin, outcome).
+     - Operations pages consume a shared session-scoped runtime snapshot provider with cache + stale-while-revalidate to reduce repeated per-page rehydrate calls.
+   - Operations workflow-correctness follow-up:
+     - Cluster review routing is now cluster-id authoritative; opening a cluster no longer resolves to unrelated latest reviewed results.
+     - Cluster inspection in Operations is direct/read-only; preview-review approval is no longer required just to inspect cluster evidence.
+     - Review navigation now follows cluster queue order (`Previous cluster` / `Next cluster`) instead of reviewed-result-only traversal.
+     - Pattern breakdown auto-compacts when only one pattern exists, reducing wasted workspace area.
+     - Review detail now exposes interaction filters (`unread`, `starred/important`, `no interaction 90d`) and signal badges where metadata exists.
+     - Opened-status unavailability is explicitly stated in review UI; engagement is framed as inferred from available Gmail metadata signals.
+     - Review action bar now carries one explicit mutation request path (“Create archive approval request for selected messages”) with no-mutation-until-approve+execute consequence copy.
+     - Approvals cards now consistently show request scope and outcome text (`Applies to`, `If approved`, `If approved/executed`, `If rejected`).
+     - Operations shell now provides page-contextual assistant suggestions per workspace surface (overview/clusters/review/approvals/history).
+     - Operations runtime snapshot caching now includes an in-memory cache layer + longer SWR window to further reduce navigation/remount rehydrate churn.
+	   - Operations trust + data-credibility follow-up:
+     - left-rail visual overlap/cramping was corrected with cleaner nav spacing and active-state rendering.
+     - cluster-review and approvals surfaces now explicitly communicate the sequence:
+       - create request in review
+       - approve/reject in approvals
+       - execute approved action
+     - review detail now exposes an explicit signal-honesty block (available vs inferred vs unavailable evidence signals).
+     - interaction filters now disable when unsupported by current sample metadata instead of implying unavailable intelligence.
+	     - sender rows now include deeper sender analytics (sample share, estimated relationship, pattern mix, signal availability counts, sender classification, protected hints).
+	     - overview/review now include lightweight command-center charts (estimate-aware) for pattern/volume/scope decisions.
+	   - Operations data-depth hardening:
+	     - Gmail review/discovery runtime payloads now consistently carry richer per-message metadata when available:
+	       - `thread_id`, `history_id`, `internal_date_ms`
+	       - `label_ids`, `category_labels`, `is_in_inbox`
+	       - `is_unread`, `is_important`, `is_starred`
+	     - Operations Review now supports deeper bounded read-only evidence fetch for unreviewed clusters:
+	       - default depth: 30
+	       - optional deeper fetch: up to 60
+	       - fallback remains lightweight sample preview when deeper fetch is unavailable
+	     - Review evidence scope is now explicit and non-magical:
+	       - exact reviewed sample count
+	       - directional estimated cluster size
+	       - exact selected-for-request subset
+	       - visible evidence basis mode (executed review / expanded preview / fallback sample)
+	     - Signal coverage is now exposed as a first-class runtime truth surface:
+	       - actual signals (enabled when present)
+	       - inferred signals (enabled + explicitly labeled directional)
+	       - unavailable signals (explicitly declared, not implied)
+	     - Pending Approvals now surfaces execution-scope fields from approval args when available:
+	       - reviewed/candidate/selected/excluded counts
+	       - exact message-id scope labels
+	       - evidence basis + safety signals + protected exclusions
+	     - Overview now includes metadata scan-basis disclosure and operator question cues (start/largest/safest/mixed-risky).
    - Review trust hardening is active in runtime UX:
      - current-step consequence language explicitly distinguishes approval-request creation vs later execution.
      - sender preference controls now use operator-facing language:

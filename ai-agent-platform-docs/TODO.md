@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-11 (PM v7 • Playground Reconciliation Follow-up Logged)_
+_Last updated: 2026-03-11 (PM v7 • Operations Data-Depth Hardening Logged)_
 
 - Project Manager — healthy (v7 active, Mar 4 2026)
 - Architect — healthy
@@ -252,6 +252,41 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
   - Added shared operations shell with left-rail operator navigation and right-side contextual AI assistant.
   - Added review-detail result navigation (`Previous result` / `Next result`) for multi-result operator traversal.
   - Shifted Playground to chat-first handoff mode (runtime operations moved to Operations workspace by default).
+- [x] Operations Workspace clarity + native approvals follow-up (March 11):
+  - Refined left-rail layout/grouping/active hierarchy for product-level navigation clarity.
+  - Added sender-level inline message inspection in Review Detail.
+  - Added explicit exclusion reason rendering (sender/pattern/manual/keep-policy) in message/sender contexts.
+  - Added explicit selection-hierarchy guidance in Review Detail.
+  - Reworked reviewed-result action copy to avoid redundant “review request” confusion.
+  - Enabled inline approve/reject/execute in `/operations/approvals` via existing runtime APIs.
+  - Added richer action audit context in `/operations/history`.
+  - Added shared operations runtime snapshot context with cache + stale-while-revalidate to reduce redundant rehydrate calls.
+- [x] Operations workflow-correctness + operator-clarity hardening (March 11):
+  - Fixed cluster routing so `Open review` always opens requested `cluster_id` context (no unrelated latest-result fallback).
+  - Removed review-approval requirement for inspection in Operations review flow (inspection is read-only by default).
+  - Switched review navigation model to cluster queue traversal (`Previous cluster` / `Next cluster`).
+  - Added compact pattern-breakdown mode when only one pattern is present.
+  - Added message interaction filters/badges (unread, starred/important, inferred no-interaction-90d, thread participation).
+  - Simplified review action bar to one mutation path (`Create archive approval request`) with explicit no-mutation-until-approve+execute copy.
+  - Improved approvals card consequence clarity (`Applies to`, `If approved`, `If approved/executed`, `If rejected`).
+  - Added page-contextual assistant suggested prompts in Operations side panel.
+  - Added in-memory runtime snapshot cache layer + longer SWR window to reduce navigation/remount rehydrate chatter.
+- [x] Operations operator-trust + credibility follow-up (March 11):
+  - Fixed left-rail visual overlap/cramped rendering and aligned nav naming to cluster-first workflow language.
+  - Added explicit request/approval/execute sequence guidance in both Cluster Review Detail and Pending Approvals.
+  - Added signal-honesty block in review detail (available vs inferred vs unavailable signals).
+  - Hardened interaction filters to disable gracefully when unsupported by current sample metadata.
+  - Expanded sender analytics (sample share, estimated scope relationship, pattern mix, signal counts, classification, protected hints).
+  - Added first-pass command-center analytics charts in Overview and Review Detail (all estimate-aware).
+- [x] Operations data-depth + signal-coverage hardening (March 11):
+  - Expanded Gmail review/discovery metadata contract (thread/history/internal date + labels/category/inbox-state + unread/important/starred).
+  - Added read-only review evidence fetch actions in `/api/integrations/gmail/inbox-analysis` for query/sender cluster review loading.
+  - Increased bounded review sample depth to 60 and wired review page deep-evidence loading (default 30, optional 60).
+  - Added explicit evidence-basis mode (executed review vs expanded preview vs fallback sample) and sample-vs-estimate scope framing.
+  - Added stricter signal-availability coverage reporting and filter gating by actual metadata presence.
+  - Added sender decision-support metrics (selected/excluded shares, sender domain, thread-hint counts, protected overlap).
+  - Added approval-scope detail rendering in Pending Approvals (selected/excluded/reviewed counts, message-id scope, evidence basis, safety exclusions).
+  - Added operator-question guidance + metadata scan-basis disclosure in Overview.
 
 ---
 
@@ -261,13 +296,16 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - Playground workflow progress currently reflects current workflow-step progress, not total inbox cleanup progress.
 - Pre-approval customization is currently V1 (sender/message exclusion only for archive subset); broader keep/archive partition tooling is deferred.
 - Grouped pre-approval customization currently supports sender/pattern/message controls, but does not yet provide saved reusable batch policies.
+- Gmail opened/replied engagement signals are still limited by available metadata in current integration mode; unread/starred/important/recency signals are used as the current trust basis.
+- Interaction filters are intentionally conservative in sparse-signal clusters; disabled states can still occur frequently until richer Gmail engagement metadata is available.
 - Runtime mailbox profile is estimate-based by design (Gmail query estimates + bounded sample), not exhaustive full-mailbox classification.
 - Mailbox profile cache currently refreshes on demand/reactive triggers; no scheduled background refresh cadence yet.
-- Operations Pending Approvals page currently provides scoped queue visibility and deep-link to canonical `/approvals`; full inline approve/reject/execute parity inside Operations is deferred.
+- Operations approvals now support inline approve/reject/execute; legacy `/approvals` remains available as broader admin/global queue surface.
+- Review Detail selection model still depends on single-page controls; dedicated multi-step wizard/state-machine extraction remains deferred.
 - Cleanup strategy quality depends on profile coverage and remains estimate-based rather than full-mailbox deterministic classification.
 - Gmail query estimate overlap can still occur in some inboxes; current handling is explicit uncertainty framing plus bounded review-first workflow.
 - Cleanup-action promotion is intentionally profile-gated; operational throughput may feel slower until profile availability is stable for all sessions.
-- Inbox sampling limited to ~25 messages during testing to control API usage.
+- Bounded evidence depth is improved (up to 60 in review fetches) but still intentionally not full-mailbox evidence; very large clusters remain estimate-first.
 - Support center (support.curativemushrooms.com) often returns **HTTP 403** during crawl → expected unless we add auth/crawler headers.
 - In dev, “run_now” fire-and-forget fetch may time out (HeadersTimeout / AbortError). Job can still be queued and run separately.
 - Wildcard crawl patterns (/*) inherently require scanning to discover new pages → “delta” cannot magically detect changes without scanning.
@@ -289,6 +327,8 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - Add configurable profiling window toggle (30/60 day) in Playground runtime controls once UX contract is finalized
 - Add optional policy-based auto-refresh schedule for mailbox profile snapshots (without forcing rehydrate-time recomputation)
 - Improve Gmail cluster estimate differentiation further (confidence/range modeling when resultSizeEstimate overlap persists)
+- Add thread/message-list expansion path beyond 60 bounded review rows (progressive fetch/pagination with explicit cost controls)
+- Add richer sender/domain rollups (domain-level risk buckets, sender-family grouping, and cross-cluster recurrence views)
 - Add server-backed pagination/filtering for reviewed-result detail history once reviewed-result volume grows.
 - Add a migration/cleanup path for legacy approvals without `session_id` so older pending items can be surfaced or archived with clear operator intent
 - Add richer server-side approval summary payload with explicit rejected/executed approval ids (not counts only) for stronger deterministic client reconciliation.

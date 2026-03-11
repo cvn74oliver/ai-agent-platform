@@ -233,6 +233,79 @@ Dashboard Metrics:
     - Legacy dense runtime dashboard remains available only behind debug query (`show_legacy_runtime=1`) in non-production.
     - Review-detail workspace now includes explicit previous/next reviewed-result navigation for operator continuity.
     - Operations assistant request mode is now context-aware (`playground` vs `playground_review_detail`) for tighter result-page scoping.
+  - Operations Workspace clarity + trust hardening (March 11):
+    - Left-rail navigation refined into grouped product sections with clearer hierarchy and active-state clarity.
+    - Review Detail now includes sender-level inline sample inspection (`View this sender’s emails`) with exclusion reasoning.
+    - Exclusion logic is now explicit across message rows and sender samples:
+      - excluded manually
+      - excluded by sender setting
+      - excluded by pattern setting
+      - excluded by keep-sender policy
+    - Selection hierarchy is now documented in-page (sender filters → pattern filters → message overrides → final decision summary).
+    - Operations Approvals page now supports inline approve/reject/execute actions via runtime APIs (no longer a thin handoff-only wrapper).
+    - Operations History page now shows richer audit context (action/target/origin/outcome).
+    - Operations pages now share a session-scoped runtime snapshot context with cache + stale-while-revalidate to reduce repeated per-page rehydrate calls.
+  - Operations workflow-correctness follow-up (March 11):
+    - Cluster review routing is now `cluster_id` authoritative; opening a cluster no longer falls back to unrelated latest reviewed results.
+    - Review inspection no longer requires preview approval in Operations; inspection is direct/read-only, while mutation stays approval-gated.
+    - Review page navigation is now cluster-queue-first (`Previous cluster` / `Next cluster`) rather than reviewed-result-only stepping.
+    - Pattern Breakdown now auto-compacts when only one pattern exists (chip-style include/exclude control).
+    - Review detail now exposes interaction filters/signals where available:
+      - unread-only
+      - starred/important
+      - inferred no-interaction-90d
+      - thread participation badge when labels indicate sent participation
+    - Review action bar now uses consequence-first wording:
+      - create archive approval request
+      - no inbox mutation until approve + execute
+    - Approvals cards now explicitly separate request scope + consequences (`Applies to`, `If approved`, `If approved/executed`, `If rejected`).
+    - Operations shell now includes page-contextual assistant prompt suggestions (overview/clusters/review/approvals/history).
+    - Runtime snapshot provider now adds an in-memory cache layer + longer SWR window to further reduce remount/navigation rehydrate churn.
+  - Operations trust + signal-honesty follow-up (March 11):
+    - Left-rail visual overlap/cramping corrected with adjusted nav item spacing/line-height and cleaner active-card layout.
+    - Cluster Review Detail + Pending Approvals now both show explicit “request -> approve/reject -> execute” sequence copy to remove double-approval ambiguity.
+    - Review detail now includes explicit evidence signal taxonomy:
+      - available signals
+      - inferred/directional signals
+      - unavailable signals
+    - Interaction filters now degrade honestly (auto-disabled when metadata isn’t available in the current sample scope).
+    - Sender-level analytics expanded with sample share, estimated relationship, pattern mix, signal counts, sender classification, and protected-hint matching.
+    - Added first-pass visual analytics:
+      - Overview: top cluster volume, pattern mix, low-value vs protected split
+      - Review detail: pattern distribution, sender contribution, selected vs excluded split
+    - Naming alignment tightened to cluster-first operator flow (Cluster Review Detail as active workflow surface; reviewed-result artifacts remain historical/audit context).
+  - Operations data-depth + signal-coverage hardening (March 11):
+    - Gmail runtime review/discovery message contract now consistently carries richer metadata fields when available:
+      - `thread_id`, `history_id`, `internal_date_ms`
+      - `label_ids`, `category_labels`, `is_in_inbox`
+      - `is_unread`, `is_important`, `is_starred`
+    - Cluster Review Detail now supports expanded read-only evidence loading for unreviewed clusters:
+      - default bounded fetch depth: 30
+      - operator-triggered deeper bounded fetch: up to 60
+      - fallback remains lightweight preview when deeper read-only fetch is unavailable
+    - Evidence scope is now explicit:
+      - sample reviewed (exact)
+      - estimated cluster size (directional)
+      - selected-for-request subset (exact)
+      - evidence basis mode (executed review vs expanded preview vs fallback sample)
+    - Signal coverage section now reports real coverage counts and classification:
+      - actual (enabled): unread/starred/important/labels/category/inbox-state/date when present
+      - inferred (enabled + labeled): no-interaction-90d, thread-participation hints, estimate-driven sizing
+      - unavailable (explicit): opened/click tracking and full behavior timeline
+    - Sender analytics upgraded from basic summary to decision-support metrics:
+      - sample share, selected share, excluded share
+      - sender domain + pattern mix
+      - unread/starred/important known-count coverage
+      - thread-participation hint counts
+      - protected/high-priority overlap hints
+    - Pending Approvals now surfaces exact execution-scope details when action args include them:
+      - reviewed/candidate/selected/excluded counts
+      - exact selected message-id scope label
+      - evidence basis + safety signals + protected exclusions
+    - Overview now includes operator-question guidance and data-basis disclosure:
+      - where to start / largest / safest / most mixed-risky
+      - metadata scan-basis surfaced where available
+      - charts explicitly framed as directional estimates unless exact counts are available
 
 ## LLM Training
 - Save & Next

@@ -191,6 +191,7 @@
     │   │   ├── ImproveQualityModal.tsx
     │   │   ├── runtime
     │   │   │   ├── ApprovalDecisionCard.tsx
+    │   │   │   ├── OperationsRuntimeContext.tsx
     │   │   │   └── OperationsWorkspaceShell.tsx
     │   │   ├── ScenarioRecorder.tsx
     │   │   └── VoiceRecorder.tsx
@@ -202,6 +203,7 @@
     │   │   ├── runtime
     │   │   │   ├── approvalSummary.ts
     │   │   │   ├── gmailRuntimeAssembler.ts
+    │   │   │   ├── operationsAnalytics.ts
     │   │   │   ├── operationsWorkspace.ts
     │   │   │   ├── playgroundAgentConfigService.ts
     │   │   │   ├── playgroundAnalyticsService.ts
@@ -257,4 +259,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-92 directories, 166 files
+92 directories, 168 files
