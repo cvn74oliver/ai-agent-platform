@@ -60,6 +60,21 @@ It’s the master reference for understanding which scripts, agents, and systems
      – gmail.archive_messages (removes INBOX label from selected messages)
    • Execution results are written to agent_events with event_type = execution_result.
    • The Playground reads these results to render evidence cards and update candidate lifecycle status (ready → pending_approval → approved → executed).
+   5c. Operations Workspace Runtime (Review + Decision Layer)
+   • Triggered when a user opens the Operations workspace (Inbox Overview, Review, Approvals).
+   • Loads runtime state via `/api/agents/playground` in rehydrate-only mode.
+   • Aggregates signals from:
+     – runtime_cleanup_plan
+     – runtime_review_results
+     – runtime_suggestion_sets
+     – runtime_mailbox_profile
+     – runtime_cleanup_strategy
+   • Review pages can request expanded read‑only evidence via `/api/integrations/gmail/inbox-analysis`.
+   • Evidence fetch supports:
+     – review_query_cluster
+     – review_sender_cluster
+   • Expanded evidence loads bounded message metadata (10–60 messages) to improve operator confidence.
+   • All inbox mutations remain approval‑gated and executed only through the Approvals queue.
 	6.	Supabase / Vercel / Render Integrations
 • External automation: deploys automatically from GitHub main branch.
 • Supabase maintains live database/auth; Vercel builds and hosts frontend; Render handles long-running jobs.
@@ -81,6 +96,7 @@ It’s the master reference for understanding which scripts, agents, and systems
 • Key Rotation: reminder generated monthly; you replace keys in .env.local.
 • Quarterly Planning: PM Agent drafts next-quarter goals; you approve.
 • Dependency Updates: npm updates are manual but prompted monthly.
+• Operations Evidence Expansion: review pages can optionally request deeper Gmail evidence (up to ~60 messages) when the lightweight sample preview is insufficient for decision making.
 
 ⸻
 
@@ -101,6 +117,8 @@ Automated
 – sync_docs_to_github.sh
 – RAG job auto-trigger (/api/rag/run)
 – Playground analytics logging (agent_sessions + agent_events)
+– Operations workspace runtime state rehydration
+– Gmail cluster evidence expansion (read‑only preview fetch)
 – macOS Shortcut “Sync Docs”
 – PM Agent daily/weekly summaries
 – GitHub public docs updates
@@ -108,6 +126,7 @@ Automated
 
 Semi-Automated
 – PM Agent’s drift detection and activation alerts
+– Operations evidence deepening (optional deeper Gmail metadata fetch)
 – Key rotation reminders
 – Quarterly planning drafts
 
@@ -126,3 +145,4 @@ Together these automations ensure:
 • Your GitHub docs remain in sync for AI agents to reference.
 • Your PM Agent orchestrates priorities and changelogs automatically.
 • You only intervene for high-level approvals or when creating a new agent session.
+• The Operations workspace provides a structured “AI operations console” where humans supervise cluster reviews, approve actions, and execute inbox changes with full evidence visibility.

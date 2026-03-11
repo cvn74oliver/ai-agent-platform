@@ -33,7 +33,8 @@
 ├── project_structure.txt
 ├── supabase
 │   ├── migrations
-│   │   └── 20251108205407_remote_schema.sql
+│   │   ├── 20251108205407_remote_schema.sql
+│   │   └── 20260311173000_gmail_mailbox_index.sql
 │   └── supabase
 └── web
     ├── automation
@@ -199,6 +200,7 @@
     │   │   ├── fine_tune_topics.ts
     │   │   ├── integrations
     │   │   │   └── gmail
+    │   │   │       ├── gmailMailboxIndexer.ts
     │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
     │   │   │   ├── approvalSummary.ts
@@ -259,4 +261,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-92 directories, 168 files
+92 directories, 170 files

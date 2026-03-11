@@ -1713,7 +1713,79 @@ The runtime supervision loop now supports a real Gmail cleanup action with visib
   - most mixed/risky cluster
 - Added explicit metadata scan basis disclosure (`metadata_scan_basis`) and estimate caveats for chart interpretation.
 
+
 ### Scope / safety
 - No approval lifecycle semantics changed.
 - No execution/mutation scope expansion.
 - Changes are additive contract depth + evidence-trust hardening.
+
+
+---
+
+## 2026-03-11 — Project Manager Agent v8 Finalization + Handoff Preparation
+
+### Context
+- Completed extended Operations Workspace UX and data‑depth hardening pass.
+- Confirmed runtime architecture stability across:
+  - Operations Workspace
+  - Playground runtime controller
+  - Gmail review / approval / execution loop
+  - Mailbox profiling + strategy layer
+
+### Architectural State at Handoff
+The platform now includes a fully functioning supervision loop:
+
+1. **Analysis / Discovery**
+   - Gmail metadata analysis
+   - Mailbox profile generation
+
+2. **Cluster Review**
+   - Query‑cluster or sender‑cluster evidence inspection
+   - Operator customization (sender / pattern / message level)
+
+3. **Approval Request**
+   - Subset scope captured
+   - Evidence basis + safety signals attached
+
+4. **Supervisor Approval**
+   - Pending Approvals queue
+   - explicit approve / reject decision
+
+5. **Execution**
+   - Execute approved action
+   - Gmail archive (remove INBOX label)
+   - execution_result evidence logged
+
+### Documentation Integrity
+The following files are now considered the authoritative architecture state for PM transition:
+
+- `CHANGELOG.md`
+- `CURRENT_STATE.md`
+- `system_overview.md`
+- `TODO.md`
+
+All operational and architectural context has been synchronized with these documents.
+
+### Governance Reminder
+The following rules remain in force for future PM agents:
+
+- `/web/docs` is a generated mirror — **not the authoritative source**.
+- Authoritative docs live in:
+  
+  `ai-agent-platform-docs/`
+
+- After every major milestone Codex must update:
+
+  - `CHANGELOG.md`
+  - `CURRENT_STATE.md`
+  - `TODO.md`
+  - `system_overview.md`
+
+### Status
+System stable.
+Operations Workspace operational.
+Runtime supervision loop validated.
+
+Ready for **Project Manager Agent v9 activation.**
+
+---

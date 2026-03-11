@@ -1,6 +1,6 @@
 # 🧭 AI Agent Platform – Operational Workflow Guide
 
-**Last updated:** December 2025  
+**Last updated:** March 2026  
 **Environment:** GPT‑5 Pro Plan
 
 This document defines the correct operational structure for running the multi‑agent system.  
@@ -25,13 +25,36 @@ If documentation conflicts with memory, assumptions, or older files, **CURRENT_S
 
 ---
 
+## 🔐 Authoritative Documentation Rule
+
+The **authoritative documentation lives in `/ai-agent-platform-docs/`.**
+
+The following files are considered the **operational source of truth** for the system:
+
+- `CURRENT_STATE.md`
+- `CHANGELOG.md`
+- `TODO.md`
+- `system_overview.md`
+
+Any documentation inside `/web/docs` is a **generated mirror only** and must **never be edited manually.**
+
+After major milestones or architecture changes, the Project Manager Agent must instruct Codex to update the authoritative docs first.
+
+---
+
 ## 1️⃣ Agent Role Overview
 
 ### Project Manager Agent (PM Agent)
-- Central coordinator  
-- Owns priorities and master logs  
-- Maintains TODO.md, CHANGELOG.md, and master project file  
-- Always the starting point for planning and coordination  
+- Central coordinator of all agents
+- Maintains project state and operational alignment
+- Owns documentation updates for:
+  - TODO.md
+  - CHANGELOG.md
+  - CURRENT_STATE.md
+  - system_overview.md
+- Defines priorities and execution milestones
+- Ensures architectural consistency across agents
+- Acts as the bridge between Oliver and the specialist agents
 
 ### Architect Agent
 - Oversees structure and technical architecture  
@@ -105,6 +128,17 @@ Specialists do **not** coordinate independently.
 
 ## 4️⃣ Standard Task Flow
 
+The platform is now organized around an **Operations Workspace model** rather than relying solely on Playground testing.
+
+The Operations Workspace acts as the real execution interface for:
+
+- cluster review
+- approval decisions
+- archive execution
+- analytics and insight generation
+
+Playground remains useful for experimentation and development, but **production workflows should originate from the Operations Workspace.**
+
 Example: Updating onboarding question flow
 
 1. You → PM Agent  
@@ -148,12 +182,13 @@ End of day requirements:
 
 ## 6️⃣ Operational Rules
 
-- Always start with PM Agent.
-- Specialists execute — PM coordinates.
-- Summarize every session.
-- Run automations at end of day.
-- Never manually edit `/web/docs` (generated mirror).
-- Always edit authoritative repo files.
+- Always start with the Project Manager Agent.
+- Specialist agents execute tasks; they do not coordinate strategy.
+- The Operations Workspace is the primary execution interface.
+- Every major task must produce a session summary.
+- Authoritative documentation must be updated after milestones.
+- `/web/docs` is a generated mirror and must never be edited manually.
+- Avoid undocumented architectural changes.
 
 ---
 
@@ -186,3 +221,20 @@ End of day requirements:
 
 This file defines how the platform is operated daily.  
 Any deviation from this workflow risks documentation drift or system inconsistency.
+
+---
+
+## 🔄 Agent Version Lifecycle
+
+ChatGPT agents accumulate context over time. When a session becomes very long or performance degrades, the Project Manager Agent should be retired and replaced with a new version.
+
+When rotating PM Agents:
+
+1. Ensure the authoritative docs are fully updated.
+2. Provide a **handoff prompt** summarizing:
+   - current architecture
+   - system status
+   - next milestones
+3. Activate the next PM Agent using the Agent Activation Checklist.
+
+This ensures continuity while preventing context saturation.

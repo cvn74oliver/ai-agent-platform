@@ -1,7 +1,7 @@
 # CURRENT_STATE — AI Agent Platform
 
 Last updated: 2026-03-11  
-Project Manager: v7 (active — synchronized under Codex Hybrid Execution Model)
+Project Manager: v8 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
 
@@ -306,6 +306,10 @@ Dashboard Metrics:
       - where to start / largest / safest / most mixed-risky
       - metadata scan-basis surfaced where available
       - charts explicitly framed as directional estimates unless exact counts are available
+        - Documentation governance reinforcement (March 11, 2026):
+    - Authoritative project docs remain the source of truth in ai-agent-platform-docs/, not /web/docs.
+    - After each major milestone, Codex should update CHANGELOG.md, CURRENT_STATE.md, TODO.md, and system_overview.md before handoff.
+    - Operations Workspace data-depth pass is now reflected across runtime contract, review detail, approvals, and overview surfaces.
 
 ## LLM Training
 - Save & Next
@@ -472,10 +476,10 @@ Phase 3 — Controlled Expansion
    - Q&A = behavioral authority
    - Separation of knowledge vs behavior weighting maintained
 
-3. Project Manager v7 Transition
-   - Finalize logs
-   - Snapshot v6 state
-   - Activate v7 under Codex execution protocol
+3. Project Manager v8 Continuity
+   - Maintain authoritative docs as the source of truth
+   - Keep Codex aligned to CURRENT_STATE.md, CHANGELOG.md, TODO.md, and system_overview.md after each milestone
+   - Preserve clean handoff readiness for future PM transitions
 
 4. Hybrid Execution Governance
    - Codex reserved for multi-file or system-level changes
@@ -567,7 +571,7 @@ Operational pillars:
 - Usage Analytics Foundation
 
 v6 stabilized.  
-Platform stabilized under PM v7.
+Platform stabilized under PM v8.
 
 The **runtime supervision system (Slices 1–7)** is now operational and has successfully executed its first real external action (Gmail draft creation).
 
@@ -579,7 +583,7 @@ The platform has transitioned from infrastructure stabilization into **early aut
 
 v6 is formally archived.
 
-v7 is now active under:
+v8 is now active under:
 - Codex Hybrid Execution Model
 - Domain isolation discipline
 - Canonical contract protection rules

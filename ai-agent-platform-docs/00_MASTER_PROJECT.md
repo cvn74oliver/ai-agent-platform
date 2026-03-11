@@ -1043,6 +1043,10 @@ Current Focus
 	•	Continue thinning Playground route ownership by extracting remaining controller-owned concerns into dedicated services where appropriate.
 	•	Protect canonical Prompt Contract fields from being overwritten by RAG.
 	•	Stabilize the Gmail cleanup assistant as the first truly compelling runtime use case, prioritizing trust, approvals, and operator clarity.
+		•	Push the Operations Workspace from UI prototype to trustworthy operator surface by making actual vs inferred vs unavailable signals explicit everywhere.
+		•	Expand bounded Gmail review evidence for cluster review so the UI is driven by real metadata depth instead of tiny sample previews whenever possible.
+		•	Avoid product assumptions based on email-marketing “open rate” thinking; for Gmail cleanup, prioritize sender/category/age/importance/reversibility signals that Gmail actually exposes or that can be derived honestly.
+		•	Treat browser-native or credential-sharing automation as a last-resort research topic, not the default product path; prefer OAuth-scoped, user-authorized integrations first.
 	•	Define the real inbox-cleanup progress model before shipping any percentage-based “overall cleanup” claim.
 	•	Prepare clean handoffs between PM versions at stable checkpoints.
 
@@ -1798,7 +1802,77 @@ That means the next quality bar is:
 - Treat true overall cleanup percentage as a defined product metric that requires explicit methodology, not a UI guess.
 
 ### PM operating note
-For this project phase, it is valuable for Oliver to actively test the inbox-cleanup flow as an end user/operator. The PM should treat this as both product QA and product-definition work, using Oliver’s real usage feedback to shape the expert Gmail cleanup experience.# Role: Prompt Engineer Agent
+For this project phase, it is valuable for Oliver to actively test the inbox-cleanup flow as an end user/operator. The PM should treat this as both product QA and product-definition work, using Oliver’s real usage feedback to shape the expert Gmail cleanup experience.
+
+## Session Log – March 10–11, 2026 — Operations Workspace Trust Pass + Data-Contract Hardening
+
+### What changed
+- Operations Workspace moved beyond a cosmetic UI pass into a trust-first hardening phase.
+- Left-rail spacing/overlap issues were cleaned up and workflow naming was made more cluster-first and operator-readable.
+- Review and Approvals wording was clarified so the lifecycle is explicit:
+  1. create request in review,
+  2. approve/reject in approvals,
+  3. execute approved action.
+- Overview and Review gained lightweight command-center analytics visuals, but those visuals are now explicitly framed as estimated/directional unless exact counts are truly available.
+
+### Data-contract improvements
+- Gmail review/query-cluster paths now surface richer bounded metadata where available, including:
+  - `thread_id`
+  - `history_id`
+  - `internal_date_ms`
+  - `label_ids`
+  - `category_labels`
+  - `is_in_inbox`
+  - `is_unread`
+  - `is_important`
+  - `is_starred`
+- Added bounded read-only cluster evidence fetch for Operations review:
+  - default expanded preview depth: 30
+  - optional deepen: 60
+  - fallback remains sample preview when deeper fetch is unavailable
+- Pending Approvals now shows clearer execution scope and evidence basis when present:
+  - reviewed count
+  - candidate count
+  - exact selected count
+  - excluded count
+  - affected sender hints
+  - safety signals / exclusions
+
+### Product truth clarified
+- The latest UI/testing feedback confirmed an important reality: even when the backend contract improves, the operator may still *feel* like “there is no more data” if the UX does not visibly expose the improvement in a meaningful way.
+- The team should treat this as both a product and trust problem, not only an engineering problem.
+- Gmail-native API access does **not** provide a magical hidden “opened by user” inbox-cleanup dataset comparable to email-marketing open tracking.
+- For inbox-cleanup quality, the near-term winning path is:
+  - broader real metadata coverage,
+  - better sender/category/age/importance signals,
+  - better cluster confidence,
+  - and more honest UX about what is exact vs estimated vs unavailable.
+
+### Strategic PM guidance
+- Do **not** anchor the Gmail cleanup product around marketing-style open-rate assumptions.
+- Treat the strongest near-term expert assistant as one that behaves like a careful, reversible inbox operator using:
+  - Gmail-native metadata,
+  - bounded review evidence,
+  - sender/pattern/category heuristics,
+  - and approval-gated execution.
+- If future research explores browser-native operation, credentialed mailbox interaction, or enterprise data exports, that should be framed as a separate capability track with explicit cost/security review rather than assumed into the current product slice.
+
+### Immediate next priorities from this checkpoint
+1. Make the increased evidence depth *visibly obvious* in the UI so the operator can feel the difference between 3-row sample preview vs expanded bounded review evidence.
+2. Collapse or redesign low-value empty panels (for example, Pattern Breakdown when it adds no useful information) so screen space goes to decision-grade evidence.
+3. Continue improving Gmail cleanup recommendations using real Gmail-native signals rather than fabricated engagement metrics.
+4. Define the top option sets for future data expansion by cost/speed/risk:
+   - cheapest,
+   - fastest,
+   - deepest,
+   - and practical hybrid.
+5. Use this milestone as a strong PM turnover checkpoint if context-window performance begins degrading.
+
+### Stable turnover note
+This is a valid Project Manager turnover point.
+- Core docs have been kept current.
+- Operations Workspace trust and data-contract direction are now documented.
+- The next PM version can resume from here without needing to reconstruct why the Gmail cleanup product direction shifted away from “open-rate” thinking and toward trustworthy Gmail-native operator intelligence.# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 
 ---

@@ -1,7 +1,7 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-11 (PM v7 • Operations Data-Depth Hardening Logged)_
+_Last updated: 2026-03-11 (PM v8 review • Operations Data-Depth Hardening Logged)_
 
-- Project Manager — healthy (v7 active, Mar 4 2026)
+- Project Manager — healthy (v8 active)
 - Architect — healthy
 - Backend — healthy
 - Frontend — healthy
@@ -74,7 +74,7 @@ No cross-domain edits in a single Codex thread.
 
 This model reduces bureaucracy, avoids redundant Codex calls, and preserves system integrity.
 ---
-1) **PM v7 Activation + Clean Handoff (PRIMARY PRIORITY)**
+1) **PM v8 Activation + Clean Handoff (PRIMARY PRIORITY)**
    - [x] RAG ingestion verified (Drive + URL, embeddings confirmed)
    - [x] Retrieval weighting hierarchy implemented (Drive boost, product intent tuning)
    - [x] Canonical merge protection in rewrite engine (no silent field shrinking)
@@ -82,9 +82,9 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
    - [x] Rewrite gating by quality threshold (fast vs forced path separation)
    - [x] Circuit breaker for OpenAI abort/socket failures
    - [x] Create final v6 tag + snapshot commit
-   - [x] Activate Project Manager v7 (fresh context thread)
+   - [x] Activate Project Manager v8 (fresh context thread)
    - [x] Enforce Feature Domain isolation in Codex tasks (no cross-domain mixing)
-   - [x] Confirm v7 adopts Codex Execution Protocol as canonical
+   - [x] Confirm v8 adopts Codex Execution Protocol as canonical
 
 2) **Observability + Confidence Layer (Post-v7)**
    - [ ] Add rewrite influence log (which fields were expanded vs preserved)
@@ -336,4 +336,4 @@ This model reduces bureaucracy, avoids redundant Codex calls, and preserves syst
 - Add server-side “queue_version” / monotonic revision for approvals so Playground can skip redundant rehydrate polling when no queue change occurred.
 - Consider extracting Current-Step lifecycle rendering into a small dedicated presenter component once workflow semantics stabilize (keep architecture unchanged for now).
 
-Project Manager Agent – v7 closing handoff complete • Inbox Assistant operational • Ready for PM v8 activation
+Project Manager Agent – v8 review complete • Inbox Assistant operational • TODO aligned for handoff continuity

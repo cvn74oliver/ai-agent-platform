@@ -42,6 +42,7 @@ Separation of Responsibilities:
   • Runs compile/debug loops
   • Performs multi-file refactors
   • Confirms working state
+  • Updates authoritative docs after major milestones (especially CHANGELOG.md, CURRENT_STATE.md, TODO.md, and system_overview.md)
 
 This separation ensures:
 - Architecture-first development
@@ -187,7 +188,7 @@ Firecrawl / External Crawlers
      - Approvals cards now consistently show request scope and outcome text (`Applies to`, `If approved`, `If approved/executed`, `If rejected`).
      - Operations shell now provides page-contextual assistant suggestions per workspace surface (overview/clusters/review/approvals/history).
      - Operations runtime snapshot caching now includes an in-memory cache layer + longer SWR window to further reduce navigation/remount rehydrate churn.
-	   - Operations trust + data-credibility follow-up:
+   - Operations trust + data-credibility follow-up:
      - left-rail visual overlap/cramping was corrected with cleaner nav spacing and active-state rendering.
      - cluster-review and approvals surfaces now explicitly communicate the sequence:
        - create request in review
@@ -195,31 +196,32 @@ Firecrawl / External Crawlers
        - execute approved action
      - review detail now exposes an explicit signal-honesty block (available vs inferred vs unavailable evidence signals).
      - interaction filters now disable when unsupported by current sample metadata instead of implying unavailable intelligence.
-	     - sender rows now include deeper sender analytics (sample share, estimated relationship, pattern mix, signal availability counts, sender classification, protected hints).
-	     - overview/review now include lightweight command-center charts (estimate-aware) for pattern/volume/scope decisions.
-	   - Operations data-depth hardening:
-	     - Gmail review/discovery runtime payloads now consistently carry richer per-message metadata when available:
-	       - `thread_id`, `history_id`, `internal_date_ms`
-	       - `label_ids`, `category_labels`, `is_in_inbox`
-	       - `is_unread`, `is_important`, `is_starred`
-	     - Operations Review now supports deeper bounded read-only evidence fetch for unreviewed clusters:
-	       - default depth: 30
-	       - optional deeper fetch: up to 60
-	       - fallback remains lightweight sample preview when deeper fetch is unavailable
-	     - Review evidence scope is now explicit and non-magical:
-	       - exact reviewed sample count
-	       - directional estimated cluster size
-	       - exact selected-for-request subset
-	       - visible evidence basis mode (executed review / expanded preview / fallback sample)
-	     - Signal coverage is now exposed as a first-class runtime truth surface:
-	       - actual signals (enabled when present)
-	       - inferred signals (enabled + explicitly labeled directional)
-	       - unavailable signals (explicitly declared, not implied)
-	     - Pending Approvals now surfaces execution-scope fields from approval args when available:
-	       - reviewed/candidate/selected/excluded counts
-	       - exact message-id scope labels
-	       - evidence basis + safety signals + protected exclusions
-	     - Overview now includes metadata scan-basis disclosure and operator question cues (start/largest/safest/mixed-risky).
+     - sender rows now include deeper sender analytics (sample share, estimated relationship, pattern mix, signal availability counts, sender classification, protected hints).
+     - overview/review now include lightweight command-center charts (estimate-aware) for pattern/volume/scope decisions.
+
+   - Operations data-depth hardening:
+     - Gmail review/discovery runtime payloads now consistently carry richer per-message metadata when available:
+       - thread_id, history_id, internal_date_ms
+       - label_ids, category_labels, is_in_inbox
+       - is_unread, is_important, is_starred
+     - Operations Review now supports deeper bounded read-only evidence fetch for unreviewed clusters:
+       - default depth: 30
+       - optional deeper fetch: up to 60
+       - fallback remains lightweight sample preview when deeper fetch is unavailable
+     - Review evidence scope is now explicit and non-magical:
+       - exact reviewed sample count
+       - directional estimated cluster size
+       - exact selected-for-request subset
+       - visible evidence basis mode (executed review / expanded preview / fallback sample)
+     - Signal coverage is now exposed as a first-class runtime truth surface:
+       - actual signals (enabled when present)
+       - inferred signals (enabled + explicitly labeled directional)
+       - unavailable signals (explicitly declared, not implied)
+     - Pending Approvals now surfaces execution-scope fields from approval args when available:
+       - reviewed/candidate/selected/excluded counts
+       - exact message-id scope labels
+       - evidence basis + safety signals + protected exclusions
+     - Overview now includes metadata scan-basis disclosure and operator question cues (start/largest/safest/mixed-risky).
    - Review trust hardening is active in runtime UX:
      - current-step consequence language explicitly distinguishes approval-request creation vs later execution.
      - sender preference controls now use operator-facing language:
@@ -328,6 +330,7 @@ For Project Manager operation, each thread should begin by declaring:
 - reasoning effort
 - feature domain
 - execution path (Codex vs direct edit)
+- authoritative docs update requirement after each major milestone (CHANGELOG.md, CURRENT_STATE.md, TODO.md, system_overview.md)
 
 When a PM thread becomes long or spans too many implementation slices, handoff should occur to the next PM version rather than continuing indefinitely in the same thread.
 
