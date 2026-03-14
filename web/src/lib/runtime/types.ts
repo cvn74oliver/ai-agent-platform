@@ -19,6 +19,7 @@ export type RuntimePlanRequest = {
   agent_id: string
   user_request: string
   proposed_actions?: RuntimeProposedAction[]
+  session_id?: string
 }
 
 export type RuntimePlanJson = {
@@ -37,6 +38,7 @@ export type RuntimePlanJson = {
 export type RuntimeApprovalRequestPayload = {
   approval_id: string
   agent_id: string
+  session_id?: string
   user_request: string
   plan_json: RuntimePlanJson
   proposed_actions: RuntimeProposedAction[]
@@ -66,6 +68,7 @@ export type RuntimeAutoApproveRequest = {
 export type RuntimePendingApproval = {
   approval_id: string
   agent_id: string
+  session_id?: string
   created_at: string
   user_request: string
   proposed_actions?: RuntimeProposedAction[]
@@ -128,9 +131,114 @@ export type RuntimeGmailExecutionActionResult = {
   message_id: string
 }
 
+export type RuntimeGmailInboxAnalysisData = {
+  total_messages_estimate: number
+  sample_size: number
+  sampled_oldest_message_date: string | null
+  sampled_newest_message_date: string | null
+  top_senders: Array<{ sender: string; count: number }>
+  sample_subject_lines: string[]
+}
+
+export type RuntimeGmailAnalyzeInboxExecutionActionResult = {
+  tool: 'gmail'
+  action: 'analyze_inbox'
+  success: true
+  inbox_analysis: RuntimeGmailInboxAnalysisData
+}
+
+export type RuntimeGmailSenderClusterReviewData = {
+  sender: string
+  fetched_count: number
+  sampled_oldest_message_date: string | null
+  sampled_newest_message_date: string | null
+  sample_subject_lines: string[]
+  snippet_previews: string[]
+  messages: Array<{
+    message_id: string
+    thread_id?: string
+    history_id?: string
+    internal_date_ms?: number
+    subject: string | null
+    from: string | null
+    date: string | null
+    snippet: string | null
+    label_ids?: string[]
+    category_labels?: string[]
+    is_in_inbox?: boolean
+    is_unread?: boolean
+    is_important?: boolean
+    is_starred?: boolean
+  }>
+}
+
+export type RuntimeGmailReviewSenderClusterExecutionActionResult = {
+  tool: 'gmail'
+  action: 'review_sender_cluster'
+  success: true
+  sender_review: RuntimeGmailSenderClusterReviewData
+}
+
+export type RuntimeGmailQueryClusterReviewData = {
+  cluster_id: string
+  cluster_type: string
+  title: string
+  query: string
+  estimated_count: number | null
+  fetched_count: number
+  sampled_oldest_message_date: string | null
+  sampled_newest_message_date: string | null
+  sample_subject_lines: string[]
+  snippet_previews: string[]
+  reviewed_messages_preview: Array<{
+    message_id: string
+    thread_id?: string
+    history_id?: string
+    internal_date_ms?: number
+    subject: string | null
+    from: string | null
+    date: string | null
+    snippet: string | null
+    label_ids?: string[]
+    category_labels?: string[]
+    is_in_inbox?: boolean
+    is_unread?: boolean
+    is_important?: boolean
+    is_starred?: boolean
+  }>
+  risk_note: string
+  safety_note: string
+}
+
+export type RuntimeGmailReviewQueryClusterExecutionActionResult = {
+  tool: 'gmail'
+  action: 'review_query_cluster'
+  success: true
+  query_review: RuntimeGmailQueryClusterReviewData
+}
+
+export type RuntimeGmailArchiveMessagesData = {
+  sender: string | null
+  batch_title: string | null
+  requested_count: number
+  archived_count: number
+  message_ids: string[]
+}
+
+export type RuntimeGmailArchiveMessagesExecutionActionResult = {
+  tool: 'gmail'
+  action: 'archive_messages'
+  success: true
+  archive_result: RuntimeGmailArchiveMessagesData
+}
+
 export type RuntimeExecutionActionResult =
   | RuntimeSandboxExecutionActionResult
   | RuntimeGmailExecutionActionResult
+  | RuntimeGmailAnalyzeInboxExecutionActionResult
+  | RuntimeGmailReviewSenderClusterExecutionActionResult
+  | RuntimeGmailReviewQueryClusterExecutionActionResult
+  | RuntimeGmailArchiveMessagesExecutionActionResult
 
 export type RuntimeExecutionResultPayload = {
   approval_id: string

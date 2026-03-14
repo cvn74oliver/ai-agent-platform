@@ -1780,7 +1780,9 @@ useEffect(() => {
                       {llmFinishSyncLoading ? 'Updating…' : previewLoading ? 'Loading…' : '🔍 Preview fine-tune data'}
                     </button>
                     <button
-                      onClick={startLlmTrainingSession}
+                      onClick={() => {
+                        void startLlmTrainingSession()
+                      }}
                       disabled={nextSuggestionLoading || llmFinishSyncLoading}
                       className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap ${
                         (nextSuggestionLoading || llmFinishSyncLoading)

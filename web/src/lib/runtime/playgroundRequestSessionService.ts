@@ -9,11 +9,15 @@ type PlaygroundRequestBody = {
   messages?: PlaygroundChatMessage[]
   session_id?: string
   rehydrate_only?: boolean
+  session_origin?: 'playground' | 'playground_review_detail'
+  request_mode?: 'playground' | 'playground_review_detail'
 }
 
 export type NormalizedPlaygroundRequest = {
   agentId: string | undefined
   rehydrateOnly: boolean
+  sessionOrigin: 'playground' | 'playground_review_detail'
+  requestMode: 'playground' | 'playground_review_detail'
   safeMessages: PlaygroundChatMessage[]
   incomingSessionId: string | null
   isValid: boolean
@@ -26,6 +30,10 @@ export function normalizePlaygroundRequestBody(
 ): NormalizedPlaygroundRequest {
   const { agent_id, messages, session_id, rehydrate_only } = body
   const rehydrateOnly = rehydrate_only === true
+  const sessionOrigin =
+    body.session_origin === 'playground_review_detail' ? 'playground_review_detail' : 'playground'
+  const requestMode =
+    body.request_mode === 'playground_review_detail' ? 'playground_review_detail' : 'playground'
   const safeMessages = Array.isArray(messages) ? messages : []
   const incomingSessionId =
     typeof session_id === 'string' && session_id.trim().length > 0 ? session_id.trim() : null
@@ -37,6 +45,8 @@ export function normalizePlaygroundRequestBody(
   return {
     agentId: agent_id,
     rehydrateOnly,
+    sessionOrigin,
+    requestMode,
     safeMessages,
     incomingSessionId,
     isValid,
@@ -49,6 +59,7 @@ export async function resolvePlaygroundSessionId(params: {
   supabase: SupabaseAdminClient
   agentId: string
   incomingSessionId: string | null
+  sessionOrigin?: 'playground' | 'playground_review_detail'
   allowFallbackToLatest?: boolean
 }): Promise<string | null> {
   let responseSessionId: string | null = params.incomingSessionId
@@ -57,6 +68,7 @@ export async function resolvePlaygroundSessionId(params: {
     responseSessionId = await loadLatestPlaygroundSessionId({
       supabase: params.supabase,
       agentId: params.agentId,
+      origin: params.sessionOrigin,
     })
   }
   return responseSessionId

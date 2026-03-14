@@ -32,6 +32,169 @@ function validateProposedActions(value: unknown): RuntimeProposedAction[] | null
   return actions
 }
 
+type LifecycleEventRow = {
+  event_type: string | null
+  payload: unknown
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function parseRecordPayload(value: unknown): Record<string, unknown> | null {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    return isRecord(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function dedupeKeyFromAction(action: RuntimeProposedAction): string | null {
+  if (action.tool !== 'gmail') return null
+  if (action.action === 'analyze_inbox') return 'gmail.analyze_inbox'
+
+  const args = isRecord(action.args) ? action.args : null
+  const messageIds = Array.isArray(args?.message_ids)
+    ? args.message_ids
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => value.trim())
+        .sort()
+        .join(',')
+    : ''
+  if (action.action === 'review_sender_cluster') {
+    const sender = normalizeText(args?.sender)
+    if (!sender) return null
+    const batchTitle = normalizeText(args?.batch_title)
+    return `gmail.review_sender_cluster|sender=${sender}|batch=${batchTitle || '-'}`
+  }
+
+  if (action.action === 'review_query_cluster') {
+    const clusterId = normalizeText(args?.cluster_id)
+    const query = normalizeText(args?.query)
+    const title = normalizeText(args?.title)
+    if (!clusterId && !query && !title) return null
+    return `gmail.review_query_cluster|cluster=${clusterId || '-'}|query=${query || '-'}|title=${title || '-'}`
+  }
+
+  if (action.action === 'archive_messages') {
+    const sender = normalizeText(args?.sender)
+    const batchTitle = normalizeText(args?.batch_title)
+    const clusterId = normalizeText(args?.cluster_id)
+    const policies =
+      args?.sender_policies && typeof args.sender_policies === 'object'
+        ? Object.entries(args.sender_policies as Record<string, unknown>)
+            .map(([key, value]) => `${normalizeText(key)}:${normalizeText(value)}`)
+            .sort()
+            .join(',')
+        : ''
+    return `gmail.archive_messages|sender=${sender || '-'}|batch=${batchTitle || '-'}|cluster=${clusterId || '-'}|messages=${messageIds || '-'}|policies=${policies || '-'}`
+  }
+
+  if (action.action === 'unsubscribe_senders') {
+    const sender = normalizeText(args?.sender)
+    const batchTitle = normalizeText(args?.batch_title)
+    return `gmail.unsubscribe_senders|sender=${sender || '-'}|batch=${batchTitle || '-'}|messages=${messageIds || '-'}`
+  }
+
+  if (action.action === 'draft_replies') {
+    const sender = normalizeText(args?.sender)
+    const batchTitle = normalizeText(args?.batch_title)
+    return `gmail.draft_replies|sender=${sender || '-'}|batch=${batchTitle || '-'}|messages=${messageIds || '-'}`
+  }
+
+  if (action.action === 'mark_important') {
+    const sender = normalizeText(args?.sender)
+    const batchTitle = normalizeText(args?.batch_title)
+    return `gmail.mark_important|sender=${sender || '-'}|batch=${batchTitle || '-'}|messages=${messageIds || '-'}`
+  }
+
+  return null
+}
+
+function dedupeKeyFromProposedActions(actions: RuntimeProposedAction[]): string | null {
+  if (actions.length !== 1) return null
+  return dedupeKeyFromAction(actions[0])
+}
+
+async function findExistingPendingApproval(params: {
+  supabase: Awaited<ReturnType<typeof getSupabaseAdmin>>
+  agentId: string
+  sessionId: string | null
+  dedupeKey: string
+}): Promise<string | null> {
+  const { data, error } = await params.supabase
+    .from('agent_events')
+    .select('event_type,payload,created_at')
+    .eq('agent_id', params.agentId)
+    .in('event_type', ['approval_request', 'approval_decision', 'execution_result'])
+    .order('created_at', { ascending: false })
+    .limit(800)
+
+  if (error) {
+    console.warn('[runtime/plan] lifecycle lookup failed (non-fatal):', error)
+    return null
+  }
+
+  const latestDecisionByApproval = new Map<string, 'approved' | 'rejected'>()
+  const executedApprovals = new Set<string>()
+
+  for (const row of (data || []) as LifecycleEventRow[]) {
+    const payload = parseRecordPayload(row.payload)
+    if (!payload) continue
+
+    if (row.event_type === 'approval_decision') {
+      const approvalId = typeof payload.approval_id === 'string' ? payload.approval_id.trim() : ''
+      const decision =
+        payload.decision === 'approved' || payload.decision === 'rejected'
+          ? payload.decision
+          : null
+      if (!approvalId || !decision || latestDecisionByApproval.has(approvalId)) continue
+      latestDecisionByApproval.set(approvalId, decision)
+      continue
+    }
+
+    if (row.event_type === 'execution_result') {
+      const approvalId = typeof payload.approval_id === 'string' ? payload.approval_id.trim() : ''
+      if (!approvalId) continue
+      executedApprovals.add(approvalId)
+    }
+  }
+
+  for (const row of (data || []) as LifecycleEventRow[]) {
+    if (row.event_type !== 'approval_request') continue
+    const payload = parseRecordPayload(row.payload)
+    if (!payload) continue
+
+    const approvalId = typeof payload.approval_id === 'string' ? payload.approval_id.trim() : ''
+    if (!approvalId) continue
+    if (executedApprovals.has(approvalId)) continue
+
+    const decision = latestDecisionByApproval.get(approvalId)
+    if (decision === 'rejected') continue
+
+    const payloadSessionId =
+      typeof payload.session_id === 'string' && payload.session_id.trim()
+        ? payload.session_id.trim()
+        : null
+    if (params.sessionId) {
+      if (payloadSessionId !== params.sessionId) continue
+    } else if (payloadSessionId) {
+      // Keep dedupe scope stable: sessionless requests should only dedupe against other sessionless requests.
+      continue
+    }
+
+    const actions = validateProposedActions(payload.proposed_actions)
+    if (!actions) continue
+    const payloadDedupeKey = dedupeKeyFromProposedActions(actions)
+    if (!payloadDedupeKey || payloadDedupeKey !== params.dedupeKey) continue
+
+    return approvalId
+  }
+
+  return null
+}
+
 function generatePlanJson(
   userRequest: string,
   proposedActions: RuntimeProposedAction[],
@@ -102,6 +265,14 @@ export async function POST(req: Request) {
     }
 
     const userRequest = body.user_request.trim()
+    const sessionIdRaw = typeof body.session_id === 'string' ? body.session_id.trim() : ''
+    const sessionId = sessionIdRaw || null
+    if (sessionId && !isUuid(sessionId)) {
+      return NextResponse.json(
+        { ok: false, error: 'session_id must be a valid UUID when provided' },
+        { status: 400 }
+      )
+    }
 
     const proposedActions = validateProposedActions(body.proposed_actions)
     if (proposedActions === null) {
@@ -112,6 +283,25 @@ export async function POST(req: Request) {
     }
 
     const supabase = await getSupabaseAdmin()
+    const dedupeKey = dedupeKeyFromProposedActions(proposedActions)
+    if (dedupeKey) {
+      const existingApprovalId = await findExistingPendingApproval({
+        supabase,
+        agentId,
+        sessionId,
+        dedupeKey,
+      })
+      if (existingApprovalId) {
+        return NextResponse.json({
+          ok: true,
+          data: {
+            approval_id: existingApprovalId,
+            reused_existing: true,
+          },
+        })
+      }
+    }
+
     const approvalId = crypto.randomUUID()
     const nowIso = new Date().toISOString()
     const planJson = generatePlanJson(userRequest, proposedActions, nowIso)
@@ -119,6 +309,7 @@ export async function POST(req: Request) {
     const payload: RuntimeApprovalRequestPayload = {
       approval_id: approvalId,
       agent_id: agentId,
+      ...(sessionId ? { session_id: sessionId } : {}),
       user_request: userRequest,
       plan_json: planJson,
       proposed_actions: proposedActions,

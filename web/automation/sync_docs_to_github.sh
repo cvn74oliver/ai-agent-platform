@@ -40,8 +40,24 @@ if [ ! -d "$DOCS_AUTHORITATIVE" ]; then
   exit 1
 fi
 
-if [ ! -f "$DOCS_AUTHORITATIVE/CURRENT_STATE.md" ]; then
+
+# Support system-state docs either at the repo root (legacy) or inside
+# the organized 06_system_state/ folder. This keeps the sync script working
+# during and after doc-folder reorganizations.
+CURRENT_STATE_LEGACY="$DOCS_AUTHORITATIVE/CURRENT_STATE.md"
+CURRENT_STATE_ORGANIZED="$DOCS_AUTHORITATIVE/06_system_state/CURRENT_STATE.md"
+
+if [ -f "$CURRENT_STATE_LEGACY" ]; then
+  CURRENT_STATE_PATH="$CURRENT_STATE_LEGACY"
+else
+  CURRENT_STATE_PATH="$CURRENT_STATE_ORGANIZED"
+fi
+
+if [ ! -f "$CURRENT_STATE_PATH" ]; then
   echo "❌ CURRENT_STATE.md missing in authoritative docs repo."
+  echo "   Checked:"
+  echo "   - $CURRENT_STATE_LEGACY"
+  echo "   - $CURRENT_STATE_ORGANIZED"
   echo "   Aborting sync to prevent loss of state."
   exit 1
 fi
@@ -55,13 +71,17 @@ echo "🔄 Syncing authoritative docs → web/docs (non-destructive)..."
 
 echo "📁 Source of truth: $DOCS_AUTHORITATIVE"
 echo "📁 Generated mirror: $DOCS_GENERATED"
+echo "📄 CURRENT_STATE source: $CURRENT_STATE_PATH"
 
 rsync -av \
   --exclude '.git/' \
+  --exclude '.DS_Store' \
+  --exclude 'backups/' \
   "$DOCS_AUTHORITATIVE/" \
   "$DOCS_GENERATED/"
 
 echo "✅ web/docs updated from authoritative source."
+echo "ℹ️ Notes: subfolders are supported; hidden macOS files and backups are excluded from the generated mirror."
 
 # ------------------------------------------------------------
 # Step 4: Commit + push docs changes (if changed)

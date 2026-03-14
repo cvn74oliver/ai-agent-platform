@@ -1,6 +1,7 @@
 import type { getSupabaseAdmin } from '@/lib/supabase'
 import {
   parseRuntimeActionCandidates,
+  type RuntimeActionCandidate,
   type RuntimeSuggestionHistory,
   type RuntimeSuggestionHistoryRequest,
 } from '@/lib/runtime/suggestionLifecycle'
@@ -19,6 +20,11 @@ type AgentEventRow = {
 }
 
 type AgentSessionRow = { id: string | null }
+
+export type SessionChatMessage = {
+  role: 'user' | 'assistant'
+  content: string
+}
 
 export type RuntimeInboxAnalysisData = {
   total_messages_estimate: number
@@ -47,10 +53,19 @@ export type RuntimeSenderReviewData = {
   snippet_previews: string[]
   messages: Array<{
     message_id: string
+    thread_id?: string
+    history_id?: string
+    internal_date_ms?: number
     subject: string | null
     from: string | null
     date: string | null
     snippet: string | null
+    label_ids?: string[]
+    category_labels?: string[]
+    is_in_inbox?: boolean
+    is_unread?: boolean
+    is_important?: boolean
+    is_starred?: boolean
   }>
 }
 
@@ -76,10 +91,19 @@ export type RuntimeQueryReviewData = {
   snippet_previews: string[]
   reviewed_messages_preview: Array<{
     message_id: string
+    thread_id?: string
+    history_id?: string
+    internal_date_ms?: number
     subject: string | null
     from: string | null
     date: string | null
     snippet: string | null
+    label_ids?: string[]
+    category_labels?: string[]
+    is_in_inbox?: boolean
+    is_unread?: boolean
+    is_important?: boolean
+    is_starred?: boolean
   }>
   risk_note: string
   safety_note: string
@@ -92,6 +116,42 @@ export type RuntimeQueryReviewEvidence = {
   tool: 'gmail'
   action: 'review_query_cluster'
   query_review: RuntimeQueryReviewData
+}
+
+export type RuntimeReviewResultItem = {
+  id: string
+  kind: 'review_sender_cluster' | 'review_query_cluster'
+  executed_at: string
+  approval_id: string
+  title: string
+  objective: string
+  source_label: string
+  cluster_id: string | null
+  cluster_type: string | null
+  sender: string | null
+  query: string | null
+  estimated_count: number | null
+  fetched_count: number
+  sample_subject_lines: string[]
+  snippet_previews: string[]
+  messages: Array<{
+    message_id: string
+    thread_id?: string
+    history_id?: string
+    internal_date_ms?: number
+    subject: string | null
+    from: string | null
+    date: string | null
+    snippet: string | null
+    label_ids?: string[]
+    category_labels?: string[]
+    is_in_inbox?: boolean
+    is_unread?: boolean
+    is_important?: boolean
+    is_starred?: boolean
+  }>
+  risk_note: string | null
+  safety_note: string | null
 }
 
 export type RuntimeArchiveData = {
@@ -116,7 +176,28 @@ export type PlaygroundRuntimeStateInputs = {
   latestRuntimeReviewEvidence: RuntimeReviewEvidence | null
   latestRuntimeQueryReviewEvidence: RuntimeQueryReviewEvidence | null
   latestRuntimeArchiveEvidence: RuntimeArchiveEvidence | null
+  reviewResults: RuntimeReviewResultItem[]
   runtimeSuggestionHistory: RuntimeSuggestionHistory
+}
+
+export type RuntimeApprovalQueueSummary = {
+  pending: number
+  approved: number
+  executed: number
+  rejected: number
+  pending_approval_ids: string[]
+  approved_approval_ids: string[]
+  scope: 'session' | 'agent'
+  scope_session_id?: string
+}
+
+export type RuntimeApprovalQueueItem = {
+  approval_id: string
+  created_at: string
+  session_id?: string
+  user_request?: string
+  status: 'pending_approval' | 'approved' | 'executed' | 'rejected'
+  proposed_actions: RuntimeActionCandidate[]
 }
 
 export type PlaygroundRuntimeStateInputLoadTimingMs = {
@@ -124,6 +205,7 @@ export type PlaygroundRuntimeStateInputLoadTimingMs = {
   sender_cluster_review_ms: number
   query_cluster_review_ms: number
   archive_evidence_ms: number
+  review_results_ms: number
   suggestion_history_ms: number
   runtime_inputs_total_ms: number
 }
@@ -232,13 +314,67 @@ function parseRuntimeSenderReviewData(value: unknown): RuntimeSenderReviewData |
       const date = typeof entry.date === 'string' || entry.date == null ? entry.date ?? null : null
       const snippet =
         typeof entry.snippet === 'string' || entry.snippet == null ? entry.snippet ?? null : null
+      const threadId =
+        typeof entry.thread_id === 'string' && entry.thread_id.trim()
+          ? entry.thread_id.trim()
+          : undefined
+      const historyId =
+        typeof entry.history_id === 'string' && entry.history_id.trim()
+          ? entry.history_id.trim()
+          : undefined
+      const internalDateMs = toNumber(entry.internal_date_ms)
+      const categoryLabels = Array.isArray(entry.category_labels)
+        ? entry.category_labels
+            .filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
+            .map((label) => label.trim())
+        : undefined
+      const labelIds = Array.isArray(entry.label_ids)
+        ? entry.label_ids
+            .filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
+            .map((label) => label.trim())
+        : undefined
+      const isInInbox =
+        typeof entry.is_in_inbox === 'boolean'
+          ? entry.is_in_inbox
+          : labelIds
+            ? labelIds.includes('INBOX')
+            : undefined
+      const isUnread =
+        typeof entry.is_unread === 'boolean'
+          ? entry.is_unread
+          : labelIds
+            ? labelIds.includes('UNREAD')
+            : undefined
+      const isImportant =
+        typeof entry.is_important === 'boolean'
+          ? entry.is_important
+          : labelIds
+            ? labelIds.includes('IMPORTANT')
+            : undefined
+      const isStarred =
+        typeof entry.is_starred === 'boolean'
+          ? entry.is_starred
+          : labelIds
+            ? labelIds.includes('STARRED')
+            : undefined
 
       return {
         message_id: messageId,
+        ...(threadId ? { thread_id: threadId } : {}),
+        ...(historyId ? { history_id: historyId } : {}),
+        ...(internalDateMs != null ? { internal_date_ms: internalDateMs } : {}),
         subject,
         from,
         date,
         snippet,
+        ...(labelIds && labelIds.length > 0 ? { label_ids: Array.from(new Set(labelIds)) } : {}),
+        ...(categoryLabels && categoryLabels.length > 0
+          ? { category_labels: Array.from(new Set(categoryLabels)) }
+          : {}),
+        ...(isInInbox != null ? { is_in_inbox: isInInbox } : {}),
+        ...(isUnread != null ? { is_unread: isUnread } : {}),
+        ...(isImportant != null ? { is_important: isImportant } : {}),
+        ...(isStarred != null ? { is_starred: isStarred } : {}),
       }
     })
     .filter(
@@ -250,6 +386,15 @@ function parseRuntimeSenderReviewData(value: unknown): RuntimeSenderReviewData |
         from: string | null
         date: string | null
         snippet: string | null
+        thread_id?: string
+        history_id?: string
+        internal_date_ms?: number
+        label_ids?: string[]
+        category_labels?: string[]
+        is_in_inbox?: boolean
+        is_unread?: boolean
+        is_important?: boolean
+        is_starred?: boolean
       } => entry != null
     )
 
@@ -313,13 +458,67 @@ function parseRuntimeQueryReviewData(value: unknown): RuntimeQueryReviewData | n
       const date = typeof entry.date === 'string' || entry.date == null ? entry.date ?? null : null
       const snippet =
         typeof entry.snippet === 'string' || entry.snippet == null ? entry.snippet ?? null : null
+      const threadId =
+        typeof entry.thread_id === 'string' && entry.thread_id.trim()
+          ? entry.thread_id.trim()
+          : undefined
+      const historyId =
+        typeof entry.history_id === 'string' && entry.history_id.trim()
+          ? entry.history_id.trim()
+          : undefined
+      const internalDateMs = toNumber(entry.internal_date_ms)
+      const categoryLabels = Array.isArray(entry.category_labels)
+        ? entry.category_labels
+            .filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
+            .map((label) => label.trim())
+        : undefined
+      const labelIds = Array.isArray(entry.label_ids)
+        ? entry.label_ids
+            .filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
+            .map((label) => label.trim())
+        : undefined
+      const isInInbox =
+        typeof entry.is_in_inbox === 'boolean'
+          ? entry.is_in_inbox
+          : labelIds
+            ? labelIds.includes('INBOX')
+            : undefined
+      const isUnread =
+        typeof entry.is_unread === 'boolean'
+          ? entry.is_unread
+          : labelIds
+            ? labelIds.includes('UNREAD')
+            : undefined
+      const isImportant =
+        typeof entry.is_important === 'boolean'
+          ? entry.is_important
+          : labelIds
+            ? labelIds.includes('IMPORTANT')
+            : undefined
+      const isStarred =
+        typeof entry.is_starred === 'boolean'
+          ? entry.is_starred
+          : labelIds
+            ? labelIds.includes('STARRED')
+            : undefined
 
       return {
         message_id: messageId,
+        ...(threadId ? { thread_id: threadId } : {}),
+        ...(historyId ? { history_id: historyId } : {}),
+        ...(internalDateMs != null ? { internal_date_ms: internalDateMs } : {}),
         subject,
         from,
         date,
         snippet,
+        ...(labelIds && labelIds.length > 0 ? { label_ids: Array.from(new Set(labelIds)) } : {}),
+        ...(categoryLabels && categoryLabels.length > 0
+          ? { category_labels: Array.from(new Set(categoryLabels)) }
+          : {}),
+        ...(isInInbox != null ? { is_in_inbox: isInInbox } : {}),
+        ...(isUnread != null ? { is_unread: isUnread } : {}),
+        ...(isImportant != null ? { is_important: isImportant } : {}),
+        ...(isStarred != null ? { is_starred: isStarred } : {}),
       }
     })
     .filter(
@@ -331,6 +530,15 @@ function parseRuntimeQueryReviewData(value: unknown): RuntimeQueryReviewData | n
         from: string | null
         date: string | null
         snippet: string | null
+        thread_id?: string
+        history_id?: string
+        internal_date_ms?: number
+        label_ids?: string[]
+        category_labels?: string[]
+        is_in_inbox?: boolean
+        is_unread?: boolean
+        is_important?: boolean
+        is_starred?: boolean
       } => entry != null
     )
 
@@ -404,12 +612,14 @@ function parseRuntimeArchiveData(value: unknown): RuntimeArchiveData | null {
 export async function loadLatestPlaygroundSessionId(params: {
   supabase: SupabaseAdminClient
   agentId: string
+  origin?: 'playground' | 'playground_review_detail'
 }): Promise<string | null> {
+  const origin = params.origin === 'playground_review_detail' ? 'playground_review_detail' : 'playground'
   const { data, error } = await params.supabase
     .from('agent_sessions')
     .select('id')
     .eq('agent_id', params.agentId)
-    .eq('origin', 'playground')
+    .eq('origin', origin)
     .order('started_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -421,6 +631,43 @@ export async function loadLatestPlaygroundSessionId(params: {
 
   const row = data as AgentSessionRow | null
   return row?.id && row.id.trim() ? row.id.trim() : null
+}
+
+export async function loadPlaygroundSessionMessages(params: {
+  supabase: SupabaseAdminClient
+  agentId: string
+  sessionId: string
+}): Promise<SessionChatMessage[] | null> {
+  const { data, error } = await params.supabase
+    .from('agent_events')
+    .select('payload,created_at')
+    .eq('agent_id', params.agentId)
+    .eq('session_id', params.sessionId)
+    .eq('event_type', 'playground.session_snapshot')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('[playground] session snapshot lookup failed (non-fatal):', error)
+    return null
+  }
+
+  const payload = parseRecordPayload((data as { payload?: unknown } | null)?.payload)
+  if (!payload || !Array.isArray(payload.messages)) return null
+
+  const messages = payload.messages
+    .map((entry) => {
+      if (!isRecord(entry)) return null
+      const role = entry.role === 'user' || entry.role === 'assistant' ? entry.role : null
+      const content = typeof entry.content === 'string' ? entry.content : null
+      if (!role || content == null) return null
+      return { role, content }
+    })
+    .filter((entry): entry is SessionChatMessage => entry != null)
+    .slice(-40)
+
+  return messages.length > 0 ? messages : null
 }
 
 export async function loadLatestAnalyzeInboxEvidence(params: {
@@ -651,6 +898,111 @@ export async function loadLatestArchiveExecutionEvidence(params: {
   return null
 }
 
+export async function loadRecentReviewResults(params: {
+  supabase: SupabaseAdminClient
+  agentId: string
+  limit?: number
+}): Promise<RuntimeReviewResultItem[]> {
+  const { data, error } = await params.supabase
+    .from('agent_events')
+    .select('created_at,payload')
+    .eq('agent_id', params.agentId)
+    .eq('event_type', 'execution_result')
+    .order('created_at', { ascending: false })
+    .limit(200)
+
+  if (error) {
+    console.warn('[playground] review-result history lookup failed (non-fatal):', error)
+    return []
+  }
+
+  const targetLimit = Number.isFinite(params.limit || 0) && (params.limit || 0) > 0 ? Math.round(params.limit || 0) : 20
+  const results: RuntimeReviewResultItem[] = []
+  const seenKeys = new Set<string>()
+
+  for (const row of (data || []) as ExecutionResultEventRow[]) {
+    const payload = parseRecordPayload(row.payload)
+    if (!payload) continue
+
+    const executedAt =
+      typeof payload.executed_at === 'string' && payload.executed_at.trim()
+        ? payload.executed_at
+        : typeof row.created_at === 'string' && row.created_at.trim()
+          ? row.created_at
+          : new Date().toISOString()
+    const approvalId =
+      typeof payload.approval_id === 'string' && payload.approval_id.trim()
+        ? payload.approval_id.trim()
+        : ''
+
+    const rowResults = Array.isArray(payload.results) ? payload.results : []
+    for (const result of rowResults) {
+      if (!isRecord(result) || result.tool !== 'gmail' || result.success !== true) continue
+
+      if (result.action === 'review_sender_cluster') {
+        const parsed = parseRuntimeSenderReviewData(result.sender_review)
+        if (!parsed) continue
+        const key = `${approvalId}|review_sender_cluster|${executedAt}|${parsed.sender}`
+        if (seenKeys.has(key)) continue
+        seenKeys.add(key)
+        results.push({
+          id: key,
+          kind: 'review_sender_cluster',
+          executed_at: executedAt,
+          approval_id: approvalId,
+          title: parsed.sender ? `${parsed.sender} sender review` : 'Sender cluster review',
+          objective: 'Review this sender cluster before any cleanup mutation is proposed.',
+          source_label: parsed.sender || 'Sender cluster',
+          cluster_id: null,
+          cluster_type: 'sender_cluster',
+          sender: parsed.sender || null,
+          query: null,
+          estimated_count: null,
+          fetched_count: parsed.fetched_count,
+          sample_subject_lines: parsed.sample_subject_lines,
+          snippet_previews: parsed.snippet_previews,
+          messages: parsed.messages,
+          risk_note: null,
+          safety_note: 'Read-only bounded sender preview. No inbox changes in this review step.',
+        })
+        if (results.length >= targetLimit) return results
+        continue
+      }
+
+      if (result.action === 'review_query_cluster') {
+        const parsed = parseRuntimeQueryReviewData(result.query_review)
+        if (!parsed) continue
+        const key = `${approvalId}|review_query_cluster|${executedAt}|${parsed.cluster_id}`
+        if (seenKeys.has(key)) continue
+        seenKeys.add(key)
+        results.push({
+          id: key,
+          kind: 'review_query_cluster',
+          executed_at: executedAt,
+          approval_id: approvalId,
+          title: parsed.title,
+          objective: 'Review this query-backed cluster before any cleanup mutation is proposed.',
+          source_label: parsed.title,
+          cluster_id: parsed.cluster_id,
+          cluster_type: parsed.cluster_type,
+          sender: null,
+          query: parsed.query,
+          estimated_count: parsed.estimated_count,
+          fetched_count: parsed.fetched_count,
+          sample_subject_lines: parsed.sample_subject_lines,
+          snippet_previews: parsed.snippet_previews,
+          messages: parsed.reviewed_messages_preview,
+          risk_note: parsed.risk_note,
+          safety_note: parsed.safety_note,
+        })
+        if (results.length >= targetLimit) return results
+      }
+    }
+  }
+
+  return results
+}
+
 export async function loadRuntimeSuggestionHistory(params: {
   supabase: SupabaseAdminClient
   agentId: string
@@ -696,6 +1048,14 @@ export async function loadRuntimeSuggestionHistory(params: {
           typeof row.created_at === 'string' && row.created_at.trim()
             ? row.created_at
             : new Date().toISOString(),
+        session_id:
+          typeof payload.session_id === 'string' && payload.session_id.trim()
+            ? payload.session_id.trim()
+            : undefined,
+        user_request:
+          typeof payload.user_request === 'string' && payload.user_request.trim()
+            ? payload.user_request.trim()
+            : undefined,
         proposed_actions: proposedActions,
       })
       continue
@@ -743,6 +1103,7 @@ export async function loadPlaygroundRuntimeStateInputsWithTiming(params: {
     sender_cluster_review_ms: 0,
     query_cluster_review_ms: 0,
     archive_evidence_ms: 0,
+    review_results_ms: 0,
     suggestion_history_ms: 0,
     runtime_inputs_total_ms: 0,
   }
@@ -764,12 +1125,14 @@ export async function loadPlaygroundRuntimeStateInputsWithTiming(params: {
     latestRuntimeReviewEvidence,
     latestRuntimeQueryReviewEvidence,
     latestRuntimeArchiveEvidence,
+    reviewResults,
     runtimeSuggestionHistory,
   ] = await Promise.all([
     timed('analyze_inbox_evidence_ms', () => loadLatestAnalyzeInboxEvidence(params)),
     timed('sender_cluster_review_ms', () => loadLatestSenderClusterReviewEvidence(params)),
     timed('query_cluster_review_ms', () => loadLatestQueryClusterReviewEvidence(params)),
     timed('archive_evidence_ms', () => loadLatestArchiveExecutionEvidence(params)),
+    timed('review_results_ms', () => loadRecentReviewResults(params)),
     timed('suggestion_history_ms', () => loadRuntimeSuggestionHistory(params)),
   ])
 
@@ -781,6 +1144,7 @@ export async function loadPlaygroundRuntimeStateInputsWithTiming(params: {
       latestRuntimeReviewEvidence,
       latestRuntimeQueryReviewEvidence,
       latestRuntimeArchiveEvidence,
+      reviewResults,
       runtimeSuggestionHistory,
     },
     timingMs,

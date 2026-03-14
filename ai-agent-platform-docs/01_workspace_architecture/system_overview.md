@@ -50,7 +50,47 @@ This separation ensures:
 - Controlled rate-limit usage
 - Clear feature-domain isolation
 
-### Gmail Operations Runtime Note (March 13, 2026)
+### Gmail Cleanup Runtime Note (March 14, 2026)
+
+Current Gmail cleanup architecture:
+- Gmail cleanup now behaves as one sender-first guided product instead of a weak overview plus a mixed batch-review page.
+- Canonical product flow now reads:
+  - `Intro & Health`
+  - `Mailbox Intelligence`
+  - `Cleanup Groups`
+  - `Sender Decisions`
+  - `Exceptions / Verification`
+  - `Confirmation`
+  - `Rules / Automation`
+  - `Monitoring`
+- `Mailbox Intelligence` is now the real Gmail cleanup dashboard:
+  - whole mailbox context
+  - cleanup-candidate context
+  - protected/safe context
+  - cleanup-group contribution view
+  - sender ranking table
+- `/operations/review` is now a staged sender-first workspace rather than a single long mixed page:
+  - `stage=senders`
+  - `stage=exceptions`
+  - `stage=confirmation`
+  - `stage=rules`
+  - `stage=monitoring`
+- The product now explicitly teaches the narrowing hierarchy:
+  - whole mailbox
+  - cleanup candidate universe
+  - cleanup group
+  - sender set
+  - loaded preview rows
+- Messages are now treated as evidence only until Confirmation, where exact current-message impact is shown.
+- Archive remains the only live Gmail executor in this pass.
+- `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` are explicit learned policies / future automation intents only.
+- Gmail cleanup learning is now wired end-to-end:
+  - sender decisions persisted to `agent_events`
+  - rule intents persisted to `agent_events`
+  - active Gmail memory mirrored into `rag_documents`
+  - Monitoring retrieves event memory + semantic Gmail memory and surfaces recommendations
+
+### Gmail Operations Runtime Note (Historical - March 13, 2026)
 
 Current Gmail Operations hardening status:
 - Inbox Overview is now intentionally operational-first:
@@ -1227,3 +1267,19 @@ Current intelligence performance model:
 - Result:
   - normal Overview -> Intelligence -> Groups -> Review flow avoids repeatedly paying the original `~42s` cold path
   - remaining optimization work is now concentrated on the true first uncached build rather than repeat navigations
+
+---
+
+## Runtime Module Deployment Integrity Note - March 14, 2026
+
+The Gmail/playground runtime split now depends on a larger `web/src/lib/runtime/` module set than the tracked `HEAD` tree currently contains.
+
+Current build-stabilization finding:
+
+- Source files such as `gmailRuntimeAssembler.ts`, `playgroundPromptBuilder.ts`, `playgroundResponseBuilder.ts`, `playgroundRagService.ts`, `playgroundChatService.ts`, `playgroundAnalyticsService.ts`, `playgroundAgentConfigService.ts`, and `suggestionLifecycle.ts` are present locally at the expected alias-resolved paths.
+- Additional runtime support files such as `operationsWorkspace.ts`, `operationsAnalytics.ts`, `approvalSummary.ts`, `gmailCleanupMemory.ts`, `gmailCleanupWorkspace.ts`, and `playgroundWorkflowState.ts` are also locally present and referenced by source.
+- The current production-build risk is not pathing logic. It is that the runtime module split is only partially represented in the tracked tree.
+
+Implication:
+
+- Any deploy branch that includes imports of these runtime modules must ship the corresponding files together, or Vercel will fail during module resolution before the app reaches higher-level validation.

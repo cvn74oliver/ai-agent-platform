@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-13  
+Last updated: 2026-03-14  
 Project Manager: v8 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
@@ -28,6 +28,41 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 14 architecture correction summary:
+  - Gmail cleanup is now implemented as one sender-first guided product.
+  - Primary flow now reads:
+    - `Intro & Health`
+    - `Mailbox Intelligence`
+    - `Cleanup Groups`
+    - `Sender Decisions`
+    - `Exceptions / Verification`
+    - `Confirmation`
+    - `Rules / Automation`
+    - `Monitoring`
+  - `Mailbox Intelligence` is now the true Gmail cleanup dashboard:
+    - whole mailbox context
+    - cleanup-candidate context
+    - protected/safe context
+    - cleanup-group contribution cards
+    - sender ranking table
+  - `/operations/review` is now a staged sender-first workspace:
+    - `stage=senders`
+    - `stage=exceptions`
+    - `stage=confirmation`
+    - `stage=rules`
+    - `stage=monitoring`
+  - Exact current-message impact is now shown in Confirmation, not in sender-review cards.
+  - Archive is the only live Gmail mutation in this pass.
+  - `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` are learned policies / future automation intents only.
+  - Gmail cleanup memory is now explicitly wired:
+    - sender policies stored in `agent_events`
+    - rule intents stored in `agent_events`
+    - active memory mirrored into `rag_documents`
+    - Monitoring now reads event memory + semantic Gmail memory to generate recommendations
+  - Validation:
+    - targeted lint passed for rebuild files
+    - full-project `tsc --noEmit` still fails only on unrelated pre-existing files (`fine-tune`, `summary`, `api/rag/run`)
+
 - Gmail Operations naming is now congruent across navigation and page structure:
   - Operations Overview
   - Mailbox Intelligence
@@ -1200,3 +1235,30 @@ Current `cleanup_group_intelligence` reuse behavior:
   - Intelligence initial-load server duration: `0ms`
   - Cleanup Groups scope-chain server duration: `0ms`
   - Review scope-chain server duration: `1ms`
+
+---
+
+## Build Stabilization State - March 14, 2026
+
+Current runtime-module build state:
+
+- The reported Vercel failures for `@/lib/runtime/*` are not caused by alias configuration, case sensitivity, or renamed files.
+- The reported modules already exist locally at the exact imported paths under `web/src/lib/runtime/`.
+- The actual failure mode is deployment integrity:
+  - the runtime split files exist in the working tree
+  - they are currently absent from the tracked `HEAD` tree
+  - a Vercel build from the tracked tree cannot resolve them
+
+Additional runtime modules currently sharing this same risk profile:
+
+- `approvalSummary.ts`
+- `gmailCleanupMemory.ts`
+- `gmailCleanupWorkspace.ts`
+- `operationsAnalytics.ts`
+- `operationsWorkspace.ts`
+- `playgroundWorkflowState.ts`
+
+Current validation snapshot:
+
+- Full-repo `eslint` and `tsc` remain noisy in this local workspace because of unrelated in-progress files outside the stabilization scope.
+- Local `next build` no longer reproduced the original missing-module crash in the current tree, but this thread did not produce a fully clean end-to-end build result from the dirty workspace.

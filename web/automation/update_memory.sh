@@ -55,17 +55,39 @@ echo "✅ Docs backup created: $BACKUP_PATH"
 
 # 2) Rebuild master summary from all role contexts
 # (0*_CONTEXT.md files are the stitched memory backbone)
-shopt -s nullglob
-CONTEXT_FILES=("$DOCS_AUTHORITATIVE"/0*_CONTEXT.md)
-shopt -u nullglob
+# Support contexts either in root or inside subfolders.
+# If the docs are organized into 00_core_context/, treat that as the canonical
+# location for 00_MASTER_PROJECT.md, but also maintain a legacy root copy so
+# older markdown links do not break.
+
+# macOS ships with an older Bash that does not support `mapfile`, so build the
+# array using a POSIX-safe read loop instead.
+CONTEXT_FILES=()
+while IFS= read -r context_file; do
+  CONTEXT_FILES+=("$context_file")
+done < <(find "$DOCS_AUTHORITATIVE" -type f -name "0*_CONTEXT.md" | sort)
+
+MASTER_CONTEXT_DIR="$DOCS_AUTHORITATIVE"
+if [ -d "$DOCS_AUTHORITATIVE/00_core_context" ]; then
+  MASTER_CONTEXT_DIR="$DOCS_AUTHORITATIVE/00_core_context"
+fi
+
+MASTER_PROJECT_CANONICAL="$MASTER_CONTEXT_DIR/00_MASTER_PROJECT.md"
+MASTER_PROJECT_LEGACY="$DOCS_AUTHORITATIVE/00_MASTER_PROJECT.md"
 
 if [ ${#CONTEXT_FILES[@]} -eq 0 ]; then
-  echo "⚠️ Warning: no context files found at: $DOCS_AUTHORITATIVE/0*_CONTEXT.md"
+  echo "⚠️ Warning: no context files found under: $DOCS_AUTHORITATIVE"
   echo "   Skipping 00_MASTER_PROJECT.md rebuild."
 else
-  cat "${CONTEXT_FILES[@]}" > "$DOCS_AUTHORITATIVE/00_MASTER_PROJECT.md"
-  echo "✅ Master project summary rebuilt: $DOCS_AUTHORITATIVE/00_MASTER_PROJECT.md"
+  mkdir -p "$MASTER_CONTEXT_DIR"
+  cat "${CONTEXT_FILES[@]}" > "$MASTER_PROJECT_CANONICAL"
+  echo "✅ Master project summary rebuilt: $MASTER_PROJECT_CANONICAL"
+
+  if [ "$MASTER_PROJECT_CANONICAL" != "$MASTER_PROJECT_LEGACY" ]; then
+    cp "$MASTER_PROJECT_CANONICAL" "$MASTER_PROJECT_LEGACY"
+    echo "✅ Legacy compatibility copy refreshed: $MASTER_PROJECT_LEGACY"
+  fi
 fi
 
 echo "✅ Memory sync completed @ $DATE"
-echo "ℹ️ Next step: run ./automation/sync_docs_to_github.sh to mirror docs into web/docs/"
+echo "ℹ️ Next step: run ./web/automation/sync_docs_to_github.sh to mirror docs into web/docs/"

@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-13 (PM v8 review • Review Workflow Hardening + Cluster Browser Fast Path)_
+_Last updated: 2026-03-14 (PM v8 review • Gmail Sender-First Rebuild + Memory Wiring)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,32 @@ _Last updated: 2026-03-13 (PM v8 review • Review Workflow Hardening + Cluster 
 ## 🔥 Current Focus (This Week)
 
 ---
+
+0) Gmail Cleanup Sender-First Follow-up (NEW)
+   - [x] Rebuild Gmail cleanup around sender-first guided workflow
+   - [x] Make Mailbox Intelligence the true Gmail cleanup dashboard
+   - [x] Replace mixed Batch Review UX with staged sender workspace
+   - [x] Add explicit scope ladder (`whole mailbox -> cleanup candidate universe -> cleanup group -> sender set -> loaded preview rows`)
+   - [x] Add Gmail cleanup memory write/read route
+   - [x] Persist sender decisions + rule intents into `agent_events`
+   - [x] Mirror active Gmail memory into `rag_documents`
+   - [x] Connect Monitoring to event memory + semantic Gmail memory recommendations
+   - [x] Resolve archive scope server-side from sender policies and chunk Gmail archive execution across >100 ids
+   - [ ] Monitoring follow-up:
+     - add stronger domain/similarity recommendation ranking and freshness controls
+     - consider background recommendation generation on new-mail/index refresh events
+   - [ ] Rules follow-up:
+     - add richer rule-intent editing UI beyond policy-derived defaults
+     - add explicit future-rule approval model if rules move beyond learned intent state
+   - [ ] Execution follow-up:
+     - decide when to ship real Gmail executors for unsubscribe/quarantine/custom-rule actions
+   - [ ] Intelligence follow-up:
+     - improve whole-mailbox analytics cold path by avoiding repeated large indexed-row loads on first uncached request
+     - consider persisted/materialized mailbox-intelligence aggregates
+   - [ ] UI verification follow-up:
+     - capture fresh localhost screenshots for Intro & Health, Mailbox Intelligence, Cleanup Groups, each Review stage, and Monitoring
+   - [ ] Cleanup copy follow-up:
+     - remove lingering historical `Batch Review` wording from older docs/pages that are now secondary utility surfaces only
 
 1) Agent Runtime — Supervision Ladder (Slices #1–#6A) (COMPLETE)
    - [x] Plan → approve endpoints + approvals UI
@@ -614,3 +640,20 @@ Still next:
 - [ ] Remove the remaining true cold first-build cost for a never-warmed cleanup-candidate universe
 - [ ] Continue tightening Step 2 density without losing the staged guidance
 - [ ] Add even clearer route-level explanation if the product fully collapses Overview into Intelligence in a future pass
+
+---
+
+## Build Stabilization Follow-Up - March 14, 2026
+
+Completed:
+
+- [x] Audit the reported Vercel runtime `module-not-found` failures.
+- [x] Confirm the reported runtime modules exist locally at the exact imported paths and casing.
+- [x] Confirm the reported failures are caused by missing tracked source files rather than bad imports.
+- [x] Extend the audit to all `@/lib/runtime/*` imports and identify the additional locally present but untracked runtime modules.
+
+Still next:
+
+- [ ] Ensure the deploy branch includes every locally present runtime module referenced by source before the next Vercel build.
+- [ ] Re-run `npm run build` from a clean stabilization branch or workspace that does not include unrelated in-progress product rebuild changes.
+- [ ] Keep this thread scoped to build integrity only; do not continue sender-first product redesign work here.

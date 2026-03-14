@@ -10,6 +10,75 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 14, 2026 - Gmail Cleanup Sender-First Rebuild (Mailbox Intelligence / Cleanup Groups / Sender Decisions / Memory Wiring)
+
+Root-cause addressed:
+- Gmail cleanup was still split between a lightweight overview, a cleanup-universe analytics page, and a large mixed "Batch Review" surface.
+- The UX still leaked message-batch mental models even though the finalized docs require sender-first review.
+- User decisions were logged operationally, but not yet wired into a Gmail-specific memory + retrieval loop for future recommendations.
+
+What changed:
+- Rebuilt Gmail cleanup as one guided product:
+  - `Intro & Health`
+  - `Mailbox Intelligence`
+  - `Cleanup Groups`
+  - `Sender Decisions`
+  - `Exceptions / Verification`
+  - `Confirmation`
+  - `Rules / Automation`
+  - `Monitoring`
+- `Mailbox Intelligence` is now the real Gmail cleanup dashboard:
+  - combines whole-mailbox context
+  - cleanup-candidate context
+  - protected/safe context
+  - cleanup-group contribution cards
+  - sender ranking table
+- Replaced the old workflow strip/scope strip with an explicit five-level scope ladder:
+  - whole mailbox
+  - cleanup candidate universe
+  - cleanup group
+  - sender set
+  - loaded preview rows
+- Rebuilt `/operations/review` as one staged sender-first workspace:
+  - `stage=senders`
+  - `stage=exceptions`
+  - `stage=confirmation`
+  - `stage=rules`
+  - `stage=monitoring`
+- Messages are now explicitly evidence-only inside sender cards/drawers until Confirmation.
+- Confirmation now computes exact grouped outcomes and exact current archive impact from sender decisions.
+- Archive execution now supports sender-policy resolution plus Gmail `batchModify` chunking across selections larger than 100 ids.
+
+Memory / learning wiring:
+- Added Gmail cleanup memory write/read route:
+  - `POST /api/runtime/gmail-memory`
+  - `GET /api/runtime/gmail-memory`
+- Explicit sender decisions now write:
+  - `agent_events.event_type = sender_policy_set`
+  - `agent_events.event_type = sender_policy_removed`
+- Rule intents now write:
+  - `agent_events.event_type = rule_created`
+  - `agent_events.event_type = rule_rejected`
+- Monitoring recommendation generation now records:
+  - `agent_events.event_type = automation_recommendation_generated`
+- Active sender policies and rule intents are mirrored into `rag_documents` using Gmail-specific synthetic `source_type` / `source_url` conventions so they are retrievable as workspace memory.
+- Monitoring now reads:
+  - exact event memory from `agent_events`
+  - semantic Gmail memory from `rag_documents`
+  - and turns that into memory-backed recommendations
+
+Current execution semantics:
+- `Archive` is the only live Gmail mutation in this pass.
+- `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` are learned sender policies / future automation intents only.
+- Confirmation and Monitoring now say this explicitly so there is no fake executor behavior.
+
+Validation:
+- Targeted lint passed for the rebuilt Gmail cleanup routes, shell, memory route, and inbox-analysis/runtime changes.
+- Full project `tsc --noEmit` still fails on pre-existing unrelated files:
+  - `web/src/app/agents/[id]/fine-tune/page.tsx`
+  - `web/src/app/agents/[id]/summary/page.tsx`
+  - `web/src/app/api/rag/run/route.ts`
+
 ### 🧭 March 13, 2026 – Gmail Operations Guided Flow Clarification (Overview / Intelligence / Groups / Batch Review)
 
 **Root-cause addressed:**
@@ -2898,6 +2967,38 @@ Completed:
 - Added sender-preview deep-link behavior so sender-focused review URLs land directly on Step 2.
 - Added Step 2 preview affordance parity with Step 3:
   - sender preview rows now expose `Open preview`
+
+## Build Stabilization Audit - March 14, 2026
+
+Completed:
+
+- Audited the reported Vercel `module-not-found` failures for:
+  - `gmailRuntimeAssembler`
+  - `playgroundAgentConfigService`
+  - `playgroundAnalyticsService`
+  - `playgroundChatService`
+  - `playgroundPromptBuilder`
+  - `playgroundRagService`
+  - `playgroundResponseBuilder`
+  - `suggestionLifecycle`
+- Confirmed each reported module already exists locally under the exact imported path and exact casing in `web/src/lib/runtime/`.
+- Confirmed the root cause is not a rename, alternate path, or case mismatch:
+  - the files are present locally
+  - they are not part of the tracked git tree seen by `HEAD`
+  - Vercel therefore cannot resolve them during the production build
+- Extended the audit to all `@/lib/runtime/*` imports and found the same tracked-vs-local gap for additional runtime modules:
+  - `approvalSummary`
+  - `gmailCleanupMemory`
+  - `gmailCleanupWorkspace`
+  - `operationsAnalytics`
+  - `operationsWorkspace`
+  - `playgroundWorkflowState`
+
+Validation from this stabilization pass:
+
+- `npm run lint` still fails in the current local workspace because of unrelated pre-existing lint debt outside the runtime-module stabilization surface.
+- `npx tsc --noEmit` still fails in the current local workspace because of unrelated pre-existing type errors in other in-progress files.
+- `npm run build` no longer failed fast on the reported runtime module-resolution errors in the current local tree and entered Next compile output, but the run did not complete cleanly enough in this dirty workspace to certify a full app-wide green build from this thread alone.
 
 Live validation evidence for this milestone:
 

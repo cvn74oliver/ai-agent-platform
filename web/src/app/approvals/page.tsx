@@ -21,6 +21,7 @@ type AgentEventRow = {
 type ApprovalRequestPayload = {
   approval_id?: string
   agent_id?: string
+  session_id?: string
   user_request?: string
   created_at?: string
   proposed_actions?: RuntimeProposedAction[]
@@ -48,6 +49,7 @@ type RuntimeModeUpdatePayload = {
 }
 
 type SearchParams = Record<string, string | string[] | undefined>
+type ApprovalScopeMode = 'session' | 'agent' | 'global'
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
@@ -57,6 +59,12 @@ function firstSearchParamValue(value: string | string[] | undefined): string | n
   if (typeof value === 'string') return value
   if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : null
   return null
+}
+
+function parseScopeMode(value: string | null): ApprovalScopeMode {
+  if (value === 'session') return 'session'
+  if (value === 'agent') return 'agent'
+  return 'global'
 }
 
 function buildSafePlaygroundReturnPath(returnToRaw: string | null): string | null {
@@ -99,6 +107,7 @@ function parseRequestPayload(value: unknown): ApprovalRequestPayload {
   return {
     approval_id: typeof record.approval_id === 'string' ? record.approval_id : undefined,
     agent_id: typeof record.agent_id === 'string' ? record.agent_id : undefined,
+    session_id: typeof record.session_id === 'string' ? record.session_id : undefined,
     user_request: typeof record.user_request === 'string' ? record.user_request : undefined,
     created_at: typeof record.created_at === 'string' ? record.created_at : undefined,
     proposed_actions: parseProposedActions(record.proposed_actions),
@@ -164,14 +173,18 @@ function parseModePayload(value: unknown): RuntimeModeUpdatePayload {
 export default async function ApprovalsPage({
   searchParams,
 }: {
-  searchParams?: SearchParams | Promise<SearchParams>
+  searchParams?: Promise<SearchParams>
 }) {
-  const resolvedSearchParams =
-    searchParams && typeof (searchParams as Promise<SearchParams>).then === 'function'
-      ? await (searchParams as Promise<SearchParams>)
-      : (searchParams as SearchParams | undefined) || {}
+  const resolvedSearchParams = (await searchParams) || {}
   const returnToRaw = firstSearchParamValue(resolvedSearchParams.return_to)
   const playgroundReturnPath = buildSafePlaygroundReturnPath(returnToRaw)
+  const scopeMode = parseScopeMode(firstSearchParamValue(resolvedSearchParams.scope))
+  const scopeAgentIdRaw = firstSearchParamValue(resolvedSearchParams.agent_id)
+  const scopeSessionIdRaw = firstSearchParamValue(resolvedSearchParams.session_id)
+  const scopeAgentId =
+    typeof scopeAgentIdRaw === 'string' && scopeAgentIdRaw.trim() ? scopeAgentIdRaw.trim() : null
+  const scopeSessionId =
+    typeof scopeSessionIdRaw === 'string' && scopeSessionIdRaw.trim() ? scopeSessionIdRaw.trim() : null
 
   const supabase = await getSupabaseAdmin()
 
@@ -272,7 +285,6 @@ export default async function ApprovalsPage({
       seenApprovalIds.add(approvalId)
 
       const decision = latestDecisionByApproval.get(approvalId)
-      if (decision?.decision === 'rejected') continue
 
       const executed = executedApprovalIds.has(approvalId)
       let status: RuntimeApprovalStatus = 'pending'
@@ -285,6 +297,7 @@ export default async function ApprovalsPage({
       approvalRows.push({
         approval_id: approvalId,
         agent_id: agentId,
+        session_id: payload.session_id,
         created_at: payload.created_at || row.created_at || '',
         user_request: payload.user_request || '',
         proposed_actions: payload.proposed_actions,
@@ -297,6 +310,29 @@ export default async function ApprovalsPage({
       continue
     }
   }
+
+  const scopedApprovals = approvalRows.filter((approval) => {
+    if (scopeMode === 'session' && scopeAgentId && scopeSessionId) {
+      return approval.agent_id === scopeAgentId && approval.session_id === scopeSessionId
+    }
+    if (scopeMode === 'agent' && scopeAgentId) {
+      return approval.agent_id === scopeAgentId
+    }
+    return true
+  })
+
+  const effectiveScope: ApprovalScopeMode =
+    scopeMode === 'session' && scopeAgentId && scopeSessionId
+      ? 'session'
+      : scopeMode === 'agent' && scopeAgentId
+        ? 'agent'
+        : 'global'
+  const scopeLabel =
+    effectiveScope === 'session'
+      ? `Scope: current Playground session (${(scopeSessionId || '').slice(0, 8)})`
+      : effectiveScope === 'agent'
+        ? 'Scope: all approvals for this agent'
+        : 'Scope: global approvals queue'
 
   const confidenceByAgentAction: Record<string, Record<string, number>> = {}
   for (const row of confidenceUpdates) {
@@ -338,7 +374,7 @@ export default async function ApprovalsPage({
 
   const agentModeByAgentId: Record<string, RuntimeMode> = {}
   const agentIds = new Set<string>()
-  for (const approval of approvalRows) {
+  for (const approval of scopedApprovals) {
     agentIds.add(approval.agent_id)
   }
   for (const agentId of Object.keys(confidenceByAgentAction)) {
@@ -348,7 +384,7 @@ export default async function ApprovalsPage({
     agentModeByAgentId[agentId] = latestModeByAgentId.get(agentId) || 'training'
   }
 
-  const pendingApprovalsWithEligibility: RuntimePendingApproval[] = approvalRows.map((approval) => {
+  const pendingApprovalsWithEligibility: RuntimePendingApproval[] = scopedApprovals.map((approval) => {
     const actions = Array.isArray(approval.proposed_actions) ? approval.proposed_actions : []
     const agentMap = confidenceByAgentAction[approval.agent_id] || {}
     const autoApproveEligible =
@@ -365,13 +401,6 @@ export default async function ApprovalsPage({
     }
   })
 
-  const queueCounts = {
-    pending: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'pending').length,
-    approved: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'approved').length,
-    autoApproved: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'auto-approved')
-      .length,
-    executed: pendingApprovalsWithEligibility.filter((approval) => approval.status === 'executed').length,
-  }
   const totalQueueItems = pendingApprovalsWithEligibility.length
   const hasLoadError = Boolean(
     requestError || decisionError || confidenceError || modeError || executionError
@@ -387,6 +416,7 @@ export default async function ApprovalsPage({
               <p className="text-xs text-gray-400">
                 Review, approve, and execute runtime actions in guarded order.
               </p>
+              <p className="text-[11px] text-gray-500 mt-1">{scopeLabel}</p>
             </div>
             {playgroundReturnPath ? (
               <a
@@ -398,24 +428,9 @@ export default async function ApprovalsPage({
             ) : null}
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-4">
-            <div className="rounded border border-gray-800 bg-gray-950/60 p-2">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Total</p>
-              <p className="text-base font-semibold">{totalQueueItems}</p>
-            </div>
-            <div className="rounded border border-amber-900/60 bg-gray-950/60 p-2">
-              <p className="text-[11px] uppercase tracking-wide text-amber-300">Pending</p>
-              <p className="text-base font-semibold">{queueCounts.pending}</p>
-            </div>
-            <div className="rounded border border-blue-900/60 bg-gray-950/60 p-2">
-              <p className="text-[11px] uppercase tracking-wide text-blue-300">Approved</p>
-              <p className="text-base font-semibold">{queueCounts.approved + queueCounts.autoApproved}</p>
-            </div>
-            <div className="rounded border border-emerald-900/60 bg-gray-950/60 p-2">
-              <p className="text-[11px] uppercase tracking-wide text-emerald-300">Executed</p>
-              <p className="text-base font-semibold">{queueCounts.executed}</p>
-            </div>
-          </div>
+          <p className="text-[11px] text-gray-500">
+            Initial queue snapshot loaded: {totalQueueItems} item{totalQueueItems === 1 ? '' : 's'}. Live counts update below.
+          </p>
         </div>
 
         {hasLoadError ? (

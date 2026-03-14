@@ -9,6 +9,7 @@ import {
   applyPlaygroundChatResultToResponseData,
   buildPlaygroundErrorResponse,
   buildPlaygroundOpenAiFailureResponse,
+  type PlaygroundRuntimeResponseData,
   buildPlaygroundSuccessResponse,
   buildPlaygroundRuntimeResponseData,
   deriveAnalyzeInboxRuntimeProposal,
@@ -19,9 +20,23 @@ import {
   resolvePlaygroundSessionId,
 } from '@/lib/runtime/playgroundRequestSessionService'
 import { loadPlaygroundAgentConfig } from '@/lib/runtime/playgroundAgentConfigService'
-import { buildPlaygroundSystemPrompt } from '@/lib/runtime/playgroundPromptBuilder'
+import {
+  buildPlaygroundReviewDetailSystemPrompt,
+  buildPlaygroundSystemPrompt,
+} from '@/lib/runtime/playgroundPromptBuilder'
 import { loadPlaygroundRagContext } from '@/lib/runtime/playgroundRagService'
 import { loadPlaygroundRuntimeState } from '@/lib/runtime/runtimeStateService'
+import {
+  normalizeOperationsAnalysisScope,
+  type OperationsAnalysisScope,
+} from '@/lib/runtime/operationsWorkspace'
+import {
+  loadLatestQueryClusterReviewEvidence,
+  loadLatestSenderClusterReviewEvidence,
+  loadPlaygroundSessionMessages,
+  loadRecentReviewResults,
+  loadRuntimeSuggestionHistory,
+} from '@/lib/runtime/stateLoaders'
 
 export async function POST(req: Request) {
   const requestStartedAt = Date.now()
@@ -55,9 +70,23 @@ export async function POST(req: Request) {
       agent_id?: string
       messages?: ChatMessage[]
       session_id?: string
+      session_origin?: 'playground' | 'playground_review_detail'
+      request_mode?: 'playground' | 'playground_review_detail'
       rehydrate_only?: boolean
+      refresh_mailbox_profile?: boolean
+      mailbox_profile_window_days?: 30 | 60
+      analysis_scope?: OperationsAnalysisScope
     }
     const normalizedRequest = normalizePlaygroundRequestBody(body)
+    const forceMailboxProfileRefresh = body.refresh_mailbox_profile === true
+    const mailboxProfileWindowDays = body.mailbox_profile_window_days === 60 ? 60 : 30
+    const analysisScope = normalizeOperationsAnalysisScope(
+      typeof body.analysis_scope === 'string' && body.analysis_scope.trim()
+        ? body.analysis_scope
+        : mailboxProfileWindowDays === 60
+          ? '60d'
+          : '30d'
+    )
 
     if (!normalizedRequest.isValid || !normalizedRequest.agentId) {
       const errorResponse = buildPlaygroundErrorResponse({
@@ -77,9 +106,12 @@ export async function POST(req: Request) {
       rehydrateOnly,
       safeMessages,
       incomingSessionId,
+      sessionOrigin,
+      requestMode,
       lastUserMessage,
       lastUserMessageText,
     } = normalizedRequest
+    const isReviewDetailMode = requestMode === 'playground_review_detail'
     timing.request_normalize_ms = Date.now() - normalizeStartedAt
 
     const supabase = await getSupabaseAdmin()
@@ -111,21 +143,194 @@ export async function POST(req: Request) {
       supabase,
       agentId: agent.id,
       incomingSessionId,
+      sessionOrigin,
       allowFallbackToLatest: Boolean(incomingSessionId),
     })
+    const sessionMessages =
+      !isReviewDetailMode && responseSessionId && responseSessionId.trim()
+        ? await loadPlaygroundSessionMessages({
+            supabase,
+            agentId: agent.id,
+            sessionId: responseSessionId,
+          })
+        : null
     timing.session_resolution_ms = Date.now() - sessionResolutionStartedAt
 
+    if (isReviewDetailMode) {
+      if (rehydrateOnly) {
+        const runtimeStateStartedAt = Date.now()
+        const [
+          reviewResults,
+          latestRuntimeReviewEvidence,
+          latestRuntimeQueryReviewEvidence,
+          runtimeSuggestionHistory,
+        ] =
+          await Promise.all([
+            loadRecentReviewResults({
+              supabase,
+              agentId: agent.id,
+            }),
+            loadLatestSenderClusterReviewEvidence({
+              supabase,
+              agentId: agent.id,
+            }),
+            loadLatestQueryClusterReviewEvidence({
+              supabase,
+              agentId: agent.id,
+            }),
+            responseSessionId
+              ? loadRuntimeSuggestionHistory({
+                  supabase,
+                  agentId: agent.id,
+                })
+              : Promise.resolve(null),
+          ])
+        timing.runtime_state_ms = Date.now() - runtimeStateStartedAt
+
+        let scopedReviewResults = reviewResults
+        let scopedSenderReviewEvidence = latestRuntimeReviewEvidence
+        let scopedQueryReviewEvidence = latestRuntimeQueryReviewEvidence
+
+        if (responseSessionId && runtimeSuggestionHistory) {
+          const scopedApprovalIds = new Set(
+            runtimeSuggestionHistory.requests
+              .filter((request) => request.session_id && request.session_id === responseSessionId)
+              .map((request) => request.approval_id)
+          )
+
+          scopedReviewResults = reviewResults.filter((result) =>
+            scopedApprovalIds.has(result.approval_id)
+          )
+          if (
+            scopedSenderReviewEvidence &&
+            !scopedApprovalIds.has(scopedSenderReviewEvidence.approval_id)
+          ) {
+            scopedSenderReviewEvidence = null
+          }
+          if (
+            scopedQueryReviewEvidence &&
+            !scopedApprovalIds.has(scopedQueryReviewEvidence.approval_id)
+          ) {
+            scopedQueryReviewEvidence = null
+          }
+        }
+
+        const responseData: PlaygroundRuntimeResponseData = {}
+        if (responseSessionId) responseData.session_id = responseSessionId
+        if (scopedReviewResults.length > 0) responseData.runtime_review_results = scopedReviewResults
+        if (scopedSenderReviewEvidence) {
+          responseData.runtime_review_evidence = scopedSenderReviewEvidence
+        }
+        if (scopedQueryReviewEvidence) {
+          responseData.runtime_query_review_evidence = scopedQueryReviewEvidence
+        }
+
+        logTiming({
+          rehydrateOnly: true,
+          status: 200,
+          outcome: 'review_detail_rehydrate_ok',
+        })
+        return NextResponse.json(
+          buildPlaygroundSuccessResponse({
+            responseData,
+          })
+        )
+      }
+
+      const promptBuildStartedAt = Date.now()
+      const systemPrompt = buildPlaygroundReviewDetailSystemPrompt({
+        summary,
+        agentPrimaryPrompt: typeof agent.primary_prompt === 'string' ? agent.primary_prompt : null,
+      })
+      timing.prompt_build_ms = Date.now() - promptBuildStartedAt
+
+      const trimmedHistory: ChatMessage[] = safeMessages.slice(-12)
+      const openAiMessages: ChatMessage[] = [
+        { role: 'system', content: systemPrompt },
+        ...trimmedHistory.filter((m) => m.role === 'user' || m.role === 'assistant'),
+      ]
+
+      const chatCompletionStartedAt = Date.now()
+      const chatResult = await runPlaygroundChatCompletion({
+        openAiMessages,
+      })
+      timing.chat_completion_ms = Date.now() - chatCompletionStartedAt
+
+      if (!chatResult.ok) {
+        console.error('[playground] OpenAI chat failed:', {
+          status: chatResult.status,
+          msg: chatResult.msg,
+          raw: chatResult.raw,
+        })
+        const failureResponse = buildPlaygroundOpenAiFailureResponse({
+          status: chatResult.status,
+          msg: chatResult.msg,
+        })
+        logTiming({
+          rehydrateOnly: false,
+          status: failureResponse.status,
+          outcome: 'review_detail_chat_failed',
+        })
+        return NextResponse.json(failureResponse.body, { status: failureResponse.status })
+      }
+
+      const raw = chatResult.raw
+      const reply = chatResult.reply
+
+      const analyticsStartedAt = Date.now()
+      const conversationMessages = [
+        ...safeMessages
+          .slice(-12)
+          .filter((message): message is { role: 'user' | 'assistant'; content: string } =>
+            (message.role === 'user' || message.role === 'assistant') &&
+            typeof message.content === 'string'
+          ),
+        { role: 'assistant' as const, content: reply },
+      ]
+      const analytics = await logPlaygroundCallAnalytics({
+        supabase,
+        currentSessionId: responseSessionId,
+        sessionOrigin,
+        agentId: agent.id,
+        agentUserId: typeof agent.user_id === 'string' ? agent.user_id : null,
+        usage: raw?.usage || null,
+        lastUserMessage: lastUserMessage?.content ?? null,
+        ragChunkCount: 0,
+        conversationMessages,
+      })
+      timing.analytics_ms = Date.now() - analyticsStartedAt
+      responseSessionId = analytics.sessionId
+
+      const finalizedResponseData = applyPlaygroundChatResultToResponseData({
+        responseData: {},
+        responseSessionId,
+        reply,
+      })
+      logTiming({
+        rehydrateOnly: false,
+        status: 200,
+        outcome: 'review_detail_chat_ok',
+      })
+      return NextResponse.json(
+        buildPlaygroundSuccessResponse({ responseData: finalizedResponseData })
+      )
+    }
+
     const runtimeStateStartedAt = Date.now()
-    const { runtimeInputs, runtimeState } = await loadPlaygroundRuntimeState({
+    const { runtimeInputs, runtimeState, runtimeApprovalQueueSummary, runtimeApprovalQueueItems } =
+      await loadPlaygroundRuntimeState({
       supabase,
       agentId: agent.id,
       isInboxCleanupIntent: deriveInboxCleanupIntent(lastUserMessageText),
       agentUserId: typeof agent.user_id === 'string' ? agent.user_id : null,
+      sessionScopeId: responseSessionId || incomingSessionId || null,
+      forceMailboxProfileRefresh,
+      analysisScope,
       requestMode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
     })
     timing.runtime_state_ms = Date.now() - runtimeStateStartedAt
 
-    const { runtimeEvidence, latestRuntimeQueryReviewEvidence } = runtimeInputs
+    const { runtimeEvidence, latestRuntimeQueryReviewEvidence, reviewResults } = runtimeInputs
 
     const {
       runtimeRecommendation,
@@ -135,6 +340,8 @@ export async function POST(req: Request) {
       runtimeArchiveEvidence,
       runtimeBatchSuggestions,
       runtimeCleanupPlan,
+      runtimeMailboxProfile,
+      runtimeCleanupStrategy,
       runtimeSuggestionSets,
       runtimeSuggestionPromptContext,
       runtimeEvidenceBlocks,
@@ -148,19 +355,25 @@ export async function POST(req: Request) {
 
     const responseData = buildPlaygroundRuntimeResponseData({
       responseSessionId,
+      sessionMessages,
       runtimeProposal,
       runtimeEvidence,
       runtimeRecommendation,
       runtimeReviewProposal,
       runtimeReviewEvidence,
       runtimeQueryReviewEvidence: latestRuntimeQueryReviewEvidence,
+      runtimeReviewResults: reviewResults,
       runtimeArchiveEvidence,
       runtimeActiveBatch,
       runtimeBatchSuggestions,
       runtimeCleanupPlan,
+      runtimeMailboxProfile,
+      runtimeCleanupStrategy,
       runtimeActiveWorkItem,
       runtimeEvidenceBlocks,
       runtimeSuggestionSets,
+      runtimeApprovalQueueSummary,
+      runtimeApprovalQueueItems,
     })
 
     if (rehydrateOnly) {
@@ -210,6 +423,8 @@ export async function POST(req: Request) {
       runtimeActiveBatch,
       runtimeBatchSuggestions,
       runtimeCleanupPlan,
+      runtimeMailboxProfile,
+      runtimeCleanupStrategy,
       runtimeActiveWorkItem,
       runtimeSuggestionSets,
       runtimeSuggestionPromptContext,
@@ -259,14 +474,25 @@ export async function POST(req: Request) {
     // 4) Log basic analytics for this Playground call
     // ─────────────────────────────────────────────
     const analyticsStartedAt = Date.now()
+    const conversationMessages = [
+      ...safeMessages
+        .slice(-12)
+        .filter((message): message is { role: 'user' | 'assistant'; content: string } =>
+          (message.role === 'user' || message.role === 'assistant') &&
+          typeof message.content === 'string'
+        ),
+      { role: 'assistant' as const, content: reply },
+    ]
     const analytics = await logPlaygroundCallAnalytics({
       supabase,
       currentSessionId: responseSessionId,
+      sessionOrigin,
       agentId: agent.id,
       agentUserId: typeof agent.user_id === 'string' ? agent.user_id : null,
       usage: raw?.usage || null,
       lastUserMessage: lastUserMessage?.content ?? null,
       ragChunkCount: ragContextBlocks.length,
+      conversationMessages,
     })
     timing.analytics_ms = Date.now() - analyticsStartedAt
     responseSessionId = analytics.sessionId

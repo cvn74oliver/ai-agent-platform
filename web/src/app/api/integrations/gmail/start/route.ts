@@ -5,6 +5,27 @@ import { createServerSupabaseClient } from '@/lib/supabase'
 const STATE_COOKIE_NAME = 'gmail_oauth_state'
 const STATE_COOKIE_PATH = '/api/integrations/gmail'
 
+const REQUIRED_GMAIL_SCOPES = [
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.compose',
+]
+
+function mergeGoogleOauthScopes(envValue: string): string {
+  const parsed = envValue
+    .split(/[\s,]+/)
+    .map((scope) => scope.trim())
+    .filter(Boolean)
+
+  const merged = new Set<string>(parsed)
+  for (const scope of REQUIRED_GMAIL_SCOPES) {
+    merged.add(scope)
+  }
+
+  return Array.from(merged).join(' ')
+}
+
 export async function GET(request: Request) {
   const supabase = await createServerSupabaseClient()
   const {
@@ -17,14 +38,16 @@ export async function GET(request: Request) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID
   const redirectUri = process.env.GOOGLE_REDIRECT_URI
-  const scopes = process.env.GOOGLE_OAUTH_SCOPES
+  const scopesEnv = process.env.GOOGLE_OAUTH_SCOPES
 
-  if (!clientId || !redirectUri || !scopes) {
+  if (!clientId || !redirectUri || !scopesEnv) {
     return NextResponse.json(
       { error: 'Missing GOOGLE_CLIENT_ID, GOOGLE_REDIRECT_URI, or GOOGLE_OAUTH_SCOPES.' },
       { status: 500 }
     )
   }
+
+  const scopes = mergeGoogleOauthScopes(scopesEnv)
 
   const state = crypto.randomUUID()
   const cookieStore = await cookies()

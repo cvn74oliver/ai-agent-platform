@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "golden-path": "node scripts/golden-path.mjs"
+    "golden-path": "node scripts/golden-path.mjs",
+    "test:playground-matrix": "node scripts/playground-route-matrix.mjs",
+    "review-packet": "node scripts/codex-review-packet.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
@@ -28,6 +30,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "baseline-browser-mapping": "^2.10.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
     "tailwindcss": "^4",

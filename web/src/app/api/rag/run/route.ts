@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import * as cheerio from 'cheerio'
-import { google } from 'googleapis'
+import { google, type drive_v3 } from 'googleapis'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -466,6 +466,14 @@ async function driveCallWithRetry<T>(
   throw lastErr
 }
 
+type DriveArrayBufferResponse = {
+  data: ArrayBuffer
+}
+
+type DriveListResponse = {
+  data: drive_v3.Schema$FileList
+}
+
 function extractDriveFolderId(url: string): string | null {
   try {
     const u = new URL(url)
@@ -502,7 +510,7 @@ async function downloadDriveFileText(opts: {
       : null
 
   if (exportMime) {
-    const resp = await driveCallWithRetry('export', () =>
+    const resp = await driveCallWithRetry<DriveArrayBufferResponse>('export', () =>
       drive.files.export(
         { fileId, mimeType: exportMime },
         { responseType: 'arraybuffer', timeout: 20_000 }
@@ -513,7 +521,7 @@ async function downloadDriveFileText(opts: {
   }
 
   // Normal files: download
-  const resp = await driveCallWithRetry('download', () =>
+  const resp = await driveCallWithRetry<DriveArrayBufferResponse>('download', () =>
     drive.files.get(
       { fileId, alt: 'media' },
       { responseType: 'arraybuffer', timeout: 20_000 }
@@ -613,7 +621,7 @@ async function ingestDriveFolder(opts: {
     })
 
     // Grab a small sample from the root so the UI/terminal shows it's working
-    const firstPage = await driveCallWithRetry('list.sample', () =>
+    const firstPage = await driveCallWithRetry<DriveListResponse>('list.sample', () =>
       drive.files.list(
         {
           q: `'${folderId}' in parents and trashed=false`,
@@ -720,7 +728,7 @@ async function ingestDriveFolder(opts: {
     let pageToken: string | undefined = undefined
 
     while (true) {
-    const resp = await driveCallWithRetry('list', () =>
+    const resp = await driveCallWithRetry<DriveListResponse>('list', () =>
       drive.files.list(
         {
           q: `'${currentFolderId}' in parents and trashed=false`,
