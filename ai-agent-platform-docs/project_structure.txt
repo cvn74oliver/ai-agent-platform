@@ -81,15 +81,23 @@
     │   ├── agent_activation_checklist.md
     │   ├── AGENT_MEMORY_AND_DECISION_ENGINE.md
     │   ├── AI_AGENT_RUNTIME.md
+    │   ├── AI_WORKSPACE_ACTION_MODEL.md
     │   ├── AI_WORKSPACE_AGENT_BEHAVIOR.md
+    │   ├── AI_WORKSPACE_AGENT_EXECUTION_ENGINE.md
+    │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
     │   ├── AI_WORKSPACE_ARCHITECTURE.md
+    │   ├── AI_WORKSPACE_DATA_MODEL.md
+    │   ├── AI_WORKSPACE_EVENT_MODEL.md
     │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
     │   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
     │   ├── AI_WORKSPACE_MASTER_BLUEPRINT.md
     │   ├── AI_WORKSPACE_PRODUCT_ARCHITECTURE.md
     │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
+    │   ├── AI_WORKSPACE_QUERY_PATTERNS.md
     │   ├── AI_WORKSPACE_RAG_PIPELINE.md
+    │   ├── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
     │   ├── AI_WORKSPACE_SYSTEM_INDEX.md
+    │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
     │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
     │   ├── ARCHIVE_TODO_HISTORY.md
     │   ├── automation_map.md
@@ -305,4 +313,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-92 directories, 214 files
+92 directories, 222 files
