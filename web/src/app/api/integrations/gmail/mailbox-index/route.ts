@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient, getSupabaseAdmin } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
 import {
   loadGmailMailboxIndexCoverageForTenant,
   loadGmailMailboxIndexState,
@@ -7,7 +7,7 @@ import {
 } from '@/lib/integrations/gmail/gmailMailboxIndexer'
 
 type AuthContext =
-  | { ok: true; tenantId: string }
+  | { ok: true; supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>; tenantId: string }
   | { ok: false; response: NextResponse }
 
 async function resolveAuthContext(): Promise<AuthContext> {
@@ -53,24 +53,23 @@ async function resolveAuthContext(): Promise<AuthContext> {
     }
   }
 
-  return { ok: true, tenantId }
+  return { ok: true, supabase, tenantId }
 }
 
 export async function GET() {
   try {
     const auth = await resolveAuthContext()
     if (!auth.ok) return auth.response
-    const supabase = await getSupabaseAdmin()
 
     const state = await loadGmailMailboxIndexState({
-      supabase,
+      supabase: auth.supabase,
       tenantId: auth.tenantId,
     })
     const coverage = await loadGmailMailboxIndexCoverageForTenant({
-      supabase,
+      supabase: auth.supabase,
       tenantId: auth.tenantId,
     })
-    const { data: gmailConnectionRow, error: gmailConnectionError } = await supabase
+    const { data: gmailConnectionRow, error: gmailConnectionError } = await auth.supabase
       .from('integration_connections')
       .select('tenant_id')
       .eq('tenant_id', auth.tenantId)
@@ -126,7 +125,6 @@ export async function POST(req: Request) {
   try {
     const auth = await resolveAuthContext()
     if (!auth.ok) return auth.response
-    const supabase = await getSupabaseAdmin()
 
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
     const mode = body?.mode === 'full' ? 'full' : 'incremental'
@@ -138,7 +136,7 @@ export async function POST(req: Request) {
 
     if (background) {
       void syncGmailMailboxIndexForTenant({
-        supabase,
+        supabase: auth.supabase,
         tenantId: auth.tenantId,
         mode,
         maxMessages,
@@ -163,7 +161,7 @@ export async function POST(req: Request) {
     }
 
     const result = await syncGmailMailboxIndexForTenant({
-      supabase,
+      supabase: auth.supabase,
       tenantId: auth.tenantId,
       mode,
       maxMessages,

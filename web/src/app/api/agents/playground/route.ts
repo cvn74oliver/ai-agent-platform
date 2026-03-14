@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import { createServerSupabaseClient, getSupabaseAdmin } from '@/lib/supabase'
 import {
   runPlaygroundChatCompletion,
   type PlaygroundChatMessage as ChatMessage,
@@ -37,6 +37,21 @@ import {
   loadRecentReviewResults,
   loadRuntimeSuggestionHistory,
 } from '@/lib/runtime/stateLoaders'
+
+async function resolvePlaygroundSupabaseClient() {
+  const hasAdminConfig = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() && process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  )
+
+  if (hasAdminConfig) {
+    return getSupabaseAdmin()
+  }
+
+  console.warn(
+    '[playground] SUPABASE_SERVICE_ROLE_KEY missing; falling back to request-scoped Supabase client.'
+  )
+  return createServerSupabaseClient()
+}
 
 export async function POST(req: Request) {
   const requestStartedAt = Date.now()
@@ -114,7 +129,7 @@ export async function POST(req: Request) {
     const isReviewDetailMode = requestMode === 'playground_review_detail'
     timing.request_normalize_ms = Date.now() - normalizeStartedAt
 
-    const supabase = await getSupabaseAdmin()
+    const supabase = await resolvePlaygroundSupabaseClient()
 
     const agentConfigStartedAt = Date.now()
     const loadedAgent = await loadPlaygroundAgentConfig({
