@@ -974,6 +974,37 @@ Codex Execution Protocol (CRITICAL)
 - When documentation updates are needed, prefer surgical edits that preserve history and unrelated content.
 - Use the lowest viable reasoning level, but remember EXTRA-HIGH is available when an architectural task genuinely requires it.
 
+- The PM expects every major Codex pass to end with a `PM REVIEW PACKET` (copy/paste handoff format) per `09_CODEX_EXECUTION_PROTOCOL.md`.
+
+PM REVIEW PACKET Protocol (March 2026 Standardization)
+- All major Codex passes must end with a **PM REVIEW PACKET** so Oliver can copy/paste the response directly into the Project Manager chat without sending full files or raw diffs.
+- Before producing the final response, Codex must run:
+
+  npm --prefix web run review-packet
+
+- The helper script `web/scripts/codex-review-packet.mjs` generates a structured draft using git state (`git status` and `git diff --stat`).
+- Codex then fills out the required 10‑section packet format:
+  1) Outcome
+  2) Files changed
+  3) Per‑file change summary
+  4) Public contract changes
+  5) Schema changes
+  6) Risk notes
+  7) Validation
+  8) Docs updated
+  9) UI impact
+  10) Recommended PM next step
+
+Workflow rule:
+Oliver → sends Codex task
+Codex → implements changes
+Codex → runs `review-packet` script
+Codex → returns PM REVIEW PACKET
+Oliver → copy/pastes packet to Project Manager
+PM → reviews and issues next instruction
+
+This protocol exists to prevent context‑window overload and eliminate the need to paste large code files between Codex and the Project Manager.
+
 Lightweight Codex Usage Rule
 - Codex is required for:
   • Multi-file edits
@@ -1872,7 +1903,8 @@ For this project phase, it is valuable for Oliver to actively test the inbox-cle
 This is a valid Project Manager turnover point.
 - Core docs have been kept current.
 - Operations Workspace trust and data-contract direction are now documented.
-- The next PM version can resume from here without needing to reconstruct why the Gmail cleanup product direction shifted away from “open-rate” thinking and toward trustworthy Gmail-native operator intelligence.# Role: Prompt Engineer Agent
+- The next PM version can resume from here without needing to reconstruct why the Gmail cleanup product direction shifted away from “open-rate” thinking and toward trustworthy Gmail-native operator intelligence.
+# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 
 ---

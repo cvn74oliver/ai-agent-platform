@@ -126,6 +126,20 @@ Specialists do **not** coordinate independently.
 
 ---
 
+## 3.5️⃣ Oliver → Codex → PM Loop (PM REVIEW PACKET)
+
+For major implementation passes, use this loop:
+
+1. Oliver sends scoped task to Codex (domain + files + constraints).
+2. Codex implements and validates in the same thread.
+3. Codex ends with a plain-text `PM REVIEW PACKET` handoff block.
+4. Oliver copies that packet directly into the Project Manager thread.
+5. PM uses the packet to review risk/scope and decide next action.
+
+This keeps handoffs compact, avoids diff-heavy context bloat, and standardizes PM review quality.
+
+---
+
 ## 4️⃣ Standard Task Flow
 
 The platform is now organized around an **Operations Workspace model** rather than relying solely on Playground testing.

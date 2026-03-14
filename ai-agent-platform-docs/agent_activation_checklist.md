@@ -78,30 +78,28 @@ Step 1 – Create The Chat
 
 Step 2 – Single Message Activation (Required)
 
-1. Open the new chat you created in Step 1.
-2. Copy the appropriate activation prompt below for that role.
-3. Replace placeholders like [ROLE NAME] and file names.
-4. Attach ALL required documentation directly in this SAME first message.
-5. Paste the completed activation prompt at the top of the message.
-6. After all attachments are added, type at the bottom:
+1. Open the new chat created in Step 1.
+2. Copy the appropriate activation prompt for the role.
+3. Replace placeholders like [ROLE NAME] and version numbers.
+4. Attach ALL required documentation files to the SAME message.
+5. Do NOT paste large context files directly into the message if they are attached as files.
+6. Include a "Turnover Snapshot" section written by the previous agent (required for version upgrades).
+7. Paste the activation prompt text at the top of the message.
+8. Attach the files listed in the activation checklist for that role.
+9. At the bottom of the message add the line:
 
    All files uploaded — proceed.
 
-7. Send the message.
-8. Wait for the agent to confirm it has loaded context and summarized responsibilities.
-Tip: If the interface provides links such as “Open approvals,” open them in a new tab to avoid losing the Playground conversation state.
-9. Copy BOTH the activation message and the full agent response.
-10. Paste them into the corresponding context file under:
+10. Send the message and wait for the agent to confirm context loading.
+11. Copy both the activation prompt and the agent’s response into the agent’s context file under:
 
    ## Session Log – Activation (DATE – v#)
-
-11. Save the file.
 
 ---
 
 ### 🔁 Turnover Snapshot Block (Required for Version Upgrades)
 
-When replacing an existing agent version (v2, v3, etc.), include a **Turnover Snapshot** section inside the SAME first activation message.
+When replacing an existing agent version (v2, v3, etc.), the previous agent MUST provide a Turnover Snapshot in the activation message for the new agent. This functions as a direct leadership handoff so the new version understands exactly where the prior session ended.
 
 This block must:
 • Be concise and mechanical
@@ -136,6 +134,30 @@ Important:
 
 ---
 
+### Project Manager Turnover Protocol
+
+When a Project Manager Agent version is being retired, it must prepare a short handoff briefing for the next version.
+
+This briefing must include:
+
+• Current phase of the project
+• Systems that were recently modified
+• What Codex or other agents completed most recently
+• Known risks or unresolved questions
+• The recommended next decision for Oliver
+
+The goal is to simulate a real leadership turnover between project managers.
+
+The turnover briefing must:
+
+• Be concise
+• Avoid brainstorming or speculation
+• Reflect only verified system state
+
+This briefing becomes the Turnover Snapshot used in the activation message.
+
+---
+
 Important:
 • Activation must be done in ONE message only.
 • Do not split activation across multiple messages.
@@ -167,7 +189,7 @@ You are the [ROLE NAME] AGENT for the AI Agent Platform project.
 This is your [version number] activation. Review the latest context below to re-synchronize with current priorities.
 
 ---BEGIN CONTEXT---
-(Paste the full contents of the corresponding [ROLE]_CONTEXT.md file here)
+The corresponding context file is attached with this activation message. Do not assume additional context beyond the attached documentation.
 ---END CONTEXT---
 
 Your objectives:
@@ -245,7 +267,7 @@ You are the PROJECT MANAGER AGENT for the AI Agent Platform project.
 This is your [version number] activation. Review the latest context and re-synchronize with the current project state before generating any plans.
 
 ---BEGIN CONTEXT---
-(Paste the full contents of 07_PROJECT_MANAGER_CONTEXT.md here)
+The Project Manager context file (07_PROJECT_MANAGER_CONTEXT.md) is attached to this activation message along with all required documentation.
 ---END CONTEXT---
 
 Your objectives:
@@ -374,6 +396,8 @@ You may also add a reminder that Playground conversations are not persistent acr
 Quick Recap
 
 Notice drift or version change → open a new chat inside the AI Agent Platform Project → prepare a single activation message → attach all required files → include the Turnover Snapshot (if upgrading versions) → paste the activation prompt → send → confirm context load with /health_check → update Session Health → update CHANGELOG → run update and sync scripts.
+
+Every agent activation must include a Turnover Snapshot from the previous version so leadership continuity is preserved between sessions.
 
 This ensures continuity, prevents drift, and guarantees clean leadership transitions between agent versions.
 

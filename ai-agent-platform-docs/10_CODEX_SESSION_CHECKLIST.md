@@ -145,6 +145,28 @@ File-specific safety rules:
 
 Session close is not complete until these documentation checks are done.
 
+PM REVIEW PACKET requirement:
+- Before closing any major Codex session, Codex must return a final `PM REVIEW PACKET` block (as defined in `09_CODEX_EXECUTION_PROTOCOL.md`).
+- The packet is mandatory handoff output for Oliver → Project Manager copy/paste.
+
+PM REVIEW PACKET GENERATION (MANDATORY)
+
+Before finalizing any major Codex pass:
+
+Run:
+
+`npm --prefix web run review-packet`
+
+Use the output of this command to populate the final PM REVIEW PACKET section of the Codex response.
+
+Rules:
+- The packet must follow the 10-section PM REVIEW PACKET structure defined in the Codex Execution Protocol.
+- Raw diffs should not be pasted unless explicitly requested.
+- The packet must be understandable in plain text without color formatting.
+
+Purpose:
+This guarantees that Oliver can copy/paste Codex responses directly into the Project Manager chat without sending full files or diffs.
+
 ---
 
 ## 🛑 HARD STOP CONDITIONS
@@ -207,6 +229,7 @@ Before closing a Codex session:
 - Confirm no schema changes occurred (unless explicitly approved and logged)
 - Confirm authoritative documentation synchronization is complete (`ai-agent-platform-docs/` first)
 - Confirm `/web/docs` was not edited as source of truth
+- Confirm final response includes a complete `PM REVIEW PACKET`
 
 Then:
 → Return to Project Manager

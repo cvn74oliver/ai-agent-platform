@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 11, 2026_
+_Last Updated: March 13, 2026_
 
 ---
 
@@ -49,6 +49,125 @@ This separation ensures:
 - Reduced hallucination risk
 - Controlled rate-limit usage
 - Clear feature-domain isolation
+
+### Gmail Operations Runtime Note (March 13, 2026)
+
+Current Gmail Operations hardening status:
+- Inbox Overview is now intentionally operational-first:
+  - refresh health
+  - indexed mailbox status
+  - pending approvals
+  - high-level operator counts
+  - CTA guidance into deeper analysis
+- Mailbox Intelligence is now the analytics-first layer:
+  - it explicitly represents the **Cleanup Candidate Universe**, not the whole mailbox
+  - it explains the cleanup goal in operator language before the user enters Cleanup Groups or Batch Review
+  - it bridges Whole Mailbox -> Cleanup Candidate Universe -> Cleanup Groups -> Batch Review
+- Gmail Operations navigation and staged review language is now intentionally congruent:
+  - Operations Overview
+  - Mailbox Intelligence
+  - Cleanup Groups
+  - Batch Review
+  - Pending Approvals
+  - Executed Actions
+  - History
+- Batch Review now behaves as a clearer guided workspace inside the existing route:
+  - Step 1: Batch Overview
+  - Step 2: Sender Decisions
+  - Step 3: Message Verification
+  - Step 4: Approval / Rule Recommendation
+- The top workflow strip now mirrors the product navigation language so operators do not have to translate between left-rail labels and page-level scope labels.
+- `cleanup_group_intelligence` now uses server-side cache + inflight reuse keyed by tenant, scope, cleanup-group universe, and runtime snapshot version.
+- Inbox Overview now background-prewarms Mailbox Intelligence so the normal Overview -> Intelligence operator path opens on a warm indexed-universe payload when possible.
+- Current cold-path diagnosis for Mailbox Intelligence is explicit:
+  - the first uncached request is still dominated by loading indexed cleanup-universe rows into memory (`indexed_rows_load_ms`)
+  - once that row set is warm, the same intelligence payload returns in sub-second timings
+- Gmail Operations now includes a dedicated Mailbox Intelligence step before Cleanup Groups and Batch Review:
+  - route: `/operations/intelligence`
+  - order: Inbox Overview -> Mailbox Intelligence -> Cleanup Groups -> Batch Review
+  - purpose: give operators a true bird's-eye view of the cleanup candidate universe before entering any bounded review batch
+- Mailbox Intelligence is indexed-only and analysis-only:
+  - no mutation controls
+  - no snippet fetching
+  - no batch-slice bias
+- Mailbox Intelligence analytics are computed from the union of current cleanup groups against indexed inbox rows in the selected analysis window, deduped by message id.
+- Current Mailbox Intelligence visuals include:
+  - top senders across the full cleanup universe
+  - sender volume distribution
+  - email activity timeline
+  - category breakdown
+  - human vs automation ratio
+  - sender count ranking table
+- Live review UI now visibly exposes the active batch more clearly for human review:
+  - bottom Message Review shows hydrated subject + snippet rows for visible review messages
+  - sender/message pagination now use a shared toolbar pattern with explicit visible ranges
+  - analytics charts at the top are now larger and easier to read (top senders, category distribution, recency, unread/protected mix)
+  - signal availability is phrased in operator language rather than internal/debug wording
+- Background cleanup regenerate now distinguishes operator analysis refresh from hard mailbox rebuild:
+  - if current indexed coverage already spans the selected analysis scope, cleanup discovery can reuse the current index instead of re-paying a heavy sync path first
+  - background cleanup refresh now disables fallback full-rescan recovery while recomputing cleanup groups for the operator
+- Cleanup discovery diagnostics now expose:
+  - `index_sync_reused_existing_coverage`
+  - alongside existing `index_sync_ms`, `indexed_rows_load_ms`, and related timing fields
+- Live snippet hydration is now more fault-tolerant:
+  - snippet fetch retries transient failures
+  - token refresh is attempted on `401`
+  - structured logs capture snippet failure categories, failed-id samples, and fallback usage
+- Sender detail loading is now more targeted:
+  - sender-detail requests are distinguished from visible sender-page requests
+  - indexed row scans are limited to recent 180-day evidence with smaller row caps for detail opens
+  - sender-index timing logs now include query mode for easier diagnosis
+- Review evidence now supports visible-row Gmail snippet hydration:
+  - snippets are fetched only for rows currently on screen or inside expanded sender previews
+  - this keeps first paint light while giving operators subject + snippet context where decisions are actually made
+- Sender detail UX is now split into:
+  - immediate card open / sender preview access
+  - deferred indexed sender-history enrichment when the operator asks for it
+- Review analytics dashboard is now chart-based and uses real current-batch data for:
+  - top senders
+  - category distribution
+  - unread/protection mix
+  - recency distribution
+  - sender mix (when inferred sender-type evidence exists)
+  - archive impact summary
+- Review page now explains signal coverage in operator language:
+  - available signals
+  - inferred signals
+  - unavailable signals
+- Sender/message pagination controls are now more congruent, and message-review page sizes now include `10 / 25 / 50 / 100 / 200`.
+- Review workflow now presents `Cleanup Group -> Batch -> Message Page` as the operator mental model instead of raw cluster/review-unit internals.
+- Review detail page is now structured as an Inbox Cleanup Control Center:
+  - Analytics Dashboard
+  - Batch Summary
+  - Filters Panel
+  - Sender Workbench
+  - Message Review
+  - Decision / approval builder
+- Batch summary now explains the relationship between cleanup-group total, active batch size, and current message page in plain language.
+- Filters now sit directly above the sender workbench, and message review uses standard paginated list semantics instead of nested scroll behavior.
+- Operations shell background regenerate copy now explicitly communicates that cleanup analysis is refreshing in the background while current cleanup groups stay visible.
+- Large-cluster review now uses bounded review units with sender pagination/filtering to keep operator actions manageable.
+- Large-cluster review units now include semantic operator buckets (recent/older promotions, social noise, commerce, recurring machine senders, one-off senders, mixed remainder) instead of generic sender dumps only.
+- Sender filter controls now fully support type/protection filtering and report filtered coverage counts.
+- Rule guidance is now inline near sender/decision controls (duplicate recap surface removed).
+- Review-browser loaded-message cache is capped to preserve responsiveness during long multi-page review sessions.
+- Regenerate clusters now runs as a background refresh flow in Operations shell/overview/clusters (current snapshot remains visible until new snapshot is ready).
+- Runtime regenerate now supports snapshot-first background recompute (`force + rehydrate_only` serves current snapshot immediately while recompute runs asynchronously).
+- Regenerate diagnostics now expose snapshot lifecycle fields (`snapshot_version_before/after`, recompute started/completed, total background duration).
+- Review browser client calls now use in-flight request dedupe + short-lived cache keyed by cluster/unit/page/filter/sort/scope.
+- Review evidence (`review_query_cluster`) now also uses in-flight reuse + short TTL cache for identical requests to reduce duplicate transition fetches.
+- Review hydration now suppresses stale old-cluster render when requested cluster context is still loading.
+- Query-cluster browse runtime now includes fast-path indexed retrieval for heavy cluster types and cache/in-flight dedupe to reduce repeated first-load recomputation.
+- Fast-path candidate narrowing now also covers newsletter/noreply/shopping/social cluster families to reduce cold browse latency on those paths.
+- Newsletter cold paths now attempt a promotions-category narrowed fast path before broader fallback matching.
+- Review units now expose explicit large-cluster bounded modes (30d, 90d, older backlog, highest-volume senders, oldest unread, mixed) with clear per-unit totals.
+- Incremental Gmail history-list failures now attempt bounded automatic recovery while preserving cached-index usability.
+- Runtime diagnostics for review actions now include explicit scope/perf fields (`rows_scanned`, `cache_hit`, `fast_path_applied`, `duration_ms`) for PM verification.
+- Review detail now uses explicit exact-count hierarchy (cluster total vs review-unit total vs current page rows), top analytics strip, and normal paginated message list (no nested scroll trap).
+- Review-page inbox-analysis calls now carry explicit request-attribution metadata (`request_source`, `request_component`, `request_reason`, `request_phase`) so slow review requests can be tied back to specific UI surfaces/components.
+- Initial review paint now defers non-critical sender intelligence and rule enrichment until the operator expands sender details or explicitly requests deeper sender analysis.
+- Cleanup discovery logs now expose detailed timing subphases and runtime-state timing includes `cleanup_plan_detail_ms`, making long background regenerate paths diagnosable without Supabase inspection.
+- Background cleanup refresh can skip a fresh mailbox index sync when a recent usable indexed state already exists, so repeated manual regenerate actions do less redundant index work.
 
 ---
 
@@ -188,16 +307,25 @@ Firecrawl / External Crawlers
      - Approvals cards now consistently show request scope and outcome text (`Applies to`, `If approved`, `If approved/executed`, `If rejected`).
      - Operations shell now provides page-contextual assistant suggestions per workspace surface (overview/clusters/review/approvals/history).
      - Operations runtime snapshot caching now includes an in-memory cache layer + longer SWR window to further reduce navigation/remount rehydrate churn.
-   - Operations trust + data-credibility follow-up:
-     - left-rail visual overlap/cramping was corrected with cleaner nav spacing and active-state rendering.
+	   - Operations trust + data-credibility follow-up:
+	     - left-rail visual overlap/cramping was corrected with cleaner nav spacing and active-state rendering.
      - cluster-review and approvals surfaces now explicitly communicate the sequence:
        - create request in review
        - approve/reject in approvals
        - execute approved action
-     - review detail now exposes an explicit signal-honesty block (available vs inferred vs unavailable evidence signals).
-     - interaction filters now disable when unsupported by current sample metadata instead of implying unavailable intelligence.
-     - sender rows now include deeper sender analytics (sample share, estimated relationship, pattern mix, signal availability counts, sender classification, protected hints).
-     - overview/review now include lightweight command-center charts (estimate-aware) for pattern/volume/scope decisions.
+	     - review detail now exposes an explicit signal-honesty block (available vs inferred vs unavailable evidence signals).
+	     - interaction filters now disable when unsupported by current sample metadata instead of implying unavailable intelligence.
+	     - sender rows now include deeper sender analytics (sample share, estimated relationship, pattern mix, signal availability counts, sender classification, protected hints).
+	     - overview/review now include lightweight command-center charts (estimate-aware) for pattern/volume/scope decisions.
+	   - Gmail mailbox indexing hardening (data layer):
+	     - mailbox index state now tracks directional coverage/health:
+	       - `mailbox_estimated_total` (Gmail `resultSizeEstimate` baseline)
+	       - `index_completion_pct` (bounded, directional)
+	       - `last_index_duration_ms`
+	     - indexer runtime now applies retry + exponential backoff with jitter for Gmail `429`/`5xx` responses.
+	     - metadata fetch uses adaptive concurrency (start 20, degrade to 10 under sustained latency/retry pressure).
+	     - sender analytics foundation added via `gmail_sender_stats`, recomputed from indexed `gmail_messages` after each successful sync.
+	     - health endpoint (`GET /api/integrations/gmail/mailbox-index`) now returns additive indexing status/coverage fields for runtime monitoring.
 
    - Operations data-depth hardening:
      - Gmail review/discovery runtime payloads now consistently carry richer per-message metadata when available:
@@ -222,6 +350,92 @@ Firecrawl / External Crawlers
        - exact message-id scope labels
        - evidence basis + safety signals + protected exclusions
      - Overview now includes metadata scan-basis disclosure and operator question cues (start/largest/safest/mixed-risky).
+     - Active-tenant index root-cause diagnostics now documented in workflow:
+       - active agent resolves to tenant `085c8ef7-2fd7-4842-8499-cd605e894a77`
+       - `gmail_messages` existed but had 0 rows for that tenant
+       - `gmail_mailbox_index_state` was missing in schema cache in active environment
+       - Gmail connection existed but refresh failed when `GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET` were absent
+     - Operations runtime now performs a cooldown-guarded mailbox-index bootstrap when health reports zero indexed rows.
+     - Review detail now consumes indexed sender evidence through `sender_index_signals` (indexed totals, 30/60-day counts, unread/important/starred/inbox mix, category/pattern mix, machine/human probabilities).
+     - Cluster regeneration hardening from indexed data:
+       - zero-cluster cached snapshots are no longer reused during `rehydrate_only` when indexed data has advanced or cached cluster count is zero.
+       - cleanup snapshot schema advanced to `gmail.cleanup_profile_cache.v3` to invalidate stale empty-cluster cache payloads.
+       - strict filter misses now emit explicit rejection diagnostics (source counts, rejection buckets, strict/fallback match counts).
+       - fallback generation now guarantees a reviewable cluster when indexed inbox rows exist, preventing blank operational workflow surfaces.
+     - Operations approvals source-of-truth alignment:
+       - runtime payload now includes `runtime_approval_queue_items` derived from scoped approval lifecycle history.
+       - Operations Approvals renders actionable cards from this scoped queue-item contract so summary counts and actionable rows reconcile from one source.
+     - Review detail now includes advisory future-rule recommendations derived from indexed sender evidence.
+     - Pattern Breakdown now compacts when only one low-information pattern exists to preserve decision-space for sender/message evidence.
+     - Operator-control pass (March 12):
+       - analysis window is now explicit and selectable in Operations (`7d/30d/60d/90d/180d/365d/all_indexed`)
+       - regenerate-clusters action is visible in-Workspace (rail + Overview + Clusters)
+       - selected scope now flows through runtime snapshot caching, cleanup discovery, and review evidence fetches
+       - review page now states:
+         - matching messages in scope
+         - representative examples shown
+         - discovery rows / inbox rows considered
+         - analyzed date span + active analysis window
+       - cluster/overview empty/limited states now provide clearer operator-facing reason text
+     - Scope-authoritative recompute hardening (March 12):
+       - fixed scope-refresh race where a just-selected scope could still trigger recompute using prior scope context.
+       - scope changes now trigger recompute only after provider/query scope is updated.
+       - runtime logs now emit `[playground][cleanup-scope]` with selected/effective/snapshot/review scope fields for PM verification.
+       - active verification now shows aligned `365d` selection and `discovery_window_days: 365` in latest cleanup snapshot.
+     - Indexed evidence browser + count-trust reconciliation (March 12):
+       - query-cluster review now uses server-backed paginated browsing as primary evidence surface (filter/sort/page-size/prev-next/range).
+       - review now differentiates total matching messages in selected scope vs loaded-across-pages evidence in current operator session.
+       - overview/clusters/review now share canonical indexed coverage fields (`indexed_total_rows`, `indexed_inbox_rows`, `indexed_date_span_start/end`, `effective_discovery_window_days`, `discovery_rows_used`).
+       - UI now explicitly warns when selected scope exceeds available indexed span so unchanged 180d/365d results are explained.
+     - Bounded review-unit workflow hardening (March 13):
+       - query-cluster review now splits giant clusters into bounded review units (sender/domain/pattern/recency/mixed).
+       - each unit is capped at 5,000 recent rows to keep operator review manageable and predictable.
+       - backend cache now stores precomputed unit row manifests, so page/filter/sort requests avoid repeated full-cluster re-filtering.
+       - review detail now surfaces unit rationale + cluster share + protections + likely-safe-action before message paging.
+     - Operations review usability hardening (March 13):
+       - regeneration feedback now reports scope deltas (added/removed clusters, count shifts, indexed-span changes), so scope changes are visibly explainable.
+       - sender breakdown is now compact-first and paginated; verbose sender analytics require explicit expansion.
+       - review-unit list is now visibly browsable/paged (not only dropdown-based), with direct “Open unit” actions.
+       - local read-only review lists now use explicit page navigation controls instead of long incremental load-more scrolling.
+       - review flow copy is now explicitly stepwise (scope -> cluster -> unit -> paged inspection -> decision -> approval request).
+     - Review UX hardening follow-up (March 12):
+       - review evidence now emphasizes loaded-list count vs matching-in-scope count (less random-sample feel).
+       - pattern filters collapse by default for multi-pattern clusters to reduce wasted page area.
+       - sender-level rule guidance is inline at sender controls; cluster-level rule guidance is shown near decision/action creation.
+       - archive approval context now carries explicit scope/depth metadata into approvals.
+     - Incremental degraded-sync recovery follow-up (March 12):
+       - when index health is `degraded_usable`, Operations runtime now runs cooldown-guarded background recovery retries.
+       - UI copy now clarifies cached indexed data remains usable while recovery attempts run.
+       - incremental history-list failures can now trigger cooldown-guarded full-rescan recovery fallback where safe.
+   - Known unrelated typecheck blockers (outside Gmail scope) remain:
+     - `web/src/app/agents/[id]/fine-tune/page.tsx` invalid module / unresolved symbols
+     - `web/src/app/agents/[id]/summary/page.tsx` click handler type mismatch
+     - `web/src/app/api/rag/run/route.ts` `resp` unknown-typing errors
+     - Indexed cleanup discovery now includes fallback cluster synthesis so operations does not stall in analytics-only/no-cluster mode when strict query matching is sparse.
+     - Runtime now avoids reusing fresh-but-empty cleanup snapshots when indexed rows exist:
+       - snapshot cache version is advanced (`gmail.cleanup_profile_cache.v2`) and zero-cluster cached snapshots trigger a cooldown-safe recompute path.
+     - Cluster discovery payload now carries indexed evidence windows and scope signals:
+       - exact counts for 30d / 90d / 180d / total indexed
+       - unread / important / starred / inbox counts
+       - category mix and first/last seen timestamps
+     - Sender index signals now include deeper windows (`90d`, `180d`) and `first_seen`.
+     - Mailbox index health semantics now distinguish degraded-but-usable sync state:
+       - `sync_health`, `usable_with_cached_index`, and `last_sync_error` are surfaced for operator trust.
+     - Incremental index sync now records degraded status for partial metadata misses instead of hard-failing entire runs.
+     - Discovery depth expansion hardening:
+       - fixed shallow index-read behavior caused by single-query retrieval limits on indexed mailbox rows.
+       - indexed message loading now paginates deterministically up to configured cap (50,000), enabling true historical discovery depth.
+       - sender stats recomputation now uses paged indexed corpus reads (not shallow subset reads).
+       - sender review signal loading now paginates with bounded cap for selected senders, improving decision-grade sender evidence.
+       - discovery corpus selection now favors broader historical windows (`30/90/180/365`) when indexed depth supports it.
+       - recent-mail age signals remain visible for diagnostics/safety, but no longer suppress reviewability of discovery corpus.
+       - operations runtime context now triggers cooldown-guarded background full backfill when indexed depth is present but shallow.
+       - Operations Overview + Clusters now expose explicit discovery-depth telemetry:
+         - discovery rows used
+         - inbox rows considered
+         - discovery window days
+         - indexed oldest/newest date range
+         - shallow/moderate/deep evidence label
    - Review trust hardening is active in runtime UX:
      - current-step consequence language explicitly distinguishes approval-request creation vs later execution.
      - sender preference controls now use operator-facing language:
@@ -776,3 +990,240 @@ At handoff to the next Project Manager version, the system should be understood 
 - PM turnover discipline is now part of the operating model: versioned PM threads, explicit execution-path selection, and documentation-first handoff updates.
 
 This document should now be read as describing both the original AI dev-team architecture and the emerging runtime operations architecture that will power real agent actions across the platform.
+
+---
+
+## Gmail Operations Review Architecture - March 13, 2026
+
+The Gmail Operations review surface now follows a simplified operator workflow while preserving the existing bounded backend model:
+
+- Backend model remains:
+  - cleanup group
+  - bounded batch
+  - paginated message page
+- UI model now presents this as a 3-step operator workflow:
+  1. Batch Overview
+  2. Sender Decisions
+  3. Message Verification + Approval
+
+This is intentionally a presentation/interaction-layer simplification:
+
+- No schema change
+- No broad runtime contract rewrite
+- No mutation semantic change
+
+Visible review architecture now emphasizes:
+
+- top-of-page decision-support charts for the active batch
+- clear batch/page count hierarchy
+- sender controls grouped with sender filtering
+- message verification grouped directly with approval building
+- plain-English signal honesty about what Gmail does and does not provide
+
+Evidence model:
+
+- Indexed mailbox metadata remains the primary planning/discovery basis.
+- Visible review messages use hydrated snippets fetched for the current visible rows.
+- Sender preview and bottom Message Review now share the same snippet-oriented evidence approach.
+
+---
+
+## Gmail Operations Guided Review Architecture - March 13, 2026
+
+The Gmail Operations review surface now uses a true 3-step interaction model on top of the same bounded backend primitives.
+
+Underlying backend model remains unchanged:
+
+- Cleanup Group
+- Batch
+- Page
+
+The operator-facing workflow now maps that model into:
+
+1. Step 1 - Batch Overview
+2. Step 2 - Sender Decisions
+3. Step 3 - Message Verification + Approval
+
+Architecture intent:
+
+- preserve bounded backend performance safeguards
+- remove internal/runtime terminology from the primary operator flow
+- make sender decisions happen before message verification
+- make approval happen only after visible verification
+- make rule recommendation appear only after the operator has made real decisions
+
+Step ownership:
+
+- Step 1 owns:
+  - cleanup-group context
+  - batch explanation
+  - readable charts
+  - opportunity/risk framing
+- Step 2 owns:
+  - sender filtering
+  - sender sorting
+  - sender inclusion/exclusion
+  - future sender policy
+- Step 3 owns:
+  - message verification for the current sender/message scope
+  - readable full message preview
+  - approval request building
+  - future rule recommendation based on actual choices
+
+Gmail signal exposure contract in the UI:
+
+- Actual Gmail/native metadata exposed:
+  - sender
+  - subject
+  - snippet
+  - date
+  - unread
+  - starred
+  - important
+  - category/label hints when available
+- Derived/inferred guidance exposed:
+  - machine-like vs human-like cues
+  - sender risk framing
+  - archive suitability framing
+- Explicitly unavailable:
+  - open history
+  - click history
+  - precise engagement timeline
+
+---
+
+## Gmail Review Metric Architecture - March 13, 2026
+
+The Gmail Operations review UI now uses an explicit metric hierarchy to avoid sender-ranking drift across sections.
+
+Authoritative sender-ranking metric:
+
+- `Batch message volume`
+
+This metric now drives:
+
+- Step 1 top sender chart
+- Step 2 default sender ordering
+- sender card primary volume label
+
+Secondary sender metrics remain available, but only when explicitly labeled:
+
+- `Highest unread in batch`
+- `Highest historical indexed volume`
+- `Most recent sender activity`
+- `Most protected / risky first`
+
+Sender preview architecture:
+
+- Query-cluster browser responses now include a bounded batch-wide sender breakdown.
+- Each sender breakdown entry includes:
+  - exact current-batch volume
+  - batch unread / starred / important / inbox counts
+  - batch first/last seen
+  - dominant pattern summary
+  - bounded preview messages
+- The review page uses this sender breakdown instead of reconstructing sender order from partially loaded visible rows.
+
+Result:
+
+- Step 1 and Step 2 now reconcile to the same current-batch sender ranking.
+- Expanded sender preview can show multiple examples from the current batch without requiring a separate deep review fetch for every sender.
+
+---
+
+## Gmail Operations Scope Hierarchy - March 13, 2026
+
+The Gmail Operations workflow now has an explicit information architecture above the existing 3-step review flow.
+
+Navigation order:
+
+- Inbox Overview
+- Mailbox Intelligence
+- Cleanup Groups
+- Batch Review
+
+Scope hierarchy:
+
+- Whole Mailbox
+- Cleanup Candidate Universe
+- Cleanup Group
+- Batch
+- Sender
+- Message
+
+Implementation notes:
+
+- Mailbox Intelligence now explicitly represents the Cleanup Candidate Universe derived from indexed cleanup-candidate rows, not the whole mailbox.
+- A shared scope strip component is reused across Intelligence, Cleanup Groups, and Review so the operator can see where current counts sit in the hierarchy.
+- Intelligence drill-downs can now filter the analytics view by sender, distribution bucket, category, or activity window without leaving the page.
+- Review Step 2 now bridges sender counts across:
+  - current batch
+  - cleanup group
+  - cleanup candidate universe
+- Sender preview rows in Step 2 now expose the same message-preview affordance used in Step 3, so sender inspection is no longer a dead-end.
+
+Result:
+
+- The operator can tell whether they are looking at the whole mailbox or only cleanup candidates.
+- The relationship between `45,781 -> 43,000 -> 1,000 -> sender/message` is now explained in the UI rather than left implicit.
+- The existing 3-step review flow remains intact, but it now sits cleanly under the larger mailbox-to-message hierarchy.
+
+---
+
+## Gmail Operations Architecture Correction - March 13, 2026
+
+Current intended product flow:
+
+1. Operations Overview
+2. Mailbox Intelligence
+3. Cleanup Groups
+4. Batch Review
+5. Pending Approvals / Executed Actions / History
+
+Current role of each surface:
+
+- `Operations Overview`
+  - operational shell
+  - health/status/next step only
+  - intentionally no longer the main analytics surface
+- `Mailbox Intelligence`
+  - bird’s-eye analytics layer
+  - primary entry into the Cleanup Candidate Universe
+  - drill-down source for sender and category analysis
+- `Cleanup Groups`
+  - group-selection layer between analysis and review
+- `Batch Review`
+  - guided review workspace
+  - contains local stages without replacing the broader flow
+
+Current navigation architecture:
+
+- Global navigation:
+  - left rail
+  - compact workflow path on page
+- Local navigation inside Batch Review:
+  - stage nav for:
+    - Batch Overview
+    - Sender Decisions
+    - Message Verification
+    - Approval / Rule Recommendation
+
+Rationale:
+
+- The operator should not see two competing analytics surfaces.
+- The operator should understand the journey as:
+  - understand the cleanup universe
+  - choose a cleanup group
+  - review a safer batch
+  - verify exact messages
+  - send the decision into approvals
+
+Current intelligence performance model:
+
+- `cleanup_group_intelligence` remains expensive for a true first cold build because indexed candidate rows must be loaded and aggregated.
+- User-visible route flow now reuses warmed intelligence payloads via a stable cache version derived from:
+  - cleanup plan generation timestamp
+  - mailbox profile freshness generation timestamp
+- Result:
+  - normal Overview -> Intelligence -> Groups -> Review flow avoids repeatedly paying the original `~42s` cold path
+  - remaining optimization work is now concentrated on the true first uncached build rather than repeat navigations

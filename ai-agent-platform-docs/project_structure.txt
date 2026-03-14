@@ -12,11 +12,28 @@
 │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
 │   ├── 10_CODEX_SESSION_CHECKLIST.md
 │   ├── agent_activation_checklist.md
+│   ├── AGENT_MEMORY_AND_DECISION_ENGINE.md
+│   ├── AI_AGENT_RUNTIME.md
+│   ├── AI_WORKSPACE_AGENT_BEHAVIOR.md
+│   ├── AI_WORKSPACE_ARCHITECTURE.md
+│   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
+│   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
+│   ├── AI_WORKSPACE_MASTER_BLUEPRINT.md
+│   ├── AI_WORKSPACE_PRODUCT_ARCHITECTURE.md
+│   ├── AI_WORKSPACE_PRODUCT_FLOW.md
+│   ├── AI_WORKSPACE_RAG_PIPELINE.md
+│   ├── AI_WORKSPACE_SYSTEM_INDEX.md
+│   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
 │   ├── ARCHIVE_TODO_HISTORY.md
 │   ├── automation_map.md
 │   ├── CHANGELOG.md
 │   ├── CURRENT_STATE.md
 │   ├── daily_checklist.md
+│   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
+│   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
+│   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
+│   ├── GMAIL_WORKSPACE_SPEC.md
+│   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
 │   ├── monthly_checklist.md
 │   ├── operational_workflow.md
 │   ├── phase1_clarify_spec.md
@@ -84,6 +101,7 @@
     │   └── window.svg
     ├── README.md
     ├── scripts
+    │   ├── codex-review-packet.mjs
     │   ├── golden-path.mjs
     │   └── playground-route-matrix.mjs
     ├── src
@@ -193,6 +211,7 @@
     │   │   ├── runtime
     │   │   │   ├── ApprovalDecisionCard.tsx
     │   │   │   ├── OperationsRuntimeContext.tsx
+    │   │   │   ├── OperationsScopeStrip.tsx
     │   │   │   └── OperationsWorkspaceShell.tsx
     │   │   ├── ScenarioRecorder.tsx
     │   │   └── VoiceRecorder.tsx
@@ -261,4 +280,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-92 directories, 170 files
+92 directories, 189 files

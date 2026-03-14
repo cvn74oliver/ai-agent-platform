@@ -278,6 +278,70 @@ Avoid long manual back-and-forth debug cycles unless something is ambiguous.
 
 ---
 
+## 13. Codex → Project Manager Handoff Standard (PM REVIEW PACKET)
+
+For every major Codex implementation pass, the final Codex response must end with a plain-text section titled exactly:
+
+`PM REVIEW PACKET`
+
+The packet must be concise, architecturally clear, and copy/paste-ready for Oliver to paste directly into the Project Manager thread.
+
+Required structure:
+
+1. Outcome
+- short paragraph summarizing what was completed
+
+2. Files changed
+- exact list of files
+
+3. Per-file change summary
+- for each file include:
+  - what changed
+  - why it changed
+  - classify as one or more of:
+    - schema
+    - api contract
+    - runtime logic
+    - analytics/data
+    - docs only
+    - no user-visible behavior
+    - user-visible behavior
+
+4. Public contract changes
+- list API request/response changes
+- if none, explicitly state `None`
+
+5. Schema changes
+- list tables/columns/indexes/RLS changed
+- if none, explicitly state `None`
+
+6. Risk notes
+- remaining risks, edge cases, or deferred items
+- if none, explicitly state `None`
+
+7. Validation
+- lint result
+- typecheck result
+- any manual verification performed
+
+8. Docs updated
+- exact files modified in `ai-agent-platform-docs`
+
+9. UI impact
+- `None`
+- `Indirect only`
+- `User-visible` (specify where)
+
+10. Recommended PM next step
+- 1–3 bullet suggestions
+
+Rules:
+- Do not paste raw diffs unless explicitly requested.
+- Do not rely on red/green formatting.
+- Packet must be fully understandable as plain text.
+
+---
+
 ## 13. DOCUMENTATION SYNCHRONIZATION + SESSION CLOSING PROTOCOL
 
 After every **major milestone**, Codex must update authoritative project documentation **before thread close**.
