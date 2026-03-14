@@ -29,11 +29,17 @@
 │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
 │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
 │   ├── 03_gmail_workspace
+│   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
+│   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md
 │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── GMAIL_WORKSPACE_SPEC.md
-│   │   └── GMAIL_WORKSPACE_UI_STRUCTURE.md
+│   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
+│   │   └── GMAIL_WORKSPACE_UX_SPEC.md
 │   ├── 04_product_design
 │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── operational_workflow.md
@@ -48,19 +54,22 @@
 │   │   ├── CHANGELOG.md
 │   │   ├── CURRENT_STATE.md
 │   │   └── TODO.md
-│   └── 07_reference
-│       ├── AI_WORKSPACE_ACTION_MODEL.md
-│       ├── AI_WORKSPACE_DATA_MODEL.md
-│       ├── AI_WORKSPACE_EVENT_MODEL.md
-│       ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
-│       ├── AI_WORKSPACE_QUERY_PATTERNS.md
-│       ├── AI_WORKSPACE_RAG_PIPELINE.md
-│       ├── AI_WORKSPACE_TABLE_SCHEMAS.md
-│       ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
-│       ├── automation_map.md
-│       ├── phase1_clarify_spec.md
-│       ├── project_structure.txt
-│       └── schema_comparison_checklist.md
+│   ├── 07_reference
+│   │   ├── AI_WORKSPACE_ACTION_MODEL.md
+│   │   ├── AI_WORKSPACE_DATA_MODEL.md
+│   │   ├── AI_WORKSPACE_EVENT_MODEL.md
+│   │   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
+│   │   ├── AI_WORKSPACE_QUERY_PATTERNS.md
+│   │   ├── AI_WORKSPACE_RAG_PIPELINE.md
+│   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
+│   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
+│   │   ├── automation_map.md
+│   │   ├── phase1_clarify_spec.md
+│   │   ├── project_structure.txt
+│   │   └── schema_comparison_checklist.md
+│   └── 08_codex_instructions
+│       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
+│       └── CODEX_PHASE_EXECUTION_PLAN.md
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
 ├── package.json
@@ -280,6 +289,7 @@
     │   │   │   │   ├── confidence
     │   │   │   │   ├── eligibility
     │   │   │   │   ├── execute
+    │   │   │   │   ├── gmail-memory
     │   │   │   │   ├── mode
     │   │   │   │   └── plan
     │   │   │   └── transcribe-audio
@@ -312,6 +322,7 @@
     │   │   ├── ImproveQualityModal.tsx
     │   │   ├── runtime
     │   │   │   ├── ApprovalDecisionCard.tsx
+    │   │   │   ├── GmailCleanupComponents.tsx
     │   │   │   ├── OperationsRuntimeContext.tsx
     │   │   │   ├── OperationsScopeStrip.tsx
     │   │   │   └── OperationsWorkspaceShell.tsx
@@ -321,10 +332,13 @@
     │   │   ├── fine_tune_topics.ts
     │   │   ├── integrations
     │   │   │   └── gmail
+    │   │   │       ├── gmailCleanupWorkspace.ts
     │   │   │       ├── gmailMailboxIndexer.ts
     │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
     │   │   │   ├── approvalSummary.ts
+    │   │   │   ├── gmailCleanupMemory.ts
+    │   │   │   ├── gmailCleanupWorkspace.ts
     │   │   │   ├── gmailRuntimeAssembler.ts
     │   │   │   ├── operationsAnalytics.ts
     │   │   │   ├── operationsWorkspace.ts
@@ -382,4 +396,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-108 directories, 275 files
+110 directories, 287 files
