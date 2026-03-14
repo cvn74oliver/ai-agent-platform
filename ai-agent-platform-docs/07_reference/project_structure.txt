@@ -18,7 +18,8 @@
 │   │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
 │   │   ├── AI_WORKSPACE_MASTER_BLUEPRINT.md
 │   │   ├── AI_WORKSPACE_PRODUCT_ARCHITECTURE.md
-│   │   └── AI_WORKSPACE_SYSTEM_INDEX.md
+│   │   ├── AI_WORKSPACE_SYSTEM_INDEX.md
+│   │   └── system_overview.md
 │   ├── 02_agent_runtime
 │   │   ├── AGENT_MEMORY_AND_DECISION_ENGINE.md
 │   │   ├── AI_AGENT_RUNTIME.md
@@ -47,8 +48,10 @@
 │   │   ├── CURRENT_STATE.md
 │   │   └── TODO.md
 │   ├── 07_reference
+│   │   ├── AI_WORKSPACE_ACTION_MODEL.md
 │   │   ├── AI_WORKSPACE_DATA_MODEL.md
 │   │   ├── AI_WORKSPACE_EVENT_MODEL.md
+│   │   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
 │   │   ├── AI_WORKSPACE_QUERY_PATTERNS.md
 │   │   ├── AI_WORKSPACE_RAG_PIPELINE.md
 │   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
@@ -57,9 +60,7 @@
 │   │   ├── phase1_clarify_spec.md
 │   │   ├── project_structure.txt
 │   │   └── schema_comparison_checklist.md
-│   ├── AI_WORKSPACE_ACTION_MODEL.md
-│   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
-│   └── system_overview.md
+│   └── project_structure.txt
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
 ├── package.json
@@ -378,4 +379,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-108 directories, 271 files
+108 directories, 272 files
