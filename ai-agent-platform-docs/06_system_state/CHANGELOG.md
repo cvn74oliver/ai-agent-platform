@@ -10,6 +10,98 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 15, 2026 - Gmail Phase 1 UX Validation Fix Pass (Review Reliability / Draft Restore / Sender Analytics Relocation)
+
+Root-cause addressed:
+- Sender Decisions could still land on a blank route when `/operations/review?stage=senders` opened without a valid `cluster_id`.
+- Phase 1 draft persistence existed on paper, but a read/write hydration race could overwrite saved sender decisions with an empty draft on return.
+- Sender search still dropped focus because the input remounted as the debounced query state updated.
+- Sender workspace cold loads were still paying an unnecessary indexed `gmail_messages` scan on the `sender_page` path.
+- Runtime navigation could still trigger cleanup-discovery refresh purely because the cached snapshot aged out or a sync timestamp advanced, even when the underlying indexed snapshot had not materially changed.
+- Mailbox Intelligence was still carrying sender-specific analytics and too much cleanup-group detail, which duplicated work already happening in Sender Decisions and Cleanup Groups.
+- Confirmation was clearer than before, but it still lacked an operator-facing way to change or remove stored decisions directly from the review surface.
+
+What changed:
+- Sender Decisions route reliability:
+  - direct visits to `/operations/review?stage=senders` now auto-select the recommended cleanup group when `cluster_id` is missing or stale
+  - recommendation prefers the most recently active draft-backed cleanup group for the current snapshot, otherwise falls back to the first cluster
+  - the page now renders a loading handoff instead of the earlier “no cleanup group selected” empty state
+- Phase 1 draft persistence restore bug fixed:
+  - draft writes are now gated until the selected cleanup-group draft has been hydrated from storage
+  - this prevents an empty initial draft from overwriting the stored sender decisions on mount
+  - sender choices now restore more reliably across page navigation, operations-route switching, reloads, and pagination changes
+- Sender Decisions interaction polish:
+  - sender search input is now locally controlled, so focus no longer drops on each debounced query update
+  - debounced search behavior is preserved
+  - same-cluster filter/search/page changes still keep stale-ready sender data visible while the next result slice loads
+- Sender workspace performance improved again:
+  - `sender_page` sender-signal loading now skips the expensive indexed `gmail_messages` scan and uses `gmail_sender_stats` as the fast path
+  - sender search now matches sender/category/pattern/verification text so analytics-driven filters can reuse the same cached sender base instead of widening query scope
+  - sender analytics (category distribution, sender activity timeline, cluster contribution) are now computed from cached sender workspace state and returned with `sender_workspace`
+- Discovery rebuild protection tightened:
+  - runtime warm-cache checks now refresh only when the indexed snapshot actually differs from the cached runtime snapshot, not merely because a sync timestamp changed
+  - stale cleanup-discovery snapshots are now reused during normal rehydrate/navigation flows instead of triggering a rebuild solely due to TTL expiry
+  - explicit refresh and actual index advancement remain valid rebuild triggers
+- Phase 1 analytics hierarchy corrected:
+  - Mailbox Intelligence is now high-level only
+  - sender-specific analytics moved into Sender Decisions where the operator can act on them directly
+  - Mailbox Intelligence now shows only a Cleanup Groups preview instead of duplicating the full cluster-selection surface
+- Confirmation gained Phase 1 editing controls:
+  - operators can now change decision type
+  - remove a stored decision
+  - jump back to Sender Decisions focused on that sender
+  - archive remains the only live executor; all other policies remain stored-later intent only
+
+Validation:
+- `npm run lint` still fails on large unrelated legacy repo debt outside the Gmail Phase 1 files.
+- Targeted ESLint passed for the touched Gmail/runtime files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not modified or relied upon in this pass because the existing Next 16 / Turbopack production-build hang remains a known separate issue.
+
+### March 15, 2026 - Gmail Phase 1 Follow-up Pass (Warm Cache Reuse / Sender Decisions Responsiveness / Draft Persistence / Confirmation Clarity)
+
+Root-cause addressed:
+- Normal navigation could still miss the latest warm cleanup snapshot and repay heavy `mailbox_intelligence` analysis work.
+- `sender_workspace` was still expensive on repeated filter/search/page interactions because sender-page derivation and sender-signal loading were being rebuilt too often.
+- Sender Decisions implied "continue later" behavior, but draft persistence was still too fragile across some return paths.
+- Confirmation wording still used internal-feeling phrasing such as "intent" without clearly separating archive-now from stored-later Phase 1 behavior.
+
+What changed:
+- Tightened Phase 1 cache invalidation to the cleanup snapshot itself:
+  - Intelligence / Clusters / Review now key their Gmail cleanup cache version off `runtime_cleanup_plan.generated_at`
+  - normal navigation no longer falls back to broader mailbox-profile freshness for these Phase 1 routes
+- Added stronger client-side cached reuse for Gmail cleanup API responses:
+  - client cache TTL extended to 10 minutes
+  - cached mailbox intelligence and sender-workspace payloads can be read synchronously before effects run
+  - cached inbox-analysis payloads are also mirrored into `sessionStorage` for warmer same-session returns
+- Added a dedicated cached mailbox-context layer server-side in Gmail cleanup runtime:
+  - indexed mailbox coverage + scoped indexed rows are now cached independently of cleanup-cluster resolution
+  - derived workspace cache keys are now order-stable across cluster arrays
+- Added a dedicated cached sender-workspace base-state layer server-side:
+  - selected-cluster sender derivation and sender-index signal loading now run once per cleanup snapshot + cluster
+  - search / filter / sort / pagination now operate on cached derived sender state instead of recomputing the full sender base each time
+- Sender Decisions interaction performance improved:
+  - sender search is now debounced
+  - sender-workspace fetches now support abort / last-request-wins behavior
+  - same-cluster search/filter/page changes keep the current sender list visible while the next slice loads instead of blanking the whole workspace
+- Phase 1 draft persistence hardened:
+  - workflow drafts now store snapshot version metadata
+  - session-scoped draft keys are still used
+  - an additional cluster-level fallback key now restores drafts when the operator returns through a slightly different session context
+- Confirmation language was clarified without widening scope:
+  - archive is now explicitly labeled as executing only after approval
+  - keep / quarantine / unsubscribe / custom rule are phrased as stored-later Phase 1 decisions
+  - "no decision yet" / untouched behavior is clearer
+
+Validation:
+- Targeted ESLint passed for the touched Gmail Phase 1 files.
+- `npx tsc --noEmit` passed.
+- `npm run build` still reproducibly hangs in the Next 16 / Turbopack compile phase:
+  - process stays alive
+  - holds `.next/lock`
+  - sleeps at `0.0%` CPU
+  - had to be terminated again after diagnostics
+
 ### March 15, 2026 - Gmail Sender-First Foundation Stabilization (Phase 1)
 
 Root-cause addressed:

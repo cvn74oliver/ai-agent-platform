@@ -21,8 +21,26 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
    - [x] Reuse cached intelligence between Mailbox Intelligence and Cleanup Groups
    - [x] Add server-backed sender search/filter/sort/direction controls
    - [x] Move later-phase review stages to route-safe placeholders
+   - [x] Tighten Phase 1 route cache invalidation to cleanup-snapshot changes only
+   - [x] Add synchronous warm-cache reuse for Mailbox Intelligence / Cleanup Groups on normal navigation
+   - [x] Add cached sender-workspace base-state reuse so sender search/filter/page interactions stop rebuilding the full sender derivation path
+   - [x] Add debounced sender search plus last-request-wins fetch behavior for Sender Decisions
+   - [x] Keep same-cluster sender data visible while new search/filter/page slices load
+   - [x] Harden Phase 1 draft persistence so sender decisions survive leaving and returning to the same cleanup group
+   - [x] Clarify Confirmation wording around archive-now vs stored-later Phase 1 decisions
+   - [x] Auto-select the recommended cleanup group when Sender Decisions is opened without a valid cluster id
+   - [x] Fix the draft hydration/write race so stored sender decisions actually restore on return
+   - [x] Keep sender-search input focus stable while preserving debounce
+   - [x] Move sender-specific analytics into Sender Decisions and keep Mailbox Intelligence high-level only
+   - [x] Reduce sender-page signal loading cost by skipping the broad indexed message scan on the fast review path
+   - [x] Stop navigation-only cleanup-discovery rebuilds caused by stale TTL or sync-timestamp-only changes
+   - [x] Add Phase 1-safe decision editing controls inside Confirmation
    - [ ] Phase 1 validation follow-up:
-     - rerun `npm run build` to completion and capture a definitive production-build result for this pass
+     - perform browser verification for direct `/operations/review?stage=senders` entry with no `cluster_id`
+     - verify Phase 1 draft restore across navigation, reload, and pagination changes
+     - verify sender analytics clicks drive the sender list without focus loss or full blackout reloads
+     - verify Confirmation edit actions correctly round-trip back into Sender Decisions
+     - resolve the current `npm run build` Next 16 / Turbopack compile hang and capture a definitive production-build result
      - perform browser verification for Mailbox Intelligence, Cleanup Groups, Sender Decisions, Confirmation, and direct placeholder routes
    - [ ] Phase 2 planning follow-up:
      - design the dedicated Exceptions / Verification workspace once inline Phase 1 verification behavior is validated
@@ -45,7 +63,7 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
    - [ ] Execution follow-up:
      - decide when to ship real Gmail executors for unsubscribe/quarantine/custom-rule actions
    - [ ] Intelligence follow-up:
-     - improve whole-mailbox analytics cold path by avoiding repeated large indexed-row loads on first uncached request
+     - improve the remaining first-uncached mailbox-intelligence cold path further if indexed-row load still dominates after the new mailbox-context cache
      - consider persisted/materialized mailbox-intelligence aggregates
    - [ ] UI verification follow-up:
      - capture fresh localhost screenshots for Intro & Health, Mailbox Intelligence, Cleanup Groups, each Review stage, and Monitoring
