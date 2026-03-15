@@ -31,9 +31,12 @@
 │   ├── 03_gmail_workspace
 │   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
 │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_CODEX_SAFEGUARDS.md
 │   │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md
 │   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_PHASE_PLAN.md
 │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md
 │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
@@ -68,8 +71,15 @@
 │   │   ├── project_structure.txt
 │   │   └── schema_comparison_checklist.md
 │   └── 08_codex_instructions
+│       ├── CODEX_DEBUG_PLAYBOOK.md
+│       ├── CODEX_EXECUTION_CHECKLIST.md
+│       ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
 │       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
-│       └── CODEX_PHASE_EXECUTION_PLAN.md
+│       ├── CODEX_PHASE_EXECUTION_PLAN.md
+│       ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
+│       ├── CODEX_PM_REVIEW_PACKET_SPEC.md
+│       ├── CODEX_RELIABILITY_SYSTEM.md
+│       └── CODEX_SESSION_START_PROMPT.md
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
 ├── package.json
@@ -117,11 +127,17 @@
     │   ├── 02_FRONTEND_CONTEXT.md
     │   ├── 03_BACKEND_CONTEXT.md
     │   ├── 03_gmail_workspace
+    │   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
+    │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md
     │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
     │   │   ├── GMAIL_WORKSPACE_SPEC.md
-    │   │   └── GMAIL_WORKSPACE_UI_STRUCTURE.md
+    │   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
+    │   │   └── GMAIL_WORKSPACE_UX_SPEC.md
     │   ├── 04_product_design
     │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
     │   │   ├── operational_workflow.md
@@ -153,6 +169,9 @@
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
     │   │   └── schema_comparison_checklist.md
+    │   ├── 08_codex_instructions
+    │   │   ├── CODEX_MASTER_INSTRUCTION_PACKET.md
+    │   │   └── CODEX_PHASE_EXECUTION_PLAN.md
     │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
     │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
     │   ├── 10_CODEX_SESSION_CHECKLIST.md
@@ -396,4 +415,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-110 directories, 287 files
+111 directories, 305 files
