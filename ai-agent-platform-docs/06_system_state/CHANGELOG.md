@@ -10,6 +10,44 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 15, 2026 - Gmail Phase 1 UX Structure Polish Pass (High-Level Intelligence / Sender Drill-Down / Clearer Confirmation)
+
+Root-cause addressed:
+- Mailbox Intelligence was still carrying too much sender-review detail and too many low-value technical indicators, which made the page feel message-led and cluttered.
+- Cleanup Groups still risked feeling redundant because Mailbox Intelligence previewed too much of the same cluster detail.
+- Sender Decisions needed to feel like the true drill-down workspace with stronger sender context, not just the place where policies happened to be stored.
+- Confirmation wording for non-archive actions still felt too vague and prototype-like even after earlier clarity passes.
+
+What changed:
+- Mailbox Intelligence is now more intentionally high-level:
+  - the scope ladder now hides the low-value `loaded_preview_rows` step on Intelligence and Cleanup Groups
+  - the low-level label itself is renamed to `Visible evidence rows` when it does appear deeper in the workflow
+  - dashboard sections now emphasize cleanup-ready senders, protected senders, whole-mailbox sender context, high-level sender-volume/timeline context, and mailbox status
+  - Mailbox Intelligence now acts more clearly as the mission / recommendation / status dashboard instead of a second sender-review page
+- Cleanup Groups is more clearly the full group-selection surface:
+  - Mailbox Intelligence now previews only the top two sender groups plus an explicit CTA into Cleanup Groups
+  - Cleanup Group cards now show clearer sender-centric context and lightweight expandable review cautions without becoming a full sender workspace
+- Sender Decisions is now the true drill-down surface:
+  - the page hero is cluster-specific instead of generic
+  - cluster brief cards now explain why the sender set surfaced, what safety context matters, and how much of the group already has saved decisions
+  - quick sender-centric filter chips now live near that context instead of hiding inside lower-level controls only
+  - sender cards now expose clearer sender-profile badges, renamed sender-first metrics, and more operator-friendly caution/explanation copy
+- Confirmation wording is cleaner and more operational:
+  - archive is framed as `Archive now after approval`
+  - keep / quarantine / unsubscribe / custom rule are framed as saved Phase 1 preferences for later, not vague “intent”
+  - stored-later copy now explicitly says Gmail does not change yet for those actions
+- Left-rail workflow captions were updated so the page hierarchy is clearer:
+  - Mailbox Intelligence = mission/status/high-level summary
+  - Cleanup Groups = full sender-group selection surface
+  - Sender Decisions = sender analytics/evidence drill-down
+  - Confirmation = archive-now plus saved-later review
+
+Validation:
+- `npm run lint` still fails on unrelated legacy repo lint debt outside Gmail scope.
+- Targeted ESLint passed for the touched Gmail files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not rerun in this pass.
+
 ### March 15, 2026 - Gmail Phase 1 Runtime Stabilization Pass (Stable Snapshot First / Material Invalidation Only)
 
 Root-cause addressed:

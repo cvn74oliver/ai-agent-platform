@@ -81,7 +81,8 @@
 │   │   ├── automation_map.md
 │   │   ├── phase1_clarify_spec.md
 │   │   ├── project_structure.txt
-│   │   └── schema_comparison_checklist.md
+│   │   ├── schema_comparison_checklist.md
+│   │   └── SYSTEM_MEMORY_MAP.md
 │   └── 08_codex_instructions
 │       ├── CODEX_ARCHITECTURE_LOCK.md
 │       ├── CODEX_DEBUG_PLAYBOOK.md
@@ -97,6 +98,7 @@
 │       ├── CODEX_RELIABILITY_SYSTEM.md
 │       ├── CODEX_SESSION_START_PROMPT.md
 │       └── CODEX_SOURCE_OF_TRUTH.md
+├── ai-agent-platform-docs.zip
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
 ├── package.json
@@ -407,4 +409,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-111 directories, 297 files
+111 directories, 299 files

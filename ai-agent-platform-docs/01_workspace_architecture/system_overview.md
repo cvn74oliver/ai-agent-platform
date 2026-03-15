@@ -84,6 +84,17 @@ Current Gmail cleanup architecture:
 - Mailbox Intelligence is now intentionally high-level only:
   - sender-specific analytics have moved into Sender Decisions
   - cleanup groups are previewed there, but the full cleanup-group selection surface remains on the Cleanup Groups page
+  - low-value technical scope details such as `loaded preview rows` are now demoted on the high-level surfaces so Mailbox Intelligence reads like a mission dashboard instead of a debug view
+- Cleanup Groups is now more clearly the full sender-group selection surface:
+  - Mailbox Intelligence previews only the top two groups plus a direct CTA into Cleanup Groups
+  - Cleanup Group cards can expose lightweight sender context / cautions without turning into the full Sender Decisions workspace
+- Sender Decisions is now more clearly the drill-down workspace:
+  - cluster-specific briefing at the top
+  - sender analytics stay on this page
+  - sender profile / caution context is more prominent directly on the sender cards
+- Confirmation wording now reads as a cleaner Phase 1 review surface:
+  - `Archive` = executes now after approval
+  - `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` = saved-later Phase 1 preferences only
 - Gmail cleanup client caching now includes:
   - in-memory reuse
   - sessionStorage mirror for same-session returns

@@ -38,12 +38,19 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
    - [x] Serve the latest stable cached runtime snapshot first on interactive Phase 1 routes instead of auto-refreshing on short local TTL age
    - [x] Tighten runtime/discovery invalidation so only real indexed snapshot advancement can trigger interactive refresh paths
    - [x] Prevent Sender Decisions direct entry from kicking off fallback-cluster work before recommended cluster resolution finishes
+   - [x] Reframe Mailbox Intelligence as the high-level mission/status dashboard instead of a second sender review page
+   - [x] Reduce Cleanup Groups duplication on Mailbox Intelligence to a lightweight preview plus explicit handoff
+   - [x] Strengthen Sender Decisions as the primary sender analytics + evidence drill-down workspace
+   - [x] Clarify Confirmation wording so archive-now and saved-later Phase 1 decisions read like deliberate operator choices
+   - [x] Demote low-value technical scope wording such as `loaded preview rows` in the high-level surfaces
    - [ ] Phase 1 validation follow-up:
      - perform browser verification for direct `/operations/review?stage=senders` entry with no `cluster_id`
      - perform browser verification that Mailbox Intelligence and Cleanup Groups stay on the stable cached snapshot during normal navigation and do not regress into 15–40s recomputation
      - verify Phase 1 draft restore across navigation, reload, and pagination changes
      - verify sender analytics clicks drive the sender list without focus loss or full blackout reloads
      - verify Confirmation edit actions correctly round-trip back into Sender Decisions
+     - verify Mailbox Intelligence now feels like the high-level mission dashboard while Cleanup Groups owns the full cluster-selection surface
+     - verify Sender Decisions now reads as the primary drill-down workspace and Confirmation language feels operator-trustworthy
      - resolve the current `npm run build` Next 16 / Turbopack compile hang and capture a definitive production-build result
      - perform browser verification for Mailbox Intelligence, Cleanup Groups, Sender Decisions, Confirmation, and direct placeholder routes
    - [ ] Phase 2 planning follow-up:

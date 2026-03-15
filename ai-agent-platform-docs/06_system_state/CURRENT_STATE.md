@@ -28,6 +28,35 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 15 Phase 1 UX structure polish summary:
+  - Mailbox Intelligence is now more intentionally the high-level mission dashboard:
+    - sender-first summary cards lead the page
+    - high-level sender volume/timeline context remains
+    - low-value `loaded_preview_rows` emphasis is removed from this stage
+    - Cleanup Groups is previewed lightly instead of duplicated heavily
+  - Cleanup Groups is now more clearly the full sender-group selection surface:
+    - Intelligence previews only the top two groups plus a direct CTA into Cleanup Groups
+    - cluster cards now expose lightweight expandable sender context and review cautions
+  - Sender Decisions is now more clearly the drill-down workspace:
+    - cluster-specific hero + briefing
+    - saved-decision progress summary
+    - quick sender-centric filter chips
+    - clearer sender-profile badges and explanation copy
+  - Confirmation wording is more operator-facing:
+    - `Archive now after approval`
+    - keep / quarantine / unsubscribe / custom rule framed as saved Phase 1 preferences for later
+    - stored-later copy now says Gmail does not change yet for those actions
+  - Navigation wording now reinforces the same hierarchy:
+    - Mailbox Intelligence = mission / status / high-level summary
+    - Cleanup Groups = full sender-group selection surface
+    - Sender Decisions = sender analytics and evidence drill-down
+    - Confirmation = archive-now plus saved-later review
+  - Validation:
+    - targeted Gmail ESLint passed
+    - `npx tsc --noEmit` passed
+    - full-repo `npm run lint` still fails on unrelated legacy lint debt outside the Gmail workspace
+    - production build was intentionally not rerun in this pass
+
 - March 15 Phase 1 runtime stabilization summary:
   - Interactive Phase 1 routes now serve the latest stable cached runtime snapshot immediately instead of auto-refreshing just because the local snapshot aged past a short TTL.
   - Cached runtime refresh is now materially driven:
