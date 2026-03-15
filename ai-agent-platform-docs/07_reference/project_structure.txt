@@ -125,8 +125,6 @@
     │   │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
     │   │   ├── 10_CODEX_SESSION_CHECKLIST.md
     │   │   └── agent_activation_checklist.md
-    │   ├── 00_MASTER_PROJECT.md
-    │   ├── 01_ARCHITECT_CONTEXT.md
     │   ├── 01_workspace_architecture
     │   │   ├── AI_WORKSPACE_ARCHITECTURE.md
     │   │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
@@ -141,8 +139,6 @@
     │   │   ├── AI_WORKSPACE_AGENT_EXECUTION_ENGINE.md
     │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
     │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
-    │   ├── 02_FRONTEND_CONTEXT.md
-    │   ├── 03_BACKEND_CONTEXT.md
     │   ├── 03_gmail_workspace
     │   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
     │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
@@ -175,20 +171,16 @@
     │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
     │   │   ├── operational_workflow.md
     │   │   └── playground-runtime-architecture.md
-    │   ├── 04_WORKFLOWS_CONTEXT.md
-    │   ├── 05_LLM_TRAINER_CONTEXT.md
     │   ├── 05_operational_playbooks
     │   │   ├── daily_checklist.md
     │   │   ├── monthly_checklist.md
     │   │   ├── troubleshooting_recovery.md
     │   │   └── weekly_checklist.md
-    │   ├── 06_AVATAR_VOICE_CONTEXT.md
     │   ├── 06_system_state
     │   │   ├── ARCHIVE_TODO_HISTORY.md
     │   │   ├── CHANGELOG.md
     │   │   ├── CURRENT_STATE.md
     │   │   └── TODO.md
-    │   ├── 07_PROJECT_MANAGER_CONTEXT.md
     │   ├── 07_reference
     │   │   ├── AI_WORKSPACE_ACTION_MODEL.md
     │   │   ├── AI_WORKSPACE_DATA_MODEL.md
@@ -202,66 +194,21 @@
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
     │   │   └── schema_comparison_checklist.md
-    │   ├── 08_codex_instructions
-    │   │   ├── CODEX_ARCHITECTURE_LOCK.md
-    │   │   ├── CODEX_DEBUG_PLAYBOOK.md
-    │   │   ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
-    │   │   ├── CODEX_EXECUTION_CHECKLIST.md
-    │   │   ├── CODEX_EXECUTION_RULES.md
-    │   │   ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
-    │   │   ├── CODEX_MASTER_INSTRUCTION_PACKET.md
-    │   │   ├── CODEX_PHASE_EXECUTION_PLAN.md
-    │   │   ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
-    │   │   ├── CODEX_PM_REVIEW_PACKET_SPEC.md
-    │   │   ├── CODEX_REBUILD_PROTOCOL.md
-    │   │   ├── CODEX_RELIABILITY_SYSTEM.md
-    │   │   ├── CODEX_SESSION_START_PROMPT.md
-    │   │   └── CODEX_SOURCE_OF_TRUTH.md
-    │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
-    │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
-    │   ├── 10_CODEX_SESSION_CHECKLIST.md
-    │   ├── agent_activation_checklist.md
-    │   ├── AGENT_MEMORY_AND_DECISION_ENGINE.md
-    │   ├── AI_AGENT_RUNTIME.md
-    │   ├── AI_WORKSPACE_ACTION_MODEL.md
-    │   ├── AI_WORKSPACE_AGENT_BEHAVIOR.md
-    │   ├── AI_WORKSPACE_AGENT_EXECUTION_ENGINE.md
-    │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
-    │   ├── AI_WORKSPACE_ARCHITECTURE.md
-    │   ├── AI_WORKSPACE_DATA_MODEL.md
-    │   ├── AI_WORKSPACE_EVENT_MODEL.md
-    │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
-    │   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
-    │   ├── AI_WORKSPACE_MASTER_BLUEPRINT.md
-    │   ├── AI_WORKSPACE_PRODUCT_ARCHITECTURE.md
-    │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
-    │   ├── AI_WORKSPACE_QUERY_PATTERNS.md
-    │   ├── AI_WORKSPACE_RAG_PIPELINE.md
-    │   ├── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
-    │   ├── AI_WORKSPACE_SYSTEM_INDEX.md
-    │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
-    │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
-    │   ├── ARCHIVE_TODO_HISTORY.md
-    │   ├── automation_map.md
-    │   ├── CHANGELOG.md
-    │   ├── CURRENT_STATE.md
-    │   ├── daily_checklist.md
-    │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
-    │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
-    │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
-    │   ├── GMAIL_WORKSPACE_SPEC.md
-    │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-    │   ├── monthly_checklist.md
-    │   ├── operational_workflow
-    │   ├── operational_workflow.md
-    │   ├── phase1_clarify_spec.md
-    │   ├── playground-runtime-architecture.md
-    │   ├── project_structure.txt
-    │   ├── schema_comparison_checklist.md
-    │   ├── system_overview.md
-    │   ├── TODO.md
-    │   ├── troubleshooting_recovery.md
-    │   └── weekly_checklist.md
+    │   └── 08_codex_instructions
+    │       ├── CODEX_ARCHITECTURE_LOCK.md
+    │       ├── CODEX_DEBUG_PLAYBOOK.md
+    │       ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
+    │       ├── CODEX_EXECUTION_CHECKLIST.md
+    │       ├── CODEX_EXECUTION_RULES.md
+    │       ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
+    │       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
+    │       ├── CODEX_PHASE_EXECUTION_PLAN.md
+    │       ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
+    │       ├── CODEX_PM_REVIEW_PACKET_SPEC.md
+    │       ├── CODEX_REBUILD_PROTOCOL.md
+    │       ├── CODEX_RELIABILITY_SYSTEM.md
+    │       ├── CODEX_SESSION_START_PROMPT.md
+    │       └── CODEX_SOURCE_OF_TRUTH.md
     ├── eslint.config.mjs
     ├── next-env.d.ts
     ├── next.config.ts
@@ -460,4 +407,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-111 directories, 350 files
+111 directories, 297 files
