@@ -7,6 +7,7 @@ import { GmailScopeLadder } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
 import {
   fetchGmailMailboxIntelligence,
+  readCachedGmailMailboxIntelligence,
   type GmailCleanupClusterRef,
   type GmailMailboxIntelligenceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
@@ -25,6 +26,7 @@ export default function OperationsClustersPage() {
   const requestedSessionId = searchParams.get('playground_session_id')
   const focusCluster = searchParams.get('focus_cluster')
   const query = serializeOperationsQuery(runtime.sessionId || requestedSessionId, runtime.analysisScope)
+  const cacheVersion = runtime.data?.runtime_cleanup_plan?.generated_at || null
   const clusters = useMemo<GmailCleanupClusterRef[]>(
     () =>
       (runtime.data?.runtime_cleanup_plan?.clusters || []).map((cluster) => ({
@@ -38,14 +40,29 @@ export default function OperationsClustersPage() {
       })),
     [runtime.data?.runtime_cleanup_plan?.clusters]
   )
-  const [state, setState] = useState<LoadState>({ status: 'idle', data: null, error: null })
+  const cachedIntelligence = useMemo(
+    () =>
+      clusters.length > 0
+        ? readCachedGmailMailboxIntelligence({
+            clusters,
+            analysisScope: runtime.analysisScope,
+            cacheVersion,
+          })
+        : null,
+    [cacheVersion, clusters, runtime.analysisScope]
+  )
+  const [state, setState] = useState<LoadState>(() =>
+    cachedIntelligence ? { status: 'ready', data: cachedIntelligence, error: null } : { status: 'idle', data: null, error: null }
+  )
 
   useEffect(() => {
     let cancelled = false
-    if (clusters.length === 0) return
+    if (clusters.length === 0 || cachedIntelligence) return
+
     void fetchGmailMailboxIntelligence({
       clusters,
       analysisScope: runtime.analysisScope,
+      cacheVersion,
       requestContext: {
         source: 'operations_clusters_page',
         component: 'cleanup_groups',
@@ -63,7 +80,7 @@ export default function OperationsClustersPage() {
     return () => {
       cancelled = true
     }
-  }, [clusters, runtime.analysisScope])
+  }, [cacheVersion, cachedIntelligence, clusters, runtime.analysisScope])
 
   if (runtime.loading && !runtime.data) {
     return (
@@ -84,20 +101,24 @@ export default function OperationsClustersPage() {
   if (clusters.length === 0) {
     return (
       <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
-        No cleanup groups are available yet. Regenerate cleanup analysis from Intro &amp; Health first.
+        No cleanup groups are available yet. Refresh cleanup analysis from Mailbox Intelligence first.
       </section>
     )
   }
 
-  if (state.status === 'error') {
+  const resolvedState = cachedIntelligence
+    ? { status: 'ready' as const, data: cachedIntelligence, error: null }
+    : state
+
+  if (resolvedState.status === 'error') {
     return (
       <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-4 text-sm text-rose-100">
-        {state.error}
+        {resolvedState.error}
       </section>
     )
   }
 
-  if (state.status !== 'ready') {
+  if (resolvedState.status !== 'ready') {
     return (
       <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
         Loading sender group summaries…
@@ -110,20 +131,20 @@ export default function OperationsClustersPage() {
       <GmailScopeLadder
         title="Cleanup Groups"
         subtitle="The count narrows in steps: whole mailbox -> cleanup candidate universe -> one cleanup group -> sender set -> loaded preview rows."
-        counts={state.data.scope_ladder}
+        counts={resolvedState.data.scope_ladder}
       />
 
       <section className="rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
         <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Cleanup Groups</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">Choose one sender cluster to review next</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-300">
-          This page solves the “45,000 messages but I only see 1,000” confusion directly. A cleanup group is a collection of similar senders, not a message batch. Opening one group narrows the mailbox into a sender set, and only a preview slice of that sender set is loaded at once.
+          A cleanup group is a set of related senders. Sender counts lead the review decision; message totals stay visible only as supporting impact context.
         </p>
       </section>
 
       <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 space-y-4">
         <div className="grid gap-4 xl:grid-cols-2">
-          {state.data.cleanup_groups.map((group) => {
+          {resolvedState.data.cleanup_groups.map((group) => {
             const highlighted = focusCluster === group.cluster_id
             const clusterQuery = `${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(group.cluster_id)}&stage=senders`
             return (
@@ -147,15 +168,15 @@ export default function OperationsClustersPage() {
 
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   <div className="rounded-xl border border-gray-800 bg-gray-950/65 p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Messages</p>
-                    <p className="mt-1 text-xl font-semibold text-white">
-                      {group.message_count.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-gray-800 bg-gray-950/65 p-3">
                     <p className="text-[10px] uppercase tracking-wide text-gray-500">Senders</p>
                     <p className="mt-1 text-xl font-semibold text-white">
                       {group.sender_count.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-800 bg-gray-950/65 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Messages</p>
+                    <p className="mt-1 text-xl font-semibold text-white">
+                      {group.message_count.toLocaleString()}
                     </p>
                   </div>
                 </div>

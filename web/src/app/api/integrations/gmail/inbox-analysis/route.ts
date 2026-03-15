@@ -311,6 +311,10 @@ export async function POST(req: Request) {
 
     if (action === 'mailbox_intelligence') {
       const analysisScope = normalizeMailboxProfileScope(body?.analysis_scope)
+      const cacheVersion =
+        typeof body?.cache_version === 'string' && body.cache_version.trim()
+          ? body.cache_version.trim()
+          : null
       const rawClusters = Array.isArray(body?.clusters)
         ? body.clusters.filter(
             (
@@ -337,6 +341,7 @@ export async function POST(req: Request) {
         supabase: auth.supabase,
         tenantId: auth.tenantId,
         analysisScope,
+        cacheVersion,
         clusters: rawClusters,
       })
 
@@ -354,6 +359,10 @@ export async function POST(req: Request) {
 
     if (action === 'sender_workspace') {
       const analysisScope = normalizeMailboxProfileScope(body?.analysis_scope)
+      const cacheVersion =
+        typeof body?.cache_version === 'string' && body.cache_version.trim()
+          ? body.cache_version.trim()
+          : null
       const rawClusters = Array.isArray(body?.clusters)
         ? body.clusters.filter(
             (
@@ -392,6 +401,19 @@ export async function POST(req: Request) {
         typeof body?.page_size === 'number' && Number.isFinite(body.page_size)
           ? Math.min(Math.max(Math.floor(body.page_size), 6), 40)
           : 12
+      const search = typeof body?.search === 'string' ? body.search.trim() : ''
+      const filter =
+        body?.filter === 'needs_verification' ||
+        body?.filter === 'protected' ||
+        body?.filter === 'likely_machine_generated' ||
+        body?.filter === 'likely_human'
+          ? body.filter
+          : 'all'
+      const sort =
+        body?.sort === 'sender' || body?.sort === 'unread_count' || body?.sort === 'last_activity'
+          ? body.sort
+          : 'message_count'
+      const direction = body?.direction === 'asc' ? 'asc' : 'desc'
 
       if (
         !selectedCluster?.cluster_id ||
@@ -410,6 +432,7 @@ export async function POST(req: Request) {
         supabase: auth.supabase,
         tenantId: auth.tenantId,
         analysisScope,
+        cacheVersion,
         clusters: rawClusters,
         selectedCluster: {
           cluster_id: selectedCluster.cluster_id,
@@ -422,6 +445,10 @@ export async function POST(req: Request) {
         },
         page,
         pageSize,
+        search,
+        filter,
+        sort,
+        direction,
       })
 
       if (!workspace.ok) {
@@ -439,6 +466,10 @@ export async function POST(req: Request) {
 
     if (action === 'confirmation_preview') {
       const analysisScope = normalizeMailboxProfileScope(body?.analysis_scope)
+      const cacheVersion =
+        typeof body?.cache_version === 'string' && body.cache_version.trim()
+          ? body.cache_version.trim()
+          : null
       const rawClusters = Array.isArray(body?.clusters)
         ? body.clusters.filter(
             (
@@ -492,6 +523,7 @@ export async function POST(req: Request) {
         supabase: auth.supabase,
         tenantId: auth.tenantId,
         analysisScope,
+        cacheVersion,
         clusters: rawClusters,
         selectedCluster: {
           cluster_id: selectedCluster.cluster_id,

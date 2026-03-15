@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 13, 2026_
+_Last Updated: March 15, 2026_
 
 ---
 
@@ -50,7 +50,106 @@ This separation ensures:
 - Controlled rate-limit usage
 - Clear feature-domain isolation
 
-### Gmail Operations Runtime Note (March 13, 2026)
+### Gmail Cleanup Runtime Note (March 15, 2026)
+
+Current Gmail cleanup architecture:
+- Gmail cleanup now behaves as one sender-first guided product backed by sender-first cached intelligence, not a message-first analysis pipeline hidden behind sender-first copy.
+- Active Phase 1 user-facing flow now reads:
+  - `/operations` (route-safe handoff only)
+  - `Mailbox Intelligence`
+  - `Cleanup Groups`
+  - `Sender Decisions`
+  - `Confirmation`
+- Direct route placeholders remain available for:
+  - `Exceptions / Verification`
+  - `Rules / Automation`
+  - `Monitoring`
+  but these are intentionally deferred to later phases.
+- Cleanup groups are now sender clusters:
+  - each sender maps to one deterministic cleanup group
+  - message batches are no longer the grouping primitive
+- Shared derived workspace caching now powers:
+  - `mailbox_intelligence`
+  - `sender_workspace`
+  - `confirmation_preview`
+- Phase 1 cache invalidation for the active Gmail cleanup workflow now keys off the cleanup snapshot itself:
+  - `runtime_cleanup_plan.generated_at`
+  - not broader mailbox-profile freshness during normal navigation
+- Mailbox Intelligence and Cleanup Groups now prefer exact warm cached intelligence payloads before issuing new requests.
+- Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload client-side, preventing repeated mailbox recomputation during navigation.
+- Mailbox Intelligence is now intentionally high-level only:
+  - sender-specific analytics have moved into Sender Decisions
+  - cleanup groups are previewed there, but the full cleanup-group selection surface remains on the Cleanup Groups page
+- Gmail cleanup client caching now includes:
+  - in-memory reuse
+  - sessionStorage mirror for same-session returns
+  - 10-minute TTL keyed by cleanup snapshot + view state
+- `Mailbox Intelligence` is now the real high-level cleanup dashboard:
+  - whole mailbox context
+  - cleanup-candidate context
+  - protected/safe context
+  - cleanup-group preview / handoff
+- `/operations/review` is now a sender-first workspace where the active Stage 1 execution path is:
+  - `stage=senders`
+  - `stage=confirmation`
+- Later-stage routes remain stable placeholders so navigation does not break while the Phase 1 foundation is stabilized.
+- The product now explicitly teaches the narrowing hierarchy:
+  - whole mailbox
+  - cleanup candidate universe
+  - cleanup group
+  - sender set
+  - loaded preview rows
+- Sender workspace controls are now server-backed:
+  - search
+  - filter
+  - sort
+  - direction
+  - filtered pagination metadata
+- Direct review reliability is stronger:
+  - missing/stale `cluster_id` now resolves to a recommended cleanup group automatically
+  - Sender Decisions no longer depends on manual refresh to escape an empty direct-entry route
+- Sender Decisions interaction hardening now includes:
+  - debounced sender search
+  - stable search-input focus during debounced query changes
+  - request abort / last-request-wins behavior
+  - stale-ready sender data retained on same-cluster filter/search/page changes instead of blanking the workspace
+- Sender Decisions now owns sender-specific operational analytics:
+  - sender category distribution
+  - sender activity timeline
+  - cluster contribution
+  - chart clicks drive the sender list directly
+- Sender workspace base derivation is now cached per cleanup snapshot + cluster:
+  - selected-cluster sender derivation
+  - sender-index signal loading
+  - filter/sort/page slices reuse that cached base state
+- Fast sender-page loading now avoids the broad indexed-message scan:
+  - `sender_page` signal loading uses `gmail_sender_stats` as the fast path
+  - the heavy `gmail_messages` scan remains reserved for deeper sender-detail paths
+- Sender evidence is loaded for visible sender rows only, not every sender in the selected cleanup group.
+- Messages are treated as evidence only until Confirmation, where exact current-message impact is shown.
+- Archive remains the only live Gmail executor in this pass.
+- `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` are explicit stored-later Phase 1 decisions / future automation intents only.
+- Phase 1 workflow drafts now persist more durably for sender decisions:
+  - session-scoped draft key
+  - cluster-level fallback draft key
+  - snapshot-version metadata to avoid replaying obviously stale drafts across snapshot changes
+- Draft restore is now hydration-safe:
+  - stored drafts are read before local write-back is allowed
+  - navigation/reload/pagination returns are less likely to lose Phase 1 sender decisions
+- Cleanup-discovery refresh is now more conservative during navigation:
+  - normal rehydrate flows do not rebuild just because the stale TTL expired
+  - navigation refresh now keys off actual indexed snapshot changes instead of sync timestamp movement alone
+- Confirmation now supports Phase 1-safe editing:
+  - change stored sender decision
+  - clear stored decision
+  - jump back into Sender Decisions for that sender
+- Gmail cleanup learning is now wired end-to-end:
+  - sender decisions persisted to `agent_events`
+  - rule intents persisted to `agent_events`
+  - active Gmail memory mirrored into `rag_documents`
+  - Monitoring retrieves event memory + semantic Gmail memory and surfaces recommendations
+
+### Gmail Operations Runtime Note (Historical - March 13, 2026)
 
 Current Gmail Operations hardening status:
 - Inbox Overview is now intentionally operational-first:
@@ -1227,3 +1326,19 @@ Current intelligence performance model:
 - Result:
   - normal Overview -> Intelligence -> Groups -> Review flow avoids repeatedly paying the original `~42s` cold path
   - remaining optimization work is now concentrated on the true first uncached build rather than repeat navigations
+
+---
+
+## Runtime Module Deployment Integrity Note - March 14, 2026
+
+The Gmail/playground runtime split now depends on a larger `web/src/lib/runtime/` module set than the tracked `HEAD` tree currently contains.
+
+Current build-stabilization finding:
+
+- Source files such as `gmailRuntimeAssembler.ts`, `playgroundPromptBuilder.ts`, `playgroundResponseBuilder.ts`, `playgroundRagService.ts`, `playgroundChatService.ts`, `playgroundAnalyticsService.ts`, `playgroundAgentConfigService.ts`, and `suggestionLifecycle.ts` are present locally at the expected alias-resolved paths.
+- Additional runtime support files such as `operationsWorkspace.ts`, `operationsAnalytics.ts`, `approvalSummary.ts`, `gmailCleanupMemory.ts`, `gmailCleanupWorkspace.ts`, and `playgroundWorkflowState.ts` are also locally present and referenced by source.
+- The current production-build risk is not pathing logic. It is that the runtime module split is only partially represented in the tracked tree.
+
+Implication:
+
+- Any deploy branch that includes imports of these runtime modules must ship the corresponding files together, or Vercel will fail during module resolution before the app reaches higher-level validation.

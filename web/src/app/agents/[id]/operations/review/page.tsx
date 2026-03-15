@@ -1,43 +1,48 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   ConfirmationStage,
-  ExceptionsStage,
+  DeferredStagePlaceholder,
   GmailScopeLadder,
-  MonitoringStage,
-  RulesAutomationStage,
   SenderDecisionStage,
   StageNavigation,
 } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
 import {
   fetchGmailConfirmationPreview,
-  fetchGmailMonitoringSummary,
   fetchGmailSenderWorkspace,
   GMAIL_CLEANUP_STAGES,
+  gmailCleanupWorkflowDraftStorageKey,
   persistGmailCleanupMemoryEvent,
+  readCachedGmailSenderWorkspace,
   readGmailCleanupWorkflowDraft,
   writeGmailCleanupWorkflowDraft,
   type GmailCleanupRuleIntent,
   type GmailCleanupStage,
   type GmailCleanupWorkflowDraft,
-  type GmailMonitoringSummaryData,
   type GmailSenderPolicy,
+  type GmailSenderWorkspaceFilter,
+  type GmailSenderWorkspaceSort,
+  type GmailSenderWorkspaceSortDirection,
   type GmailSenderWorkspaceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
+  fetchOperationsMessageSnippets,
   fetchOperationsMessagePreview,
   serializeOperationsQuery,
   type OperationsMessagePreviewData,
 } from '@/lib/runtime/operationsWorkspace'
 
 type SenderWorkspaceLoadState =
-  | { status: 'idle' | 'loading'; data: null; error: null }
-  | { status: 'ready'; data: GmailSenderWorkspaceData; error: null }
-  | { status: 'error'; data: null; error: string }
+  | {
+      status: 'idle' | 'loading' | 'ready' | 'error'
+      data: GmailSenderWorkspaceData | null
+      error: string | null
+      refreshing: boolean
+    }
 
 type MessagePreviewState =
   | { status: 'idle'; open: false; message: null; targetMessageId: null; error: null }
@@ -49,6 +54,25 @@ function normalizeStage(value: string | null): GmailCleanupStage {
   return GMAIL_CLEANUP_STAGES.includes(value as GmailCleanupStage)
     ? (value as GmailCleanupStage)
     : 'senders'
+}
+
+function normalizeSenderFilter(value: string | null): GmailSenderWorkspaceFilter {
+  return value === 'needs_verification' ||
+    value === 'protected' ||
+    value === 'likely_machine_generated' ||
+    value === 'likely_human'
+    ? value
+    : 'all'
+}
+
+function normalizeSenderSort(value: string | null): GmailSenderWorkspaceSort {
+  return value === 'sender' || value === 'unread_count' || value === 'last_activity'
+    ? value
+    : 'message_count'
+}
+
+function normalizeSenderDirection(value: string | null): GmailSenderWorkspaceSortDirection {
+  return value === 'asc' ? 'asc' : 'desc'
 }
 
 function emptyDraft(stage: GmailCleanupStage): GmailCleanupWorkflowDraft {
@@ -121,8 +145,18 @@ export default function OperationsReviewPage() {
   const clusterId = searchParams.get('cluster_id')
   const stage = normalizeStage(searchParams.get('stage'))
   const senderPage = Math.max(1, Number.parseInt(searchParams.get('sender_page') || '1', 10) || 1)
-  const selectedCluster =
-    runtimeClusters.find((cluster) => cluster.cluster_id === clusterId) || runtimeClusters[0] || null
+  const senderSearch = searchParams.get('sender_search') || ''
+  const senderFilter = normalizeSenderFilter(searchParams.get('sender_filter'))
+  const senderSort = normalizeSenderSort(searchParams.get('sender_sort'))
+  const senderDirection = normalizeSenderDirection(searchParams.get('sender_direction'))
+  const selectedClusterFromUrl =
+    clusterId ? runtimeClusters.find((cluster) => cluster.cluster_id === clusterId) || null : null
+  const clusterSelectionNeedsResolution =
+    runtimeClusters.length > 0 && !selectedClusterFromUrl && (!clusterId || clusterId.trim().length > 0)
+  const selectedCluster = clusterSelectionNeedsResolution
+    ? null
+    : selectedClusterFromUrl || runtimeClusters[0] || null
+  const cacheVersion = runtime.data?.runtime_cleanup_plan?.generated_at || null
   const allClusters = useMemo(
     () =>
       runtimeClusters.map((cluster) => ({
@@ -137,11 +171,58 @@ export default function OperationsReviewPage() {
     [runtimeClusters]
   )
 
-  const [workspaceState, setWorkspaceState] = useState<SenderWorkspaceLoadState>({
-    status: 'idle',
-    data: null,
-    error: null,
-  })
+  const cachedWorkspace = useMemo(
+    () =>
+      selectedCluster
+        ? readCachedGmailSenderWorkspace({
+            selectedCluster: {
+              clusterId: selectedCluster.cluster_id,
+              clusterType: selectedCluster.cluster_type,
+              title: selectedCluster.title,
+              query: selectedCluster.query,
+              whySelected: selectedCluster.why_selected,
+              riskNote: selectedCluster.risk_note,
+              safetyNote: selectedCluster.safety_note,
+            },
+            allClusters,
+            analysisScope: runtime.analysisScope,
+            cacheVersion,
+            page: senderPage,
+            pageSize: 10,
+            search: senderSearch,
+            filter: senderFilter,
+            sort: senderSort,
+            direction: senderDirection,
+          })
+        : null,
+    [
+      allClusters,
+      cacheVersion,
+      runtime.analysisScope,
+      selectedCluster,
+      senderDirection,
+      senderFilter,
+      senderPage,
+      senderSearch,
+      senderSort,
+    ]
+  )
+
+  const [workspaceState, setWorkspaceState] = useState<SenderWorkspaceLoadState>(() =>
+    cachedWorkspace
+      ? {
+          status: 'ready',
+          data: cachedWorkspace,
+          error: null,
+          refreshing: false,
+        }
+      : {
+          status: 'idle',
+          data: null,
+          error: null,
+          refreshing: false,
+        }
+  )
   const [draft, setDraft] = useState<GmailCleanupWorkflowDraft>(() => emptyDraft(stage))
   const [openSenderKey, setOpenSenderKey] = useState<string | null>(null)
   const [messagePreview, setMessagePreview] = useState<MessagePreviewState>({
@@ -151,41 +232,145 @@ export default function OperationsReviewPage() {
     targetMessageId: null,
     error: null,
   })
-  const [monitoring, setMonitoring] = useState<GmailMonitoringSummaryData | null>(null)
+  const [snippetOverrides, setSnippetOverrides] = useState<Record<string, string>>({})
+  const [snippetLoadingSenderKey, setSnippetLoadingSenderKey] = useState<string | null>(null)
+  const [snippetLoadedSenders, setSnippetLoadedSenders] = useState<Record<string, true>>({})
   const [creatingApproval, setCreatingApproval] = useState(false)
   const [actionNote, setActionNote] = useState<string | null>(null)
+  const [hydratedDraftStorageKey, setHydratedDraftStorageKey] = useState<string | null>(null)
+
+  const sessionId = runtime.sessionId || requestedSessionId
+  const currentDraftStorageKey =
+    selectedCluster && agentId
+      ? gmailCleanupWorkflowDraftStorageKey({
+          agentId,
+          sessionId,
+          clusterId: selectedCluster.cluster_id,
+        })
+      : null
+
+  useEffect(() => {
+    if (runtimeClusters.length === 0 || (clusterId && selectedClusterFromUrl)) return
+
+    let recommendedClusterId = runtimeClusters[0]?.cluster_id || null
+    let latestDraftUpdatedAt = -1
+    for (const cluster of runtimeClusters) {
+      const stored = readGmailCleanupWorkflowDraft({
+        agentId,
+        sessionId,
+        clusterId: cluster.cluster_id,
+        snapshotVersion: cacheVersion,
+      })
+      if (!stored) continue
+      if (
+        stored.updatedAt > latestDraftUpdatedAt &&
+        (Object.keys(stored.senderPolicies).length > 0 ||
+          stored.currentStage === 'confirmation' ||
+          stored.confirmationPreview != null)
+      ) {
+        latestDraftUpdatedAt = stored.updatedAt
+        recommendedClusterId = cluster.cluster_id
+      }
+    }
+
+    if (!recommendedClusterId) return
+    const next = new URLSearchParams(searchParams.toString())
+    next.set('cluster_id', recommendedClusterId)
+    next.set('stage', stage)
+    if (!next.get('sender_page')) next.set('sender_page', '1')
+    startTransition(() => {
+      router.replace(`?${next.toString()}`, { scroll: false })
+    })
+  }, [
+    agentId,
+    cacheVersion,
+    clusterId,
+    router,
+    runtimeClusters,
+    searchParams,
+    selectedClusterFromUrl,
+    sessionId,
+    stage,
+  ])
 
   useEffect(() => {
     if (!selectedCluster) return
+    setHydratedDraftStorageKey(null)
     const stored =
       readGmailCleanupWorkflowDraft({
         agentId,
-        sessionId: runtime.sessionId || requestedSessionId,
+        sessionId,
         clusterId: selectedCluster.cluster_id,
+        snapshotVersion: cacheVersion,
       }) || emptyDraft(stage)
     setDraft({
       ...stored,
       currentStage: stage,
+      snapshotVersion: cacheVersion,
     })
-  }, [agentId, requestedSessionId, runtime.sessionId, selectedCluster, stage])
+    setHydratedDraftStorageKey(
+      gmailCleanupWorkflowDraftStorageKey({
+        agentId,
+        sessionId,
+        clusterId: selectedCluster.cluster_id,
+      })
+    )
+  }, [agentId, cacheVersion, selectedCluster, sessionId, stage])
 
   useEffect(() => {
     if (!selectedCluster) return
+    if (!currentDraftStorageKey || hydratedDraftStorageKey !== currentDraftStorageKey) return
     writeGmailCleanupWorkflowDraft(
       {
         agentId,
-        sessionId: runtime.sessionId || requestedSessionId,
+        sessionId,
         clusterId: selectedCluster.cluster_id,
+        snapshotVersion: cacheVersion,
       },
       draft
     )
-  }, [agentId, draft, requestedSessionId, runtime.sessionId, selectedCluster])
+  }, [
+    agentId,
+    cacheVersion,
+    currentDraftStorageKey,
+    draft,
+    hydratedDraftStorageKey,
+    selectedCluster,
+    sessionId,
+  ])
 
   useEffect(() => {
-    let cancelled = false
     if (!selectedCluster) return
+    if (cachedWorkspace) {
+      setWorkspaceState({
+        status: 'ready',
+        data: cachedWorkspace,
+        error: null,
+        refreshing: false,
+      })
+      return
+    }
 
-    setWorkspaceState({ status: 'loading', data: null, error: null })
+    let cancelled = false
+    const controller = new AbortController()
+    setWorkspaceState((current) => {
+      const sameCluster =
+        current.data?.selected_cluster.cluster_id === selectedCluster.cluster_id
+      if (sameCluster && current.data) {
+        return {
+          status: 'ready',
+          data: current.data,
+          error: null,
+          refreshing: true,
+        }
+      }
+      return {
+        status: 'loading',
+        data: null,
+        error: null,
+        refreshing: false,
+      }
+    })
     void fetchGmailSenderWorkspace({
       selectedCluster: {
         clusterId: selectedCluster.cluster_id,
@@ -198,58 +383,109 @@ export default function OperationsReviewPage() {
       },
       allClusters,
       analysisScope: runtime.analysisScope,
+      cacheVersion,
       page: senderPage,
       pageSize: 10,
+      search: senderSearch,
+      filter: senderFilter,
+      sort: senderSort,
+      direction: senderDirection,
       requestContext: {
         source: 'operations_review_page',
-        component: `stage_${stage}`,
+        component: 'sender_workspace',
         reason: 'sender_first_workspace',
-        phase: 'initial_paint',
+        phase:
+          senderPage > 1 || Boolean(senderSearch) || senderFilter !== 'all' || senderSort !== 'message_count' || senderDirection !== 'desc'
+            ? 'interactive'
+            : 'initial_paint',
+      },
+      signal: controller.signal,
+    }).then((result) => {
+      if (cancelled) return
+      if (!result.ok && result.aborted) return
+      if (!result.ok) {
+        setWorkspaceState((current) => ({
+          status: current.data ? 'error' : 'error',
+          data: current.data,
+          error: result.error,
+          refreshing: false,
+        }))
+        return
+      }
+      setWorkspaceState({ status: 'ready', data: result.data, error: null, refreshing: false })
+    })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [
+    allClusters,
+    cacheVersion,
+    cachedWorkspace,
+    runtime.analysisScope,
+    selectedCluster,
+    senderDirection,
+    senderFilter,
+    senderPage,
+    senderSearch,
+    senderSort,
+  ])
+
+  useEffect(() => {
+    if (workspaceState.status !== 'ready' || !workspaceState.data || !openSenderKey) return
+    if (snippetLoadedSenders[openSenderKey]) return
+
+    const sender = workspaceState.data.senders.find((entry) => entry.sender_key === openSenderKey)
+    if (!sender) return
+
+    const messageIds = sender.preview_messages
+      .filter((message) => {
+        const snippet = message.snippet?.trim().toLowerCase() || ''
+        const subject = message.subject?.trim().toLowerCase() || ''
+        return !snippet || snippet === subject
+      })
+      .map((message) => message.message_id)
+
+    if (messageIds.length === 0) {
+      setSnippetLoadedSenders((current) => ({ ...current, [openSenderKey]: true }))
+      return
+    }
+
+    let cancelled = false
+    setSnippetLoadingSenderKey(openSenderKey)
+    void fetchOperationsMessageSnippets({
+      messageIds,
+      requestContext: {
+        source: 'operations_review_page',
+        component: 'sender_evidence_snippets',
+        reason: 'visible_sender_preview_enrichment',
+        phase: 'interactive',
       },
     }).then((result) => {
       if (cancelled) return
-      if (!result.ok) {
-        setWorkspaceState({ status: 'error', data: null, error: result.error })
-        return
+      if (result.ok) {
+        setSnippetOverrides((current) => {
+          const next = { ...current }
+          for (const message of result.data.messages) {
+            if (message.snippet) next[message.message_id] = message.snippet
+          }
+          return next
+        })
       }
-      setWorkspaceState({ status: 'ready', data: result.data, error: null })
+      setSnippetLoadedSenders((current) => ({ ...current, [openSenderKey]: true }))
+      setSnippetLoadingSenderKey((current) => (current === openSenderKey ? null : current))
     })
 
     return () => {
       cancelled = true
     }
-  }, [allClusters, runtime.analysisScope, selectedCluster, senderPage, stage])
-
-  useEffect(() => {
-    let cancelled = false
-    if (stage !== 'monitoring' || !selectedCluster || workspaceState.status !== 'ready') return
-
-    void fetchGmailMonitoringSummary({
-      agentId,
-      selectedCluster: {
-        clusterId: selectedCluster.cluster_id,
-        clusterType: selectedCluster.cluster_type,
-        title: selectedCluster.title,
-        query: selectedCluster.query,
-      },
-      candidateSenders: workspaceState.data.senders.map((sender) => ({
-        senderKey: sender.sender_key,
-        sender: sender.sender,
-      })),
-    }).then((result) => {
-      if (cancelled || !result.ok) return
-      setMonitoring(result.data)
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [agentId, selectedCluster, stage, workspaceState])
+  }, [openSenderKey, snippetLoadedSenders, workspaceState])
 
   useEffect(() => {
     let cancelled = false
     if (
-      (stage !== 'confirmation' && stage !== 'rules') ||
+      stage !== 'confirmation' ||
       !selectedCluster ||
       workspaceState.status !== 'ready'
     ) {
@@ -265,6 +501,7 @@ export default function OperationsReviewPage() {
       },
       allClusters,
       analysisScope: runtime.analysisScope,
+      cacheVersion,
       senderPolicies: draft.senderPolicies,
       messageOverrides: draft.messageOverrides,
       requestContext: {
@@ -287,6 +524,7 @@ export default function OperationsReviewPage() {
     }
   }, [
     allClusters,
+    cacheVersion,
     draft.messageOverrides,
     draft.senderPolicies,
     runtime.analysisScope,
@@ -301,8 +539,26 @@ export default function OperationsReviewPage() {
       if (value == null || value === '') next.delete(key)
       else next.set(key, value)
     }
-    router.replace(`?${next.toString()}`)
+    startTransition(() => {
+      router.replace(`?${next.toString()}`, { scroll: false })
+    })
   }
+
+  const displayWorkspaceData =
+    workspaceState.data
+      ? {
+          ...workspaceState.data,
+          senders: workspaceState.data.senders.map((sender) => ({
+            ...sender,
+            preview_messages: sender.preview_messages.map((message) => ({
+              ...message,
+              snippet: snippetOverrides[message.message_id] || message.snippet,
+            })),
+          })),
+        }
+      : null
+  const deferredStage =
+    stage === 'exceptions' || stage === 'rules' || stage === 'monitoring' ? stage : null
 
   const buildStageHref = (nextStage: GmailCleanupStage) => {
     const next = new URLSearchParams(searchParams.toString())
@@ -347,11 +603,27 @@ export default function OperationsReviewPage() {
     })
   }
 
-  const handlePolicyChange = async (senderKey: string, sender: string, nextPolicy: GmailSenderPolicy) => {
+  const applySenderPolicy = async (
+    senderKey: string,
+    sender: string,
+    nextPolicy: GmailSenderPolicy,
+    options?: { allowToggle?: boolean }
+  ) => {
     const currentPolicy = draft.senderPolicies[senderKey] || 'undecided'
-    const normalizedPolicy = currentPolicy === nextPolicy ? 'undecided' : nextPolicy
+    const normalizedPolicy =
+      options?.allowToggle === false
+        ? nextPolicy
+        : currentPolicy === nextPolicy
+          ? 'undecided'
+          : nextPolicy
     const currentIntent = draft.ruleIntents.find((intent) => intent.sender_key === senderKey) || null
     const nextIntent = ruleIntentFromPolicy(senderKey, sender, normalizedPolicy)
+    if (
+      currentPolicy === normalizedPolicy &&
+      (currentIntent?.intent_type || null) === (nextIntent?.intent_type || null)
+    ) {
+      return
+    }
 
     setDraft((current) => {
       const senderPolicies = { ...current.senderPolicies }
@@ -372,7 +644,6 @@ export default function OperationsReviewPage() {
 
     setActionNote(null)
 
-    const sessionId = runtime.sessionId || requestedSessionId
     const clusterPayload = selectedCluster
       ? {
           clusterId: selectedCluster.cluster_id,
@@ -436,6 +707,26 @@ export default function OperationsReviewPage() {
     }
   }
 
+  const handlePolicyChange = async (
+    senderKey: string,
+    sender: string,
+    nextPolicy: GmailSenderPolicy
+  ) => applySenderPolicy(senderKey, sender, nextPolicy, { allowToggle: true })
+
+  const handleClearDecision = async (senderKey: string, sender: string) =>
+    applySenderPolicy(senderKey, sender, 'undecided', { allowToggle: false })
+
+  const openSenderInReview = (sender: string) => {
+    if (!selectedCluster) return
+    updateSearch({
+      stage: 'senders',
+      cluster_id: selectedCluster.cluster_id,
+      sender_search: sender,
+      sender_filter: null,
+      sender_page: '1',
+    })
+  }
+
   const createArchiveApproval = async () => {
     if (!selectedCluster || !draft.confirmationPreview) return
     setCreatingApproval(true)
@@ -458,6 +749,7 @@ export default function OperationsReviewPage() {
                 title: selectedCluster.title,
                 query: selectedCluster.query,
                 analysis_scope: runtime.analysisScope,
+                cache_version: cacheVersion || undefined,
                 source_label: selectedCluster.title,
                 clusters: allClusters.map((cluster) => ({
                   cluster_id: cluster.clusterId,
@@ -472,7 +764,7 @@ export default function OperationsReviewPage() {
                   selected_count: draft.confirmationPreview.exact_archive_impact.message_count,
                   candidate_count: draft.confirmationPreview.selected_cluster.message_count,
                   matching_messages_in_scope: draft.confirmationPreview.selected_cluster.message_count,
-                  reviewed_count: workspaceState.status === 'ready' ? workspaceState.data.scope_ladder.loaded_preview_rows : null,
+                  reviewed_count: displayWorkspaceData?.scope_ladder.loaded_preview_rows ?? null,
                   sender_count: draft.confirmationPreview.selected_cluster.sender_count,
                 },
                 safe_signals: [
@@ -529,7 +821,7 @@ export default function OperationsReviewPage() {
   if (!selectedCluster) {
     return (
       <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
-        No cleanup group is selected yet. Start in{' '}
+        Loading the recommended cleanup group for Sender Decisions. If cleanup groups are still unavailable, start in{' '}
         <Link href={`/agents/${agentId}/operations/clusters${query}`} className="text-cyan-300 underline">
           Cleanup Groups
         </Link>
@@ -540,14 +832,14 @@ export default function OperationsReviewPage() {
 
   return (
     <div className="space-y-4">
-      {workspaceState.status === 'ready' ? (
+      {displayWorkspaceData ? (
         <GmailScopeLadder
           title="Sender-first workspace"
           subtitle="The count keeps narrowing so the operator understands exactly why not every message is visible at once."
           counts={
             stage === 'confirmation' && draft.confirmationPreview
               ? draft.confirmationPreview.scope_ladder
-              : workspaceState.data.scope_ladder
+              : displayWorkspaceData.scope_ladder
           }
         />
       ) : null}
@@ -557,7 +849,7 @@ export default function OperationsReviewPage() {
           <div>
             <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Workflow stages</p>
             <p className="mt-1 text-sm text-gray-300">
-              Intro &amp; Health {'->'} Mailbox Intelligence {'->'} Cleanup Groups {'->'} Sender Decisions {'->'} Exceptions / Verification {'->'} Confirmation {'->'} Rules / Automation {'->'} Monitoring
+              Mailbox Intelligence {'->'} Cleanup Groups {'->'} Sender Decisions {'->'} Confirmation
             </p>
           </div>
           <StageNavigation currentStage={stage} buildStageHref={buildStageHref} />
@@ -583,30 +875,55 @@ export default function OperationsReviewPage() {
         </div>
       </section>
 
-      {workspaceState.status === 'error' ? (
+      {workspaceState.status === 'error' && !displayWorkspaceData ? (
         <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-4 text-sm text-rose-100">
           {workspaceState.error}
         </section>
-      ) : workspaceState.status !== 'ready' ? (
+      ) : !displayWorkspaceData ? (
         <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
           Loading sender-first review workspace…
         </section>
-      ) : stage === 'senders' ? (
+      ) : stage === 'senders' && displayWorkspaceData ? (
         <SenderDecisionStage
-          data={workspaceState.data}
+          data={displayWorkspaceData}
+          isRefreshing={workspaceState.refreshing}
+          blockingError={workspaceState.status === 'error' ? workspaceState.error : null}
+          draftSavedAt={draft.updatedAt}
           policyBySender={draft.senderPolicies}
           openSenderKey={openSenderKey}
           onToggleSender={(senderKey) => setOpenSenderKey((current) => (current === senderKey ? null : senderKey))}
           onPolicyChange={handlePolicyChange}
           onOpenMessage={handleOpenMessage}
           onPageChange={(page) => updateSearch({ sender_page: String(page), cluster_id: selectedCluster.cluster_id })}
-        />
-      ) : stage === 'exceptions' ? (
-        <ExceptionsStage
-          senders={workspaceState.data.senders}
-          policyBySender={draft.senderPolicies}
-          onPolicyChange={handlePolicyChange}
-          onOpenMessage={handleOpenMessage}
+          onSearchChange={(value) =>
+            updateSearch({
+              sender_search: value || null,
+              sender_page: '1',
+              cluster_id: selectedCluster.cluster_id,
+            })
+          }
+          onFilterChange={(value) =>
+            updateSearch({
+              sender_filter: value === 'all' ? null : value,
+              sender_page: '1',
+              cluster_id: selectedCluster.cluster_id,
+            })
+          }
+          onSortChange={(value) =>
+            updateSearch({
+              sender_sort: value === 'message_count' ? null : value,
+              sender_page: '1',
+              cluster_id: selectedCluster.cluster_id,
+            })
+          }
+          onDirectionChange={(value) =>
+            updateSearch({
+              sender_direction: value === 'desc' ? null : value,
+              sender_page: '1',
+              cluster_id: selectedCluster.cluster_id,
+            })
+          }
+          snippetLoadingSenderKey={snippetLoadingSenderKey}
         />
       ) : stage === 'confirmation' ? (
         <ConfirmationStage
@@ -614,11 +931,26 @@ export default function OperationsReviewPage() {
           createArchiveApproval={createArchiveApproval}
           creatingApproval={creatingApproval}
           actionNote={actionNote}
+          policyBySender={draft.senderPolicies}
+          onPolicyChange={(senderKey, sender, policy) =>
+            void applySenderPolicy(senderKey, sender, policy, { allowToggle: false })
+          }
+          onRemoveDecision={(senderKey, sender) => void handleClearDecision(senderKey, sender)}
+          onOpenSenderReview={(sender) => openSenderInReview(sender)}
         />
-      ) : stage === 'rules' ? (
-        <RulesAutomationStage ruleIntents={draft.ruleIntents} />
+      ) : deferredStage ? (
+        <DeferredStagePlaceholder
+          stage={deferredStage}
+          selectedClusterTitle={(displayWorkspaceData || workspaceState.data).selected_cluster.title}
+          senderCount={(displayWorkspaceData || workspaceState.data).selected_cluster.sender_count}
+          exceptionsCount={(displayWorkspaceData || workspaceState.data).exceptions_count}
+          openSendersHref={buildStageHref('senders')}
+          openConfirmationHref={buildStageHref('confirmation')}
+        />
       ) : (
-        <MonitoringStage data={monitoring} />
+        <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
+          Loading sender-first review workspace…
+        </section>
       )}
 
       <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">

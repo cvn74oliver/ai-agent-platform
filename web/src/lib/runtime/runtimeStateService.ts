@@ -26,7 +26,7 @@ import {
 type SupabaseAdminClient = Awaited<ReturnType<typeof getSupabaseAdmin>>
 
 const CLEANUP_DISCOVERY_SNAPSHOT_EVENT_TYPE = 'runtime_cleanup_discovery_snapshot'
-const CLEANUP_DISCOVERY_SNAPSHOT_VERSION = 'gmail.cleanup_profile_cache.v3'
+const CLEANUP_DISCOVERY_SNAPSHOT_VERSION = 'gmail.cleanup_profile_cache.v4'
 const CLEANUP_PROFILE_CACHE_TTL_MS = 1000 * 60 * 30
 const STALE_DISCOVERY_REFRESH_COOLDOWN_MS = 1000 * 60 * 5
 const BACKGROUND_CLEANUP_INDEX_SYNC_SKIP_MS = 1000 * 60 * 10
@@ -63,6 +63,61 @@ function deriveIndexStateActivityMs(value: {
   ].filter((entry): entry is number => entry != null)
   if (candidates.length === 0) return null
   return Math.max(...candidates)
+}
+
+function indexedSnapshotAdvancedSinceCleanupSnapshot(params: {
+  snapshot: CleanupDiscoverySnapshot | null
+  indexState: Awaited<ReturnType<typeof loadGmailMailboxIndexState>> | null
+  indexCoverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>> | null
+}): boolean {
+  if (!params.snapshot) return false
+
+  const sourceCounts =
+    params.snapshot.cleanupDiscoveryData.mailbox_profile?.cluster_diagnostics?.source_counts || null
+
+  const currentIndexedTotal =
+    params.indexCoverage && Number.isFinite(params.indexCoverage.indexed_total_rows)
+      ? params.indexCoverage.indexed_total_rows
+      : params.indexState && Number.isFinite(params.indexState.indexed_message_count)
+        ? params.indexState.indexed_message_count
+        : 0
+  const currentIndexedInbox =
+    params.indexCoverage && Number.isFinite(params.indexCoverage.indexed_inbox_rows)
+      ? params.indexCoverage.indexed_inbox_rows
+      : 0
+  const currentDateSpanStart =
+    params.indexCoverage?.indexed_date_span_start ?? null
+  const currentDateSpanEnd =
+    params.indexCoverage?.indexed_date_span_end ?? null
+
+  if (sourceCounts) {
+    if (
+      Number.isFinite(sourceCounts.indexed_total_rows) &&
+      sourceCounts.indexed_total_rows !== currentIndexedTotal
+    ) {
+      return true
+    }
+    if (
+      Number.isFinite(sourceCounts.indexed_inbox_rows) &&
+      sourceCounts.indexed_inbox_rows !== currentIndexedInbox
+    ) {
+      return true
+    }
+    if ((sourceCounts.indexed_date_span_start || null) !== currentDateSpanStart) return true
+    if ((sourceCounts.indexed_date_span_end || null) !== currentDateSpanEnd) return true
+    return false
+  }
+
+  const snapshotGeneratedMs =
+    parseDateMs(params.snapshot.generatedAt) ??
+    parseDateMs(params.snapshot.cleanupDiscoveryData.generated_at)
+  const indexActivityMs = deriveIndexStateActivityMs(params.indexState)
+  return Boolean(
+    currentIndexedTotal > 0 &&
+      indexActivityMs != null &&
+      snapshotGeneratedMs != null &&
+      indexActivityMs > snapshotGeneratedMs + 1000
+  )
 }
 
 type CleanupDiscoverySnapshot = {
@@ -549,7 +604,6 @@ export async function loadPlaygroundRuntimeState(params: {
     })
     snapshotScope = snapshot?.analysisScope ?? null
 
-    const snapshotGeneratedMs = snapshot ? parseDateMs(snapshot.generatedAt) : null
     const snapshotExpiresMs = snapshot ? parseDateMs(snapshot.expiresAt) : null
     const hasFreshSnapshot = Boolean(snapshot && snapshotExpiresMs != null && snapshotExpiresMs > now)
     const hasSnapshot = Boolean(snapshot)
@@ -582,24 +636,24 @@ export async function loadPlaygroundRuntimeState(params: {
       indexCoverage && Number.isFinite(indexCoverage.indexed_inbox_rows)
         ? indexCoverage.indexed_inbox_rows
         : 0
-    const indexActivityMs = deriveIndexStateActivityMs(indexState)
     const indexHasData = cleanupIndexStateIndexedCount > 0
     const indexAdvancedSinceSnapshot = Boolean(
       indexHasData &&
-      indexActivityMs != null &&
-      (snapshotGeneratedMs == null || indexActivityMs > snapshotGeneratedMs + 1000)
+        indexedSnapshotAdvancedSinceCleanupSnapshot({
+          snapshot,
+          indexState,
+          indexCoverage,
+        })
     )
     const zeroClusterCachedSnapshotNeedsRefresh = Boolean(
       hasSnapshot && hasFreshSnapshot && indexHasData && snapshotClusterCount === 0
     )
-    const staleSnapshotNeedsRefresh = Boolean(hasSnapshot && !hasFreshSnapshot)
     const missingSnapshotNeedsRefresh = !hasSnapshot
     const allowDiscoveryRefresh =
       forceRefresh ||
       params.requestMode !== 'rehydrate_only' ||
       indexAdvancedSinceSnapshot ||
       zeroClusterCachedSnapshotNeedsRefresh ||
-      staleSnapshotNeedsRefresh ||
       missingSnapshotNeedsRefresh
 
     const canServeSnapshotAndRefreshInBackground = Boolean(
@@ -614,8 +668,8 @@ export async function loadPlaygroundRuntimeState(params: {
     else if (params.requestMode !== 'rehydrate_only') cleanupProfileRefreshReason = 'full_chat'
     else if (indexAdvancedSinceSnapshot) cleanupProfileRefreshReason = 'index_advanced'
     else if (zeroClusterCachedSnapshotNeedsRefresh) cleanupProfileRefreshReason = 'zero_cluster_cached'
-    else if (staleSnapshotNeedsRefresh) cleanupProfileRefreshReason = 'stale_snapshot'
     else if (missingSnapshotNeedsRefresh) cleanupProfileRefreshReason = 'missing_snapshot'
+    else if (hasSnapshot && !hasFreshSnapshot) cleanupProfileRefreshReason = 'stale_snapshot'
     else cleanupProfileRefreshReason = 'rehydrate_skip'
     let cleanupDiscoveryData: GmailCleanupDiscoveryData | null = null
 
@@ -657,7 +711,7 @@ export async function loadPlaygroundRuntimeState(params: {
       cleanupDiscoveryData = withMailboxProfileFreshness({
         discoveryData: snapshot.cleanupDiscoveryData,
         freshness: 'stale',
-        generatedAt: snapshotGeneratedMs != null ? snapshot.generatedAt : snapshot.cleanupDiscoveryData.generated_at,
+        generatedAt: parseDateMs(snapshot.generatedAt) != null ? snapshot.generatedAt : snapshot.cleanupDiscoveryData.generated_at,
         expiresAt: snapshotExpiresMs != null ? snapshot.expiresAt : null,
       })
       cleanupProfileStatus = 'stale'
@@ -719,7 +773,7 @@ export async function loadPlaygroundRuntimeState(params: {
       cleanupDiscoveryData = withMailboxProfileFreshness({
         discoveryData: snapshot.cleanupDiscoveryData,
         freshness: 'stale',
-        generatedAt: snapshotGeneratedMs != null ? snapshot.generatedAt : snapshot.cleanupDiscoveryData.generated_at,
+        generatedAt: parseDateMs(snapshot.generatedAt) != null ? snapshot.generatedAt : snapshot.cleanupDiscoveryData.generated_at,
         expiresAt: snapshotExpiresMs != null ? snapshot.expiresAt : null,
       })
       cleanupProfileStatus = 'stale'

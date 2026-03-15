@@ -139,7 +139,6 @@ const STORAGE_PREFIX = 'operations.runtime.snapshot.v1'
 const INDEX_BOOTSTRAP_STORAGE_PREFIX = 'operations.mailbox-index.bootstrap.v1'
 const INDEX_BACKFILL_STORAGE_PREFIX = 'operations.mailbox-index.backfill.v1'
 const INDEX_RECOVERY_STORAGE_PREFIX = 'operations.mailbox-index.recovery.v1'
-const STALE_WHILE_REVALIDATE_MS = 45_000
 const INDEX_BOOTSTRAP_COOLDOWN_MS = 10 * 60 * 1000
 const INDEX_BACKFILL_COOLDOWN_MS = 6 * 60 * 60 * 1000
 const INDEX_RECOVERY_COOLDOWN_MS = 30 * 60 * 1000
@@ -191,13 +190,28 @@ function parsePersisted(value: string | null): PersistedSnapshot | null {
   }
 }
 
-function latestMailboxIndexSyncMs(health: MailboxIndexHealth | null): number | null {
-  if (!health) return null
-  const values = [health.last_full_scan_at, health.last_incremental_sync_at]
-    .map((value) => (typeof value === 'string' && value.trim() ? Date.parse(value) : Number.NaN))
-    .filter((value) => Number.isFinite(value)) as number[]
-  if (values.length === 0) return null
-  return Math.max(...values)
+function mailboxIndexSnapshotChanged(
+  runtimeData: OperationsRuntimeData | null,
+  health: MailboxIndexHealth | null
+): boolean {
+  if (!runtimeData || !health) return false
+  const sourceCounts = runtimeData.runtime_mailbox_profile?.cluster_diagnostics?.source_counts
+  if (!sourceCounts) return false
+
+  const indexedTotalRows =
+    typeof sourceCounts.indexed_total_rows === 'number' ? sourceCounts.indexed_total_rows : null
+  const indexedInboxRows =
+    typeof sourceCounts.indexed_inbox_rows === 'number' ? sourceCounts.indexed_inbox_rows : null
+  const indexedDateSpanStart =
+    typeof sourceCounts.indexed_date_span_start === 'string' ? sourceCounts.indexed_date_span_start : null
+  const indexedDateSpanEnd =
+    typeof sourceCounts.indexed_date_span_end === 'string' ? sourceCounts.indexed_date_span_end : null
+
+  if (indexedTotalRows != null && indexedTotalRows !== health.indexed_message_count) return true
+  if (indexedInboxRows != null && indexedInboxRows !== health.indexed_inbox_count) return true
+  if ((indexedDateSpanStart || null) !== (health.indexed_oldest_message_at || null)) return true
+  if ((indexedDateSpanEnd || null) !== (health.indexed_newest_message_at || null)) return true
+  return false
 }
 
 export function OperationsRuntimeProvider(props: {
@@ -530,19 +544,16 @@ export function OperationsRuntimeProvider(props: {
       })
     }
 
-    const cacheAgeMs = cachedSnapshot ? Date.now() - cachedSnapshot.loadedAt : Number.POSITIVE_INFINITY
-    const shouldRefresh = !cachedSnapshot || cacheAgeMs > STALE_WHILE_REVALIDATE_MS
-
-    if (shouldRefresh) {
+    if (!cachedSnapshot) {
       void refreshRuntimeSnapshot({
-        silent: Boolean(cachedSnapshot),
+        silent: false,
         force: true,
       })
       return
     }
 
-    // Cache is still warm; check mailbox index health once and refresh runtime snapshot
-    // if indexing completed after this cached payload was captured.
+    // Serve the latest stable snapshot immediately, then consult mailbox index health to
+    // decide whether a background runtime refresh is actually necessary.
     void fetchMailboxIndexHealth().then((health) => {
       if (!health) return
       setStatus((prev) => ({
@@ -561,9 +572,7 @@ export function OperationsRuntimeProvider(props: {
         })
         return
       }
-      const syncMs = latestMailboxIndexSyncMs(health)
-      if (!cachedSnapshot || syncMs == null) return
-      if (syncMs <= cachedSnapshot.loadedAt + 1000) return
+      if (!mailboxIndexSnapshotChanged(cachedSnapshot?.data || null, health)) return
       void refreshRuntimeSnapshot({
         silent: true,
         force: true,

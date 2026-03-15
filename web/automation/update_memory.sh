@@ -3,7 +3,7 @@
 #
 # Purpose:
 # - Back up the authoritative docs folder
-# - Rebuild the master project summary from role context files
+# - Rebuild the master project summary from role context files into the canonical 00_core_context location
 #
 # ✅ Source of truth:
 #   ai-agent-platform-docs/ (inside this repo)
@@ -56,9 +56,10 @@ echo "✅ Docs backup created: $BACKUP_PATH"
 # 2) Rebuild master summary from all role contexts
 # (0*_CONTEXT.md files are the stitched memory backbone)
 # Support contexts either in root or inside subfolders.
-# If the docs are organized into 00_core_context/, treat that as the canonical
-# location for 00_MASTER_PROJECT.md, but also maintain a legacy root copy so
-# older markdown links do not break.
+# If the docs are organized into 00_core_context/, that is the canonical
+# location for 00_MASTER_PROJECT.md.
+# Do not maintain a legacy root copy; keep the file only in the canonical
+# context folder so the docs tree stays organized.
 
 # macOS ships with an older Bash that does not support `mapfile`, so build the
 # array using a POSIX-safe read loop instead.
@@ -73,7 +74,6 @@ if [ -d "$DOCS_AUTHORITATIVE/00_core_context" ]; then
 fi
 
 MASTER_PROJECT_CANONICAL="$MASTER_CONTEXT_DIR/00_MASTER_PROJECT.md"
-MASTER_PROJECT_LEGACY="$DOCS_AUTHORITATIVE/00_MASTER_PROJECT.md"
 
 if [ ${#CONTEXT_FILES[@]} -eq 0 ]; then
   echo "⚠️ Warning: no context files found under: $DOCS_AUTHORITATIVE"
@@ -83,9 +83,10 @@ else
   cat "${CONTEXT_FILES[@]}" > "$MASTER_PROJECT_CANONICAL"
   echo "✅ Master project summary rebuilt: $MASTER_PROJECT_CANONICAL"
 
-  if [ "$MASTER_PROJECT_CANONICAL" != "$MASTER_PROJECT_LEGACY" ]; then
-    cp "$MASTER_PROJECT_CANONICAL" "$MASTER_PROJECT_LEGACY"
-    echo "✅ Legacy compatibility copy refreshed: $MASTER_PROJECT_LEGACY"
+  ROOT_MASTER_PROJECT="$DOCS_AUTHORITATIVE/00_MASTER_PROJECT.md"
+  if [ "$MASTER_PROJECT_CANONICAL" != "$ROOT_MASTER_PROJECT" ] && [ -f "$ROOT_MASTER_PROJECT" ]; then
+    rm -f "$ROOT_MASTER_PROJECT"
+    echo "✅ Removed legacy root copy: $ROOT_MASTER_PROJECT"
   fi
 fi
 

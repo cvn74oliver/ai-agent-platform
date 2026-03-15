@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-13 (PM v8 review • Review Workflow Hardening + Cluster Browser Fast Path)_
+_Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundation stabilization)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,62 @@ _Last updated: 2026-03-13 (PM v8 review • Review Workflow Hardening + Cluster 
 ## 🔥 Current Focus (This Week)
 
 ---
+
+0) Gmail Cleanup Sender-First Follow-up (NEW)
+   - [x] Stabilize sender-first cleanup-group generation at the data layer
+   - [x] Add shared cached derived workspace state for intelligence / sender workspace / confirmation
+   - [x] Restore Mailbox Intelligence analytics visuals with interactive sender controls
+   - [x] Reuse cached intelligence between Mailbox Intelligence and Cleanup Groups
+   - [x] Add server-backed sender search/filter/sort/direction controls
+   - [x] Move later-phase review stages to route-safe placeholders
+   - [x] Tighten Phase 1 route cache invalidation to cleanup-snapshot changes only
+   - [x] Add synchronous warm-cache reuse for Mailbox Intelligence / Cleanup Groups on normal navigation
+   - [x] Add cached sender-workspace base-state reuse so sender search/filter/page interactions stop rebuilding the full sender derivation path
+   - [x] Add debounced sender search plus last-request-wins fetch behavior for Sender Decisions
+   - [x] Keep same-cluster sender data visible while new search/filter/page slices load
+   - [x] Harden Phase 1 draft persistence so sender decisions survive leaving and returning to the same cleanup group
+   - [x] Clarify Confirmation wording around archive-now vs stored-later Phase 1 decisions
+   - [x] Auto-select the recommended cleanup group when Sender Decisions is opened without a valid cluster id
+   - [x] Fix the draft hydration/write race so stored sender decisions actually restore on return
+   - [x] Keep sender-search input focus stable while preserving debounce
+   - [x] Move sender-specific analytics into Sender Decisions and keep Mailbox Intelligence high-level only
+   - [x] Reduce sender-page signal loading cost by skipping the broad indexed message scan on the fast review path
+   - [x] Stop navigation-only cleanup-discovery rebuilds caused by stale TTL or sync-timestamp-only changes
+   - [x] Add Phase 1-safe decision editing controls inside Confirmation
+   - [ ] Phase 1 validation follow-up:
+     - perform browser verification for direct `/operations/review?stage=senders` entry with no `cluster_id`
+     - verify Phase 1 draft restore across navigation, reload, and pagination changes
+     - verify sender analytics clicks drive the sender list without focus loss or full blackout reloads
+     - verify Confirmation edit actions correctly round-trip back into Sender Decisions
+     - resolve the current `npm run build` Next 16 / Turbopack compile hang and capture a definitive production-build result
+     - perform browser verification for Mailbox Intelligence, Cleanup Groups, Sender Decisions, Confirmation, and direct placeholder routes
+   - [ ] Phase 2 planning follow-up:
+     - design the dedicated Exceptions / Verification workspace once inline Phase 1 verification behavior is validated
+     - define the real Rules / Automation editing surface and Monitoring recommendation UX
+   - [x] Rebuild Gmail cleanup around sender-first guided workflow
+   - [x] Make Mailbox Intelligence the true Gmail cleanup dashboard
+   - [x] Replace mixed Batch Review UX with staged sender workspace
+   - [x] Add explicit scope ladder (`whole mailbox -> cleanup candidate universe -> cleanup group -> sender set -> loaded preview rows`)
+   - [x] Add Gmail cleanup memory write/read route
+   - [x] Persist sender decisions + rule intents into `agent_events`
+   - [x] Mirror active Gmail memory into `rag_documents`
+   - [x] Connect Monitoring to event memory + semantic Gmail memory recommendations
+   - [x] Resolve archive scope server-side from sender policies and chunk Gmail archive execution across >100 ids
+   - [ ] Monitoring follow-up:
+     - add stronger domain/similarity recommendation ranking and freshness controls
+     - consider background recommendation generation on new-mail/index refresh events
+   - [ ] Rules follow-up:
+     - add richer rule-intent editing UI beyond policy-derived defaults
+     - add explicit future-rule approval model if rules move beyond learned intent state
+   - [ ] Execution follow-up:
+     - decide when to ship real Gmail executors for unsubscribe/quarantine/custom-rule actions
+   - [ ] Intelligence follow-up:
+     - improve the remaining first-uncached mailbox-intelligence cold path further if indexed-row load still dominates after the new mailbox-context cache
+     - consider persisted/materialized mailbox-intelligence aggregates
+   - [ ] UI verification follow-up:
+     - capture fresh localhost screenshots for Intro & Health, Mailbox Intelligence, Cleanup Groups, each Review stage, and Monitoring
+   - [ ] Cleanup copy follow-up:
+     - remove lingering historical `Batch Review` wording from older docs/pages that are now secondary utility surfaces only
 
 1) Agent Runtime — Supervision Ladder (Slices #1–#6A) (COMPLETE)
    - [x] Plan → approve endpoints + approvals UI
@@ -614,3 +670,20 @@ Still next:
 - [ ] Remove the remaining true cold first-build cost for a never-warmed cleanup-candidate universe
 - [ ] Continue tightening Step 2 density without losing the staged guidance
 - [ ] Add even clearer route-level explanation if the product fully collapses Overview into Intelligence in a future pass
+
+---
+
+## Build Stabilization Follow-Up - March 14, 2026
+
+Completed:
+
+- [x] Audit the reported Vercel runtime `module-not-found` failures.
+- [x] Confirm the reported runtime modules exist locally at the exact imported paths and casing.
+- [x] Confirm the reported failures are caused by missing tracked source files rather than bad imports.
+- [x] Extend the audit to all `@/lib/runtime/*` imports and identify the additional locally present but untracked runtime modules.
+
+Still next:
+
+- [ ] Ensure the deploy branch includes every locally present runtime module referenced by source before the next Vercel build.
+- [ ] Re-run `npm run build` from a clean stabilization branch or workspace that does not include unrelated in-progress product rebuild changes.
+- [ ] Keep this thread scoped to build integrity only; do not continue sender-first product redesign work here.

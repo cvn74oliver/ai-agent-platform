@@ -11,23 +11,20 @@ export default function LoginPage() {
   // If already signed in, go straight to dashboard
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.push('/dashboard');
+      if (data.session) router.replace('/dashboard');
     });
   }, [router, supabase]);
 
-async function signIn() {
-  const redirect =
-    process.env.NODE_ENV === 'development'
-      ? 'http://localhost:3000/auth/callback'
-      : 'https://ai-agent-platform-eta.vercel.app//auth/callback';
+  async function signIn() {
+    const redirect = new URL('/auth/callback', window.location.origin).toString();
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: redirect },
-  });
-  if (error) alert(error.message);
-  else alert('Check your email for the magic link!');
-}
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirect },
+    });
+    if (error) alert(error.message);
+    else alert('Check your email for the magic link!');
+  }
 
   return (
     <main className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">

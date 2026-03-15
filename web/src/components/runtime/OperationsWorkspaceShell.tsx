@@ -38,13 +38,6 @@ function assistantSuggestedPrompts(pathname: string, reviewStage: string | null)
     ]
   }
   if (pathname.includes('/operations/review')) {
-    if (reviewStage === 'exceptions') {
-      return [
-        'Why is this sender in Exceptions?',
-        'Which protection signals make this sender risky to archive?',
-        'What override is safest here?',
-      ]
-    }
     if (reviewStage === 'confirmation') {
       return [
         'What changes now versus later?',
@@ -52,18 +45,11 @@ function assistantSuggestedPrompts(pathname: string, reviewStage: string | null)
         'Which senders are still undecided?',
       ]
     }
-    if (reviewStage === 'rules') {
+    if (reviewStage === 'exceptions' || reviewStage === 'rules' || reviewStage === 'monitoring') {
       return [
-        'Which decisions became future automation intents?',
-        'What is learned now but not executed yet?',
-        'Which rules should stay manual for now?',
-      ]
-    }
-    if (reviewStage === 'monitoring') {
-      return [
-        'What did the agent learn from my sender decisions?',
-        'Which recommendations are memory-backed?',
-        'Show similar learned sender patterns.',
+        'What is deferred out of this placeholder stage?',
+        'Where should I continue in the active Phase 1 flow?',
+        'Which sender filters should I use instead right now?',
       ]
     }
     return [
@@ -112,24 +98,18 @@ function buildAssistantContext(params: {
   const withScope = (text: string) => (scopeSuffix ? `${text} ${scopeSuffix}` : text)
 
   if (params.pathname.includes('/operations/review')) {
-    if (params.reviewStage === 'exceptions') {
-      return withScope(
-        'Current context: Exceptions / Verification. Focus on mixed senders, protected hints, and safe overrides before confirmation.'
-      )
-    }
     if (params.reviewStage === 'confirmation') {
       return withScope(
         'Current context: Confirmation. Focus on exact current-message impact, what changes now, and what remains future learned behavior.'
       )
     }
-    if (params.reviewStage === 'rules') {
+    if (
+      params.reviewStage === 'exceptions' ||
+      params.reviewStage === 'rules' ||
+      params.reviewStage === 'monitoring'
+    ) {
       return withScope(
-        'Current context: Rules / Automation. Focus on future sender policies, rule intents, and what is learned but not executed in Gmail yet.'
-      )
-    }
-    if (params.reviewStage === 'monitoring') {
-      return withScope(
-        'Current context: Monitoring. Focus on learned memory, RAG-backed recommendations, and how user decisions are shaping future Gmail automation.'
+        'Current context: Phase 2+ placeholder. Focus on the active Phase 1 sender-first workflow, what has intentionally been deferred, and the safest next step back into Sender Decisions or Confirmation.'
       )
     }
     return withScope(
@@ -155,7 +135,7 @@ function buildAssistantContext(params: {
     return withScope('Current context: History. Focus on outcomes, trends, and repeated patterns.')
   }
   return withScope(
-    'Current context: Intro & Health. Focus on mailbox health, index readiness, and the next guided step into Mailbox Intelligence.'
+    'Current context: Gmail workspace entry route. Focus on opening Mailbox Intelligence, understanding sender-first cleanup status, and identifying the next cleanup group to review.'
   )
 }
 
@@ -275,43 +255,12 @@ function OperationsWorkspaceShellInner(props: {
         stage: 'senders',
       },
       {
-        key: 'exceptions',
-        section: 'workflow',
-        label: 'Exceptions / Verification',
-        caption: 'Confirm mixed or protected senders',
-        href: reviewHref('exceptions'),
-        stage: 'exceptions',
-      },
-      {
         key: 'confirmation',
         section: 'workflow',
         label: 'Confirmation',
         caption: 'See exact message impact',
         href: reviewHref('confirmation'),
         stage: 'confirmation',
-      },
-      {
-        key: 'rules',
-        section: 'workflow',
-        label: 'Rules / Automation',
-        caption: 'Define future behavior',
-        href: reviewHref('rules'),
-        stage: 'rules',
-      },
-      {
-        key: 'monitoring',
-        section: 'workflow',
-        label: 'Monitoring',
-        caption: 'Agent memory and recommendations',
-        href: reviewHref('monitoring'),
-        stage: 'monitoring',
-      },
-      {
-        key: 'overview',
-        section: 'workflow',
-        label: 'Intro & Health',
-        caption: 'Lightweight status and entry handoff',
-        href: `/agents/${props.agentId}/operations${query}`,
       },
       {
         key: 'approvals',

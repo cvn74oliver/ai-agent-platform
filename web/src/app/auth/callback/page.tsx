@@ -8,32 +8,69 @@ export default function AuthCallback() {
   const router = useRouter()
 
   useEffect(() => {
-    const hash = window.location.hash
-    const params = new URLSearchParams(hash.substring(1))
-    const access_token = params.get('access_token')
-    const refresh_token = params.get('refresh_token')
+    let isActive = true
 
-    // Supabase may send tokens in the URL params instead of hash
-    const searchParams = new URLSearchParams(window.location.search)
-    const search_access = searchParams.get('access_token')
-    const search_refresh = searchParams.get('refresh_token')
+    async function completeAuth() {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1))
+      const searchParams = new URLSearchParams(window.location.search)
+      const errorDescription =
+        hashParams.get('error_description') ||
+        searchParams.get('error_description') ||
+        hashParams.get('error') ||
+        searchParams.get('error')
 
-    const final_access = access_token || search_access
-    const final_refresh = refresh_token || search_refresh
+      if (errorDescription) {
+        console.error('Supabase auth callback error:', errorDescription)
+        if (isActive) router.replace('/login')
+        return
+      }
 
-    if (final_access && final_refresh) {
-      supabase.auth
-        .setSession({
-          access_token: final_access,
-          refresh_token: final_refresh,
+      const accessToken = hashParams.get('access_token') || searchParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token')
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
         })
-        .then(({ data, error }) => {
-          if (error) console.error(error)
-          router.replace('/dashboard')
-        })
-    } else {
-      // If tokens are missing, go back to login
-      router.replace('/login')
+
+        if (!isActive) return
+
+        if (error) {
+          console.error('Supabase auth callback session set failed:', error)
+          router.replace('/login')
+          return
+        }
+
+        router.replace('/dashboard')
+        return
+      }
+
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession()
+
+      if (!isActive) return
+
+      if (error) {
+        console.error('Supabase auth callback session exchange failed:', error)
+        router.replace('/login')
+        return
+      }
+
+      if (!session) {
+        router.replace('/login')
+        return
+      }
+
+      router.replace('/dashboard')
+    }
+
+    void completeAuth()
+
+    return () => {
+      isActive = false
     }
   }, [router, supabase])
 

@@ -14,6 +14,9 @@ export const GMAIL_CLEANUP_STAGES = [
 
 export type GmailCleanupStage = (typeof GMAIL_CLEANUP_STAGES)[number]
 
+export const GMAIL_CLEANUP_ACTIVE_STAGES = ['senders', 'confirmation'] as const
+export const GMAIL_CLEANUP_PLACEHOLDER_STAGES = ['exceptions', 'rules', 'monitoring'] as const
+
 export const GMAIL_SENDER_POLICIES = [
   'undecided',
   'keep',
@@ -24,6 +27,30 @@ export const GMAIL_SENDER_POLICIES = [
 ] as const
 
 export type GmailSenderPolicy = (typeof GMAIL_SENDER_POLICIES)[number]
+
+export const GMAIL_SENDER_WORKSPACE_FILTERS = [
+  'all',
+  'needs_verification',
+  'protected',
+  'likely_machine_generated',
+  'likely_human',
+] as const
+
+export type GmailSenderWorkspaceFilter = (typeof GMAIL_SENDER_WORKSPACE_FILTERS)[number]
+
+export const GMAIL_SENDER_WORKSPACE_SORTS = [
+  'message_count',
+  'sender',
+  'unread_count',
+  'last_activity',
+] as const
+
+export type GmailSenderWorkspaceSort = (typeof GMAIL_SENDER_WORKSPACE_SORTS)[number]
+
+export const GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS = ['asc', 'desc'] as const
+
+export type GmailSenderWorkspaceSortDirection =
+  (typeof GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS)[number]
 
 export type GmailCleanupClusterRef = {
   clusterId: string
@@ -207,6 +234,30 @@ export type GmailSenderWorkspaceData = {
     page_size: number
     total_senders: number
     total_pages: number
+    cluster_total_senders: number
+  }
+  analytics: {
+    sender_category_distribution: Array<{
+      label: string
+      sender_count: number
+    }>
+    sender_activity_timeline: Array<{
+      label: string
+      sender_count: number
+    }>
+    sender_activity_timeline_granularity: 'week' | 'month'
+    cluster_contribution: Array<{
+      sender: string
+      sender_key: string
+      message_count: number
+      share_pct: number
+    }>
+  }
+  view: {
+    search: string
+    filter: GmailSenderWorkspaceFilter
+    sort: GmailSenderWorkspaceSort
+    direction: GmailSenderWorkspaceSortDirection
   }
   exceptions_count: number
   source: 'gmail_index_cache'
@@ -311,6 +362,7 @@ export type GmailCleanupWorkflowDraft = {
   ruleIntents: GmailCleanupRuleIntent[]
   currentStage: GmailCleanupStage
   confirmationPreview: GmailConfirmationPreviewData | null
+  snapshotVersion?: string | null
   updatedAt: number
 }
 
@@ -367,56 +419,250 @@ function contextParams(value: OperationsInboxAnalysisRequestContext | undefined)
   }
 }
 
+type CachedInboxAnalysisEntry<T> = {
+  expiresAtMs: number
+  data: T
+}
+
+const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_TTL_MS = 1000 * 60 * 10
+const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_STORAGE_PREFIX = 'gmail.inbox.analysis.v1'
+
+const gmailCleanupRuntimeGlobal = globalThis as typeof globalThis & {
+  __gmailInboxAnalysisClientCache?: Map<string, CachedInboxAnalysisEntry<unknown>>
+  __gmailInboxAnalysisClientInflight?: Map<string, Promise<unknown>>
+}
+
+const gmailInboxAnalysisClientCache =
+  gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientCache ||
+  new Map<string, CachedInboxAnalysisEntry<unknown>>()
+if (!gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientCache) {
+  gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientCache = gmailInboxAnalysisClientCache
+}
+
+const gmailInboxAnalysisClientInflight =
+  gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight || new Map<string, Promise<unknown>>()
+if (!gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight) {
+  gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight = gmailInboxAnalysisClientInflight
+}
+
+function clusterCacheSignature(cluster: GmailCleanupClusterRef): string {
+  return [
+    cluster.clusterId,
+    cluster.clusterType,
+    cluster.title,
+    cluster.query,
+    cluster.whySelected || '',
+    cluster.riskNote || '',
+    cluster.safetyNote || '',
+    cluster.estimatedCount ?? '',
+  ].join('::')
+}
+
+function sortedClusterCacheSignatures(clusters: GmailCleanupClusterRef[]): string[] {
+  return clusters.map((cluster) => clusterCacheSignature(cluster)).sort()
+}
+
+function senderPoliciesSignature(value: Record<string, GmailSenderPolicy>): string {
+  return Object.entries(value)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, policy]) => `${key}:${policy}`)
+    .join('|')
+}
+
+function messageOverridesSignature(value: Record<string, 'include' | 'exclude'>): string {
+  return Object.entries(value)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, override]) => `${key}:${override}`)
+    .join('|')
+}
+
+function clientInboxAnalysisStorageKey(cacheKey: string): string {
+  return `${GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_STORAGE_PREFIX}:${cacheKey}`
+}
+
+function readPersistedClientInboxAnalysisCache<T>(cacheKey: string): T | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(clientInboxAnalysisStorageKey(cacheKey))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as CachedInboxAnalysisEntry<T> | null
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.expiresAtMs !== 'number') return null
+    if (parsed.expiresAtMs <= Date.now()) {
+      window.sessionStorage.removeItem(clientInboxAnalysisStorageKey(cacheKey))
+      return null
+    }
+    gmailInboxAnalysisClientCache.set(cacheKey, parsed as CachedInboxAnalysisEntry<unknown>)
+    return parsed.data
+  } catch {
+    return null
+  }
+}
+
+function readClientInboxAnalysisCache<T>(cacheKey: string): T | null {
+  const cached = gmailInboxAnalysisClientCache.get(cacheKey)
+  if (!cached) return null
+  if (cached.expiresAtMs <= Date.now()) {
+    gmailInboxAnalysisClientCache.delete(cacheKey)
+    return null
+  }
+  return cached.data as T
+}
+
+function writeClientInboxAnalysisCache<T>(cacheKey: string, data: T): T {
+  const entry = {
+    expiresAtMs: Date.now() + GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_TTL_MS,
+    data,
+  }
+  gmailInboxAnalysisClientCache.set(cacheKey, entry)
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage.setItem(clientInboxAnalysisStorageKey(cacheKey), JSON.stringify(entry))
+    } catch {
+      // Ignore storage quota failures; the in-memory cache remains the primary fast path.
+    }
+  }
+  return data
+}
+
+async function requestCachedInboxAnalysis<T>(params: {
+  cacheKey: string
+  body: Record<string, unknown>
+  errorMessage: string
+  signal?: AbortSignal
+}): Promise<{ ok: true; data: T } | { ok: false; error: string; aborted?: true }> {
+  const cached =
+    readClientInboxAnalysisCache<T>(params.cacheKey) ||
+    readPersistedClientInboxAnalysisCache<T>(params.cacheKey)
+  if (cached) return { ok: true, data: cached }
+
+  const inflight = gmailInboxAnalysisClientInflight.get(params.cacheKey)
+  if (inflight) {
+    return (await inflight) as { ok: true; data: T } | { ok: false; error: string; aborted?: true }
+  }
+
+  const request = (async (): Promise<{ ok: true; data: T } | { ok: false; error: string; aborted?: true }> => {
+    try {
+      const res = await fetch('/api/integrations/gmail/inbox-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        signal: params.signal,
+        body: JSON.stringify(params.body),
+      })
+
+      const payload = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; data?: T }
+        | null
+
+      if (!res.ok || !payload?.ok || !payload.data) {
+        return { ok: false, error: payload?.error || params.errorMessage }
+      }
+
+      return { ok: true, data: writeClientInboxAnalysisCache(params.cacheKey, payload.data) }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { ok: false, error: 'Request cancelled.', aborted: true }
+      }
+      return { ok: false, error: params.errorMessage }
+    }
+  })()
+
+  gmailInboxAnalysisClientInflight.set(params.cacheKey, request as Promise<unknown>)
+  try {
+    return await request
+  } finally {
+    gmailInboxAnalysisClientInflight.delete(params.cacheKey)
+  }
+}
+
 export function gmailCleanupWorkflowDraftStorageKey(params: {
   agentId: string
   sessionId: string | null
   clusterId: string
 }): string {
   return [
-    'gmail.cleanup.workflow.v1',
+    'gmail.cleanup.workflow.v2',
     params.agentId,
     params.sessionId || 'none',
     params.clusterId,
   ].join(':')
 }
 
+function gmailCleanupWorkflowDraftClusterFallbackStorageKey(params: {
+  agentId: string
+  clusterId: string
+}): string {
+  return ['gmail.cleanup.workflow.v2', params.agentId, 'cluster_fallback', params.clusterId].join(':')
+}
+
+function normalizeWorkflowDraft(value: Partial<GmailCleanupWorkflowDraft> | null): GmailCleanupWorkflowDraft | null {
+  if (!value || typeof value !== 'object') return null
+  return {
+    senderPolicies:
+      value.senderPolicies && typeof value.senderPolicies === 'object'
+        ? (value.senderPolicies as Record<string, GmailSenderPolicy>)
+        : {},
+    messageOverrides:
+      value.messageOverrides && typeof value.messageOverrides === 'object'
+        ? (value.messageOverrides as Record<string, 'include' | 'exclude'>)
+        : {},
+    ruleIntents: Array.isArray(value.ruleIntents) ? (value.ruleIntents as GmailCleanupRuleIntent[]) : [],
+    currentStage:
+      typeof value.currentStage === 'string' &&
+      GMAIL_CLEANUP_STAGES.includes(value.currentStage as GmailCleanupStage)
+        ? (value.currentStage as GmailCleanupStage)
+        : 'senders',
+    confirmationPreview:
+      value.confirmationPreview && typeof value.confirmationPreview === 'object'
+        ? (value.confirmationPreview as GmailConfirmationPreviewData)
+        : null,
+    snapshotVersion:
+      typeof value.snapshotVersion === 'string' && value.snapshotVersion.trim()
+        ? value.snapshotVersion.trim()
+        : null,
+    updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
+  }
+}
+
+function draftMatchesSnapshot(
+  draft: GmailCleanupWorkflowDraft | null,
+  snapshotVersion: string | null | undefined
+): draft is GmailCleanupWorkflowDraft {
+  if (!draft) return false
+  if (!snapshotVersion || !snapshotVersion.trim()) return true
+  if (!draft.snapshotVersion || !draft.snapshotVersion.trim()) return true
+  return draft.snapshotVersion.trim() === snapshotVersion.trim()
+}
+
+function readStoredWorkflowDraft(key: string): GmailCleanupWorkflowDraft | null {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(key)
+  if (!raw) return null
+  try {
+    return normalizeWorkflowDraft(JSON.parse(raw) as Partial<GmailCleanupWorkflowDraft>)
+  } catch {
+    return null
+  }
+}
+
 export function readGmailCleanupWorkflowDraft(params: {
   agentId: string
   sessionId: string | null
   clusterId: string
+  snapshotVersion?: string | null
 }): GmailCleanupWorkflowDraft | null {
-  if (typeof window === 'undefined') return null
-  const raw = window.localStorage.getItem(gmailCleanupWorkflowDraftStorageKey(params))
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(raw) as Partial<GmailCleanupWorkflowDraft>
-    if (!parsed || typeof parsed !== 'object') return null
-    return {
-      senderPolicies:
-        parsed.senderPolicies && typeof parsed.senderPolicies === 'object'
-          ? (parsed.senderPolicies as Record<string, GmailSenderPolicy>)
-          : {},
-      messageOverrides:
-        parsed.messageOverrides && typeof parsed.messageOverrides === 'object'
-          ? (parsed.messageOverrides as Record<string, 'include' | 'exclude'>)
-          : {},
-      ruleIntents: Array.isArray(parsed.ruleIntents)
-        ? (parsed.ruleIntents as GmailCleanupRuleIntent[])
-        : [],
-      currentStage:
-        typeof parsed.currentStage === 'string' &&
-        GMAIL_CLEANUP_STAGES.includes(parsed.currentStage as GmailCleanupStage)
-          ? (parsed.currentStage as GmailCleanupStage)
-          : 'senders',
-      confirmationPreview:
-        parsed.confirmationPreview && typeof parsed.confirmationPreview === 'object'
-          ? (parsed.confirmationPreview as GmailConfirmationPreviewData)
-          : null,
-      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
-    }
-  } catch {
-    return null
-  }
+  const sessionDraft = readStoredWorkflowDraft(gmailCleanupWorkflowDraftStorageKey(params))
+  if (draftMatchesSnapshot(sessionDraft, params.snapshotVersion)) return sessionDraft
+
+  const fallbackDraft = readStoredWorkflowDraft(
+    gmailCleanupWorkflowDraftClusterFallbackStorageKey({
+      agentId: params.agentId,
+      clusterId: params.clusterId,
+    })
+  )
+  if (draftMatchesSnapshot(fallbackDraft, params.snapshotVersion)) return fallbackDraft
+
+  return null
 }
 
 export function writeGmailCleanupWorkflowDraft(
@@ -424,27 +670,165 @@ export function writeGmailCleanupWorkflowDraft(
     agentId: string
     sessionId: string | null
     clusterId: string
+    snapshotVersion?: string | null
   },
   draft: GmailCleanupWorkflowDraft
 ) {
   if (typeof window === 'undefined') return
+  const payload = JSON.stringify({
+    ...draft,
+    snapshotVersion: params.snapshotVersion ?? draft.snapshotVersion ?? null,
+  })
+  window.localStorage.setItem(gmailCleanupWorkflowDraftStorageKey(params), payload)
   window.localStorage.setItem(
-    gmailCleanupWorkflowDraftStorageKey(params),
-    JSON.stringify(draft)
+    gmailCleanupWorkflowDraftClusterFallbackStorageKey({
+      agentId: params.agentId,
+      clusterId: params.clusterId,
+    }),
+    payload
+  )
+}
+
+function mailboxIntelligenceCacheKey(params: {
+  clusters: GmailCleanupClusterRef[]
+  analysisScope: OperationsAnalysisScope
+  cacheVersion: string
+}): string {
+  return [
+    'mailbox_intelligence',
+    params.analysisScope,
+    params.cacheVersion,
+    ...sortedClusterCacheSignatures(params.clusters),
+  ].join('|||')
+}
+
+function senderWorkspaceCacheKey(params: {
+  selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
+  analysisScope: OperationsAnalysisScope
+  cacheVersion: string
+  page: number
+  pageSize: number
+  search: string
+  filter: GmailSenderWorkspaceFilter
+  sort: GmailSenderWorkspaceSort
+  direction: GmailSenderWorkspaceSortDirection
+}): string {
+  return [
+    'sender_workspace',
+    params.analysisScope,
+    params.cacheVersion,
+    clusterCacheSignature(params.selectedCluster),
+    ...sortedClusterCacheSignatures(params.allClusters),
+    String(params.page),
+    String(params.pageSize),
+    params.search,
+    params.filter,
+    params.sort,
+    params.direction,
+  ].join('|||')
+}
+
+function confirmationPreviewCacheKey(params: {
+  selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
+  analysisScope: OperationsAnalysisScope
+  cacheVersion: string
+  senderPolicies: Record<string, GmailSenderPolicy>
+  messageOverrides: Record<string, 'include' | 'exclude'>
+}): string {
+  return [
+    'confirmation_preview',
+    params.analysisScope,
+    params.cacheVersion,
+    clusterCacheSignature(params.selectedCluster),
+    ...sortedClusterCacheSignatures(params.allClusters),
+    senderPoliciesSignature(params.senderPolicies),
+    messageOverridesSignature(params.messageOverrides),
+  ].join('|||')
+}
+
+export function readCachedGmailMailboxIntelligence(params: {
+  clusters: GmailCleanupClusterRef[]
+  analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
+}): GmailMailboxIntelligenceData | null {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  return (
+    readClientInboxAnalysisCache<GmailMailboxIntelligenceData>(
+      mailboxIntelligenceCacheKey({
+        clusters: params.clusters,
+        analysisScope,
+        cacheVersion,
+      })
+    ) ||
+    readPersistedClientInboxAnalysisCache<GmailMailboxIntelligenceData>(
+      mailboxIntelligenceCacheKey({
+        clusters: params.clusters,
+        analysisScope,
+        cacheVersion,
+      })
+    )
+  )
+}
+
+export function readCachedGmailSenderWorkspace(params: {
+  selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
+  analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
+  page?: number
+  pageSize?: number
+  search?: string | null
+  filter?: GmailSenderWorkspaceFilter
+  sort?: GmailSenderWorkspaceSort
+  direction?: GmailSenderWorkspaceSortDirection
+}): GmailSenderWorkspaceData | null {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? 12
+  const search = typeof params.search === 'string' ? params.search.trim() : ''
+  const filter = params.filter ?? 'all'
+  const sort = params.sort ?? 'message_count'
+  const direction = params.direction ?? 'desc'
+  const cacheKey = senderWorkspaceCacheKey({
+    selectedCluster: params.selectedCluster,
+    allClusters: params.allClusters,
+    analysisScope,
+    cacheVersion,
+    page,
+    pageSize,
+    search,
+    filter,
+    sort,
+    direction,
+  })
+  return (
+    readClientInboxAnalysisCache<GmailSenderWorkspaceData>(cacheKey) ||
+    readPersistedClientInboxAnalysisCache<GmailSenderWorkspaceData>(cacheKey)
   )
 }
 
 export async function fetchGmailMailboxIntelligence(params: {
   clusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
-}): Promise<{ ok: true; data: GmailMailboxIntelligenceData } | { ok: false; error: string }> {
-  const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+}): Promise<{ ok: true; data: GmailMailboxIntelligenceData } | { ok: false; error: string; aborted?: true }> {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  return requestCachedInboxAnalysis<GmailMailboxIntelligenceData>({
+    cacheKey: mailboxIntelligenceCacheKey({
+      clusters: params.clusters,
+      analysisScope,
+      cacheVersion,
+    }),
+    body: {
       action: 'mailbox_intelligence',
-      analysis_scope: normalizeOperationsAnalysisScope(params.analysisScope),
+      analysis_scope: analysisScope,
+      cache_version: params.cacheVersion ?? null,
       clusters: params.clusters.map((cluster) => ({
         cluster_id: cluster.clusterId,
         cluster_type: cluster.clusterType,
@@ -455,33 +839,51 @@ export async function fetchGmailMailboxIntelligence(params: {
         safety_note: cluster.safetyNote ?? undefined,
       })),
       ...contextParams(params.requestContext),
-    }),
+    },
+    errorMessage: 'Failed to load Mailbox Intelligence.',
   })
-
-  const payload = (await res.json().catch(() => null)) as
-    | { ok?: boolean; error?: string; data?: GmailMailboxIntelligenceData }
-    | null
-
-  if (!res.ok || !payload?.ok || !payload.data) {
-    return { ok: false, error: payload?.error || 'Failed to load Mailbox Intelligence.' }
-  }
-  return { ok: true, data: payload.data }
 }
 
 export async function fetchGmailSenderWorkspace(params: {
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
   page?: number
   pageSize?: number
+  search?: string | null
+  filter?: GmailSenderWorkspaceFilter
+  sort?: GmailSenderWorkspaceSort
+  direction?: GmailSenderWorkspaceSortDirection
   requestContext?: OperationsInboxAnalysisRequestContext
-}): Promise<{ ok: true; data: GmailSenderWorkspaceData } | { ok: false; error: string }> {
-  const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  signal?: AbortSignal
+}): Promise<{ ok: true; data: GmailSenderWorkspaceData } | { ok: false; error: string; aborted?: true }> {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? 12
+  const search = typeof params.search === 'string' ? params.search.trim() : ''
+  const filter = params.filter ?? 'all'
+  const sort = params.sort ?? 'message_count'
+  const direction = params.direction ?? 'desc'
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+
+  return requestCachedInboxAnalysis<GmailSenderWorkspaceData>({
+    cacheKey: senderWorkspaceCacheKey({
+      selectedCluster: params.selectedCluster,
+      allClusters: params.allClusters,
+      analysisScope,
+      cacheVersion,
+      page,
+      pageSize,
+      search,
+      filter,
+      sort,
+      direction,
+    }),
+    body: {
       action: 'sender_workspace',
-      analysis_scope: normalizeOperationsAnalysisScope(params.analysisScope),
+      analysis_scope: analysisScope,
+      cache_version: params.cacheVersion ?? null,
       selected_cluster: {
         cluster_id: params.selectedCluster.clusterId,
         cluster_type: params.selectedCluster.clusterType,
@@ -497,36 +899,45 @@ export async function fetchGmailSenderWorkspace(params: {
         title: cluster.title,
         query: cluster.query,
       })),
-      page: params.page ?? 1,
-      page_size: params.pageSize ?? 12,
+      page,
+      page_size: pageSize,
+      search,
+      filter,
+      sort,
+      direction,
       ...contextParams(params.requestContext),
-    }),
+    },
+    errorMessage: 'Failed to load sender workspace.',
+    signal: params.signal,
   })
-
-  const payload = (await res.json().catch(() => null)) as
-    | { ok?: boolean; error?: string; data?: GmailSenderWorkspaceData }
-    | null
-
-  if (!res.ok || !payload?.ok || !payload.data) {
-    return { ok: false, error: payload?.error || 'Failed to load sender workspace.' }
-  }
-  return { ok: true, data: payload.data }
 }
 
 export async function fetchGmailConfirmationPreview(params: {
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
   senderPolicies: Record<string, GmailSenderPolicy>
   messageOverrides?: Record<string, 'include' | 'exclude'>
   requestContext?: OperationsInboxAnalysisRequestContext
-}): Promise<{ ok: true; data: GmailConfirmationPreviewData } | { ok: false; error: string }> {
-  const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+}): Promise<{ ok: true; data: GmailConfirmationPreviewData } | { ok: false; error: string; aborted?: true }> {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const messageOverrides = params.messageOverrides || {}
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+
+  return requestCachedInboxAnalysis<GmailConfirmationPreviewData>({
+    cacheKey: confirmationPreviewCacheKey({
+      selectedCluster: params.selectedCluster,
+      allClusters: params.allClusters,
+      analysisScope,
+      cacheVersion,
+      senderPolicies: params.senderPolicies,
+      messageOverrides,
+    }),
+    body: {
       action: 'confirmation_preview',
-      analysis_scope: normalizeOperationsAnalysisScope(params.analysisScope),
+      analysis_scope: analysisScope,
+      cache_version: params.cacheVersion ?? null,
       selected_cluster: {
         cluster_id: params.selectedCluster.clusterId,
         cluster_type: params.selectedCluster.clusterType,
@@ -540,19 +951,11 @@ export async function fetchGmailConfirmationPreview(params: {
         query: cluster.query,
       })),
       sender_policies: params.senderPolicies,
-      message_overrides: params.messageOverrides || {},
+      message_overrides: messageOverrides,
       ...contextParams(params.requestContext),
-    }),
+    },
+    errorMessage: 'Failed to compute confirmation preview.',
   })
-
-  const payload = (await res.json().catch(() => null)) as
-    | { ok?: boolean; error?: string; data?: GmailConfirmationPreviewData }
-    | null
-
-  if (!res.ok || !payload?.ok || !payload.data) {
-    return { ok: false, error: payload?.error || 'Failed to compute confirmation preview.' }
-  }
-  return { ok: true, data: payload.data }
 }
 
 export async function fetchGmailMonitoringSummary(params: {

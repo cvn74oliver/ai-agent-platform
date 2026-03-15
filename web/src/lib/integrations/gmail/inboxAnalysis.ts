@@ -924,6 +924,13 @@ function senderTokenForQuery(sender: string): string | null {
   return simple || null
 }
 
+function senderDomainFromSenderString(sender: string): string | null {
+  const normalized = normalizeSender(sender)
+  const atIndex = normalized.indexOf('@')
+  if (atIndex <= 0 || atIndex >= normalized.length - 1) return null
+  return normalized.slice(atIndex + 1)
+}
+
 function hasEstimateOverlapAmbiguity(values: number[]): boolean {
   const normalized = values.filter((value) => Number.isFinite(value) && value > 0)
   if (normalized.length < 3) return false
@@ -941,99 +948,187 @@ function hasEstimateOverlapAmbiguity(values: number[]): boolean {
   return maxFrequency >= 3
 }
 
+const SENDER_FIRST_CLUSTER_SPECS: GmailCleanupClusterSpec[] = [
+  {
+    cluster_id: 'subscription-senders',
+    cluster_type: 'newsletters',
+    title: 'Subscription senders',
+    query:
+      'in:inbox -is:starred -is:important -category:primary -from:me (category:promotions OR subject:(newsletter OR digest OR roundup OR unsubscribe OR "manage preferences"))',
+    why_selected: 'Groups recurring newsletter and subscription senders into one sender-first cleanup wave.',
+    risk_note: 'Low to medium risk; keep valuable subscriptions before archive.',
+  },
+  {
+    cluster_id: 'retail-commerce-senders',
+    cluster_type: 'shopping_updates',
+    title: 'Retail / commerce senders',
+    query:
+      'in:inbox -is:starred -is:important -category:primary -from:me (subject:(order OR shipped OR delivery OR tracking OR receipt OR invoice OR booking OR itinerary OR reservation) OR category:promotions)',
+    why_selected: 'Collects commerce, retail, and travel-oriented senders with recurring inbox volume.',
+    risk_note: 'Medium risk; preserve active order and travel threads before archive.',
+  },
+  {
+    cluster_id: 'social-platform-senders',
+    cluster_type: 'social_notifications',
+    title: 'Social platform senders',
+    query:
+      'in:inbox -is:starred -is:important -category:primary -from:me (category:social OR subject:(mentioned OR follower OR comment OR liked OR reacted OR invite))',
+    why_selected: 'Separates social-network and community-notification senders into a bounded sender review set.',
+    risk_note: 'Low to medium risk; some communities may still matter.',
+  },
+  {
+    cluster_id: 'system-notification-senders',
+    cluster_type: 'noreply_automation',
+    title: 'System notification senders',
+    query:
+      'in:inbox -is:starred -is:important -category:primary -from:me (from:noreply OR from:no-reply OR from:donotreply OR subject:(notification OR alert OR automated OR digest))',
+    why_selected: 'Captures automation-heavy system senders that usually behave like repeat notification streams.',
+    risk_note: 'Medium risk; security or account alerts still need review.',
+  },
+  {
+    cluster_id: 'dormant-backlog-senders',
+    cluster_type: 'unread_clutter',
+    title: 'Dormant low-attention senders',
+    query:
+      'in:inbox -is:starred -is:important -category:primary -from:me (older_than:45d OR (is:unread older_than:21d))',
+    why_selected: 'Flags stale sender relationships where low-attention backlog is accumulating.',
+    risk_note: 'Medium risk; revisit senders with deferred intent before archive.',
+  },
+]
+
+function clusterSpecById(clusterId: string): GmailCleanupClusterSpec | null {
+  return SENDER_FIRST_CLUSTER_SPECS.find((spec) => spec.cluster_id === clusterId) || null
+}
+
+function domainMatchesAny(domain: string | null, patterns: RegExp[]): boolean {
+  if (!domain) return false
+  return patterns.some((pattern) => pattern.test(domain))
+}
+
+function textMatchesCount(text: string, patterns: RegExp[]): number {
+  let count = 0
+  for (const pattern of patterns) {
+    if (pattern.test(text)) count += 1
+  }
+  return count
+}
+
+export function classifySenderCleanupCluster(params: {
+  sender: string
+  rows: GmailMailboxIndexRow[]
+  nowMs: number
+}): GmailCleanupClusterSpec | null {
+  const inboxRows = params.rows.filter((row) => row.is_in_inbox)
+  if (inboxRows.length === 0) return null
+
+  const safeRows = inboxRows.filter(
+    (row) =>
+      !row.is_starred &&
+      !row.is_important &&
+      !rowCategoryHas(row, 'CATEGORY_PRIMARY')
+  )
+  if (safeRows.length === 0) return null
+
+  const senderLower = params.sender.trim().toLowerCase()
+  const domain = senderDomainFromSenderString(params.sender)
+  const sampleText = safeRows
+    .slice(0, 8)
+    .map((row) => `${row.sender || ''} ${row.subject || ''}`.trim())
+    .join(' ')
+    .toLowerCase()
+  const categoryCounts = {
+    promotions: safeRows.filter((row) => rowCategoryHas(row, 'CATEGORY_PROMOTIONS')).length,
+    social: safeRows.filter((row) => rowCategoryHas(row, 'CATEGORY_SOCIAL')).length,
+    updates: safeRows.filter((row) => rowCategoryHas(row, 'CATEGORY_UPDATES')).length,
+  }
+  const protectedCount = inboxRows.filter(
+    (row) => row.is_starred || row.is_important || rowCategoryHas(row, 'CATEGORY_PRIMARY')
+  ).length
+  const machineLikeCount = inboxRows.filter(isLikelyMachineGeneratedRow).length
+  const humanLikeCount = inboxRows.filter(isLikelyHumanPriorityRow).length
+  const newestMessageMs = safeRows.reduce<number | null>((latest, row) => {
+    const value =
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+        ? row.internal_date_ms
+        : null
+    if (value == null) return latest
+    if (latest == null || value > latest) return value
+    return latest
+  }, null)
+  const ageDays =
+    newestMessageMs != null ? (params.nowMs - newestMessageMs) / (24 * 60 * 60 * 1000) : null
+  const unreadCount = safeRows.filter((row) => row.is_unread).length
+  const senderSignal = senderSignalFromText({
+    sender: params.sender,
+    sampleText: sampleText || params.sender,
+  })
+
+  const subscriptionScore =
+    categoryCounts.promotions +
+    textMatchesCount(sampleText, [
+      /\b(newsletter|digest|roundup|subscription|unsubscribe|substack|patreon|mailing list)\b/,
+      /\b(manage preferences|weekly update|daily update|promo|offer|sale|coupon)\b/,
+    ])
+  const commerceScore =
+    textMatchesCount(sampleText, [
+      /\b(order|shipped|delivery|tracking|receipt|invoice|refund|return)\b/,
+      /\b(booking|itinerary|reservation|flight|hotel|trip|travel)\b/,
+    ]) +
+    (domainMatchesAny(domain, [
+      /amazon|walmart|target|shopify|etsy|sephora|booking|expedia|airbnb|delta|united|marriott|hilton/,
+    ])
+      ? 2
+      : 0)
+  const socialScore =
+    categoryCounts.social +
+    textMatchesCount(sampleText, [
+      /\b(mentioned|follower|comment|liked|reacted|invite|connection request|new message)\b/,
+    ]) +
+    (domainMatchesAny(domain, [/linkedin|facebook|instagram|twitter|x\.com|reddit|discord|slack|tiktok/])
+      ? 2
+      : 0)
+  const systemScore =
+    textMatchesCount(sampleText, [
+      /\b(notification|alert|automated|digest|security|verification|otp|code)\b/,
+    ]) +
+    (senderLooksMachineGenerated(senderLower) ? 2 : 0)
+  const dormantScore =
+    (ageDays != null && ageDays >= 45 ? 2 : 0) +
+    (unreadCount >= Math.max(3, Math.round(safeRows.length * 0.5)) ? 1 : 0)
+
+  const protectedRatio = inboxRows.length > 0 ? protectedCount / inboxRows.length : 0
+  const safeRatio = safeRows.length / inboxRows.length
+  const lowRiskCandidate =
+    safeRows.length >= 2 &&
+    safeRatio >= 0.4 &&
+    !(senderSignal === 'likely_human' && protectedRatio >= 0.35) &&
+    !(humanLikeCount > machineLikeCount && protectedRatio >= 0.25)
+
+  if (!lowRiskCandidate) return null
+
+  const scored: Array<[string, number]> = [
+    ['social-platform-senders', socialScore],
+    ['system-notification-senders', systemScore],
+    ['retail-commerce-senders', commerceScore],
+    ['subscription-senders', subscriptionScore],
+    ['dormant-backlog-senders', dormantScore],
+  ]
+  const [clusterId, score] =
+    scored.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] || []
+
+  if (typeof clusterId !== 'string' || typeof score !== 'number') return null
+  if (score < 2 && !(clusterId === 'dormant-backlog-senders' && safeRows.length >= 4)) {
+    return null
+  }
+
+  return clusterSpecById(clusterId)
+}
+
 function buildGmailCleanupClusterSpecs(params: {
   topSenders?: string[]
 }): GmailCleanupClusterSpec[] {
-  const safetyBase = 'in:inbox -is:starred -is:important -category:primary -from:me'
-  const specs: GmailCleanupClusterSpec[] = [
-    {
-      cluster_id: 'newsletters',
-      cluster_type: 'newsletters',
-      title: 'Newsletter / unsubscribe-like traffic',
-      query:
-        `${safetyBase} (` +
-        'category:promotions OR (subject:(newsletter OR digest OR roundup OR update) OR "unsubscribe" OR "manage preferences")' +
-        ') -category:social -subject:(receipt OR invoice OR order OR shipped OR delivery OR tracking)',
-      why_selected: 'Targets recurring subscription-style inbox traffic with low reply likelihood.',
-      risk_note: 'Low to medium risk; still review for subscriptions you want to keep.',
-    },
-    {
-      cluster_id: 'noreply-automation',
-      cluster_type: 'noreply_automation',
-      title: 'No-reply automated mail',
-      query:
-        `${safetyBase} (` +
-        'from:noreply OR from:no-reply OR from:donotreply OR from:do-not-reply OR from:mailer-daemon OR subject:(notification OR automated OR alert)' +
-        ') -subject:(newsletter OR digest OR promo OR promotion OR order OR shipped OR delivery OR tracking) -category:promotions -category:social',
-      why_selected: 'Identifies machine-generated alerts and automation-heavy traffic.',
-      risk_note: 'Low risk, but system/security alerts may still need retention.',
-    },
-    {
-      cluster_id: 'shopping-updates',
-      cluster_type: 'shopping_updates',
-      title: 'Shopping / order updates',
-      query:
-        `${safetyBase} (` +
-        'subject:(order OR shipped OR delivery OR tracking OR receipt OR invoice OR return OR refund) OR (category:updates subject:(order OR shipped OR delivery OR tracking))' +
-        ') -category:social -category:promotions',
-      why_selected: 'Finds transactional commerce updates often safe for staged review.',
-      risk_note: 'Medium risk; keep recent warranty/returns and tax-related receipts.',
-    },
-    {
-      cluster_id: 'social-notifications',
-      cluster_type: 'social_notifications',
-      title: 'Social / notification traffic',
-      query:
-        `${safetyBase} (` +
-        'category:social OR subject:(mentioned OR follower OR comment OR liked OR reacted OR invite)' +
-        ') -category:promotions',
-      why_selected: 'Captures social feed-style traffic and low-priority notifications.',
-      risk_note: 'Low risk, but some community notifications may be important.',
-    },
-    {
-      cluster_id: 'old-read',
-      cluster_type: 'old_read_mail',
-      title: 'Old read inbox mail',
-      query: 'in:inbox is:read older_than:120d -is:starred -is:important -category:primary -from:me',
-      why_selected: 'Large volume candidate for conservative backlog reduction.',
-      risk_note: 'Medium risk; old read mail can still include records you need.',
-    },
-    {
-      cluster_id: 'unread-clutter',
-      cluster_type: 'unread_clutter',
-      title: 'Unread clutter backlog',
-      query: 'in:inbox is:unread older_than:21d -is:starred -is:important -category:primary -from:me',
-      why_selected: 'Surfaces stale unread backlog likely to contain low-priority clutter.',
-      risk_note: 'Medium risk; unread status implies possible missed intent.',
-    },
-    {
-      cluster_id: 'age-very-old',
-      cluster_type: 'age_cluster',
-      title: 'Very old inbox mail',
-      query: 'in:inbox older_than:365d -is:starred -is:important -category:primary -from:me',
-      why_selected: 'Time-based cluster for cautious long-tail cleanup planning.',
-      risk_note: 'Medium risk; old threads may still carry historical value.',
-    },
-  ]
-
-  const seenSenders = new Set<string>()
-  for (const senderRaw of params.topSenders || []) {
-    const token = senderTokenForQuery(senderRaw)
-    if (!token || seenSenders.has(token)) continue
-    seenSenders.add(token)
-    if (seenSenders.size > 3) break
-
-    specs.push({
-      cluster_id: `sender-${seenSenders.size}`,
-      cluster_type: 'sender_cluster',
-      title: `Sender cluster: ${token}`,
-      query: `in:inbox from:${token} -is:starred -is:important -category:primary`,
-      why_selected: 'Sender-based cluster to review concentrated non-primary traffic from one source.',
-      risk_note: 'Medium risk; sender clusters can include mixed-priority updates.',
-    })
-  }
-
-  return specs
+  void params
+  return [...SENDER_FIRST_CLUSTER_SPECS]
 }
 
 export function normalizeMailboxProfileScope(value: unknown): GmailAnalysisScope {
@@ -1347,8 +1442,10 @@ export function buildQueryClusterBrowserSenderBreakdown(params: {
   rows: GmailMailboxIndexRow[]
   cleanupGroupRows?: GmailMailboxIndexRow[]
   previewLimit?: number
+  includePreviewMessages?: boolean
 }): GmailQueryClusterBrowserData['sender_breakdown'] {
   const previewLimit = Math.min(Math.max(params.previewLimit ?? 8, 1), 10)
+  const includePreviewMessages = params.includePreviewMessages !== false
   const senderMap = new Map<
     string,
     {
@@ -1426,10 +1523,12 @@ export function buildQueryClusterBrowserSenderBreakdown(params: {
         .slice(0, 2)
         .map(([label, count]) => `${label} (${count})`)
         .join(' · ')
-      const previewMessages = [...entry.rows]
-        .sort((a, b) => (b.internal_date_ms || 0) - (a.internal_date_ms || 0))
-        .slice(0, previewLimit)
-        .map((row) => asPreviewMessage(row))
+      const previewMessages = includePreviewMessages
+        ? [...entry.rows]
+            .sort((a, b) => (b.internal_date_ms || 0) - (a.internal_date_ms || 0))
+            .slice(0, previewLimit)
+            .map((row) => asPreviewMessage(row))
+        : []
 
       return {
         sender: entry.sender,
@@ -1778,42 +1877,6 @@ function fallbackLowValueClusterSpecs(params: {
   risk_note: string
   rows: GmailMailboxIndexRow[]
 }> {
-  const safeRows = params.inboxRows.filter(
-    (row) =>
-      !row.is_starred &&
-      !row.is_important &&
-      !rowCategoryHas(row, 'CATEGORY_PRIMARY')
-  )
-
-  const byNewsletter = safeRows.filter(
-    (row) =>
-      rowCategoryHas(row, 'CATEGORY_PROMOTIONS') ||
-      /\b(newsletter|digest|roundup|unsubscribe|manage preferences|promo|offer|sale)\b/.test(
-        rowSubject(row)
-      )
-  )
-  const byAutomation = safeRows.filter((row) => isLikelyMachineGeneratedRow(row))
-  const bySocial = safeRows.filter(
-    (row) =>
-      rowCategoryHas(row, 'CATEGORY_SOCIAL') ||
-      /\b(mentioned|follower|comment|liked|reacted|invite)\b/.test(rowSubject(row))
-  )
-  const byUnreadBacklog = params.inboxRows.filter(
-    (row) => row.is_unread && !row.is_starred && !row.is_important && isRowOlderThanDays(row, 21, params.nowMs)
-  )
-
-  const senderCounts = new Map<string, GmailMailboxIndexRow[]>()
-  for (const row of safeRows) {
-    const sender = (row.sender || '').trim().toLowerCase()
-    if (!sender) continue
-    const list = senderCounts.get(sender) || []
-    list.push(row)
-    senderCounts.set(sender, list)
-  }
-  const senderCandidates = Array.from(senderCounts.entries())
-    .sort((a, b) => b[1].length - a[1].length)
-    .slice(0, 2)
-
   const clusters: Array<{
     cluster_id: string
     cluster_type: GmailCleanupClusterType
@@ -1837,84 +1900,60 @@ function fallbackLowValueClusterSpecs(params: {
     clusters.push(cluster)
   }
 
-  pushIfEnough({
-    cluster_id: 'newsletters',
-    cluster_type: 'newsletters',
-    title: 'Newsletter / promotional traffic',
-    query:
-      'in:inbox -is:starred -is:important -category:primary (category:promotions OR subject:(newsletter OR digest OR unsubscribe OR promo OR offer OR sale))',
-    why_selected:
-      'Fallback from indexed rows: recurring newsletter/promotional traffic remains reviewable even when strict query-spec clusters are sparse.',
-    risk_note: 'Low to medium risk; preserve wanted subscriptions.',
-    rows: byNewsletter,
-  })
-  pushIfEnough({
-    cluster_id: 'noreply-automation',
-    cluster_type: 'noreply_automation',
-    title: 'No-reply / automation traffic',
-    query:
-      'in:inbox -is:starred -is:important -category:primary (from:noreply OR from:no-reply OR subject:(notification OR digest OR alert))',
-    why_selected:
-      'Fallback from indexed rows: machine-generated traffic forms a repeat cleanup opportunity.',
-    risk_note: 'Low risk; still validate any security or account alerts.',
-    rows: byAutomation,
-  })
-  pushIfEnough({
-    cluster_id: 'social-notifications',
-    cluster_type: 'social_notifications',
-    title: 'Social / notification backlog',
-    query:
-      'in:inbox -is:starred -is:important -category:primary (category:social OR subject:(mentioned OR follower OR comment OR liked OR reacted OR invite))',
-    why_selected:
-      'Fallback from indexed rows: social-style notifications often have lower action value.',
-    risk_note: 'Low to medium risk; community updates can still matter.',
-    rows: bySocial,
-  })
-  pushIfEnough({
-    cluster_id: 'unread-clutter',
-    cluster_type: 'unread_clutter',
-    title: 'Unread clutter backlog',
-    query: 'in:inbox is:unread older_than:21d -is:starred -is:important -category:primary',
-    why_selected: 'Fallback from indexed rows: aged unread backlog likely contains low-priority clutter.',
-    risk_note: 'Medium risk; unread could include deferred intent.',
-    rows: byUnreadBacklog,
-  })
+  const senderBuckets = new Map<string, { sender: string; rows: GmailMailboxIndexRow[] }>()
+  for (const row of params.inboxRows) {
+    const sender = row.sender || ''
+    const senderKey = normalizeSender(sender)
+    if (!senderKey) continue
+    const current = senderBuckets.get(senderKey) || { sender, rows: [] }
+    current.rows.push(row)
+    senderBuckets.set(senderKey, current)
+  }
 
-  for (const [index, [sender, rows]] of senderCandidates.entries()) {
-    const token = senderTokenForQuery(sender)
+  const senderCandidates = Array.from(senderBuckets.values())
+    .filter((entry) => {
+      const safeRows = entry.rows.filter(
+        (row) =>
+          !row.is_starred &&
+          !row.is_important &&
+          !rowCategoryHas(row, 'CATEGORY_PRIMARY')
+      )
+      return safeRows.length >= 3
+    })
+    .sort((a, b) => b.rows.length - a.rows.length || a.sender.localeCompare(b.sender))
+
+  for (const entry of senderCandidates.slice(0, 3)) {
+    const token = senderTokenForQuery(entry.sender)
     if (!token) continue
     pushIfEnough({
-      cluster_id: `sender-fallback-${index + 1}`,
+      cluster_id: `sender-fallback-${clusters.length + 1}`,
       cluster_type: 'sender_cluster',
       title: `Sender cluster: ${token}`,
       query: `in:inbox from:${token} -is:starred -is:important -category:primary`,
       why_selected:
-        'Fallback from indexed rows: concentrated low-value sender traffic can be reviewed as a bounded cluster.',
-      risk_note: 'Medium risk; sender streams can include mixed message priority.',
-      rows,
+        'Fallback from indexed rows: when category groups are sparse, review one concentrated sender stream at a time.',
+      risk_note: 'Medium risk; sender-level review required before any archive action.',
+      rows: entry.rows,
     })
   }
 
-  const preferredSenderTokens = Array.from(
-    new Set(
-      (params.topSenders || [])
-        .map((sender) => senderTokenForQuery(sender || ''))
-        .filter((token): token is string => Boolean(token))
-    )
-  )
-  for (const token of preferredSenderTokens.slice(0, 2)) {
-    const existing = clusters.some((cluster) => cluster.title.toLowerCase().includes(token))
-    if (existing) continue
-    const matchingRows = safeRows.filter((row) => rowSender(row).includes(token))
+  for (const sender of params.topSenders || []) {
+    if (clusters.length >= 3) break
+    const senderKey = normalizeSender(sender || '')
+    if (!senderKey || clusters.some((cluster) => cluster.query.includes(senderKey))) continue
+    const entry = senderBuckets.get(senderKey)
+    if (!entry || entry.rows.length < 3) continue
+    const token = senderTokenForQuery(entry.sender)
+    if (!token) continue
     pushIfEnough({
       cluster_id: `sender-priority-${token}`,
       cluster_type: 'sender_cluster',
       title: `Sender cluster: ${token}`,
       query: `in:inbox from:${token} -is:starred -is:important -category:primary`,
       why_selected:
-        'Includes high-frequency sender from inbox analysis top senders to keep review workflow actionable.',
-      risk_note: 'Medium risk; sender-level review required before mutation.',
-      rows: matchingRows,
+        'Includes a high-frequency sender so the workflow stays actionable even when category clusters are thin.',
+      risk_note: 'Medium risk; verify mixed-priority sender traffic before archive.',
+      rows: entry.rows,
     })
   }
 
@@ -2217,35 +2256,58 @@ function buildDiscoveryFromIndexedRows(params: {
   })
 
   const clusters: GmailCleanupCluster[] = []
-  const strictClusterMatchCounts: Array<{ cluster_id: string; count: number }> = []
+  const strictCountById = new Map(clusterSpecs.map((spec) => [spec.cluster_id, 0]))
   const fallbackClusterMatchCounts: Array<{ cluster_id: string; count: number }> = []
   const strictMatchedRowIds = new Set<string>()
-  for (const spec of clusterSpecs) {
-    const matchedRows = workingRows.filter((row) =>
-      matchClusterSpecFromIndex({
-        row,
-        spec,
-        nowMs,
-      })
-    )
-    strictClusterMatchCounts.push({
-      cluster_id: spec.cluster_id,
-      count: matchedRows.length,
+  const matchedRowsByCluster = new Map(clusterSpecs.map((spec) => [spec.cluster_id, [] as GmailMailboxIndexRow[]]))
+  const senderBuckets = new Map<string, { sender: string; rows: GmailMailboxIndexRow[] }>()
+  for (const row of workingRows) {
+    const sender = row.sender || ''
+    const senderKey = normalizeSender(sender)
+    if (!senderKey) continue
+    const current = senderBuckets.get(senderKey) || { sender, rows: [] }
+    current.rows.push(row)
+    senderBuckets.set(senderKey, current)
+  }
+
+  for (const entry of senderBuckets.values()) {
+    const clusterSpec = classifySenderCleanupCluster({
+      sender: entry.sender,
+      rows: entry.rows,
+      nowMs,
     })
-    for (const row of matchedRows) strictMatchedRowIds.add(row.message_id)
+    if (!clusterSpec) continue
+    const matchedRows = matchedRowsByCluster.get(clusterSpec.cluster_id)
+    if (!matchedRows) continue
+    matchedRows.push(...entry.rows)
+    strictCountById.set(clusterSpec.cluster_id, (strictCountById.get(clusterSpec.cluster_id) || 0) + entry.rows.length)
+    for (const row of entry.rows) strictMatchedRowIds.add(row.message_id)
+  }
+
+  const strictClusterMatchCounts: Array<{ cluster_id: string; count: number }> = clusterSpecs.map((spec) => ({
+    cluster_id: spec.cluster_id,
+    count: strictCountById.get(spec.cluster_id) || 0,
+  }))
+
+  for (const spec of clusterSpecs) {
+    const matchedRows = (matchedRowsByCluster.get(spec.cluster_id) || []).slice()
     if (matchedRows.length === 0) continue
+    matchedRows.sort((a, b) => (b.internal_date_ms || 0) - (a.internal_date_ms || 0))
     const samplePreview = matchedRows.slice(0, CLEANUP_SAMPLE_PREVIEW_LIMIT).map(asPreviewMessage)
+    const senderCount = new Set(
+      matchedRows.map((row) => normalizeSender(row.sender || '')).filter(Boolean)
+    ).size
     clusters.push({
       cluster_id: spec.cluster_id,
       cluster_type: spec.cluster_type,
       title: spec.title,
       query: spec.query,
-      why_selected: `${spec.why_selected} Indexed count: ${matchedRows.length}.`,
+      why_selected: `${spec.why_selected} Indexed senders: ${senderCount}. Indexed messages: ${matchedRows.length}.`,
       estimated_count: matchedRows.length,
       sample_preview: samplePreview,
       risk_note: spec.risk_note,
       safety_note:
-        'Index-backed discovery: bounded review still required before any mutation; exclusions for important/starred and recent human-like correspondence remain.',
+        'Index-backed sender-first cluster: review the sender set first, then confirm exact message impact before archive.',
       indexed_signal_window: computeIndexedWindowSignals({
         rows: matchedRows,
         nowMs,
@@ -4808,7 +4870,7 @@ export async function loadGmailSenderIndexSignalsForTenant(params: {
   const threshold60d = nowMs - 60 * 24 * 60 * 60 * 1000
   const threshold90d = nowMs - 90 * 24 * 60 * 60 * 1000
   const threshold180d = nowMs - 180 * 24 * 60 * 60 * 1000
-  const senderSignalMaxRows = queryMode === 'sender_detail' ? 2_000 : 8_000
+  const senderSignalMaxRows = queryMode === 'sender_detail' ? 2_000 : 0
 
   const senderStatsStartedAt = Date.now()
   const { data: senderStatsData, error: senderStatsError } = await params.supabase
@@ -4834,56 +4896,57 @@ export async function loadGmailSenderIndexSignalsForTenant(params: {
     is_in_inbox: boolean
     category_labels: string[] | null
   }> = []
-  let senderRowsOffset = 0
-
-  const messageRowsStartedAt = Date.now()
-  while (messageRows.length < senderSignalMaxRows) {
-    const rangeEnd = Math.min(
-      senderRowsOffset + INDEX_QUERY_PAGE_SIZE - 1,
-      senderSignalMaxRows - 1
-    )
-    const query = params.supabase
-      .from('gmail_messages')
-      .select(
-        'sender,subject,internal_date_ms,is_unread,is_important,is_starred,is_in_inbox,category_labels'
+  if (senderSignalMaxRows > 0) {
+    let senderRowsOffset = 0
+    const messageRowsStartedAt = Date.now()
+    while (messageRows.length < senderSignalMaxRows) {
+      const rangeEnd = Math.min(
+        senderRowsOffset + INDEX_QUERY_PAGE_SIZE - 1,
+        senderSignalMaxRows - 1
       )
-      .eq('tenant_id', params.tenantId)
-      .in('sender', normalizedSenders)
-      .gte('internal_date_ms', threshold180d)
-      .order('internal_date_ms', { ascending: false })
-      .order('message_id', { ascending: false })
-      .range(senderRowsOffset, rangeEnd)
+      const query = params.supabase
+        .from('gmail_messages')
+        .select(
+          'sender,subject,internal_date_ms,is_unread,is_important,is_starred,is_in_inbox,category_labels'
+        )
+        .eq('tenant_id', params.tenantId)
+        .in('sender', normalizedSenders)
+        .gte('internal_date_ms', threshold180d)
+        .order('internal_date_ms', { ascending: false })
+        .order('message_id', { ascending: false })
+        .range(senderRowsOffset, rangeEnd)
 
-    const { data: pageRows, error: pageError } = await query
+      const { data: pageRows, error: pageError } = await query
 
-    if (pageError) {
-      console.error(`${logPrefix} gmail_messages query failed:`, pageError)
-      return fail(500, 'Failed to load indexed sender message signals.')
+      if (pageError) {
+        console.error(`${logPrefix} gmail_messages query failed:`, pageError)
+        return fail(500, 'Failed to load indexed sender message signals.')
+      }
+
+      const rows = Array.isArray(pageRows)
+        ? (pageRows as Array<{
+            sender: string | null
+            subject: string | null
+            internal_date_ms: number | null
+            is_unread: boolean
+            is_important: boolean
+            is_starred: boolean
+            is_in_inbox: boolean
+            category_labels: string[] | null
+          }>)
+        : []
+      messageRows.push(...rows)
+      if (rows.length < INDEX_QUERY_PAGE_SIZE) break
+      senderRowsOffset += rows.length
     }
 
-    const rows = Array.isArray(pageRows)
-      ? (pageRows as Array<{
-          sender: string | null
-          subject: string | null
-          internal_date_ms: number | null
-          is_unread: boolean
-          is_important: boolean
-          is_starred: boolean
-          is_in_inbox: boolean
-          category_labels: string[] | null
-        }>)
-      : []
-    messageRows.push(...rows)
-    if (rows.length < INDEX_QUERY_PAGE_SIZE) break
-    senderRowsOffset += rows.length
+    if (messageRows.length >= senderSignalMaxRows) {
+      console.warn(
+        `${logPrefix} sender-signal rows capped at ${senderSignalMaxRows} for ${normalizedSenders.length} senders`
+      )
+    }
+    phaseMs.message_rows_query_ms = Math.max(0, Date.now() - messageRowsStartedAt)
   }
-
-  if (messageRows.length >= senderSignalMaxRows) {
-    console.warn(
-      `${logPrefix} sender-signal rows capped at ${senderSignalMaxRows} for ${normalizedSenders.length} senders`
-    )
-  }
-  phaseMs.message_rows_query_ms = Math.max(0, Date.now() - messageRowsStartedAt)
 
   type SenderAggregate = {
     sender: string
@@ -4999,22 +5062,27 @@ export async function loadGmailSenderIndexSignalsForTenant(params: {
     }
   }
 
-  const indexedCountStartedAt = Date.now()
-  const { count: indexedMessageCount, error: indexedCountError } = await params.supabase
-    .from('gmail_messages')
-    .select('message_id', { count: 'exact', head: true })
-    .eq('tenant_id', params.tenantId)
-  if (indexedCountError) {
-    console.warn(`${logPrefix} indexed count query warning:`, indexedCountError.message)
-  }
-  phaseMs.indexed_count_query_ms = Math.max(0, Date.now() - indexedCountStartedAt)
+  let indexedMessageCount: number | null = null
+  let indexState: Awaited<ReturnType<typeof loadGmailMailboxIndexState>> | null = null
+  if (queryMode === 'sender_detail') {
+    const indexedCountStartedAt = Date.now()
+    const { count, error: indexedCountError } = await params.supabase
+      .from('gmail_messages')
+      .select('message_id', { count: 'exact', head: true })
+      .eq('tenant_id', params.tenantId)
+    if (indexedCountError) {
+      console.warn(`${logPrefix} indexed count query warning:`, indexedCountError.message)
+    }
+    indexedMessageCount = typeof count === 'number' && Number.isFinite(count) ? count : 0
+    phaseMs.indexed_count_query_ms = Math.max(0, Date.now() - indexedCountStartedAt)
 
-  const indexStateStartedAt = Date.now()
-  const indexState = await loadGmailMailboxIndexState({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
-  })
-  phaseMs.index_state_load_ms = Math.max(0, Date.now() - indexStateStartedAt)
+    const indexStateStartedAt = Date.now()
+    indexState = await loadGmailMailboxIndexState({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+    })
+    phaseMs.index_state_load_ms = Math.max(0, Date.now() - indexStateStartedAt)
+  }
 
   const senders = Array.from(bySender.values())
     .sort((a, b) => b.message_count_indexed - a.message_count_indexed)
@@ -5066,10 +5134,7 @@ export async function loadGmailSenderIndexSignalsForTenant(params: {
     ok: true,
     data: {
       senders,
-      indexed_message_count:
-        typeof indexedMessageCount === 'number' && Number.isFinite(indexedMessageCount)
-          ? indexedMessageCount
-          : 0,
+      indexed_message_count: indexedMessageCount ?? 0,
       mailbox_estimated_total: indexState?.mailbox_estimated_total ?? null,
       index_completion_pct: indexState?.index_completion_pct ?? null,
       source: 'gmail_index_cache',

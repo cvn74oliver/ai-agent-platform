@@ -1,15 +1,15 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-13  
+Last updated: 2026-03-15  
 Project Manager: v8 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
 
 # 🟢 System Health
 
-Build: Clean  
+Build: Current Gmail Phase 1 follow-up pass typechecks and passes targeted Gmail lint, but `npm run build` still reproducibly hangs in the Next 16 / Turbopack compile phase; clean production build is not yet verified  
 Golden Path: Passing  
-Typecheck: Unrelated legacy blockers remain outside Gmail operations scope (tracked in TODO)  
+Typecheck: Clean for current Gmail Phase 1 pass (`npx tsc --noEmit` passed)  
 Golden Path Health Check:
 - Automated validation script implemented (`web/scripts/golden-path.mjs`)
 - Run from `/web` directory using:
@@ -28,6 +28,143 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 15 Phase 1 UX validation fix summary:
+  - Sender Decisions direct-entry reliability is improved:
+    - `/operations/review?stage=senders` now auto-selects a recommended cleanup group when `cluster_id` is missing or stale
+    - recommendation prefers the most recently active draft-backed cluster for the current snapshot, otherwise falls back to the first sender cluster
+    - the page now shows a loading handoff instead of an empty “no cleanup group selected” state
+  - Phase 1 draft persistence restore now behaves correctly:
+    - selected cleanup-group drafts hydrate before write-back is allowed
+    - this fixes the empty-draft overwrite race that could erase sender decisions on return
+    - local Phase 1 decisions now restore more reliably across navigation, reload, and pagination changes
+  - Sender Decisions search now keeps focus while remaining debounced.
+  - Sender Decisions analytics now own sender-specific operational charts:
+    - sender category distribution
+    - sender activity timeline
+    - cluster contribution
+    - chart actions now drive the visible sender list directly
+  - Mailbox Intelligence is now high-level only:
+    - sender-specific analytics moved out
+    - cleanup groups are previewed there, but the full selection surface remains on the Cleanup Groups page
+  - Sender workspace performance is further reduced on cold review loads:
+    - `sender_page` signal loading now avoids the broad indexed `gmail_messages` scan and uses `gmail_sender_stats` as the fast path
+    - sender search can now match category/pattern/verification text without widening the server query scope
+  - Navigation-triggered discovery rebuilds are tighter:
+    - stale snapshot TTL alone no longer forces cleanup-discovery refresh during normal rehydrate flows
+    - runtime refresh now keys off actual indexed snapshot differences, not just sync timestamp movement
+  - Confirmation now allows Phase 1-safe editing:
+    - change decision type
+    - clear a decision
+    - jump back into Sender Decisions for that sender
+    - archive still remains the only live Gmail executor
+  - Validation:
+    - targeted Gmail/runtime ESLint passed
+    - `npx tsc --noEmit` passed
+    - full-repo `npm run lint` still fails on unrelated legacy lint debt outside the Gmail workspace
+    - production build was not relied on in this pass because the separate Next 16 / Turbopack build hang remains unresolved
+
+- March 15 Phase 1 follow-up summary:
+  - Gmail cleanup cache invalidation for the active Phase 1 routes is now tied to the cleanup snapshot (`runtime_cleanup_plan.generated_at`) instead of broader mailbox-profile freshness.
+  - Mailbox Intelligence and Cleanup Groups now prefer exact cached intelligence payloads synchronously before firing new requests.
+  - Client Gmail cleanup API caching is now stronger:
+    - 10-minute TTL
+    - memory cache
+    - sessionStorage mirror for same-session warm returns
+  - Server Gmail cleanup runtime now has a dedicated mailbox-context cache:
+    - indexed mailbox coverage + scoped indexed rows are reused independently of cleanup-cluster derivation
+    - derived-workspace cache keys are order-stable across cluster arrays
+  - Sender Decisions now has a dedicated cached sender-workspace base state:
+    - selected-cluster sender derivation and sender-index signal loading run once per cleanup snapshot + cluster
+    - search / filter / sort / pagination now operate on cached derived sender state instead of rebuilding the full sender base
+  - Sender Decisions interaction behavior is improved:
+    - sender search is debounced
+    - sender-workspace requests now support abort / last-request-wins behavior
+    - same-cluster interactions keep stale-ready sender data on screen while the next filtered slice loads
+  - Phase 1 draft persistence is more durable:
+    - drafts now store snapshot version metadata
+    - session-scoped draft keys remain primary
+    - cluster-level fallback draft keys restore decisions when the operator returns through a slightly different session path
+  - Confirmation wording is clearer:
+    - archive executes only after approval
+    - keep / quarantine / unsubscribe / custom rule are stored-later Phase 1 decisions
+    - undecided senders remain untouched
+  - Validation:
+    - targeted Gmail-surface ESLint passed
+    - `npx tsc --noEmit` passed
+    - `npm run build` hung again during Next 16 / Turbopack compile and was terminated after diagnostics
+
+- March 15 Phase 1 sender-first foundation stabilization summary:
+  - Gmail cleanup is now enforced as sender-first at the cluster-generation layer, not just in UI copy.
+  - Cleanup groups now assign each sender to one deterministic sender cluster.
+  - Shared cached derived workspace state now powers:
+    - `mailbox_intelligence`
+    - `sender_workspace`
+    - `confirmation_preview`
+  - Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload client-side.
+  - Sender Decisions now has working server-backed:
+    - search
+    - filter
+    - sort
+    - direction
+    - filtered pagination metadata
+  - Sender evidence is now loaded only for visible sender rows, reducing unnecessary payload on large groups.
+  - `/operations/review` now treats only these as active Phase 1 stages:
+    - `senders`
+    - `confirmation`
+  - Direct visits to:
+    - `stage=exceptions`
+    - `stage=rules`
+    - `stage=monitoring`
+    now render route-safe Phase 2+ placeholders instead of pretending those later-phase systems are complete.
+  - Mailbox Intelligence visuals are restored as lightweight cached analytics:
+    - top cleanup senders
+    - sender volume distribution
+    - category breakdown
+    - activity timeline
+    - cleanup-group contribution cards
+    - searchable/sortable sender ranking table
+  - Runtime cleanup snapshot version was bumped so old message-first cleanup snapshots are invalidated.
+  - Validation:
+    - targeted Gmail-surface ESLint passed
+    - full-repo `npx tsc --noEmit` passed
+    - full-repo `npm run lint` still fails on unrelated legacy files outside Gmail operations scope
+    - `npm run build` was started but did not complete within the observed terminal window, so clean build status is not yet claimed
+
+- March 14 architecture correction summary:
+  - Gmail cleanup is now implemented as one sender-first guided product.
+  - Primary flow now reads:
+    - `Intro & Health`
+    - `Mailbox Intelligence`
+    - `Cleanup Groups`
+    - `Sender Decisions`
+    - `Exceptions / Verification`
+    - `Confirmation`
+    - `Rules / Automation`
+    - `Monitoring`
+  - `Mailbox Intelligence` is now the true Gmail cleanup dashboard:
+    - whole mailbox context
+    - cleanup-candidate context
+    - protected/safe context
+    - cleanup-group contribution cards
+    - sender ranking table
+  - `/operations/review` is now a staged sender-first workspace:
+    - `stage=senders`
+    - `stage=exceptions`
+    - `stage=confirmation`
+    - `stage=rules`
+    - `stage=monitoring`
+  - Exact current-message impact is now shown in Confirmation, not in sender-review cards.
+  - Archive is the only live Gmail mutation in this pass.
+  - `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` are learned policies / future automation intents only.
+  - Gmail cleanup memory is now explicitly wired:
+    - sender policies stored in `agent_events`
+    - rule intents stored in `agent_events`
+    - active memory mirrored into `rag_documents`
+    - Monitoring now reads event memory + semantic Gmail memory to generate recommendations
+  - Validation:
+    - targeted lint passed for rebuild files
+    - full-project `tsc --noEmit` still fails only on unrelated pre-existing files (`fine-tune`, `summary`, `api/rag/run`)
+
 - Gmail Operations naming is now congruent across navigation and page structure:
   - Operations Overview
   - Mailbox Intelligence
@@ -1200,3 +1337,30 @@ Current `cleanup_group_intelligence` reuse behavior:
   - Intelligence initial-load server duration: `0ms`
   - Cleanup Groups scope-chain server duration: `0ms`
   - Review scope-chain server duration: `1ms`
+
+---
+
+## Build Stabilization State - March 14, 2026
+
+Current runtime-module build state:
+
+- The reported Vercel failures for `@/lib/runtime/*` are not caused by alias configuration, case sensitivity, or renamed files.
+- The reported modules already exist locally at the exact imported paths under `web/src/lib/runtime/`.
+- The actual failure mode is deployment integrity:
+  - the runtime split files exist in the working tree
+  - they are currently absent from the tracked `HEAD` tree
+  - a Vercel build from the tracked tree cannot resolve them
+
+Additional runtime modules currently sharing this same risk profile:
+
+- `approvalSummary.ts`
+- `gmailCleanupMemory.ts`
+- `gmailCleanupWorkspace.ts`
+- `operationsAnalytics.ts`
+- `operationsWorkspace.ts`
+- `playgroundWorkflowState.ts`
+
+Current validation snapshot:
+
+- Full-repo `eslint` and `tsc` remain noisy in this local workspace because of unrelated in-progress files outside the stabilization scope.
+- Local `next build` no longer reproduced the original missing-module crash in the current tree, but this thread did not produce a fully clean end-to-end build result from the dirty workspace.
