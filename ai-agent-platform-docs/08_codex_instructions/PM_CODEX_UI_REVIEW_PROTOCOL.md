@@ -262,3 +262,128 @@ This document lives in:
 `ai-agent-platform-docs/08_codex_instructions/`
 
 Future project managers must follow this protocol when working with Codex.
+
+---
+
+# Quick UI Test Checklist (2‑Minute Protocol)
+
+This is the **fast execution checklist** Oliver should use during every UI validation.  
+It mirrors the protocol above but reduces the process to a quick repeatable routine.
+
+Oliver should keep this checklist open while testing.
+
+---
+
+## Step 1 — Open Target Page
+
+Navigate to the page specified by the Project Manager.
+
+Example:
+
+- `/operations/intelligence`
+- `/operations/clusters`
+- `/operations/review?stage=senders`
+
+Do **not test other pages** unless explicitly requested.
+
+---
+
+## Step 2 — Measure Cold Load
+
+Reload the page once.
+
+Record:
+
+- approximate load time
+- whether page shows blank loading state
+
+Example output:
+
+```
+Cold Load Time: ~3 seconds
+```
+
+---
+
+## Step 3 — Measure Warm Load
+
+Refresh the page again.
+
+Record:
+
+```
+Warm Load Time: instant
+```
+
+---
+
+## Step 4 — Click Requested Interactions
+
+Only click what the PM asked for.
+
+Examples:
+
+- click chart filter
+- click "Resume sender review"
+- open cleanup group
+
+Do not explore unrelated UI.
+
+---
+
+## Step 5 — Check for Errors
+
+Look for:
+
+- console errors
+- blank UI
+- broken filters
+- unexpected reloads
+
+If any appear, testing can stop.
+
+---
+
+## Step 6 — Report Result
+
+Use the following format:
+
+```
+PASS or FAIL
+
+Cold Load Time:
+
+Warm Load Time:
+
+What was clicked:
+
+Screenshot attached
+
+Terminal output attached (if relevant)
+```
+
+Keep the report under **5 lines if possible**.
+
+---
+
+## Target Testing Time
+
+Each test cycle should take:
+
+**30–90 seconds maximum**.
+
+If testing takes longer, the scope is too large and must be narrowed in the next Codex instruction.
+
+---
+
+## Why This Exists
+
+This checklist prevents:
+
+- 15‑minute UI reviews
+- repeated explanations
+- scope creep
+
+The Project Manager performs the **thinking and product evaluation**.
+
+Oliver performs **fast validation only**.
