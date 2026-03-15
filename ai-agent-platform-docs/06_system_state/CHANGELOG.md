@@ -10,6 +10,64 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 15, 2026 - Gmail Sender-First Foundation Stabilization (Phase 1)
+
+Root-cause addressed:
+- The Phase 1 rebuild still had a message-first cluster backbone underneath the new sender-first UX.
+- Mailbox Intelligence and Cleanup Groups were not reliably reusing the same cached intelligence payload.
+- Sender Decisions was missing working search/filter/sort controls and was still too coupled to inactive later-phase stages.
+- Confirmation preview and archive-scope resolution could still rebuild mailbox analysis instead of reusing cached sender-cluster state.
+
+What changed:
+- Cleanup-group generation is now sender-first at the data layer:
+  - each sender is deterministically assigned to one cleanup group
+  - cleanup groups now behave like sender clusters rather than message-behavior buckets
+- Added shared derived workspace caching for:
+  - `mailbox_intelligence`
+  - `sender_workspace`
+  - `confirmation_preview`
+- Cache reuse is now keyed by:
+  - tenant
+  - analysis scope
+  - cleanup snapshot/cache version
+  - active cleanup-group signature
+- Runtime cleanup snapshot version was bumped so old message-first discovery snapshots do not survive the rebuild.
+- Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload on the client.
+- Sender Decisions now supports server-backed:
+  - search
+  - filter
+  - sort
+  - direction
+  - pagination metadata for filtered sender counts
+- Sender evidence is now loaded only for the visible sender rows instead of every sender in the selected cleanup group.
+- `/operations/review` now treats only these as active Phase 1 workflow stages:
+  - `senders`
+  - `confirmation`
+- Direct visits to:
+  - `stage=exceptions`
+  - `stage=rules`
+  - `stage=monitoring`
+  now render Phase 2+ placeholders rather than broken or misleading active workflows.
+- Mailbox Intelligence visuals were strengthened with lightweight cached chart views:
+  - top cleanup senders
+  - sender volume distribution
+  - category breakdown
+  - activity timeline
+  - clickable cleanup-group contribution cards
+  - searchable/sortable sender ranking table
+- Operations shell and intro copy now align to the true Phase 1 flow:
+  - `Intro & Health`
+  - `Mailbox Intelligence`
+  - `Cleanup Groups`
+  - `Sender Decisions`
+  - `Confirmation`
+
+Validation:
+- Targeted ESLint passed for the Phase 1 Gmail files.
+- `npx tsc --noEmit` passed for the current repository state after the Gmail changes.
+- Full-project `npm run lint` remains blocked by large unrelated pre-existing lint debt across non-Gmail areas.
+- `npm run build` was started for the Phase 1 pass, but it did not complete within the observed terminal window, so production-build success is not yet claimed for this milestone.
+
 ### March 14, 2026 - Gmail Cleanup Sender-First Rebuild (Mailbox Intelligence / Cleanup Groups / Sender Decisions / Memory Wiring)
 
 Root-cause addressed:

@@ -70,15 +70,20 @@
 │   │   ├── project_structure.txt
 │   │   └── schema_comparison_checklist.md
 │   └── 08_codex_instructions
+│       ├── CODEX_ARCHITECTURE_LOCK.md
 │       ├── CODEX_DEBUG_PLAYBOOK.md
+│       ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
 │       ├── CODEX_EXECUTION_CHECKLIST.md
+│       ├── CODEX_EXECUTION_RULES.md
 │       ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
 │       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
 │       ├── CODEX_PHASE_EXECUTION_PLAN.md
 │       ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
 │       ├── CODEX_PM_REVIEW_PACKET_SPEC.md
+│       ├── CODEX_REBUILD_PROTOCOL.md
 │       ├── CODEX_RELIABILITY_SYSTEM.md
-│       └── CODEX_SESSION_START_PROMPT.md
+│       ├── CODEX_SESSION_START_PROMPT.md
+│       └── CODEX_SOURCE_OF_TRUTH.md
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
 ├── package.json
@@ -424,4 +429,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-111 directories, 314 files
+111 directories, 319 files

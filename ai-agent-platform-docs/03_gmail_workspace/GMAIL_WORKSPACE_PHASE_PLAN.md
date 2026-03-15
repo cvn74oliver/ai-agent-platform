@@ -39,8 +39,8 @@ Codex must follow this plan strictly.
 
 | Phase | Goal |
 |-----|-----|
-| Phase 1 | Performance + Data Loading Stabilization |
-| Phase 2 | Mailbox Intelligence Dashboard |
+| Phase 1 | Sender‑First Foundation + Performance Stabilization |
+| Phase 2 | Mailbox Intelligence Analytics Expansion |
 | Phase 3 | Sender Cluster Architecture |
 | Phase 4 | Sender Decision Workspace |
 | Phase 5 | Confirmation + Execution |
@@ -50,36 +50,80 @@ Codex must follow this plan strictly.
 
 ---
 
-# Phase 1 — Performance Stabilization
+# Phase 1 — Sender‑First Foundation + Performance Stabilization
 
 Goal:
 
-Make the system fast enough for real testing.
+Stabilize the Gmail Workspace so the **sender‑first workflow is usable and fast enough for real testing**.
 
-Current issues:
+Phase 1 includes the core workflow foundation:
+
+Mailbox Intelligence → Cleanup Groups → Sender Decisions → Confirmation
+
+Later workflow stages (Exceptions, Rules, Monitoring) must remain present as **inactive placeholders only**.
+
+---
+
+Current problems to fix
 
 - pages take 30–60 seconds to load
 - analytics recompute on every navigation
 - mailbox index not cached
+- clusters sometimes recompute repeatedly
+- navigation between stages triggers redundant data loading
 
-Required fixes:
+---
 
-1. Add caching layer for mailbox intelligence
-2. Cache sender clusters
-3. Cache cleanup group results
-4. Add pagination API support
-5. Avoid recomputing analytics per page
+Required fixes
 
-Expected Result:
+1. Introduce caching layer for mailbox intelligence
+2. Cache sender universe
+3. Cache cleanup clusters
+4. Cache cleanup group results
+5. Add pagination API support
+6. Avoid recomputing analytics per page navigation
+7. Ensure Intelligence → Clusters navigation reuses cached data
+8. Prevent stage changes from triggering full mailbox analysis
 
-- page load < 2 seconds
-- navigation between steps instant
+---
 
-Phase 1 validation:
+Required functional scope
 
-- mailbox intelligence loads under 2s
-- cluster page loads under 1s
-- sender workspace loads under 2s
+Phase 1 must stabilize the following pages:
+
+• Mailbox Intelligence
+• Cleanup Groups
+• Sender Decisions
+• Confirmation
+
+The following pages must remain **non‑functional placeholders**:
+
+• Exceptions
+• Rules
+• Monitoring
+
+Opening these routes should display a "Phase 2+" placeholder message instead of executing logic.
+
+---
+
+Expected result
+
+- Mailbox intelligence loads from cache
+- cleanup groups reuse intelligence results
+- sender workspace supports pagination
+- confirmation stage calculates impact from cached sender selections
+
+---
+
+Phase 1 validation
+
+Mailbox intelligence loads under 2 seconds
+
+Cluster page loads under 1 second
+
+Sender workspace loads under 2 seconds
+
+Navigation between stages does NOT recompute mailbox analytics
 
 ---
 
@@ -146,6 +190,16 @@ Examples:
 
 Clusters must be **sender-based**.
 
+Important:
+
+Clusters must be built from **senders**, not message types.
+
+A sender must belong to exactly one cluster.
+
+Messages remain secondary evidence used only for preview and decision support.
+
+This prevents duplicate senders appearing across multiple clusters and keeps the system aligned with the sender‑first cleanup model.
+
 Messages remain secondary evidence.
 
 ---
@@ -173,6 +227,10 @@ Decision controls
 - Unsubscribe
 - Quarantine
 - Custom Rule
+
+These controls operate on **senders**, not individual messages.
+
+Message previews are displayed only as supporting evidence.
 
 Message previews
 
@@ -288,10 +346,11 @@ The system must meet these requirements:
 
 | Page | Target Load Time |
 |-----|-----|
-| Mailbox Intelligence | < 2s |
+| Mailbox Intelligence | < 2s warm cache |
 | Cluster Page | < 1s |
 | Sender Workspace | < 2s |
-| Navigation Between Steps | instant |
+| Confirmation | < 1s |
+| Navigation Between Steps | instant (no recomputation) |
 
 Analytics must be cached.
 

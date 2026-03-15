@@ -1,15 +1,15 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-14  
+Last updated: 2026-03-15  
 Project Manager: v8 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
 
 # 🟢 System Health
 
-Build: Clean  
+Build: Current Gmail Phase 1 pass compiles, but `npm run build` did not complete within the observed terminal window; rerun required before claiming clean production build  
 Golden Path: Passing  
-Typecheck: Unrelated legacy blockers remain outside Gmail operations scope (tracked in TODO)  
+Typecheck: Clean for current Gmail Phase 1 pass (`npx tsc --noEmit` passed)  
 Golden Path Health Check:
 - Automated validation script implemented (`web/scripts/golden-path.mjs`)
 - Run from `/web` directory using:
@@ -28,6 +28,43 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 15 Phase 1 sender-first foundation stabilization summary:
+  - Gmail cleanup is now enforced as sender-first at the cluster-generation layer, not just in UI copy.
+  - Cleanup groups now assign each sender to one deterministic sender cluster.
+  - Shared cached derived workspace state now powers:
+    - `mailbox_intelligence`
+    - `sender_workspace`
+    - `confirmation_preview`
+  - Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload client-side.
+  - Sender Decisions now has working server-backed:
+    - search
+    - filter
+    - sort
+    - direction
+    - filtered pagination metadata
+  - Sender evidence is now loaded only for visible sender rows, reducing unnecessary payload on large groups.
+  - `/operations/review` now treats only these as active Phase 1 stages:
+    - `senders`
+    - `confirmation`
+  - Direct visits to:
+    - `stage=exceptions`
+    - `stage=rules`
+    - `stage=monitoring`
+    now render route-safe Phase 2+ placeholders instead of pretending those later-phase systems are complete.
+  - Mailbox Intelligence visuals are restored as lightweight cached analytics:
+    - top cleanup senders
+    - sender volume distribution
+    - category breakdown
+    - activity timeline
+    - cleanup-group contribution cards
+    - searchable/sortable sender ranking table
+  - Runtime cleanup snapshot version was bumped so old message-first cleanup snapshots are invalidated.
+  - Validation:
+    - targeted Gmail-surface ESLint passed
+    - full-repo `npx tsc --noEmit` passed
+    - full-repo `npm run lint` still fails on unrelated legacy files outside Gmail operations scope
+    - `npm run build` was started but did not complete within the observed terminal window, so clean build status is not yet claimed
+
 - March 14 architecture correction summary:
   - Gmail cleanup is now implemented as one sender-first guided product.
   - Primary flow now reads:

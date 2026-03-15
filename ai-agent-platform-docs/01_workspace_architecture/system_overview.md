@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 13, 2026_
+_Last Updated: March 15, 2026_
 
 ---
 
@@ -50,38 +50,53 @@ This separation ensures:
 - Controlled rate-limit usage
 - Clear feature-domain isolation
 
-### Gmail Cleanup Runtime Note (March 14, 2026)
+### Gmail Cleanup Runtime Note (March 15, 2026)
 
 Current Gmail cleanup architecture:
-- Gmail cleanup now behaves as one sender-first guided product instead of a weak overview plus a mixed batch-review page.
-- Canonical product flow now reads:
+- Gmail cleanup now behaves as one sender-first guided product backed by sender-first cached intelligence, not a message-first analysis pipeline hidden behind sender-first copy.
+- Active Phase 1 flow now reads:
   - `Intro & Health`
   - `Mailbox Intelligence`
   - `Cleanup Groups`
   - `Sender Decisions`
-  - `Exceptions / Verification`
   - `Confirmation`
+- Direct route placeholders remain available for:
+  - `Exceptions / Verification`
   - `Rules / Automation`
   - `Monitoring`
+  but these are intentionally deferred to later phases.
+- Cleanup groups are now sender clusters:
+  - each sender maps to one deterministic cleanup group
+  - message batches are no longer the grouping primitive
+- Shared derived workspace caching now powers:
+  - `mailbox_intelligence`
+  - `sender_workspace`
+  - `confirmation_preview`
+- Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload client-side, preventing repeated mailbox recomputation during navigation.
 - `Mailbox Intelligence` is now the real Gmail cleanup dashboard:
   - whole mailbox context
   - cleanup-candidate context
   - protected/safe context
   - cleanup-group contribution view
-  - sender ranking table
-- `/operations/review` is now a staged sender-first workspace rather than a single long mixed page:
+  - sender ranking table with working search/sort controls
+- `/operations/review` is now a sender-first workspace where the active Stage 1 execution path is:
   - `stage=senders`
-  - `stage=exceptions`
   - `stage=confirmation`
-  - `stage=rules`
-  - `stage=monitoring`
+- Later-stage routes remain stable placeholders so navigation does not break while the Phase 1 foundation is stabilized.
 - The product now explicitly teaches the narrowing hierarchy:
   - whole mailbox
   - cleanup candidate universe
   - cleanup group
   - sender set
   - loaded preview rows
-- Messages are now treated as evidence only until Confirmation, where exact current-message impact is shown.
+- Sender workspace controls are now server-backed:
+  - search
+  - filter
+  - sort
+  - direction
+  - filtered pagination metadata
+- Sender evidence is loaded for visible sender rows only, not every sender in the selected cleanup group.
+- Messages are treated as evidence only until Confirmation, where exact current-message impact is shown.
 - Archive remains the only live Gmail executor in this pass.
 - `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` are explicit learned policies / future automation intents only.
 - Gmail cleanup learning is now wired end-to-end:

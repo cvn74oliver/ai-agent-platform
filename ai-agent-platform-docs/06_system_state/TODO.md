@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-14 (PM v8 review • Gmail Sender-First Rebuild + Memory Wiring)_
+_Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundation stabilization)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -15,6 +15,18 @@ _Last updated: 2026-03-14 (PM v8 review • Gmail Sender-First Rebuild + Memory 
 ---
 
 0) Gmail Cleanup Sender-First Follow-up (NEW)
+   - [x] Stabilize sender-first cleanup-group generation at the data layer
+   - [x] Add shared cached derived workspace state for intelligence / sender workspace / confirmation
+   - [x] Restore Mailbox Intelligence analytics visuals with interactive sender controls
+   - [x] Reuse cached intelligence between Mailbox Intelligence and Cleanup Groups
+   - [x] Add server-backed sender search/filter/sort/direction controls
+   - [x] Move later-phase review stages to route-safe placeholders
+   - [ ] Phase 1 validation follow-up:
+     - rerun `npm run build` to completion and capture a definitive production-build result for this pass
+     - perform browser verification for Mailbox Intelligence, Cleanup Groups, Sender Decisions, Confirmation, and direct placeholder routes
+   - [ ] Phase 2 planning follow-up:
+     - design the dedicated Exceptions / Verification workspace once inline Phase 1 verification behavior is validated
+     - define the real Rules / Automation editing surface and Monitoring recommendation UX
    - [x] Rebuild Gmail cleanup around sender-first guided workflow
    - [x] Make Mailbox Intelligence the true Gmail cleanup dashboard
    - [x] Replace mixed Batch Review UX with staged sender workspace
