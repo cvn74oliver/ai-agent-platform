@@ -28,6 +28,29 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 15 Phase 1 runtime stabilization summary:
+  - Interactive Phase 1 routes now serve the latest stable cached runtime snapshot immediately instead of auto-refreshing just because the local snapshot aged past a short TTL.
+  - Cached runtime refresh is now materially driven:
+    - no cached runtime snapshot
+    - zero-cluster cleanup plan with indexed mail available
+    - or true indexed snapshot advancement
+  - “Indexed snapshot advancement” is now based on actual indexed mailbox changes:
+    - indexed total rows
+    - indexed inbox rows
+    - indexed date-span start/end
+    not raw sync timestamp movement alone.
+  - Cleanup discovery refresh on the server now follows the same stricter rule, which reduces surprise recomputation during normal navigation.
+  - Sender Decisions direct entry is more stable:
+    - the route now waits for deterministic recommended-cluster resolution instead of beginning sender-workspace fetches for a fallback cluster first
+    - this reduces cold-load churn and helps avoid the earlier hanging loading state
+  - Net effect:
+    - Mailbox Intelligence, Cleanup Groups, and Sender Decisions are more likely to stay on a stable UI-safe snapshot while background refresh work remains separate
+  - Validation:
+    - targeted Gmail/runtime ESLint passed
+    - `npx tsc --noEmit` passed
+    - full-repo `npm run lint` still fails on unrelated legacy lint debt outside the Gmail workspace
+    - production build was intentionally not rerun in this pass
+
 - March 15 Phase 1 UX validation fix summary:
   - Sender Decisions direct-entry reliability is improved:
     - `/operations/review?stage=senders` now auto-selects a recommended cleanup group when `cluster_id` is missing or stale

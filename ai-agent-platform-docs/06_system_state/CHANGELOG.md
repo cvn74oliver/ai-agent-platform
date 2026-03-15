@@ -10,6 +10,39 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 15, 2026 - Gmail Phase 1 Runtime Stabilization Pass (Stable Snapshot First / Material Invalidation Only)
+
+Root-cause addressed:
+- Interactive Phase 1 routes could still bypass a usable stable snapshot because runtime refresh behavior was too eager.
+- Mailbox Intelligence and Cleanup Groups could still fall into heavyweight work when background sync/discovery timestamps moved even if the indexed mailbox snapshot had not materially changed.
+- Sender Decisions direct entry could still waste work on a fallback cluster before the recommended cluster was resolved.
+- Background refresh/discovery work could still interfere with interactive route stability because refresh eligibility relied on age/timestamp signals more than real snapshot advancement.
+
+What changed:
+- Operations runtime provider now serves the latest stable cached runtime snapshot immediately and no longer auto-refreshes just because the local snapshot aged past a short TTL.
+- Runtime refresh after cached boot now happens only when:
+  - no cached runtime snapshot exists
+  - the cached cleanup plan has zero clusters while indexed mail exists
+  - or the indexed mailbox snapshot has materially changed
+- Material indexed snapshot change is now determined from actual indexed snapshot signals:
+  - indexed total rows
+  - indexed inbox rows
+  - indexed date-span start/end
+  instead of raw sync timestamp movement
+- Cleanup discovery refresh on the server now uses the same stricter material-advance rule:
+  - normal rehydrate/navigation no longer treats sync timestamp movement as “index advanced”
+  - stale snapshot TTL alone still does not trigger rebuild
+  - explicit refresh and true indexed snapshot advancement still can refresh cleanup discovery
+- Sender Decisions direct entry is more deterministic:
+  - while cluster selection is being normalized, the page waits for the recommended cluster instead of kicking off sender-workspace fetches for a fallback cluster first
+  - this reduces cold-load churn and avoids getting stuck in the earlier blank-loading path
+
+Validation:
+- `npm run lint` still fails on unrelated legacy repo lint debt outside Gmail scope.
+- Targeted ESLint passed for the touched Gmail/runtime files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not rerun in this pass.
+
 ### March 15, 2026 - Gmail Phase 1 UX Validation Fix Pass (Review Reliability / Draft Restore / Sender Analytics Relocation)
 
 Root-cause addressed:

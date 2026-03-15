@@ -75,6 +75,10 @@ Current Gmail cleanup architecture:
 - Phase 1 cache invalidation for the active Gmail cleanup workflow now keys off the cleanup snapshot itself:
   - `runtime_cleanup_plan.generated_at`
   - not broader mailbox-profile freshness during normal navigation
+- Interactive runtime boot is now “stable snapshot first”:
+  - the latest cached runtime snapshot is served immediately on interactive Phase 1 routes
+  - runtime refresh is no longer triggered just because the local cache aged past a short TTL
+  - post-boot refresh now depends on missing snapshot, zero-cluster recovery, or real indexed snapshot change
 - Mailbox Intelligence and Cleanup Groups now prefer exact warm cached intelligence payloads before issuing new requests.
 - Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload client-side, preventing repeated mailbox recomputation during navigation.
 - Mailbox Intelligence is now intentionally high-level only:
@@ -107,6 +111,7 @@ Current Gmail cleanup architecture:
   - filtered pagination metadata
 - Direct review reliability is stronger:
   - missing/stale `cluster_id` now resolves to a recommended cleanup group automatically
+  - direct entry waits for that recommended-cluster resolution instead of starting sender-workspace work for a fallback cluster first
   - Sender Decisions no longer depends on manual refresh to escape an empty direct-entry route
 - Sender Decisions interaction hardening now includes:
   - debounced sender search
@@ -139,6 +144,7 @@ Current Gmail cleanup architecture:
 - Cleanup-discovery refresh is now more conservative during navigation:
   - normal rehydrate flows do not rebuild just because the stale TTL expired
   - navigation refresh now keys off actual indexed snapshot changes instead of sync timestamp movement alone
+  - the server runtime state service now uses the same material-advance rule, so background sync timestamp changes alone do not hijack interactive routes
 - Confirmation now supports Phase 1-safe editing:
   - change stored sender decision
   - clear stored decision

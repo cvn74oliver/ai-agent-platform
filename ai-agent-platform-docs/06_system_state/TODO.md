@@ -35,8 +35,12 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
    - [x] Reduce sender-page signal loading cost by skipping the broad indexed message scan on the fast review path
    - [x] Stop navigation-only cleanup-discovery rebuilds caused by stale TTL or sync-timestamp-only changes
    - [x] Add Phase 1-safe decision editing controls inside Confirmation
+   - [x] Serve the latest stable cached runtime snapshot first on interactive Phase 1 routes instead of auto-refreshing on short local TTL age
+   - [x] Tighten runtime/discovery invalidation so only real indexed snapshot advancement can trigger interactive refresh paths
+   - [x] Prevent Sender Decisions direct entry from kicking off fallback-cluster work before recommended cluster resolution finishes
    - [ ] Phase 1 validation follow-up:
      - perform browser verification for direct `/operations/review?stage=senders` entry with no `cluster_id`
+     - perform browser verification that Mailbox Intelligence and Cleanup Groups stay on the stable cached snapshot during normal navigation and do not regress into 15–40s recomputation
      - verify Phase 1 draft restore across navigation, reload, and pagination changes
      - verify sender analytics clicks drive the sender list without focus loss or full blackout reloads
      - verify Confirmation edit actions correctly round-trip back into Sender Decisions
