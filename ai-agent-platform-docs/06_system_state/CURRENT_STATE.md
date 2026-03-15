@@ -28,6 +28,23 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 15 Mailbox Intelligence cold-load performance summary:
+  - Cold Mailbox Intelligence no longer depends on strictly sequential indexed-row paging.
+  - The indexed `gmail_messages` loader now:
+    - reuses in-flight row loads
+    - loads pages concurrently on the cold path
+    - emits explicit indexed-row load timing logs for future measurement
+  - Mailbox Intelligence server caches are now keyed to the actual indexed mailbox snapshot rather than cleanup-plan timestamp churn:
+    - raw mailbox context now reuses cache when indexed totals/date span are unchanged
+    - derived workspace cache now reuses that mailbox snapshot plus cluster signature
+  - Mailbox Intelligence client boot is more resilient:
+    - latest stable Intelligence cache can render first if the exact cleanup-snapshot cache misses
+    - `/operations/intelligence` now shows a runtime-backed mission boot panel instead of a blank full-page stall while detailed intelligence finishes loading
+  - Validation:
+    - targeted Gmail performance ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
 - March 15 Mailbox Intelligence simplification summary:
   - Mailbox Intelligence now reads as one coherent high-level control surface instead of a mission header stacked on top of an older analytics dashboard.
   - The top mission-control section remains intact:

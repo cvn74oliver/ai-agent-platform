@@ -10,6 +10,32 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 15, 2026 - Gmail Phase 1 Mailbox Intelligence Cold-Load Performance Pass
+
+Root-cause addressed:
+- Cold `mailbox_intelligence` requests were still stalling for 40+ seconds because the server cold path loaded large `gmail_messages` index slices in many sequential page queries before any Mailbox Intelligence response could be returned.
+- Server-side Mailbox Intelligence caches were also over-invalidating because raw mailbox-context / derived-workspace cache keys were tied to cleanup-plan snapshot timestamps, even when the underlying indexed mailbox snapshot had not changed.
+- The Intelligence page still waited for the full mailbox-intelligence payload before rendering anything useful, so cold loads felt like a complete operator stall.
+
+What changed:
+- Indexed mailbox row loading is now materially faster on the cold path:
+  - `loadIndexedGmailMessagesForTenant` now shares in-flight row loads
+  - paged `gmail_messages` queries now run concurrently instead of strictly sequentially
+  - indexed-row load timing is now logged explicitly for future cold-path measurement
+- Mailbox Intelligence server caching is now keyed to the actual indexed mailbox snapshot instead of cleanup-plan timestamp churn:
+  - mailbox-context cache keys now use indexed totals/date-span coverage
+  - derived-workspace cache keys now reuse that mailbox snapshot key plus cluster signature
+  - this keeps mailbox intelligence reusable when cleanup plans regenerate without a real indexed-mailbox change
+- Mailbox Intelligence client boot now prefers the latest stable Intelligence snapshot when an exact cleanup-snapshot cache miss happens.
+- `/operations/intelligence` no longer hard-blocks on the full intelligence payload:
+  - the page now renders a runtime-backed mission boot panel first
+  - detailed mailbox health / trend / handoff sections hydrate once cached Mailbox Intelligence is ready
+
+Validation:
+- Targeted ESLint passed for the touched Mailbox Intelligence performance files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not rerun in this pass.
+
 ### March 15, 2026 - Gmail Phase 1 Mailbox Intelligence Simplification Pass
 
 Root-cause addressed:

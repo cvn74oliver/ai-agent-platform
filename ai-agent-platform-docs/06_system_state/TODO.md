@@ -44,6 +44,8 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
    - [x] Reduce Mailbox Intelligence cleanup-group preview to a single recommended handoff instead of a second selection surface
    - [x] Collapse the lower Mailbox Intelligence dashboard into one health-outlook block plus a minimal Cleanup Groups handoff
    - [x] Remove technical scope-ladder / telemetry-heavy clutter from Mailbox Intelligence so the page reads as one decisive control surface
+   - [x] Reduce Mailbox Intelligence cold-load stalls by making indexed-row loading concurrent/shared and by reusing mailbox intelligence caches across cleanup-plan timestamp churn
+   - [x] Render a runtime-backed Mailbox Intelligence mission boot panel while detailed intelligence hydrates
    - [x] Strengthen Sender Decisions as the primary sender analytics + evidence drill-down workspace
    - [x] Clarify Confirmation wording so archive-now and saved-later Phase 1 decisions read like deliberate operator choices
    - [x] Demote low-value technical scope wording such as `loaded preview rows` in the high-level surfaces
@@ -56,6 +58,7 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
      - verify Mailbox Intelligence now feels like the high-level mission dashboard while Cleanup Groups owns the full cluster-selection surface
      - verify the new Mailbox Intelligence mission panel answers the core operator questions quickly: inbox health, what matters now, what to do next, and what work is already in progress
      - verify the simplified Intelligence lower half no longer feels like a second analytics/status dashboard underneath the mission header
+     - capture fresh cold-path timing for `mailbox_intelligence` after the concurrent indexed-row loader + mailbox-snapshot cache-key changes
      - verify Sender Decisions now reads as the primary drill-down workspace and Confirmation language feels operator-trustworthy
      - resolve the current `npm run build` Next 16 / Turbopack compile hang and capture a definitive production-build result
      - perform browser verification for Mailbox Intelligence, Cleanup Groups, Sender Decisions, Confirmation, and direct placeholder routes

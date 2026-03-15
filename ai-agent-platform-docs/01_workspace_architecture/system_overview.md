@@ -81,6 +81,10 @@ Current Gmail cleanup architecture:
   - post-boot refresh now depends on missing snapshot, zero-cluster recovery, or real indexed snapshot change
 - Mailbox Intelligence and Cleanup Groups now prefer exact warm cached intelligence payloads before issuing new requests.
 - Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload client-side, preventing repeated mailbox recomputation during navigation.
+- Mailbox Intelligence cold-load behavior is now more defensive:
+  - indexed mailbox row paging is concurrent and shared on the cold server path instead of strictly sequential
+  - mailbox-context / derived-workspace server caches now key off the indexed mailbox snapshot (counts/date span) rather than cleanup-plan timestamp churn alone
+  - the Intelligence page can render a runtime-backed mission boot state before the full mailbox-intelligence payload is ready
 - Mailbox Intelligence is now intentionally high-level only:
   - sender-specific analytics have moved into Sender Decisions
   - cleanup groups are previewed there, but the full cleanup-group selection surface remains on the Cleanup Groups page
