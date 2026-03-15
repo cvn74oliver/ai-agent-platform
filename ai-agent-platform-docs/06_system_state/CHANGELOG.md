@@ -10,6 +10,68 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 15, 2026 - Gmail Phase 1 Mailbox Intelligence Simplification Pass
+
+Root-cause addressed:
+- Mailbox Intelligence still felt like two pages stacked together: a strong mission-control header followed by an older analytics/status dashboard.
+- The lower half of the page still carried too much telemetry, too many stat blocks, and too much Cleanup Groups duplication.
+- Inbox Health still did not clearly communicate current state, why that state existed, what would improve it, and which direction pressure was moving.
+
+What changed:
+- Mailbox Intelligence is now simplified into one cleaner high-level control surface:
+  - the top mission-control layer remains intact
+  - the lower area is reduced to one `Inbox Health Outlook` explanation block plus a minimal Cleanup Groups handoff
+- Inbox Health is now more actionable:
+  - the mission panel now explains why health is in its current state
+  - what action would improve it fastest
+  - and whether cleanup pressure is rising, easing, or staying steady
+- The lower “old dashboard” telemetry was removed or compressed:
+  - the Intelligence page no longer renders its scope ladder
+  - the earlier lower metric grids and multi-section analytics/status blocks are gone from this surface
+  - one compact pressure-trend visual remains as the single supporting mission visual
+- Cleanup Groups duplication is reduced again:
+  - Intelligence now previews one recommended group
+  - optionally shows one compact alternate
+  - and hands off into Cleanup Groups with a single clear CTA
+- Sender-first hierarchy is stricter:
+  - senders remain the visible primary unit
+  - message counts appear only as supporting context inside explanatory copy
+
+Validation:
+- Targeted ESLint passed for the touched Mailbox Intelligence files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not rerun in this pass.
+
+### March 15, 2026 - Gmail Phase 1 Mailbox Intelligence Mission-Control Pass
+
+Root-cause addressed:
+- Mailbox Intelligence still felt too message-led and stat-heavy even after earlier Phase 1 cleanup.
+- The page still duplicated too much of Cleanup Groups instead of behaving like the high-level mission / health / recommendation surface defined in the product specs.
+- Health, next action, progress, risk, and started work were not visually outranking lower-value operational counts.
+
+What changed:
+- Mailbox Intelligence is now more explicitly a mission-control surface:
+  - a new mission panel now leads with current status, next recommended action, top risk, inbox health, progress, started work, resume work, and approval queue
+  - sender counts now lead the page and whole-mailbox/message totals are demoted to supporting context
+- Mailbox Intelligence now previews Cleanup Groups as a handoff instead of duplicating the full group-selection experience:
+  - only the single top recommended sender group is previewed
+  - the surrounding copy now explicitly states that Cleanup Groups owns full cluster selection
+- High-level dashboard wording is more operator-oriented:
+  - “mission control” / “current status” / “top risk” / “next recommended action”
+  - sender-first framing is maintained throughout the page
+- Low-value technical emphasis is reduced on the Intelligence surface:
+  - the hidden scope-ladder evidence row stays out of the page
+  - supporting counts such as indexed inbox rows remain available only as context inside secondary cards
+- The higher-level Intelligence dashboard is now simpler:
+  - `Cleanup-ready senders`, `Protected senders`, and `Sender groups ready` lead the metrics
+  - `Automation mix` and other lower-value status cards are removed from this surface
+  - high-level visuals remain, but are framed as inbox-health drivers rather than sender drill-down analytics
+
+Validation:
+- Targeted ESLint passed for the touched Mailbox Intelligence files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not rerun in this pass.
+
 ### March 15, 2026 - Gmail Phase 1 UX Structure Polish Pass (High-Level Intelligence / Sender Drill-Down / Clearer Confirmation)
 
 Root-cause addressed:

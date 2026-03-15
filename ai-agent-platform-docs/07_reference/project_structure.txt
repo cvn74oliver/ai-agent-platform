@@ -195,7 +195,8 @@
     │   │   ├── automation_map.md
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
-    │   │   └── schema_comparison_checklist.md
+    │   │   ├── schema_comparison_checklist.md
+    │   │   └── SYSTEM_MEMORY_MAP.md
     │   └── 08_codex_instructions
     │       ├── CODEX_ARCHITECTURE_LOCK.md
     │       ├── CODEX_DEBUG_PLAYBOOK.md
@@ -409,4 +410,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-111 directories, 299 files
+111 directories, 300 files

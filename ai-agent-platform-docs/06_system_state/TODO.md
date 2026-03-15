@@ -39,7 +39,11 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
    - [x] Tighten runtime/discovery invalidation so only real indexed snapshot advancement can trigger interactive refresh paths
    - [x] Prevent Sender Decisions direct entry from kicking off fallback-cluster work before recommended cluster resolution finishes
    - [x] Reframe Mailbox Intelligence as the high-level mission/status dashboard instead of a second sender review page
+   - [x] Tighten Mailbox Intelligence into a true mission-control surface where health / next action / progress / risk outrank lower-value stats
    - [x] Reduce Cleanup Groups duplication on Mailbox Intelligence to a lightweight preview plus explicit handoff
+   - [x] Reduce Mailbox Intelligence cleanup-group preview to a single recommended handoff instead of a second selection surface
+   - [x] Collapse the lower Mailbox Intelligence dashboard into one health-outlook block plus a minimal Cleanup Groups handoff
+   - [x] Remove technical scope-ladder / telemetry-heavy clutter from Mailbox Intelligence so the page reads as one decisive control surface
    - [x] Strengthen Sender Decisions as the primary sender analytics + evidence drill-down workspace
    - [x] Clarify Confirmation wording so archive-now and saved-later Phase 1 decisions read like deliberate operator choices
    - [x] Demote low-value technical scope wording such as `loaded preview rows` in the high-level surfaces
@@ -50,6 +54,8 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
      - verify sender analytics clicks drive the sender list without focus loss or full blackout reloads
      - verify Confirmation edit actions correctly round-trip back into Sender Decisions
      - verify Mailbox Intelligence now feels like the high-level mission dashboard while Cleanup Groups owns the full cluster-selection surface
+     - verify the new Mailbox Intelligence mission panel answers the core operator questions quickly: inbox health, what matters now, what to do next, and what work is already in progress
+     - verify the simplified Intelligence lower half no longer feels like a second analytics/status dashboard underneath the mission header
      - verify Sender Decisions now reads as the primary drill-down workspace and Confirmation language feels operator-trustworthy
      - resolve the current `npm run build` Next 16 / Turbopack compile hang and capture a definitive production-build result
      - perform browser verification for Mailbox Intelligence, Cleanup Groups, Sender Decisions, Confirmation, and direct placeholder routes

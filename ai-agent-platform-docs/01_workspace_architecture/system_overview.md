@@ -85,8 +85,15 @@ Current Gmail cleanup architecture:
   - sender-specific analytics have moved into Sender Decisions
   - cleanup groups are previewed there, but the full cleanup-group selection surface remains on the Cleanup Groups page
   - low-value technical scope details such as `loaded preview rows` are now demoted on the high-level surfaces so Mailbox Intelligence reads like a mission dashboard instead of a debug view
+- Mailbox Intelligence now behaves more explicitly like mission control:
+  - current status, inbox health, progress, next recommended action, top risk, started work, resume work, and approval queue lead the page
+  - sender counts outrank raw mailbox/message counts
+  - the page now previews only the single top recommended cleanup group as a handoff into Cleanup Groups rather than acting like a second cluster-selection surface
+  - the Intelligence page no longer shows its scope ladder or older telemetry-heavy lower dashboard sections
+  - the lower half is now reduced to one `Inbox Health Outlook` explanation layer plus a compact Cleanup Groups handoff
+  - the only remaining supporting visual is a compact pressure-trend chart so the page feels like mission control, not a sender drill-down analytics surface
 - Cleanup Groups is now more clearly the full sender-group selection surface:
-  - Mailbox Intelligence previews only the top two groups plus a direct CTA into Cleanup Groups
+  - Mailbox Intelligence previews only the top recommended group plus a direct CTA into Cleanup Groups
   - Cleanup Group cards can expose lightweight sender context / cautions without turning into the full Sender Decisions workspace
 - Sender Decisions is now more clearly the drill-down workspace:
   - cluster-specific briefing at the top

@@ -28,6 +28,51 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 15 Mailbox Intelligence simplification summary:
+  - Mailbox Intelligence now reads as one coherent high-level control surface instead of a mission header stacked on top of an older analytics dashboard.
+  - The top mission-control section remains intact:
+    - sender-first inbox briefing
+    - current status
+    - next recommended action
+    - top risk
+    - inbox health
+    - progress
+    - approval queue
+    - resume work
+  - The lower half is now much simpler:
+    - one `Inbox Health Outlook` block explains why health is in its current state, what matters most, what improves it fastest, and how pressure is moving
+    - one compact pressure-trend visual remains as the supporting mission visual
+    - Cleanup Groups is reduced to a minimal handoff preview with one recommended group, one optional alternate, and a CTA
+  - Low-value technical hierarchy UI was removed from Mailbox Intelligence:
+    - the scope ladder no longer renders on this page
+    - the older telemetry-heavy metric/status blocks are gone from this surface
+  - Validation:
+    - targeted Mailbox Intelligence ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 15 Mailbox Intelligence mission-control summary:
+  - Mailbox Intelligence is now more explicitly the high-level mission / status surface for Phase 1:
+    - current status
+    - inbox health
+    - progress
+    - next recommended action
+    - top risk
+    - started work / resume work
+    - approval queue
+  - Sender-first framing is stronger:
+    - sender counts lead the page
+    - whole-mailbox senders and inbox rows remain as supporting context only
+    - raw message totals no longer dominate the first-view hierarchy
+  - Cleanup Groups duplication is reduced again:
+    - Intelligence now previews only the single top recommended sender group
+    - the page more clearly positions Cleanup Groups as the full cluster-selection surface
+  - High-level visuals remain, but are framed as inbox-health drivers instead of deeper sender-review analytics.
+  - Validation:
+    - targeted Mailbox Intelligence ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
 - March 15 Phase 1 UX structure polish summary:
   - Mailbox Intelligence is now more intentionally the high-level mission dashboard:
     - sender-first summary cards lead the page
