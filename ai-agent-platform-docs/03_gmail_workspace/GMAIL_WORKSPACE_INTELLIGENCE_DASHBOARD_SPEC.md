@@ -115,6 +115,21 @@ Example hover:
 
 "Protected senders reduce over‑cleaning risk but slow cleanup until ambiguous senders are reviewed."
 
+### Management Signals
+
+The Inbox Health layer should also surface high‑level signals from the Management layer when they materially affect inbox state.
+
+Examples:
+
+- large archive queues awaiting approval
+- quarantine volume spikes
+- rule automation coverage
+- unsubscribe backlog
+
+These signals should appear as small visual indicators within the health layer rather than as separate dashboard sections.
+
+The purpose is to ensure the operator can see **execution friction** without navigating away from the command dashboard.
+
 ---
 
 # Layer 2 — Mission Control
@@ -138,7 +153,17 @@ Current Status → Main Bottleneck → Do Next → Expected Payoff
 
 ### Interaction Rules
 
-These panels are **explanatory only**, not action controls.
+These panels primarily explain the operational situation.
+
+However, when a panel references an actionable step (for example approvals waiting or sender review ready), the UI should expose a **clear call‑to‑action button** that navigates directly to the relevant workflow surface.
+
+Examples:
+
+• "Resume Sender Review" → opens Sender Decisions
+• "Approve Archive Queue" → opens Confirmation
+• "Open Cleanup Groups" → opens Cleanup Groups
+
+Guidance without an actionable path should be avoided.
 
 The only actionable item should be the **Do Next CTA**.
 
@@ -188,6 +213,29 @@ Change: +1,464
 Likely Driver: Dormant low‑attention senders
 Action That Would Help Most: Open Subscription Senders
 ```
+
+### Time Range Controls
+
+The pressure trend must support time‑range filtering so operators can understand momentum across different horizons.
+
+Required ranges:
+
+- Last 24 hours
+- Last 7 days
+- Last 30 days
+- Last 6 months
+- Last 12 months
+- Custom range
+
+The chart must dynamically adjust its bar grouping based on the selected range.
+
+Examples:
+
+- 24h range → hourly bars
+- 30d range → daily bars
+- 12m range → monthly bars
+
+This ensures the pressure visualization remains readable regardless of dataset size.
 
 ---
 
@@ -258,6 +306,25 @@ The dashboard must always provide the following context somewhere near the top:
 - Senders already decided
 
 Without these values the story lacks scale.
+
+### Metric Visual Meaning Requirement
+
+Every visual meter associated with a global metric must clearly communicate **what the percentage represents**.
+
+For example:
+
+- **Sender Universe Bar** must show: indexed senders vs total discovered senders.
+- **Message Impact Meter** must show: visible‑window messages vs total indexed message context.
+- **Decision Coverage Meter** must show: decided senders vs senders currently under review.
+- **Active Review Indicator** must show: senders currently in the review queue vs total cleanup candidate senders.
+
+A visual without an explained denominator ("100% of what?") is considered a design failure.
+
+Codex must ensure that every percentage‑based visual has:
+
+• a clear denominator
+• a label describing the comparison
+• hover text that explains the ratio
 
 ### Visual Representation Requirement
 
