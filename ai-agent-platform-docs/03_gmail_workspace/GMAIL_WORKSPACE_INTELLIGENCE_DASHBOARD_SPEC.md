@@ -16,6 +16,66 @@ The dashboard must tell a **clear operational story**, not simply present raw da
 
 ---
 
+
+# Inbox Cleanliness Definition
+
+The Gmail Workspace does **not** define a clean inbox as "zero emails."  
+Instead, the system defines inbox cleanliness based on **sender decision coverage**.
+
+A mailbox is considered **clean when every sender has a decision**.
+
+A decision means the system knows how that sender should be handled:
+
+| Sender State | Meaning |
+|---|---|
+| Keep | Sender is allowed and trusted |
+| Archive | Messages should skip the inbox |
+| Quarantine | Messages should be isolated for review |
+| Unsubscribe | Sender should be removed from mailing lists |
+| Custom Rule | Sender follows a defined automation rule |
+
+Inbox health therefore measures:
+
+```
+Decided Senders / Total Senders
+```
+
+Message counts represent **impact**, not cleanliness.
+
+For example, an inbox may contain thousands of messages and still be considered healthy if every sender has a defined decision.
+
+Conversely, an inbox with only a few messages may still be considered degraded if many senders have not yet been reviewed.
+
+### Health Scoring Logic
+
+| Decision Coverage | Health State |
+|---|---|
+| 90–100% | Healthy |
+| 70–89% | Stable |
+| 40–69% | Warning |
+| 20–39% | Degraded |
+| 0–19% | Critical |
+
+### Operator Goal
+
+The operator's goal is therefore simple:
+
+```
+Review every sender once and assign a decision.
+```
+
+Once every sender has a decision, the inbox becomes self‑maintaining and the health score stabilizes.
+
+The Intelligence Dashboard must reinforce this concept visually so the operator always understands:
+
+- how many senders exist
+- how many have been decided
+- how many still require review
+
+Without this context, the dashboard cannot effectively communicate progress or health.
+
+---
+
 # Core Design Principles
 
 ## 1. Story First, Metrics Second
