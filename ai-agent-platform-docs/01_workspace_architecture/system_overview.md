@@ -330,6 +330,131 @@ Current Gmail Operations hardening status:
 
 ---
 
+## 🎯 Mailbox Intelligence — Command Dashboard Contract (Phase 1)
+
+This defines how the **Mailbox Intelligence page MUST behave**.
+
+### Core Goal (Non-Negotiable)
+A "clean inbox" is NOT zero messages.
+A clean inbox = **every sender has a decision**.
+
+Primary metric:
+- Sender Decision Coverage = decided_senders / total_indexed_senders
+
+Message counts are **impact only**, never the definition of cleanliness.
+
+---
+
+### Required Story Flow (Top → Bottom)
+The page MUST answer, within 3–5 seconds:
+
+1. What is the size of my problem?
+2. How clean is my inbox?
+3. What is blocking progress?
+4. What do I do next?
+5. What happens if I do it?
+
+---
+
+### Required Sections (Locked Order)
+
+1. Inbox Health (visual first)
+2. Global Scale (senders + messages)
+3. Cleanliness Goal (sender coverage)
+4. Mission Control (AI briefing)
+5. Pressure Trend (time-based signal)
+6. Cleanup Groups Handoff (single next step only)
+
+NO duplicate downstream dashboards.
+NO Cleanup Groups exploration here.
+
+---
+
+### Visual Intelligence Rules
+
+Every metric MUST have:
+- a visual representation
+- a clear denominator
+- an explanation of meaning
+
+If a visual does NOT add meaning → remove it.
+
+Hover behavior MUST:
+- add NEW information
+- NEVER repeat visible text
+
+---
+
+### Interaction Rules
+
+If the system tells the user to do something →
+THERE MUST BE A BUTTON.
+
+Examples:
+- "Approve archive queue" → button required
+- "Resume work" → strong CTA styling required
+- "Open cleanup group" → direct action
+
+No passive instructions.
+
+---
+
+### Pressure Trend Rules
+
+- Must be FULL WIDTH
+- Must be BAR-based (not thin lines)
+- Hover must show:
+  - exact period values
+  - previous period values
+  - delta
+  - dominant sender group
+  - recommended action
+
+Numbers alone are NOT enough.
+
+---
+
+### Management Signals (Required Next Integration)
+Mailbox Intelligence MUST eventually surface:
+- archive count
+- quarantine count
+- unsubscribe count
+- custom-rule count
+- restore activity
+
+These are the **true system outcomes**.
+
+---
+
+### Anti-Patterns (Strictly Disallowed)
+
+- Repeating the same data in multiple places
+- Showing percentages without denominators
+- Mixing "index health" with "inbox health"
+- Hover states that duplicate visible text
+- Large empty visual areas
+- Non-clickable next steps
+
+---
+
+### Codex UI Enforcement Rule (CRITICAL)
+
+Every UI Codex prompt MUST include:
+
+"Before changing UI, read:
+- GMAIL_WORKSPACE_UI_STRUCTURE.md
+- GMAIL_WORKSPACE_UX_SPEC.md
+- GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
+- Gmail Workspace Intelligent Dashboard spec
+
+Do NOT introduce new UI patterns.
+Only extend existing patterns.
+If unclear, match existing layout and hierarchy exactly."
+
+This prevents regression and UI drift.
+
+---
+
 ### 🧠 Hybrid Execution Model (Important Clarification)
 
 Not every change requires Codex.
@@ -714,6 +839,33 @@ Thread naming guidance:
 Current operating convention:
 - Multi-file code work = Codex
 - Single-file doc or constrained one-file edits = direct ChatGPT edit
+
+
+### 🧪 PM UI Review Protocol (Enforced)
+
+UI testing must follow a tight loop:
+
+1. Cold load
+2. Warm load
+3. Click only new/changed elements
+4. Report ONLY:
+   - pass/fail
+   - what changed
+   - what broke
+
+Do NOT re-review entire system.
+Do NOT repeat previous feedback.
+
+PM is responsible for:
+- interpreting screenshots
+- mapping to spec
+- generating next Codex instruction
+
+Operator only provides:
+- screenshots
+- minimal behavior notes
+
+This keeps iteration speed high.
 
 ## 📁 Key Folders
 /ai-agent-platform

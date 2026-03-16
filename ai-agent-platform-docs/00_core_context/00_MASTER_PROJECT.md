@@ -1011,6 +1011,61 @@ This guardrail dramatically improves Codex UI output consistency and prevents ac
 
 ---
 
+### Intelligence Dashboard Product Guardrail (March 2026 – Mission-Control Rule)
+
+Purpose:
+Ensure Mailbox Intelligence (and future dashboard surfaces) always behave as a **clear mission-control layer**, not a confusing analytics dump.
+
+Core Rules:
+- The dashboard must clearly answer, within 5 seconds:
+  1) What is the goal?
+  2) Where am I right now?
+  3) What is blocking progress?
+  4) What should I do next?
+
+- The definition of a “clean inbox” is NON-NEGOTIABLE:
+  - A clean inbox = **every sender has a decision**
+  - NOT zero messages
+  - NOT inbox size
+
+- All visual elements must reinforce this:
+  - Sender decision coverage is the PRIMARY progress metric
+  - Message counts are SECONDARY (impact only)
+
+- Every major metric MUST have:
+  - a clear denominator
+  - a visible meaning (no decorative bars without explanation)
+
+- Every “Do Next” or “Checkpoint” MUST include a clear CTA:
+  - If the UI says to act, it must provide a button
+  - No dead-end guidance blocks
+
+- Hover interactions must:
+  - ADD new reasoning or insight
+  - NEVER repeat visible data
+  - Prefer “why / what changed / what to do” over raw numbers
+
+- Avoid duplication across pages:
+  - Mailbox Intelligence = command layer
+  - Cleanup Groups = exploration layer
+  - Do NOT recreate Cleanup Groups inside Intelligence
+
+PM Responsibilities:
+- Reject Codex output that:
+  - introduces unclear metrics
+  - shows percentages without real denominators
+  - duplicates downstream UI (e.g., Cleanup Groups previews)
+  - lacks actionable CTAs where actions are described
+
+- Require that each dashboard pass improves:
+  - clarity of goal
+  - clarity of progress
+  - clarity of next action
+
+This guardrail ensures the dashboard teaches the user what to do, not just what exists.
+
+---
+
 - The PM expects every major Codex pass to end with a `PM REVIEW PACKET` (copy/paste handoff format) per `09_CODEX_EXECUTION_PROTOCOL.md`.
 	- PM should prefer one-surface or one-problem Codex passes over broad multi-surface cleanup requests unless an architectural change truly requires wider scope.
 	- PM should explicitly tell Codex what is out of scope for each pass so regressions and drift are minimized.
@@ -1068,6 +1123,7 @@ Product Review & UI Validation Protocol (March 2026)
 - Screenshots are a first-class review artifact. PM should use them proactively to judge hierarchy, clarity, regression, and drift from the specs.
 
 - When reviewing UI, PM must compare the screenshot against the **gmail-workspace-visual-intelligence-spec.md** visual hierarchy before approving the pass.
+- For dashboard surfaces, PM must also verify that the page communicates a clear goal, progress state, and next action without requiring prior system knowledge.
 - If a Codex pass introduces visual elements not present in the spec (charts, gauges, layouts, etc.), PM should treat the pass as **incomplete** and issue a corrective Codex instruction rather than asking Oliver to restate the product vision.
 - Visual intelligence elements (gauges, charts, hover explanations, and distribution visuals) must always prioritize **operator usefulness over decoration**.
 

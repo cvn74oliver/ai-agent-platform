@@ -4,6 +4,13 @@
 
 The Playground API route is now a thin controller for request orchestration, not the owner of runtime derivation internals.
 
+NOTE (Updated Workflow Reality):
+The platform no longer relies on multiple specialized agents (Architect, Frontend, Backend, etc.) for execution.
+The actual production workflow is now:
+- Project Manager (planning, spec, QA, orchestration)
+- Codex (execution)
+All architecture and runtime boundaries should reflect this simplified execution model.
+
 `src/app/api/agents/playground/route.ts` is currently responsible for:
 - request parsing/validation (`agent_id`, `messages`, optional `session_id`, optional `rehydrate_only`)
 - agent lookup
@@ -22,6 +29,10 @@ Logic extracted out of the route:
 - system prompt construction
 
 ## 2) Current Module Boundaries
+
+IMPORTANT:
+These module boundaries are consumed and enforced by a single execution loop (PM → Codex).
+There is no multi-agent runtime coordination layer in practice.
 
 ### `src/app/api/agents/playground/route.ts`
 - Thin HTTP surface/controller for Playground POST.
@@ -116,6 +127,12 @@ Logic extracted out of the route:
    - log session/event analytics (`agent_sessions`, `agent_events`).
 10. Return `{ ok: true, data: responseData }` with `reply` on non-rehydrate path.
 
+11. UI Contract Enforcement (NEW REQUIREMENT)
+    - Before any UI-related changes, execution must reference:
+      - Gmail Workspace Visual Intelligence Spec
+      - Gmail Workspace Intelligent Dashboard Spec
+    - Any deviation from these specs is considered a regression.
+
 ## 4) Rehydrate Flow (`rehydrate_only`)
 
 Current behavior when `rehydrate_only === true`:
@@ -129,6 +146,10 @@ Current behavior when `rehydrate_only === true`:
   - no OpenAI call
   - no `playground.call` analytics insert
   - no `reply` field
+
+DESIGN NOTE:
+Rehydrate flow must remain fast and deterministic because it powers UI reloads and agent continuity.
+Any heavy computation must not block this path.
 
 ## 5) Data Contracts
 
@@ -234,10 +255,45 @@ Route (non-rehydrate path) also calls:
 - Prompt builder is Playground-specific in phrasing and includes Playground-focused runtime guidance text.
 - Runtime assembler is intentionally Gmail-specific (tool/action names and Gmail cleanup/review/archive semantics).
 
-## 8) Next Recommended Extractions (Recommendations)
+CLARIFICATION:
+Playground remains the primary orchestration surface for runtime intelligence, but its architecture should remain reusable for future non-Playground agent execution surfaces.
 
-1. Extract OpenAI chat invocation/response handling into a small `playgroundChatService` (model config, call, error handling, reply extraction).
-2. Extract analytics/session logging into a dedicated `playgroundAnalyticsService` (session creation + `playground.call` event logging).
-3. Introduce a shared runtime surface adapter to reuse runtime-state + prompt-context assembly in non-Playground agent/workflow endpoints.
-4. Tighten route typing (`any` cleanup for summary/raw payload handling) so route can become a strongly typed controller.
+## 8) Execution Model Alignment (Updated)
 
+The system should evolve toward:
+
+1. Clear separation of concerns:
+   - Runtime state (stateLoaders + runtimeStateService)
+   - Intelligence derivation (gmailRuntimeAssembler)
+   - Retrieval (RAG service)
+   - Prompt construction (prompt builder)
+   - Execution (Codex)
+
+2. Single execution pipeline:
+   - Project Manager defines intent + constraints
+   - Codex executes within strict spec boundaries
+
+3. UI Safety Layer:
+   - All UI changes must be spec-driven
+   - No ad-hoc UI implementations allowed
+
+4. Performance-first runtime:
+   - Cold load minimized
+   - Rehydrate path prioritized
+   - Cached state reused aggressively
+
+5. Future readiness:
+   - Architecture remains compatible with:
+     - multi-workspace expansion
+     - autonomous agent execution
+     - cross-tool orchestration
+
+## 9) Key Architectural Truths (DO NOT VIOLATE)
+
+- Sender-first system (not message-first)
+- Decision state is the core unit of progress
+- UI is a guided system, not a data dump
+- Runtime must be fast, predictable, and cache-first
+- Codex must follow spec before implementing UI
+
+These rules override all local implementation decisions.

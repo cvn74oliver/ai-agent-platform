@@ -42,43 +42,49 @@ After major milestones or architecture changes, the Project Manager Agent must i
 
 ---
 
-## 1️⃣ Agent Role Overview
+## 1️⃣ Agent Role Overview (Simplified Execution Model)
+
+The platform now operates on a **two-agent system** for execution efficiency and reliability.
 
 ### Project Manager Agent (PM Agent)
-- Central coordinator of all agents
-- Maintains project state and operational alignment
-- Owns documentation updates for:
+- Central coordinator of the system
+- Owns product thinking, UX direction, and architecture alignment
+- Reviews UI against specs and identifies gaps proactively
+- Writes Codex instructions
+- Owns all documentation updates:
   - TODO.md
   - CHANGELOG.md
   - CURRENT_STATE.md
   - system_overview.md
-- Defines priorities and execution milestones
-- Ensures architectural consistency across agents
-- Acts as the bridge between Oliver and the specialist agents
+- Interprets results and determines next steps
 
-### Architect Agent
-- Oversees structure and technical architecture  
-- Handles repo organization and system integrity  
+### Codex Execution Agent
+- Executes all implementation work
+- Follows strict instructions from PM Agent
+- Performs:
+  - UI implementation
+  - Backend/API updates
+  - Refactors and fixes
+- Returns results via `PM REVIEW PACKET`
 
-### Frontend Agent
-- UI and visual logic (Next.js, Tailwind, components)  
-- Responsible for user interface behavior and layout  
+---
 
-### Backend Agent
-- API routes and Supabase schema  
-- Server logic and data integrity  
+### Deprecated / Optional Agents
 
-### Workflow Agent
-- External integrations (Activepieces, Make.com)  
-- Automation orchestration  
+The following agents are **no longer part of the active workflow**:
+- Architect Agent
+- Frontend Agent
+- Backend Agent
+- Workflow Agent
+- LLM Trainer Agent
+- Avatar & Voice Agent
+- Prompt Engineer Agent
 
-### LLM Trainer Agent
-- Fine‑tuning logic and prompt optimization  
-- Model training pipeline management  
+These were part of the original system design but are now considered:
+- unnecessary for current execution speed
+- a source of fragmentation and overhead
 
-### Avatar & Voice Agent
-- TTS/STT, avatars, media systems  
-- Audio and visual integrations  
+If needed in the future, they can be reintroduced as **temporary specialists**, not persistent roles.
 
 ---
 
@@ -115,14 +121,14 @@ Approve, adjust, and assign tasks.
 
 ## 3️⃣ Communication Hierarchy
 
-You ⇄ Project Manager Agent ⇄ Specialist Agents
+You ⇄ Project Manager Agent ⇄ Codex
 
-- You define objectives.
-- PM Agent assigns responsibility.
-- Specialists execute.
-- Results are returned to PM Agent for logging.
+- You define intent and provide feedback.
+- PM Agent interprets, plans, and writes execution instructions.
+- Codex executes.
+- Results return as a PM REVIEW PACKET.
 
-Specialists do **not** coordinate independently.
+There is **no multi-agent coordination layer anymore**.
 
 ---
 
@@ -142,41 +148,35 @@ This keeps handoffs compact, avoids diff-heavy context bloat, and standardizes P
 
 ## 4️⃣ Standard Task Flow
 
-The platform is now organized around an **Operations Workspace model** rather than relying solely on Playground testing.
+The platform is now organized around a **PM → Codex execution loop**.
 
-The Operations Workspace acts as the real execution interface for:
-
-- cluster review
-- approval decisions
-- archive execution
-- analytics and insight generation
-
-Playground remains useful for experimentation and development, but **production workflows should originate from the Operations Workspace.**
-
-Example: Updating onboarding question flow
+Example workflow:
 
 1. You → PM Agent  
-   “We need to refine onboarding question flow.”
+   Define goal or desired improvement.
 
-2. PM Agent assigns:
-   - Frontend (UI flow)
-   - Backend (validation logic)
+2. PM Agent:
+   - reviews UI / system state
+   - compares against specs
+   - identifies exact gaps
+   - writes precise Codex instruction
 
-3. You → Frontend Agent  
-   Provide PM summary and issue details.
+3. You → Codex  
+   Paste PM instruction.
 
-4. Frontend completes work.  
-   You test locally.
+4. Codex executes and returns `PM REVIEW PACKET`
 
-5. Request session summary:
+5. You → PM Agent  
+   Provide:
+   - screenshots
+   - PM packet
 
-```
-/summarize_session
-```
+6. PM Agent:
+   - reviews against spec
+   - identifies remaining gaps
+   - issues next iteration
 
-6. Return summary to PM Agent for logging.
-
-7. End of day → Run automation scripts again.
+Repeat until the feature is complete.
 
 ---
 
@@ -194,6 +194,30 @@ End of day requirements:
 
 ---
 
+## 5.5️⃣ UI Review Protocol (Critical)
+
+UI review is no longer exploratory. It is structured.
+
+Oliver provides ONLY:
+- screenshots
+- what was clicked
+- whether it worked or not
+
+PM Agent is responsible for:
+- identifying all UX gaps
+- comparing against specs
+- deciding what needs to change
+
+Oliver should NOT:
+- redesign the system
+- explain what feels wrong repeatedly
+
+PM owns product judgment.
+
+This dramatically speeds up iteration.
+
+---
+
 ## 6️⃣ Operational Rules
 
 - Always start with the Project Manager Agent.
@@ -203,6 +227,10 @@ End of day requirements:
 - Authoritative documentation must be updated after milestones.
 - `/web/docs` is a generated mirror and must never be edited manually.
 - Avoid undocumented architectural changes.
+- The system runs on PM + Codex only (no multi-agent routing).
+- PM must proactively compare UI against specs before issuing feedback.
+- Every Codex UI task must include the "READ BEFORE UI" spec block.
+- Avoid broad tasks; prefer tight, single-purpose passes.
 
 ---
 
@@ -252,3 +280,10 @@ When rotating PM Agents:
 3. Activate the next PM Agent using the Agent Activation Checklist.
 
 This ensures continuity while preventing context saturation.
+
+Before retiring a PM Agent:
+- Ensure workflow model (PM + Codex loop) is documented
+- Ensure UI Review Protocol is included
+- Ensure all major product specs are up to date
+
+This prevents regression when a new PM takes over.

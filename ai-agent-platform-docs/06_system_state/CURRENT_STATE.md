@@ -27,6 +27,31 @@ Golden Path Health Check:
 Agents: Healthy  
 Documentation: Synced  
 
+- March 17 Mailbox Intelligence dashboard alignment summary:
+  - Mailbox Intelligence is now converging toward the "AI Intelligent Decision Dashboard" model:
+    - command-first layout
+    - sender-decision goal explicitly defined (clean inbox = all senders decided)
+    - visual intelligence prioritized over raw metrics
+  - Visual intelligence layer improvements (UI-only passes):
+    - health rail + scale metrics integrated into a single hero layer
+    - pressure trend upgraded to full-width bar-based visualization
+    - hover behavior now reveals reasoning (driver, intervention, payoff) instead of repeating visible data
+  - Remaining UI gaps identified and tracked for next phase:
+    - metric bars lack clear denominators and semantic meaning
+    - hover panels still under-informative (need multi-line actionable insight)
+    - Mission Control lacks consistent CTA hierarchy (buttons for Do Next / Approval / Resume not standardized)
+    - management-layer signals (archive, quarantine, rules) not yet surfaced in dashboard
+    - double sidebar layout still impacting visual density
+  - Strategic decision:
+    - Mailbox Intelligence is considered "near-complete for Phase 1"
+    - further refinement will be handled under a new Project Manager to avoid context degradation
+  - Validation:
+    - UI rendering stable
+    - TypeScript + ESLint passing
+    - cold/warm load acceptable after prior performance passes
+
+---
+
 Gmail Operations (latest pass):
 - March 16 Archive execution verification + restore summary:
   - Archive execution is no longer limited to truth-safe `deferred` after a Gmail mutation request.
@@ -1124,6 +1149,42 @@ Phase 3 — Controlled Expansion
    - Maintain authoritative docs as the source of truth
    - Keep Codex aligned to CURRENT_STATE.md, CHANGELOG.md, TODO.md, and system_overview.md after each milestone
    - Preserve clean handoff readiness for future PM transitions
+   - PM v8 introduced a new Codex interaction model:
+     - Project Manager performs primary product/design review using screenshots
+     - User provides minimal UI test signals (load time + click behavior)
+     - Codex receives tightly scoped execution instructions
+   - New UI reliability rule introduced:
+     - Every Codex UI prompt must include:
+       "Before changing UI, read the following:" + relevant spec excerpts
+     - This prevents UI regression and keeps Codex aligned with design intent
+## Mailbox Intelligence — Product Direction Lock
+
+- Mailbox Intelligence is now defined as:
+  "AI Intelligent Decision Dashboard"
+
+- Core responsibilities:
+  - define the goal (clean inbox = all senders decided)
+  - show current state (health, scale, progress)
+  - identify bottleneck (what is blocking progress)
+  - guide next action (clear CTA-driven workflow)
+  - show expected payoff (what improves if user acts)
+
+- Design constraints:
+  - must remain command-first, not analytics-heavy
+  - must not duplicate Cleanup Groups surface
+  - must prioritize sender-level logic over message-level metrics
+  - every major metric must have:
+    - clear denominator
+    - visual representation
+    - actionable meaning
+
+- Deferred to next PM:
+  - management-layer signals integration
+  - advanced hover intelligence (multi-line actionable insights)
+  - unified chart system (shared visual components)
+  - sidebar layout consolidation
+
+# 🧪 Operational Safety Tools
 
 4. Hybrid Execution Governance
    - Codex reserved for multi-file or system-level changes
@@ -1562,3 +1623,26 @@ Current validation snapshot:
 
 - Full-repo `eslint` and `tsc` remain noisy in this local workspace because of unrelated in-progress files outside the stabilization scope.
 - Local `next build` no longer reproduced the original missing-module crash in the current tree, but this thread did not produce a fully clean end-to-end build result from the dirty workspace.
+
+---
+
+# 🔄 Handoff Note (PM v8 → Next PM)
+
+The system is stable, and the Gmail Phase 1 workflow is functionally complete.
+
+Key transition state:
+- Mailbox Intelligence is visually and structurally close to target, but requires one final polish pass under a fresh context window.
+- Management layer is now functionally correct (destination + execution truth + restore), but needs visual intelligence layering.
+- Sender Decisions + Confirmation flows are stable and no longer require structural changes.
+
+Next Project Manager should focus on:
+1. Final Mailbox Intelligence polish (visual + semantic clarity)
+2. Management dashboard visual intelligence layer
+3. Shared chart/visual system implementation
+4. UI consistency + interaction standardization
+
+Do NOT re-architect Phase 1 flow.
+Do NOT regress sender-first model.
+Do NOT reintroduce message-first logic.
+
+This is a polish + intelligence layering phase, not a rebuild phase.

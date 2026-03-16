@@ -1,3 +1,65 @@
+### March 17, 2026 - Mailbox Intelligence Dashboard Story + Semantics Alignment Pass
+
+Root-cause addressed:
+- Mailbox Intelligence visuals improved, but the page still lacked a clear operator story (what a “clean inbox” actually means and how to get there).
+- Top metrics used misleading or unclear denominators (e.g., 100% bars with no defined base), reducing trust.
+- Inbox Health, Index State, and Cleanliness Goal were conflated or visually conflicting.
+- Mission Control surfaced guidance without clear action paths (missing or weak CTAs).
+- Pressure Trend hover was visually interactive but low informational value (mostly number swaps, not insight).
+
+What changed:
+- Introduced explicit **Inbox Cleanliness Goal** in the hero:
+  - "Every sender should have a decision"
+  - progress now tied to committed sender decisions vs indexed sender universe
+  - clarified that KEEP is a valid clean outcome
+- Reframed Inbox Health as **decision-coverage driven**, not message-count driven:
+  - message counts now treated strictly as impact context
+- Corrected top-metric semantics and denominators:
+  - removed misleading 100% bars where no denominator exists
+  - sender coverage and decision coverage now use explicit universe-based denominators
+  - supporting-message metric now framed as density/impact, not progress
+- Reduced conflicting state signals:
+  - removed duplicate health chips
+  - demoted index state to **Index readiness** (secondary signal)
+- Strengthened Mission Control as a true action surface:
+  - added visible CTAs for:
+    - approval (Open Confirmation)
+    - resume work
+    - cleanup group handoff
+  - clarified wording around sender counts vs message impact
+- Upgraded Pressure Trend interaction model:
+  - hover now exposes:
+    - previous period values
+    - change between periods
+    - dominant sender group
+    - recommended intervention
+  - chart moved to wider bar-based layout for faster visual read
+- Compressed Cleanup Groups preview into a **single handoff layer** to avoid duplicating the next page
+
+Operator impact:
+- First-time users can now understand:
+  - what “clean inbox” means (decision coverage, not zero messages)
+  - why the inbox is degraded
+  - what action resolves it
+  - how far they are from completion
+- Visual layer now supports decision-making instead of acting as decorative UI
+
+Known limitations (carried forward):
+- Pressure Trend still uses UI-side inference for sender attribution (no period-specific backend attribution yet)
+- Some metric bars still require refinement for clearer visual grounding (denominator cues / markers)
+- Management-layer signals (archive/quarantine/custom rule distribution) are not yet surfaced in Intelligence
+- Double-sidebar layout still compresses visual canvas (deferred to next PM cycle)
+
+Validation:
+- Targeted ESLint passed for Mailbox Intelligence files
+- `npx tsc --noEmit` passed
+- No backend/API changes introduced in this pass
+
+Next recommended step:
+- Introduce **management signal layer** into Intelligence (destination-state distribution + rule signals)
+- Add **time-range controls** to Pressure Trend (7d / 30d / 90d / 365d / all indexed)
+- Standardize visual components (shared chart system + tooltip layer) in next PM cycle
+
 Architect Agent Activated – November 6 2025
 Frontend Agent Activated – November 6 2025
 Backend Agent Activated – November 6 2025

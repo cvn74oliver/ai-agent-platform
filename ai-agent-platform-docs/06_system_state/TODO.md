@@ -14,6 +14,25 @@ _Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification
 
 ---
 
+```
+- 🚀 Mailbox Intelligence Finalization (NEW — CRITICAL HANDOFF PRIORITY)
+  - [ ] Finalize Mailbox Intelligence as the AI Intelligent Decision Dashboard (command center layer)
+  - [ ] Ensure dashboard clearly communicates the goal:
+        "A clean inbox = every sender has a decision"
+  - [ ] Align all health metrics to sender-decision coverage (NOT message count)
+  - [ ] Fix all hero metrics so denominators are clear and non-misleading
+  - [ ] Add strong visual meaning to all bars/meters (no decorative-only visuals)
+  - [ ] Add actionable CTAs for every Mission Control directive (no dead instructions)
+  - [ ] Improve hover intelligence so it adds NEW insight (not repeated data)
+  - [ ] Refine Pressure Trend to show:
+        - sender-level drivers
+        - period-over-period change explanation
+        - actionable intervention insight
+  - [ ] Ensure page tells a clear story:
+        Health → Bottleneck → Action → Impact → Progress
+  - [ ] Remove any remaining ambiguity around "index", "universe", and "scope"
+  - [ ] Add management-layer signal awareness (archive/quarantine/rules presence indicators)
+```
 0) Gmail Cleanup Sender-First Follow-up (NEW)
    - [x] Replace post-confirmation approval-queue handoff with direct sender destination-state commits
    - [x] Add durable sender destination profiles to Gmail cleanup memory
@@ -320,6 +339,20 @@ No cross-domain edits in a single Codex thread.
 
 This model reduces bureaucracy, avoids redundant Codex calls, and preserves system integrity.
 ---
+### 🔒 UI Execution Guardrail (NEW — REQUIRED)
+Every Codex UI prompt MUST include:
+
+"Before changing UI, read:
+- GMAIL_WORKSPACE_UI_STRUCTURE.md
+- GMAIL_WORKSPACE_UX_SPEC.md
+- gmail-workspace-visual-intelligence-spec.md
+- gmail-workspace-intelligent-dashboard-spec.md"
+
+Rules:
+- No UI work without reading specs
+- No visual elements without meaning
+- No duplicate data representation
+- Every UI element must answer a user question or guide action
 1) **PM v8 Activation + Clean Handoff (PRIMARY PRIORITY)**
    - [x] RAG ingestion verified (Drive + URL, embeddings confirmed)
    - [x] Retrieval weighting hierarchy implemented (Drive boost, product intent tuning)
@@ -722,3 +755,27 @@ Still next:
 - [ ] Ensure the deploy branch includes every locally present runtime module referenced by source before the next Vercel build.
 - [ ] Re-run `npm run build` from a clean stabilization branch or workspace that does not include unrelated in-progress product rebuild changes.
 - [ ] Keep this thread scoped to build integrity only; do not continue sender-first product redesign work here.
+
+---
+
+## 🔁 PM v9 Handoff Preparation (NEW)
+
+- [ ] Mailbox Intelligence considered "good enough" (clear story + usable visuals)
+- [ ] Decision Management dashboard productized (not raw data dump)
+- [ ] Sender Decisions UX stabilized (no refresh issues, clear states)
+- [ ] Confirmation + execution flows verified end-to-end
+- [ ] Archive execution + restore verified with real Gmail behavior
+- [ ] Visual Intelligence spec applied consistently across all pages
+- [ ] Codex UI guardrail enforced in prompts
+- [ ] Process standardized via PMCodexUIReviewProtocol.md
+
+Handoff Criteria:
+- Dashboard communicates value without explanation
+- UI decisions no longer require repeated rework
+- System feels guided, not analytical
+
+Next Phase (PM v9):
+- Visual system standardization across ALL pages
+- Management drill-down pages (Keep / Archive / Rules / etc.)
+- AI rule recommendation engine integration
+- Cross-page visual intelligence consistency
