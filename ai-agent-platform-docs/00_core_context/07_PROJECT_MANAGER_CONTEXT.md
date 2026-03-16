@@ -32,6 +32,7 @@ Communication Protocol
 	•	Minimize repetitive broad UX review requests. Ask Oliver only for the smallest targeted validation needed for the specific Codex pass.
 	•	Treat Oliver primarily as the runtime tester/operator and artifact relay, while PM remains the primary product reviewer and architecture judge.
 
+
 Codex Execution Protocol (CRITICAL)
 - Codex is the primary code execution engine.
 - Project Manager/Chat is the planner + risk controller; Codex writes code and runs terminal commands.
@@ -45,6 +46,35 @@ Codex Execution Protocol (CRITICAL)
 - /web/docs is a generated mirror and must not be edited as the documentation source of truth.
 - When documentation updates are needed, prefer surgical edits that preserve history and unrelated content.
 - Use the lowest viable reasoning level, but remember EXTRA-HIGH is available when an architectural task genuinely requires it.
+
+---
+
+### UI Change Guardrail (March 2026 – Codex Stability Rule)
+
+To prevent UI regressions and ensure Codex consistently follows the product design specifications, every Codex task that modifies **any UI surface** must begin with the following instruction block:
+
+```
+Before changing UI, read the following sources of truth:
+1. gmail-workspace-visual-intelligence-spec.md
+2. GMAIL_WORKSPACE_UI_STRUCTURE.md
+3. GMAIL_WORKSPACE_UX_SPEC.md
+4. system_overview.md
+
+Follow these rules:
+- Do NOT redesign UI patterns that already exist unless explicitly instructed.
+- Preserve visual hierarchy defined in the visual‑intelligence spec.
+- Prefer improving existing components instead of replacing them.
+- Avoid introducing new visual styles that are not defined in the specs.
+```
+
+PM responsibilities:
+- Always include this block in Codex prompts when a pass touches UI.
+- Reject Codex outputs that modify UI hierarchy without referencing the visual intelligence spec.
+- Prefer narrow UI passes (one surface at a time) to reduce regressions.
+
+This guardrail dramatically improves Codex UI output consistency and prevents accidental redesigns of the Gmail Workspace interface.
+
+---
 
 - The PM expects every major Codex pass to end with a `PM REVIEW PACKET` (copy/paste handoff format) per `09_CODEX_EXECUTION_PROTOCOL.md`.
 	- PM should prefer one-surface or one-problem Codex passes over broad multi-surface cleanup requests unless an architectural change truly requires wider scope.
@@ -101,6 +131,10 @@ Product Review & UI Validation Protocol (March 2026)
   - terminal tail attached (yes/no)
 - PM should avoid asking Oliver for 10–15 minute broad walkthroughs when a tighter surface-specific check will do.
 - Screenshots are a first-class review artifact. PM should use them proactively to judge hierarchy, clarity, regression, and drift from the specs.
+
+- When reviewing UI, PM must compare the screenshot against the **gmail-workspace-visual-intelligence-spec.md** visual hierarchy before approving the pass.
+- If a Codex pass introduces visual elements not present in the spec (charts, gauges, layouts, etc.), PM should treat the pass as **incomplete** and issue a corrective Codex instruction rather than asking Oliver to restate the product vision.
+- Visual intelligence elements (gauges, charts, hover explanations, and distribution visuals) must always prioritize **operator usefulness over decoration**.
 
 Lightweight Codex Usage Rule
 - Codex is required for:
