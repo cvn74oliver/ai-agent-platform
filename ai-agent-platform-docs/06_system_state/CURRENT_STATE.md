@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-15  
+Last updated: 2026-03-16  
 Project Manager: v8 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
@@ -28,6 +28,90 @@ Agents: Healthy
 Documentation: Synced  
 
 Gmail Operations (latest pass):
+- March 16 Archive execution verification + restore summary:
+  - Archive execution is no longer limited to truth-safe `deferred` after a Gmail mutation request.
+  - The archive path now:
+    - commits destination state first
+    - attempts Gmail inbox-label removal
+    - verifies targeted Gmail messages directly
+    - only marks archive `succeeded` when inbox removal is actually confirmed
+  - Archive sender profiles now retain the targeted archive message ids needed for reversal.
+  - `/operations/management` now supports a real archive restore path:
+    - restore re-adds `INBOX` to the stored archive scope
+    - restore is verified before archive state is cleared
+    - if restore cannot be confirmed, the destination state stays active with truthful warning state
+  - Non-archive destinations remain intentionally non-executing in Phase 1:
+    - `KEEP` = `not_applicable`
+    - `QUARANTINE` = `deferred`
+    - `UNSUBSCRIBE` = `deferred`
+    - `CUSTOM_RULE` = `deferred`
+  - Validation:
+    - targeted archive execution ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 16 Decision Destinations execution-truth summary:
+  - Destination state and execution state are now modeled separately in Gmail sender destination profiles.
+  - Sender destination profiles now store:
+    - destination state
+    - execution state
+    - execution timestamp/source
+    - execution warning
+    - last action timestamp
+  - Archive is now truth-first:
+    - destination state still commits immediately on Confirmation approve
+    - archive failures set execution state to `failed`
+    - archive requests that were accepted by Gmail but not independently verified are marked `deferred`
+    - archive is no longer reported as executed just because the mutation request returned successfully
+  - Decision Management now shows execution truth directly:
+    - destination state
+    - execution state
+    - last action timestamp
+    - warnings needing follow-up
+    - scaffold-level destination removal control
+  - Left navigation now reflects the destination model more clearly:
+    - `Management` is part of the primary Gmail cleanup workflow
+    - `Pending Approvals`, `Executed Actions`, and `History` remain route-safe but are explicitly demoted to legacy/audit surfaces
+  - Validation:
+    - targeted destination/execution ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 16 Decision Destinations foundation summary:
+  - Confirmation approval no longer creates a new Pending Approval request for Gmail cleanup decisions.
+  - Approved senders now move directly into durable destination states:
+    - `KEEP`
+    - `ARCHIVE`
+    - `QUARANTINE`
+    - `UNSUBSCRIBE`
+    - `CUSTOM_RULE`
+  - Gmail cleanup memory now persists sender destination state in two layers:
+    - sender-level history events in `agent_events`
+    - current sender profile documents in `rag_documents`
+  - Archive decisions now attempt direct Gmail archive execution immediately after destination-state commit:
+    - no new Pending Approval request is created for the archive path
+    - non-archive destinations remain durable post-confirmation states only in this pass
+  - Sender profile scaffolding now stores:
+    - sender identity
+    - trust signals snapshot
+    - current destination state
+    - destination history
+    - last action timestamp
+  - A new route-safe Decision Management scaffold is available at `/operations/management`:
+    - destination summaries
+    - sender state overview
+    - recent decision activity
+    - deferred AI rule recommendation placeholder
+  - The active Phase 1 workflow remains unchanged before approval:
+    - Mailbox Intelligence
+    - Cleanup Groups
+    - Sender Decisions
+    - Confirmation
+  - Validation:
+    - targeted destination-layer ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
 - March 15 Mailbox Intelligence cold-load performance summary:
   - Cold Mailbox Intelligence no longer depends on strictly sequential indexed-row paging.
   - The indexed `gmail_messages` loader now:

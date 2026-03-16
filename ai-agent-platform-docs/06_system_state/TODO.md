@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundation stabilization)_
+_Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification pass)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -15,6 +15,21 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
 ---
 
 0) Gmail Cleanup Sender-First Follow-up (NEW)
+   - [x] Replace post-confirmation approval-queue handoff with direct sender destination-state commits
+   - [x] Add durable sender destination profiles to Gmail cleanup memory
+   - [x] Create a route-safe Decision Management Dashboard scaffold for destination summaries and recent decision activity
+   - [x] Separate destination commit state from execution state in sender destination profiles
+   - [x] Demote legacy approval/audit routes and promote Management into the primary Gmail cleanup navigation
+   - [x] Add real archive execution verification before surfacing `succeeded`
+   - [x] Add a real archive restore path from Decision Management
+   - [ ] Decision Destinations follow-up:
+     - verify approved Confirmation decisions persist into destination states across reload
+     - confirm no new Pending Approval items are created by the Gmail Confirmation approve action
+     - browser-verify the new archive execution truth states (`succeeded` / `failed` / `deferred` / `not_applicable`) and capture exact failure modes
+     - browser-verify archive restore end to end against live Gmail inbox state
+     - add sender-level restore / revert execution flows beyond the current archive restore + destination removal controls
+     - add focused destination drill-down views for Keep / Archive / Quarantine / Unsubscribe / Custom Rule
+     - connect future AI rule recommendations to the shared management layer
    - [x] Stabilize sender-first cleanup-group generation at the data layer
    - [x] Add shared cached derived workspace state for intelligence / sender workspace / confirmation
    - [x] Restore Mailbox Intelligence analytics visuals with interactive sender controls

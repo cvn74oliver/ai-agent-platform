@@ -10,6 +10,113 @@ Project Manager Agent v3 Activated - November 25 2025
 
 ---
 
+### March 16, 2026 - Gmail Archive Execution Verification + Restore Pass
+
+Root-cause addressed:
+- Destination state persistence and execution badges were now truthful, but archive execution still stopped at `deferred` because Gmail inbox-label removal was never actually verified.
+- Decision Management still lacked a real restore path for archive entries, so the archive destination layer was not yet truly reversible.
+
+What changed:
+- Archive execution now has a real verification loop:
+  - Gmail `batchModify` still removes the `INBOX` label
+  - the system now re-checks targeted Gmail messages directly
+  - archive only becomes `succeeded` when inbox removal is actually confirmed
+  - unconfirmed archive work remains `deferred`
+  - outright archive request failures remain `failed`
+- Sender archive execution state is now stored with per-sender targeted message ids so the archive layer can support reversal.
+- Decision Management archive rows now support a real `Restore Inbox` action:
+  - Gmail `INBOX` label re-add is attempted for the stored archive scope
+  - inbox restore is verified before the archive destination state is cleared
+  - if restore cannot be fully verified, the archive destination state remains active with truthful warning state
+- Non-archive destinations remain unchanged in Phase 1:
+  - `KEEP` = `not_applicable`
+  - `QUARANTINE` = `deferred`
+  - `UNSUBSCRIBE` = `deferred`
+  - `CUSTOM_RULE` = `deferred`
+- Decision Management now distinguishes archive-specific execution attention from intentional Phase 1 non-archive deferral.
+
+Validation:
+- Targeted ESLint passed for the touched archive execution / management files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not run in this pass.
+
+### March 16, 2026 - Gmail Decision Destinations Foundation Pass
+
+Root-cause addressed:
+- Confirmation still routed approved Gmail cleanup work into the old Pending Approvals queue, so sender decisions did not land in a durable post-confirmation state.
+- The Gmail memory layer had no destination-state model, no sender profile object for approved decisions, and no management summary surface for destination buckets.
+
+What changed:
+- Approved Confirmation decisions now commit directly into durable sender destination states:
+  - `KEEP`
+  - `ARCHIVE`
+  - `QUARANTINE`
+  - `UNSUBSCRIBE`
+  - `CUSTOM_RULE`
+- Gmail cleanup memory now supports a destination commit action and stores:
+  - `destination_state`
+  - `destination_timestamp`
+  - `destination_source`
+  - `destination_reason`
+- Sender profile scaffolding now exists in Gmail memory:
+  - sender identity
+  - trust signals snapshot
+  - current destination state
+  - destination history
+  - last action timestamp
+- Destination state is persisted as:
+  - sender-level history in `agent_events` via `destination_state_set`
+  - current sender profile state in `rag_documents` via `gmail_sender_destination_profile`
+- A route-safe `Decision Management Dashboard` scaffold now exists at:
+  - `/agents/[id]/operations/management`
+  - It summarizes destination buckets, sender profiles, recent decision activity, and a deferred AI recommendation placeholder.
+- Confirmation UI was left structurally unchanged:
+  - the existing approval button now commits destination state directly instead of creating a new Pending Approval request
+  - archive decisions also attempt direct Gmail archive execution immediately after the destination-state commit
+  - pre-approval sender decision behavior remains unchanged
+
+Validation:
+- Targeted ESLint passed for the touched destination-layer files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not run in this pass.
+
+### March 16, 2026 - Gmail Decision Destinations Execution-Truth Pass
+
+Root-cause addressed:
+- The destination layer could truthfully persist approved sender states, but it still blurred `destination committed` with `archive executed`.
+- Archive execution could be reported optimistically after the Gmail mutation call even when inbox-label removal had not been independently confirmed.
+- The management scaffold and left rail still leaned too heavily on legacy approval/audit mental models instead of a destination-state management model.
+
+What changed:
+- Sender destination profiles now track execution truth separately from destination state:
+  - `not_applicable`
+  - `pending`
+  - `succeeded`
+  - `failed`
+  - `deferred`
+- Archive destination commits now start with explicit execution-state tracking.
+- Post-confirmation archive behavior is now truth-first:
+  - destination state is committed first
+  - archive execution failures update sender execution state to `failed`
+  - archive requests that Gmail accepted but which were not independently verified now update sender execution state to `deferred`
+  - archive is no longer described as executed unless a true confirmation path exists
+- Decision Management now shows:
+  - destination state
+  - execution state
+  - last action timestamp
+  - execution warnings
+  - minimal destination-state removal controls
+- Gmail cleanup left rail now promotes `Management` into the primary workflow and demotes `Pending Approvals`, `Executed Actions`, and `History` into legacy/audit status.
+- Confirmation wording now distinguishes:
+  - destination committed
+  - archive attempted
+  - archive deferred / failed / not applicable
+
+Validation:
+- Targeted ESLint passed for the touched execution-truth files.
+- `npx tsc --noEmit` passed.
+- `npm run build` was intentionally not run in this pass.
+
 ### March 15, 2026 - Gmail Phase 1 Mailbox Intelligence Cold-Load Performance Pass
 
 Root-cause addressed:

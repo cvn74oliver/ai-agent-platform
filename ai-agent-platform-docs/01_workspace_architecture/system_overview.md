@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 15, 2026_
+_Last Updated: March 16, 2026_
 
 ---
 
@@ -171,6 +171,38 @@ Current Gmail cleanup architecture:
   - change stored sender decision
   - clear stored decision
   - jump back into Sender Decisions for that sender
+- Gmail cleanup now has the first Decision Destinations foundation layer after Confirmation:
+  - approving Confirmation decisions commits durable sender destination states directly
+  - destination states currently include:
+    - `KEEP`
+    - `ARCHIVE`
+    - `QUARANTINE`
+    - `UNSUBSCRIBE`
+    - `CUSTOM_RULE`
+  - sender profiles are now scaffolded in Gmail memory with:
+    - sender identity
+    - trust signals snapshot
+    - current destination state
+    - destination history
+    - execution state
+    - execution warning
+    - last action timestamp
+  - archive decisions now attempt direct Gmail archive execution immediately after the destination-state commit
+  - execution truth is now separate from destination truth:
+    - destination commit does not automatically imply archive execution success
+    - archive can now surface as `succeeded`, `failed`, `deferred`, or `not_applicable`
+    - `succeeded` is only allowed once inbox-label removal is actually confirmed against Gmail
+  - archive destination profiles now retain the targeted archive message ids needed for truthful restore
+  - `/operations/management` now supports a real archive restore path:
+    - restore re-adds the `INBOX` label to the stored archive scope
+    - restore must be verified before the archive destination state is cleared
+    - if restore cannot be confirmed, the destination state remains active with a truthful warning state
+  - the post-confirmation management scaffold now exists at `/operations/management`
+  - the Gmail cleanup left rail now promotes `Management` as the post-confirmation destination surface and demotes approval/history pages into legacy audit status
+  - this is still a structural layer only:
+    - no full rule engine
+    - no unsubscribe executor
+    - no monitoring workflow activation
 - Gmail cleanup learning is now wired end-to-end:
   - sender decisions persisted to `agent_events`
   - rule intents persisted to `agent_events`
