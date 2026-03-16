@@ -147,6 +147,7 @@
     │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
     │   │   ├── GMAIL_WORKSPACE_CODEX_SAFEGUARDS.md
+    │   │   ├── GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_DECISION_UI_FLOW.md
@@ -412,4 +413,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-111 directories, 302 files
+111 directories, 303 files
