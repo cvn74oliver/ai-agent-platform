@@ -32,6 +32,26 @@ Every section should answer a question:
 
 Metrics support the story — they do not replace it.
 
+## 2. Visual First, Numbers Second
+Every major metric must have a visual companion. Raw numbers alone are not acceptable on this dashboard.
+
+For each key metric, the UI should present:
+
+Metric → Visual Representation → Meaning
+
+Examples:
+
+| Metric | Visual | Purpose |
+|------|------|------|
+| Total Senders Indexed | Sender Universe Bar | Shows total cleanup surface |
+| Supporting Messages | Message Impact Meter | Shows inbox pressure potential |
+| Senders Under Review | Active Review Gauge | Shows current work state |
+| Senders Already Decided | Decision Coverage Bar | Shows cleanup progress |
+
+The user should understand the scale of the inbox **without reading numbers first**.
+
+Numbers explain the visuals, not the other way around.
+
 ---
 
 # Dashboard Structure
@@ -45,6 +65,12 @@ Pressure Trend Layer
 Cleanup Opportunity Layer
 Operational Handoff Layer
 ```
+
+Each layer must visually narrow the operator's focus. The layout should follow a funnel pattern:
+
+GLOBAL SCALE → HEALTH STATE → BOTTLENECK → ACTION → EXECUTION PATH
+
+If a section introduces new data without moving the operator closer to a decision, that section should be removed or simplified.
 
 Each layer progressively narrows the user's focus toward the next action.
 
@@ -133,24 +159,34 @@ It must visually show how inbox pressure evolves over time.
 
 ### Chart Requirements
 
-- Wide layout
-- Month‑by‑month pressure values
-- Hover‑driven explanations
+The pressure chart must communicate **momentum**, not just historical data.
 
-### Hover Data Must Show
+Required behavior:
 
-- Pressure value for that period
-- Change vs previous period
-- Likely dominant sender group
-- What action would have helped most
+- Full‑width layout (must visually dominate its row)
+- Bar‑based pressure visualization (not thin line charts)
+- Clear peak month indicator
+- Current month indicator
+- Visible trend direction (rising / falling / stable)
 
-Example:
+Hover must reveal:
+
+- Pressure value for the period
+- Actual previous period value (not "vs prior period" text only)
+- Change between periods
+- Estimated sender-count change
+- Dominant sender category that period
+- Recommended intervention that would have reduced pressure
+
+Example hover output:
 
 ```
-Nov 2025
+Aug 2025
 Pressure: 4,710 messages
-Change: +1,464 vs Oct
-Likely driver: Dormant low‑attention senders
+Previous: 3,246
+Change: +1,464
+Likely Driver: Dormant low‑attention senders
+Action That Would Help Most: Open Subscription Senders
 ```
 
 ---
@@ -178,6 +214,13 @@ Hover reveals:
 - operational change
 - expected improvement
 - safety context
+
+Important: This layer summarizes opportunity but must NOT replicate the Cleanup Groups interface.
+
+Mailbox Intelligence explains *where to go next*.
+Cleanup Groups is where the operator actually explores those clusters.
+
+If the dashboard begins to resemble the Cleanup Groups page, the hierarchy has been violated.
 
 ---
 
@@ -215,6 +258,19 @@ The dashboard must always provide the following context somewhere near the top:
 - Senders already decided
 
 Without these values the story lacks scale.
+
+### Visual Representation Requirement
+
+These metrics must also appear visually in the hero layer.
+
+Examples:
+
+- Sender Universe Bar (total indexed senders)
+- Message Impact Meter (total supporting messages)
+- Decision Coverage Meter (decided senders vs total)
+- Active Review Indicator (senders currently under review)
+
+The operator must understand the **scale of the system instantly**.
 
 ---
 
@@ -256,6 +312,26 @@ The operator should be able to glance at the dashboard and immediately know:
 - how much improvement to expect
 
 If the operator must read multiple panels to understand what to do, the dashboard has failed.
+
+---
+
+# Codex Implementation Guardrail
+
+When Codex modifies any UI related to Mailbox Intelligence, it must first read:
+
+- gmail-workspace-visual-intelligence-spec.md
+- GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
+
+Codex must treat these documents as the source of truth for:
+
+- visual hierarchy
+- dashboard storytelling
+- chart requirements
+- hover behavior
+
+If a UI change contradicts this specification, the specification overrides the code.
+
+This rule exists to prevent visual regressions and inconsistent dashboard behavior during iterative development.
 
 ---
 
