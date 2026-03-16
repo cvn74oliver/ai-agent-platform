@@ -171,7 +171,8 @@
     │   │   ├── GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md
     │   │   ├── GMAIL_WORKSPACE_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-    │   │   └── GMAIL_WORKSPACE_UX_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_UX_SPEC.md
+    │   │   └── GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
     │   ├── 04_product_design
     │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
     │   │   ├── operational_workflow.md
@@ -415,4 +416,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-112 directories, 304 files
+112 directories, 305 files

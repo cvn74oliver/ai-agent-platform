@@ -343,7 +343,8 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md
 │   │   ├── GMAIL_WORKSPACE_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-│   │   └── GMAIL_WORKSPACE_UX_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_UX_SPEC.md
+│   │   └── GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
 │   ├── 04_product_design
 │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── operational_workflow.md
