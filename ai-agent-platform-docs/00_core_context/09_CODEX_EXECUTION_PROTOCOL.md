@@ -272,6 +272,56 @@ Every Codex task must include **exactly one** reasoning level:
 
 ## 7. TASK STRUCTURE REQUIREMENT
 
+---
+
+## 7A. SCOPED VALIDATION REQUIREMENT (MANDATORY)
+
+Purpose:
+Ensure every implementation pass is tested against a clearly defined scope, preventing misaligned feedback and wasted iterations.
+
+### PM Instruction Requirement
+
+Every **implementation instruction** (after plan approval) MUST include a **Scope Lock + Test Instruction Block**:
+
+### 🎯 Scope Lock (What IS being fixed)
+- Bullet list of ONLY the elements being changed in this pass
+- Must match the approved plan sections
+
+### 🚫 Not In Scope (What is NOT being fixed)
+- Explicit list of commonly confused or previously mentioned items that are intentionally excluded
+- Prevents false failure perception
+
+### 🧪 Test Checklist (30–60 seconds)
+- 3–6 checks maximum
+- Each check maps directly to a scoped change
+- No broad page review
+
+### Codex Acknowledgement (Optional but Recommended)
+
+Codex should echo the Scope Lock in its PM REVIEW PACKET under a short section titled:
+`Scope Verified`
+
+This confirms implementation stayed within the declared scope.
+
+### Oliver Testing Rule
+
+Oliver must:
+- Test ONLY the items listed in the Test Checklist
+- Ignore all out-of-scope UI
+- Report PASS / FAIL per check with minimal notes
+
+If something appears incorrect but is not in scope:
+→ do NOT treat it as a failure
+→ flag it for future scope definition
+
+### Failure Handling
+
+If validation fails:
+- Do NOT patch directly
+- Return to **Plan Mode** with a narrowed correction scope
+
+---
+
 Every Codex task must include:
 
 1) Reasoning Level

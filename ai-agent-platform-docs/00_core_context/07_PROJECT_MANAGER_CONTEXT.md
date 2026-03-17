@@ -1256,3 +1256,102 @@ This is a valid Project Manager turnover point.
 ### Operational note
 - This is now the preferred PM workflow unless a task genuinely requires a deeper architectural discussion.
 - Future process documentation should formalize this loop once it has been proven across a few more Codex passes.
+
+
+---
+
+### Scoped Validation Protocol (March 2026 – MANDATORY)
+
+Purpose:
+Eliminate tester frustration, prevent misaligned expectations, and ensure every Codex pass is evaluated only against its intended scope.
+
+This protocol ensures Oliver runs **targeted, fast validation** instead of broad, unfocused reviews.
+
+---
+
+#### Core Rule
+
+Every Codex implementation pass MUST include a **Scope Lock + Test Instruction Block** from the Project Manager.
+
+---
+
+#### PM Responsibilities (Before Oliver Tests)
+
+For every approved Codex implementation, the PM must provide:
+
+### 🎯 Scope Lock (What IS being fixed)
+- Explicit bullet list of ONLY the elements Codex was instructed to change
+- Must be limited to the current pass
+
+### 🚫 Not In Scope (What is NOT being fixed)
+- Explicit list of commonly-confused or previously-mentioned items that are intentionally excluded
+- Prevents false failure perception
+
+### 🧪 Test Checklist (30–60 seconds only)
+- 3–6 specific checks max
+- Each check must map directly to a scoped change
+- No broad UX review
+- No unrelated surface validation
+
+---
+
+#### Oliver Responsibilities (Testing)
+
+Oliver acts as a **runtime tester, not a product reviewer**.
+
+He should:
+- Only test the listed items
+- Ignore everything outside scope
+- Return:
+  - PASS / FAIL
+  - 1–2 screenshots max
+  - short note per check
+
+Oliver should NOT:
+- review the entire page
+- evaluate unrelated features
+- assume something is broken if it was not part of the scope
+
+---
+
+#### PM Responsibilities (After Test)
+
+PM must:
+- Compare results against:
+  - approved plan
+  - scoped expectations
+- Decide:
+  - pass → move forward
+  - fail → return to Plan Mode (NOT patch blindly)
+
+---
+
+#### Why This Exists
+
+Without scoped validation:
+- Users test the wrong things
+- Frustration increases
+- Iterations slow down
+- Codex appears inconsistent even when working correctly
+
+With scoped validation:
+- Each pass is a **controlled experiment**
+- Feedback is precise
+- Fixes converge rapidly
+
+---
+
+#### Relationship to Plan Mode
+
+This protocol works WITH Plan Mode:
+
+Plan Mode defines:
+→ what will be built
+
+Scoped Validation defines:
+→ what will be tested
+
+Together they create:
+→ fast, predictable iteration cycles
+
+---

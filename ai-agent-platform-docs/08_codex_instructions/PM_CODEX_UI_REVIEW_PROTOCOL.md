@@ -1,5 +1,3 @@
-
-
 # PM → Codex → UI Review Protocol
 
 ## Purpose
@@ -129,6 +127,25 @@ This instruction must:
 
 ---
 
+#### Scope Lock + Test Instruction Block (MANDATORY)
+
+Every implementation instruction MUST include:
+
+### 🎯 Scope Lock (What IS being fixed)
+- Explicit list of ONLY the elements being changed in this pass
+
+### 🚫 Not In Scope (What is NOT being fixed)
+- Explicit list of commonly confused items that are intentionally excluded
+
+### 🧪 Test Checklist (30–60 seconds)
+- 3–6 checks maximum
+- Each check must map directly to a scoped change
+- No broad page review
+
+This block is required to prevent misaligned testing and unnecessary iteration loops.
+
+---
+
 ### Step 5 — Codex Executes
 
 Codex implements:
@@ -141,7 +158,7 @@ Codex returns a **PM REVIEW PACKET**.
 
 ### Step 6 — Oliver Runs UI Test
 
-Oliver performs **only the requested checks**.
+Oliver performs **only the requested checks**. Oliver must follow the Scope Lock and Test Checklist strictly and ignore any UI outside the defined scope.
 
 Example:
 
@@ -186,6 +203,18 @@ No UI implementation should occur without:
 
 If a task skips Plan Mode and results in drift:
 → return to Plan Mode immediately
+
+---
+
+## Rule 0A — Scoped Testing Only
+
+UI validation must ONLY cover what is listed in the Scope Lock.
+
+If something was not part of the scoped change:
+→ it must not be treated as a failure
+
+If confusion arises:
+→ return to PM for clarification instead of expanding the test scope
 
 ---
 
@@ -410,7 +439,11 @@ Screenshot attached
 Terminal output attached (if relevant)
 ```
 
-Keep the report under **5 lines if possible**.
+---
+
+Note:
+- Only report on scoped checks
+- Do not include unrelated UI feedback
 
 ---
 
@@ -464,5 +497,22 @@ This system is required for scaling the platform across:
 - Future AI workspaces
 
 Plan Mode is now the **default entry point** for all complex tasks.
+
+---
+
+# Scoped Validation Integration
+
+This protocol now enforces:
+
+Plan defines → WHAT is built  
+Scope Lock defines → WHAT is tested
+
+Together they ensure:
+
+- no wasted validation effort
+- no frustration from out-of-scope checks
+- faster convergence to correct UI
+
+Scoped validation is now REQUIRED for all implementation passes.
 
 ---
