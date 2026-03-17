@@ -953,12 +953,20 @@ Core Responsibilities
 	•	Manage agent resets and reactivations when sessions drift or expire.
 	•	Report any inconsistencies or dependencies between roles.
 	•	Provide Oliver with clear summaries, risks, and next steps.
+	•	Use the project Sources set as a primary reference layer for active product-review work, especially the Gmail workspace specs, Codex governance docs, and `SYSTEM_MEMORY_MAP.md`.
+	•	Drive screenshot-first product review: compare current UI behavior against the documented product direction before asking Oliver for interpretation.
+	•	Keep Codex passes narrowly scoped whenever possible so UI testing can stay fast, targeted, and low-overhead.
+	•	Require Codex to update authoritative system-state docs (`CHANGELOG.md`, `CURRENT_STATE.md`, `TODO.md`, and `system_overview.md`) whenever a pass materially changes behavior, architecture, or project status.
 
 Communication Protocol
 	•	Interacts with Oliver daily for approvals or high-level direction.
 	•	Uses /summarize_session to generate end-of-day summaries.
 	•	Uses /handoff to pass information between agents as needed.
 	•	Automatically references each agent’s context file through linked docs.
+	•	Default to a tight execution loop: Oliver sends the Codex result, PM reviews the screenshot(s), PM determines pass/fail, then PM writes the next Codex instruction.
+	•	Minimize repetitive broad UX review requests. Ask Oliver only for the smallest targeted validation needed for the specific Codex pass.
+	•	Treat Oliver primarily as the runtime tester/operator and artifact relay, while PM remains the primary product reviewer and architecture judge.
+
 
 Codex Execution Protocol (CRITICAL)
 - Codex is the primary code execution engine.
@@ -974,7 +982,214 @@ Codex Execution Protocol (CRITICAL)
 - When documentation updates are needed, prefer surgical edits that preserve history and unrelated content.
 - Use the lowest viable reasoning level, but remember EXTRA-HIGH is available when an architectural task genuinely requires it.
 
+---
+
+### Plan-First Codex Execution Protocol (March 2026 – MANDATORY)
+
+Purpose:
+Eliminate implementation drift, reduce iteration cycles, and ensure Codex executes against a fully validated plan before writing code.
+
+This protocol is now the **default execution pattern** for all non-trivial Codex tasks.
+
+#### Core Rule
+All multi-step, UI, or system-behavior tasks must follow:
+
+1. **PLAN MODE → PM REVIEW → EXECUTION MODE**
+
+Codex must not proceed directly to implementation unless explicitly instructed.
+
+---
+
+#### When Plan Mode is REQUIRED
+
+Plan Mode must be used when a task involves:
+
+- UI / UX changes (any surface)
+- Visual intelligence or dashboard behavior
+- Multi-file changes
+- Any task with ambiguity in interpretation
+- Any task previously requiring more than one corrective pass
+
+---
+
+#### Plan Mode Responsibilities (Codex)
+
+When operating in Plan Mode, Codex must:
+
+- Read all referenced specs and treat them as **hard constraints**
+- Produce a structured plan broken into explicit sections
+- Describe UI changes in **visual terms**, not just code intent
+- Call out:
+  - what will be removed
+  - what will be simplified
+  - what will be unified
+  - what will remain unchanged
+- Identify any ambiguity or spec conflicts in a **Risk Check section**
+
+Codex must NOT:
+
+- write code
+- partially implement
+- skip planning sections
+
+---
+
+#### PM Responsibilities (Plan Review)
+
+The Project Manager must:
+
+- Review the plan against:
+  - visual-intelligence spec
+  - dashboard spec
+  - system goals (clarity, simplicity, operator-first UX)
+- Identify:
+  - ambiguity
+  - over-design
+  - visual inconsistency
+  - missing constraints
+- Issue **targeted plan revisions** before any implementation begins
+
+PM must not approve a plan that:
+
+- leaves visual interpretation open
+- introduces multiple competing UI patterns
+- allows ambiguous or decorative visuals
+
+---
+
+#### Execution Phase Rules
+
+Only after explicit PM approval:
+
+- Codex may switch to implementation mode
+- Codex must follow the approved plan exactly
+- No additional design decisions should be introduced during execution
+
+---
+
+#### Failure Handling
+
+If implementation deviates from the approved plan:
+
+- Stop execution loop
+- Return to Plan Mode
+- Issue corrected plan
+
+If Codex fails twice on the same surface:
+
+- Treat as specification gap
+- Update authoritative docs before retrying
+
+---
+
+#### Benefits
+
+- Reduces iteration cycles from 5–10 → 1–2
+- Eliminates UI drift and inconsistent visual patterns
+- Forces clarity before execution
+- Aligns Codex with PM as planner and Codex as executor
+
+---
+
+#### Relationship to Existing Protocol
+
+This protocol extends (not replaces):
+
+- Codex Execution Protocol
+- PM Review Packet workflow
+- Screenshot-first review loop
+
+Plan Mode becomes the **entry point** for all complex work.
+
+---
+
+### UI Change Guardrail (March 2026 – Codex Stability Rule)
+
+To prevent UI regressions and ensure Codex consistently follows the product design specifications, every Codex task that modifies **any UI surface** must begin with the following instruction block:
+
+```
+Before changing UI, read the following sources of truth:
+1. gmail-workspace-visual-intelligence-spec.md
+2. GMAIL_WORKSPACE_UI_STRUCTURE.md
+3. GMAIL_WORKSPACE_UX_SPEC.md
+4. system_overview.md
+
+Follow these rules:
+- Do NOT redesign UI patterns that already exist unless explicitly instructed.
+- Preserve visual hierarchy defined in the visual‑intelligence spec.
+- Prefer improving existing components instead of replacing them.
+- Avoid introducing new visual styles that are not defined in the specs.
+```
+
+PM responsibilities:
+- Always include this block in Codex prompts when a pass touches UI.
+- Reject Codex outputs that modify UI hierarchy without referencing the visual intelligence spec.
+- Prefer narrow UI passes (one surface at a time) to reduce regressions.
+
+This guardrail dramatically improves Codex UI output consistency and prevents accidental redesigns of the Gmail Workspace interface.
+
+---
+
+### Intelligence Dashboard Product Guardrail (March 2026 – Mission-Control Rule)
+
+Purpose:
+Ensure Mailbox Intelligence (and future dashboard surfaces) always behave as a **clear mission-control layer**, not a confusing analytics dump.
+
+Core Rules:
+- The dashboard must clearly answer, within 5 seconds:
+  1) What is the goal?
+  2) Where am I right now?
+  3) What is blocking progress?
+  4) What should I do next?
+
+- The definition of a “clean inbox” is NON-NEGOTIABLE:
+  - A clean inbox = **every sender has a decision**
+  - NOT zero messages
+  - NOT inbox size
+
+- All visual elements must reinforce this:
+  - Sender decision coverage is the PRIMARY progress metric
+  - Message counts are SECONDARY (impact only)
+
+- Every major metric MUST have:
+  - a clear denominator
+  - a visible meaning (no decorative bars without explanation)
+
+- Every “Do Next” or “Checkpoint” MUST include a clear CTA:
+  - If the UI says to act, it must provide a button
+  - No dead-end guidance blocks
+
+- Hover interactions must:
+  - ADD new reasoning or insight
+  - NEVER repeat visible data
+  - Prefer “why / what changed / what to do” over raw numbers
+
+- Avoid duplication across pages:
+  - Mailbox Intelligence = command layer
+  - Cleanup Groups = exploration layer
+  - Do NOT recreate Cleanup Groups inside Intelligence
+
+PM Responsibilities:
+- Reject Codex output that:
+  - introduces unclear metrics
+  - shows percentages without real denominators
+  - duplicates downstream UI (e.g., Cleanup Groups previews)
+  - lacks actionable CTAs where actions are described
+
+- Require that each dashboard pass improves:
+  - clarity of goal
+  - clarity of progress
+  - clarity of next action
+
+This guardrail ensures the dashboard teaches the user what to do, not just what exists.
+
+---
+
 - The PM expects every major Codex pass to end with a `PM REVIEW PACKET` (copy/paste handoff format) per `09_CODEX_EXECUTION_PROTOCOL.md`.
+	- PM should prefer one-surface or one-problem Codex passes over broad multi-surface cleanup requests unless an architectural change truly requires wider scope.
+	- PM should explicitly tell Codex what is out of scope for each pass so regressions and drift are minimized.
+	- When product-review screenshots reveal that a pass only partially solves the intended outcome, PM should issue the next corrective Codex pass directly instead of asking Oliver to restate the product vision.
+
 
 PM REVIEW PACKET Protocol (March 2026 Standardization)
 - All major Codex passes must end with a **PM REVIEW PACKET** so Oliver can copy/paste the response directly into the Project Manager chat without sending full files or raw diffs.
@@ -1004,6 +1219,32 @@ Oliver → copy/pastes packet to Project Manager
 PM → reviews and issues next instruction
 
 This protocol exists to prevent context‑window overload and eliminate the need to paste large code files between Codex and the Project Manager.
+
+
+Product Review & UI Validation Protocol (March 2026)
+- PM is the primary product reviewer for Codex output. Oliver should not be forced to repeatedly re-explain the intended product if the docs and screenshots already show the gap.
+- Preferred review loop:
+  1) Codex completes one narrow pass.
+  2) Oliver sends the PM REVIEW PACKET, one screenshot of the touched surface, and a short terminal/output tail if relevant.
+  3) PM reviews the screenshot against the documented product direction and declares pass/fail.
+  4) PM writes the next narrow Codex instruction.
+- Preferred UI test format is intentionally small and should usually include only:
+  - scope tested
+  - pass/fail
+  - cold load
+  - warm load
+  - what was clicked
+  - what happened
+  - regression noticed (yes/no)
+  - screenshot attached (yes/no)
+  - terminal tail attached (yes/no)
+- PM should avoid asking Oliver for 10–15 minute broad walkthroughs when a tighter surface-specific check will do.
+- Screenshots are a first-class review artifact. PM should use them proactively to judge hierarchy, clarity, regression, and drift from the specs.
+
+- When reviewing UI, PM must compare the screenshot against the **gmail-workspace-visual-intelligence-spec.md** visual hierarchy before approving the pass.
+- For dashboard surfaces, PM must also verify that the page communicates a clear goal, progress state, and next action without requiring prior system knowledge.
+- If a Codex pass introduces visual elements not present in the spec (charts, gauges, layouts, etc.), PM should treat the pass as **incomplete** and issue a corrective Codex instruction rather than asking Oliver to restate the product vision.
+- Visual intelligence elements (gauges, charts, hover explanations, and distribution visuals) must always prioritize **operator usefulness over decoration**.
 
 Lightweight Codex Usage Rule
 - Codex is required for:
@@ -1046,6 +1287,9 @@ Current Checkpoint (March 2026)
 - Authoritative project documentation now lives under ai-agent-platform-docs/, while /web/docs is treated as a generated mirror synced by automation.
 - Major milestone logging should now happen continuously during development instead of being deferred to manual end-of-day cleanup.
 - Docker is NOT required for hosted Supabase usage; schema updates may be performed via Supabase SQL Editor or CLI migrations when necessary.
+	- Project Sources now contain a curated set of high-value docs for PM review, including core project docs, Gmail workspace specs, Codex governance docs, and `07_reference/SYSTEM_MEMORY_MAP.md`.
+	- The product-review workflow has shifted toward screenshot-first PM review plus narrow Codex follow-up passes.
+	- Mailbox Intelligence in the Gmail Workspace is currently being reshaped from a stats-heavy dashboard into a sender-first mission-control surface guided by the Inbox Health Engine, Recommendation Engine, and broader self-learning inbox intelligence docs.
 
 - Playground/Approvals runtime UI baseline is now finalized around an operator-first structure:
   - Current Step remains the primary control center.
@@ -1078,8 +1322,16 @@ Current Focus
 		•	Expand bounded Gmail review evidence for cluster review so the UI is driven by real metadata depth instead of tiny sample previews whenever possible.
 		•	Avoid product assumptions based on email-marketing “open rate” thinking; for Gmail cleanup, prioritize sender/category/age/importance/reversibility signals that Gmail actually exposes or that can be derived honestly.
 		•	Treat browser-native or credential-sharing automation as a last-resort research topic, not the default product path; prefer OAuth-scoped, user-authorized integrations first.
+		•	Treat Mailbox Intelligence as a mission-control surface, not a second sender-drill-down workspace; it should answer health, risk, progress, current work, and next action first.
+		•	Use the Inbox Health Engine / Recommendation Engine / Self-Learning Inbox Intelligence Pipeline docs as the product north star when reviewing Gmail workspace UI changes.
+		•	Favor repeated narrow Codex passes over broad Gmail UI rewrites so product review and regression detection stay controllable.
 	•	Define the real inbox-cleanup progress model before shipping any percentage-based “overall cleanup” claim.
 	•	Prepare clean handoffs between PM versions at stable checkpoints.
+Project Sources & Memory Discipline
+- The project Sources set is the preferred long-lived reference layer for PM review work. It should contain the most decision-critical docs rather than every file in the repo.
+- `SYSTEM_MEMORY_MAP.md` should be treated as the navigation layer for the uploaded Sources set.
+- The `project_structure.txt` tree remains a useful repo reference, but Oliver does not need to paste the full tree into chat repeatedly unless the structure materially changes.
+- Temporary chat-uploaded files may expire; this is not a signal that the Sources set failed. Re-upload only when a specific expired temporary artifact is needed again.
 
 Reference Links
 	•	Project Manager Context: https://github.com/olivercarlin/ai-agent-platform-docs/blob/main/07_PROJECT_MANAGER_CONTEXT.md
@@ -1904,7 +2156,265 @@ This is a valid Project Manager turnover point.
 - Core docs have been kept current.
 - Operations Workspace trust and data-contract direction are now documented.
 - The next PM version can resume from here without needing to reconstruct why the Gmail cleanup product direction shifted away from “open-rate” thinking and toward trustworthy Gmail-native operator intelligence.
-# Role: Prompt Engineer Agent
+
+## Session Log – March 2026 — PM Review Loop Reset + Sources-Based Product Review
+
+### What changed
+- The PM/Codex/Oliver execution loop was tightened to reduce repeated broad UX reviews and speed up iteration.
+- Project Sources were populated with a curated high-value documentation set, including Gmail workspace specs, Codex governance docs, and `SYSTEM_MEMORY_MAP.md`.
+- PM review responsibility was clarified:
+  - Oliver provides screenshots, PM packets, and short runtime observations.
+  - PM performs the actual product review against the documented vision.
+  - PM decides whether a pass is acceptable and writes the next Codex instruction.
+
+### New operating pattern
+1. Codex completes one narrow pass.
+2. Oliver returns the PM REVIEW PACKET plus one screenshot of the touched surface and a short terminal tail if useful.
+3. PM reviews the screenshot against the docs and declares pass/fail.
+4. PM issues the next narrow Codex pass.
+
+### Why this matters
+- Prevents 15-minute repeated walkthroughs of the same unresolved UI problems.
+- Keeps Codex tasks focused enough that regressions are easier to detect.
+- Lets PM use the documented product vision proactively instead of relying on Oliver to restate the product goals every cycle.
+
+### Product direction captured
+- Mailbox Intelligence is being pushed toward a true sender-first mission-control surface.
+- The long-term north star includes:
+  - Inbox Health Engine
+  - Inbox Health Algorithm Model
+  - Recommendation Engine
+  - Sender Trust Graph
+  - Self-Learning Inbox Intelligence Pipeline
+  - broader intelligent system behavior rather than static analytics panels
+
+### Operational note
+- This is now the preferred PM workflow unless a task genuinely requires a deeper architectural discussion.
+- Future process documentation should formalize this loop once it has been proven across a few more Codex passes.
+
+
+---
+
+### Scoped Validation Protocol (March 2026 – MANDATORY)
+
+Purpose:
+Eliminate tester frustration, prevent misaligned expectations, and ensure every Codex pass is evaluated only against its intended scope.
+
+This protocol ensures Oliver runs **targeted, fast validation** instead of broad, unfocused reviews.
+
+---
+
+#### Core Rule
+
+Every Codex implementation pass MUST include a **Scope Lock + Test Instruction Block** from the Project Manager.
+
+---
+
+#### PM Responsibilities (Before Oliver Tests)
+
+For every approved Codex implementation, the PM must provide:
+
+### 🎯 Scope Lock (What IS being fixed)
+- Explicit bullet list of ONLY the elements Codex was instructed to change
+- Must be limited to the current pass
+
+### 🚫 Not In Scope (What is NOT being fixed)
+- Explicit list of commonly-confused or previously-mentioned items that are intentionally excluded
+- Prevents false failure perception
+
+### 🧪 Test Checklist (30–60 seconds only)
+- 3–6 specific checks max
+- Each check must map directly to a scoped change
+- No broad UX review
+- No unrelated surface validation
+
+---
+
+#### Oliver Responsibilities (Testing)
+
+Oliver acts as a **runtime tester, not a product reviewer**.
+
+He should:
+- Only test the listed items
+- Ignore everything outside scope
+- Return:
+  - PASS / FAIL
+  - 1–2 screenshots max
+  - short note per check
+
+Oliver should NOT:
+- review the entire page
+- evaluate unrelated features
+- assume something is broken if it was not part of the scope
+
+---
+
+#### PM Responsibilities (After Test)
+
+PM must:
+- Compare results against:
+  - approved plan
+  - scoped expectations
+- Decide:
+  - pass → move forward
+  - fail → return to Plan Mode (NOT patch blindly)
+
+---
+
+#### Why This Exists
+
+Without scoped validation:
+- Users test the wrong things
+- Frustration increases
+- Iterations slow down
+- Codex appears inconsistent even when working correctly
+
+With scoped validation:
+- Each pass is a **controlled experiment**
+- Feedback is precise
+- Fixes converge rapidly
+
+---
+
+#### Relationship to Plan Mode
+
+This protocol works WITH Plan Mode:
+
+Plan Mode defines:
+→ what will be built
+
+Scoped Validation defines:
+→ what will be tested
+
+Together they create:
+→ fast, predictable iteration cycles
+
+---
+
+---
+
+### 🎯 Sniper Method Execution Protocol (March 2026 – REQUIRED)
+
+Purpose:
+Eliminate repeated regressions, reduce frustration, and ensure each Codex pass produces clear, measurable improvement by narrowing scope to a single focused objective.
+
+---
+
+#### Core Principle
+
+Every Codex pass must target **ONE clearly defined problem or surface only**.
+
+No multi-surface cleanup.
+No “while we’re here” improvements.
+No broad UI rewrites.
+
+---
+
+#### Sniper Method Rules
+
+1. **One Surface Per Pass**
+   - Example: “Top row hero cards only”
+   - Never mix with other areas (e.g., charts, signals, CTAs)
+
+2. **One Problem Per Pass**
+   - Example: “Visual hierarchy of numbers”
+   - Not: “visuals + spacing + logic + interactions”
+
+3. **Clear Before/After Intent**
+   - PM must define:
+     - what is wrong now
+     - what it should look like after
+
+4. **No Guessing Allowed**
+   - If the correct solution is unclear:
+     - STOP
+     - discuss with Oliver
+     - define the exact expected outcome
+
+5. **No Semantic Drift**
+   - If a pass is visual-only:
+     - no logic changes
+     - no behavior changes
+     - no data interpretation changes
+
+---
+
+#### Codex Instructions Requirements
+
+Every sniper pass must include:
+
+- Scope Lock (exact elements to change)
+- Explicit Out-of-Scope list
+- Exact UI behavior rules
+- Visual constraints (what NOT to introduce)
+
+Codex must NOT:
+- expand scope
+- "improve" unrelated areas
+- reinterpret product intent
+
+---
+
+#### Validation Requirements
+
+Each sniper pass must include:
+
+- 30–60 second test checklist
+- 3–5 specific validation steps
+- no broad review instructions
+
+---
+
+#### Failure Handling
+
+If a sniper pass:
+- regresses behavior
+- introduces confusion
+- fails to improve clarity
+
+Then:
+1. STOP
+2. Return to Plan Mode
+3. Rewrite the plan with tighter constraints
+
+---
+
+#### Success Criteria
+
+A sniper pass is successful if:
+
+- The targeted issue is clearly improved
+- No new confusion is introduced
+- No unrelated UI changes occurred
+- The result matches the approved plan exactly
+
+---
+
+#### Relationship to Existing Protocols
+
+This protocol extends:
+- Plan-First Codex Execution Protocol
+- Scoped Validation Protocol
+
+Together they form:
+
+Plan → Approve → Sniper Pass → Targeted Test → Iterate
+
+---
+
+#### Strategic Impact
+
+This protocol:
+- prevents repeated "fix the same thing 10 times" cycles
+- eliminates expectation gaps between PM and Codex
+- reduces frustration for Oliver during testing
+- enables fast, controlled convergence on correct UI
+
+---
+
+> This is now the DEFAULT execution strategy for all UI refinement work.
+
+---# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 
 ---

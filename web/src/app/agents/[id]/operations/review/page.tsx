@@ -12,18 +12,24 @@ import {
 } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
 import {
+  clearGmailCleanupWorkflowDraft,
+  fetchGmailDecisionManagementSummary,
   fetchGmailConfirmationPreview,
   fetchGmailSenderWorkspace,
   GMAIL_CLEANUP_STAGES,
+  gmailCleanupWorkflowDraftHasActiveContent,
   gmailCleanupWorkflowDraftStorageKey,
   persistGmailCleanupMemoryEvent,
   readCachedGmailSenderWorkspace,
   readGmailCleanupWorkflowDraft,
   writeGmailCleanupWorkflowDraft,
+  type GmailDestinationExecutionState,
+  type GmailDestinationState,
   type GmailCleanupRuleIntent,
   type GmailCleanupStage,
   type GmailCleanupWorkflowDraft,
   type GmailSenderPolicy,
+  type GmailSenderDestinationTrustSignals,
   type GmailSenderWorkspaceFilter,
   type GmailSenderWorkspaceSort,
   type GmailSenderWorkspaceSortDirection,
@@ -49,6 +55,12 @@ type MessagePreviewState =
   | { status: 'loading'; open: true; message: null; targetMessageId: string; error: null }
   | { status: 'ready'; open: true; message: OperationsMessagePreviewData; targetMessageId: string; error: null }
   | { status: 'error'; open: true; message: null; targetMessageId: string; error: string }
+
+type SenderCommittedDisplayState = {
+  destinationState: GmailDestinationState
+  executionState: GmailDestinationExecutionState
+  lastActionTimestamp: string
+}
 
 function normalizeStage(value: string | null): GmailCleanupStage {
   return GMAIL_CLEANUP_STAGES.includes(value as GmailCleanupStage)
@@ -96,8 +108,8 @@ function ruleIntentFromPolicy(
       sender_key: senderKey,
       sender,
       intent_type: 'keep',
-      label: `Always keep ${sender}`,
-      description: `Learn a future rule that keeps ${sender} visible in the inbox.`,
+      label: `Keep preference for ${sender}`,
+      description: `Remember that ${sender} should stay visible. No Gmail change executes now in Phase 1.`,
     }
   }
   if (policy === 'quarantine') {
@@ -105,8 +117,8 @@ function ruleIntentFromPolicy(
       sender_key: senderKey,
       sender,
       intent_type: 'quarantine',
-      label: `Quarantine ${sender}`,
-      description: `Store ${sender} as a future quarantine policy. No live Gmail mutation happens in this pass.`,
+      label: `Quarantine later for ${sender}`,
+      description: `Store ${sender} as a later quarantine preference. No Gmail change executes now in Phase 1.`,
     }
   }
   if (policy === 'unsubscribe') {
@@ -114,8 +126,8 @@ function ruleIntentFromPolicy(
       sender_key: senderKey,
       sender,
       intent_type: 'unsubscribe',
-      label: `Unsubscribe intent for ${sender}`,
-      description: `Record ${sender} as a future unsubscribe automation intent.`,
+      label: `Unsubscribe later for ${sender}`,
+      description: `Store unsubscribe intent for ${sender}. No unsubscribe request is sent in Phase 1.`,
     }
   }
   if (policy === 'custom_rule') {
@@ -123,11 +135,54 @@ function ruleIntentFromPolicy(
       sender_key: senderKey,
       sender,
       intent_type: 'custom_rule',
-      label: `Custom rule for ${sender}`,
-      description: `Store a custom future automation rule for ${sender}.`,
+      label: `Custom rule later for ${sender}`,
+      description: `Store a custom automation idea for ${sender}. The rule editor arrives in a later phase.`,
     }
   }
   return null
+}
+
+function destinationStateFromPolicy(policy: GmailSenderPolicy): GmailDestinationState | null {
+  if (policy === 'keep') return 'KEEP'
+  if (policy === 'archive') return 'ARCHIVE'
+  if (policy === 'quarantine') return 'QUARANTINE'
+  if (policy === 'unsubscribe') return 'UNSUBSCRIBE'
+  if (policy === 'custom_rule') return 'CUSTOM_RULE'
+  return null
+}
+
+function destinationReasonForPolicy(policy: GmailSenderPolicy, clusterTitle: string): string {
+  if (policy === 'archive') {
+    return `Approved from Confirmation for ${clusterTitle}. Archive-managed sender state recorded for current inbox cleanup.`
+  }
+  if (policy === 'keep') {
+    return `Approved from Confirmation for ${clusterTitle}. Keep destination protects this sender from cleanup.`
+  }
+  if (policy === 'quarantine') {
+    return `Approved from Confirmation for ${clusterTitle}. Quarantine destination stored for later caution-state management.`
+  }
+  if (policy === 'unsubscribe') {
+    return `Approved from Confirmation for ${clusterTitle}. Unsubscribe intent stored for later execution work.`
+  }
+  return `Approved from Confirmation for ${clusterTitle}. Custom Rule intent stored for later rule authoring.`
+}
+
+function buildDestinationTrustSignals(
+  sender: GmailSenderWorkspaceData['senders'][number] | undefined
+): GmailSenderDestinationTrustSignals | null {
+  if (!sender) return null
+  return {
+    sender_signal: sender.sender_signal,
+    category_summary: sender.category_summary || null,
+    dominant_pattern: sender.dominant_pattern || null,
+    protected_hint: sender.protected_hint || null,
+    requires_verification: sender.requires_verification,
+    verification_reasons: sender.verification_reasons,
+    cleanup_group_message_count: sender.cleanup_group_message_count,
+    total_sender_messages: sender.total_sender_messages,
+    unread_count: sender.unread_count,
+    last_activity: sender.last_activity,
+  }
 }
 
 export default function OperationsReviewPage() {
@@ -149,14 +204,33 @@ export default function OperationsReviewPage() {
   const senderFilter = normalizeSenderFilter(searchParams.get('sender_filter'))
   const senderSort = normalizeSenderSort(searchParams.get('sender_sort'))
   const senderDirection = normalizeSenderDirection(searchParams.get('sender_direction'))
+  const sessionId = runtime.sessionId || requestedSessionId
   const selectedClusterFromUrl =
     clusterId ? runtimeClusters.find((cluster) => cluster.cluster_id === clusterId) || null : null
-  const clusterSelectionNeedsResolution =
-    runtimeClusters.length > 0 && !selectedClusterFromUrl && (!clusterId || clusterId.trim().length > 0)
-  const selectedCluster = clusterSelectionNeedsResolution
-    ? null
-    : selectedClusterFromUrl || runtimeClusters[0] || null
   const cacheVersion = runtime.data?.runtime_cleanup_plan?.generated_at || null
+  const recommendedCluster = useMemo(() => {
+    if (runtimeClusters.length === 0) return null
+    if (selectedClusterFromUrl) return selectedClusterFromUrl
+
+    let recommended = runtimeClusters[0] || null
+    let latestDraftUpdatedAt = -1
+    for (const cluster of runtimeClusters) {
+      const stored = readGmailCleanupWorkflowDraft({
+        agentId,
+        sessionId,
+        clusterId: cluster.cluster_id,
+        snapshotVersion: cacheVersion,
+      })
+      if (!gmailCleanupWorkflowDraftHasActiveContent(stored)) continue
+      if (stored.updatedAt > latestDraftUpdatedAt) {
+        latestDraftUpdatedAt = stored.updatedAt
+        recommended = cluster
+      }
+    }
+    return recommended
+  }, [agentId, cacheVersion, runtimeClusters, selectedClusterFromUrl, sessionId])
+  const selectedCluster = selectedClusterFromUrl || recommendedCluster || null
+  const clusterUrlSynced = Boolean(selectedCluster && clusterId === selectedCluster.cluster_id)
   const allClusters = useMemo(
     () =>
       runtimeClusters.map((cluster) => ({
@@ -238,8 +312,10 @@ export default function OperationsReviewPage() {
   const [creatingApproval, setCreatingApproval] = useState(false)
   const [actionNote, setActionNote] = useState<string | null>(null)
   const [hydratedDraftStorageKey, setHydratedDraftStorageKey] = useState<string | null>(null)
-
-  const sessionId = runtime.sessionId || requestedSessionId
+  const [committedRefreshNonce, setCommittedRefreshNonce] = useState(0)
+  const [committedBySender, setCommittedBySender] = useState<
+    Record<string, SenderCommittedDisplayState>
+  >({})
   const currentDraftStorageKey =
     selectedCluster && agentId
       ? gmailCleanupWorkflowDraftStorageKey({
@@ -248,48 +324,23 @@ export default function OperationsReviewPage() {
           clusterId: selectedCluster.cluster_id,
         })
       : null
+  const hasPendingSessionDecisions = Object.keys(draft.senderPolicies).length > 0
 
   useEffect(() => {
-    if (runtimeClusters.length === 0 || (clusterId && selectedClusterFromUrl)) return
-
-    let recommendedClusterId = runtimeClusters[0]?.cluster_id || null
-    let latestDraftUpdatedAt = -1
-    for (const cluster of runtimeClusters) {
-      const stored = readGmailCleanupWorkflowDraft({
-        agentId,
-        sessionId,
-        clusterId: cluster.cluster_id,
-        snapshotVersion: cacheVersion,
-      })
-      if (!stored) continue
-      if (
-        stored.updatedAt > latestDraftUpdatedAt &&
-        (Object.keys(stored.senderPolicies).length > 0 ||
-          stored.currentStage === 'confirmation' ||
-          stored.confirmationPreview != null)
-      ) {
-        latestDraftUpdatedAt = stored.updatedAt
-        recommendedClusterId = cluster.cluster_id
-      }
-    }
-
-    if (!recommendedClusterId) return
+    if (!selectedCluster) return
+    if (clusterId === selectedCluster.cluster_id) return
     const next = new URLSearchParams(searchParams.toString())
-    next.set('cluster_id', recommendedClusterId)
+    next.set('cluster_id', selectedCluster.cluster_id)
     next.set('stage', stage)
     if (!next.get('sender_page')) next.set('sender_page', '1')
     startTransition(() => {
       router.replace(`?${next.toString()}`, { scroll: false })
     })
   }, [
-    agentId,
-    cacheVersion,
     clusterId,
     router,
-    runtimeClusters,
     searchParams,
-    selectedClusterFromUrl,
-    sessionId,
+    selectedCluster,
     stage,
   ])
 
@@ -340,6 +391,32 @@ export default function OperationsReviewPage() {
   ])
 
   useEffect(() => {
+    if (!agentId) return
+
+    let cancelled = false
+    void fetchGmailDecisionManagementSummary({ agentId }).then((result) => {
+      if (cancelled) return
+      if (!result.ok) return
+      const next = result.data.sender_profiles.reduce<Record<string, SenderCommittedDisplayState>>(
+        (profiles, profile) => {
+          profiles[profile.sender_key] = {
+            destinationState: profile.destination_state,
+            executionState: profile.execution_state,
+            lastActionTimestamp: profile.last_action_timestamp,
+          }
+          return profiles
+        },
+        {}
+      )
+      setCommittedBySender(next)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [agentId, committedRefreshNonce])
+
+  useEffect(() => {
     if (!selectedCluster) return
     if (cachedWorkspace) {
       setWorkspaceState({
@@ -350,6 +427,7 @@ export default function OperationsReviewPage() {
       })
       return
     }
+    if (!clusterUrlSynced) return
 
     let cancelled = false
     const controller = new AbortController()
@@ -424,6 +502,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     cachedWorkspace,
     runtime.analysisScope,
+    clusterUrlSynced,
     selectedCluster,
     senderDirection,
     senderFilter,
@@ -492,6 +571,17 @@ export default function OperationsReviewPage() {
       return
     }
 
+    if (!hasPendingSessionDecisions) {
+      if (draft.confirmationPreview != null) {
+        setDraft((current) => ({
+          ...current,
+          confirmationPreview: null,
+          updatedAt: Date.now(),
+        }))
+      }
+      return
+    }
+
     void fetchGmailConfirmationPreview({
       selectedCluster: {
         clusterId: selectedCluster.cluster_id,
@@ -525,8 +615,10 @@ export default function OperationsReviewPage() {
   }, [
     allClusters,
     cacheVersion,
+    draft.confirmationPreview,
     draft.messageOverrides,
     draft.senderPolicies,
+    hasPendingSessionDecisions,
     runtime.analysisScope,
     selectedCluster,
     stage,
@@ -554,7 +646,7 @@ export default function OperationsReviewPage() {
               ...message,
               snippet: snippetOverrides[message.message_id] || message.snippet,
             })),
-          })),
+            })),
         }
       : null
   const deferredStage =
@@ -732,71 +824,128 @@ export default function OperationsReviewPage() {
     setCreatingApproval(true)
     setActionNote(null)
     try {
-      const res = await fetch('/api/runtime/plan', {
+      const senderLookup = new Map(
+        (displayWorkspaceData?.senders || []).map((sender) => [sender.sender_key, sender] as const)
+      )
+      const committedSenders = draft.confirmationPreview.groups
+        .filter((group) => group.policy !== 'undecided')
+        .flatMap((group) => {
+          const destinationState = destinationStateFromPolicy(group.policy)
+          if (!destinationState) return []
+          return group.senders.map((sender) => ({
+            senderKey: sender.sender_key,
+            sender: sender.sender,
+            destinationState,
+            source: 'confirmation_approved',
+            reason: destinationReasonForPolicy(group.policy, selectedCluster.title),
+            messageCount: sender.message_count,
+            trustSignals: buildDestinationTrustSignals(senderLookup.get(sender.sender_key)),
+          }))
+        })
+
+      if (committedSenders.length === 0) {
+        setActionNote('No approved sender decisions were ready to move into destination states.')
+        return
+      }
+
+      const res = await fetch('/api/runtime/gmail-destinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agent_id: agentId,
-          session_id: runtime.sessionId || requestedSessionId || undefined,
-          user_request: `Archive the confirmed sender-first selection for ${selectedCluster.title}.`,
-          proposed_actions: [
-            {
-              tool: 'gmail',
-              action: 'archive_messages',
-              args: {
-                cluster_id: selectedCluster.cluster_id,
-                cluster_type: selectedCluster.cluster_type,
-                title: selectedCluster.title,
-                query: selectedCluster.query,
-                analysis_scope: runtime.analysisScope,
-                cache_version: cacheVersion || undefined,
-                source_label: selectedCluster.title,
-                clusters: allClusters.map((cluster) => ({
-                  cluster_id: cluster.clusterId,
-                  cluster_type: cluster.clusterType,
-                  title: cluster.title,
-                  query: cluster.query,
-                })),
-                sender_policies: draft.senderPolicies,
-                message_overrides: draft.messageOverrides,
-                selection_customization: {
-                  analysis_scope: runtime.analysisScope,
-                  selected_count: draft.confirmationPreview.exact_archive_impact.message_count,
-                  candidate_count: draft.confirmationPreview.selected_cluster.message_count,
-                  matching_messages_in_scope: draft.confirmationPreview.selected_cluster.message_count,
-                  reviewed_count: displayWorkspaceData?.scope_ladder.loaded_preview_rows ?? null,
-                  sender_count: draft.confirmationPreview.selected_cluster.sender_count,
-                },
-                safe_signals: [
-                  'Sender-first confirmation preview',
-                  'Protected messages excluded from archive',
-                  'Archive is the only live Gmail mutation in this pass',
-                ],
-                safety_exclusions: [
-                  'No delete',
-                  'No unsubscribe executor',
-                  'No quarantine executor',
-                  'No custom-rule executor',
-                ],
-                selection_basis:
-                  'Exact impact computed from sender decisions; messages remain evidence-only until confirmation.',
-              },
-            },
-          ],
+          agentId,
+          sessionId: runtime.sessionId || requestedSessionId || null,
+          cluster: {
+            clusterId: selectedCluster.cluster_id,
+            clusterType: selectedCluster.cluster_type,
+            title: selectedCluster.title,
+            query: selectedCluster.query,
+          },
+          allClusters: allClusters.map((cluster) => ({
+            clusterId: cluster.clusterId,
+            clusterType: cluster.clusterType,
+            title: cluster.title,
+            query: cluster.query,
+          })),
+          analysisScope: runtime.analysisScope,
+          senderPolicies: draft.senderPolicies,
+          messageOverrides: draft.messageOverrides,
+          senders: committedSenders,
         }),
       })
       const payload = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; data?: { approval_id?: string } }
+        | {
+            ok?: boolean
+            error?: string
+          data?: {
+            committed_sender_count: number
+            archive_execution?: {
+              status: 'not_applicable' | 'pending' | 'succeeded' | 'failed' | 'deferred'
+              sender_count: number
+              message_count: number
+              warning?: string | null
+            }
+          }
+        }
         | null
-      if (!res.ok || !payload?.ok) {
-        setActionNote(payload?.error || 'Failed to create archive approval.')
+      if (!res.ok || !payload?.ok || !payload.data) {
+        setActionNote(payload?.error || 'Failed to commit destination states.')
         return
       }
-      setActionNote(
-        payload.data?.approval_id
-          ? `Archive approval created: ${payload.data.approval_id}`
-          : 'Archive approval created.'
+
+      const stateCounts = committedSenders.reduce<Record<GmailDestinationState, number>>(
+        (counts, sender) => {
+          counts[sender.destinationState] = (counts[sender.destinationState] || 0) + 1
+          return counts
+        },
+        {
+          KEEP: 0,
+          ARCHIVE: 0,
+          QUARANTINE: 0,
+          UNSUBSCRIBE: 0,
+          CUSTOM_RULE: 0,
+        }
       )
+      const archiveExecution = payload.data.archive_execution
+      const archiveSuffix =
+        archiveExecution?.status === 'succeeded'
+          ? ` Archive execution was confirmed for ~${archiveExecution.message_count.toLocaleString()} messages across ${archiveExecution.sender_count.toLocaleString()} senders.`
+          : archiveExecution?.status === 'failed'
+            ? ` Archive execution needs attention: ${archiveExecution.warning || 'The Gmail archive request did not complete successfully.'}`
+            : archiveExecution?.status === 'deferred'
+              ? ` Archive execution is deferred: ${archiveExecution.warning || 'Inbox-label removal has not been independently confirmed yet.'}`
+              : archiveExecution?.status === 'not_applicable'
+                ? ` Archive execution was not needed: ${archiveExecution.warning || 'No current inbox-visible messages still required archive.'}`
+                : ''
+      setActionNote(
+        `Approved ${payload.data.committed_sender_count.toLocaleString()} senders into destination states: ${stateCounts.ARCHIVE} Archive, ${stateCounts.KEEP} Keep, ${stateCounts.QUARANTINE} Quarantine, ${stateCounts.UNSUBSCRIBE} Unsubscribe, ${stateCounts.CUSTOM_RULE} Custom Rule.${archiveSuffix}`
+      )
+      setCommittedBySender((current) => {
+        const next = { ...current }
+        const committedAt = new Date().toISOString()
+        for (const sender of committedSenders) {
+          next[sender.senderKey] = {
+            destinationState: sender.destinationState,
+            executionState:
+              sender.destinationState === 'KEEP'
+                ? 'not_applicable'
+                : sender.destinationState === 'ARCHIVE'
+                  ? archiveExecution?.status || 'deferred'
+                  : 'deferred',
+            lastActionTimestamp: committedAt,
+          }
+        }
+        return next
+      })
+      clearGmailCleanupWorkflowDraft({
+        agentId,
+        sessionId,
+        clusterId: selectedCluster.cluster_id,
+      })
+      setDraft({
+        ...emptyDraft('senders'),
+        snapshotVersion: cacheVersion,
+      })
+      setCommittedRefreshNonce((current) => current + 1)
     } finally {
       setCreatingApproval(false)
     }
@@ -835,7 +984,7 @@ export default function OperationsReviewPage() {
       {displayWorkspaceData ? (
         <GmailScopeLadder
           title="Sender-first workspace"
-          subtitle="The count keeps narrowing so the operator understands exactly why not every message is visible at once."
+          subtitle="The scope keeps narrowing so the operator sees the real decision set first and the visible evidence slice second."
           counts={
             stage === 'confirmation' && draft.confirmationPreview
               ? draft.confirmationPreview.scope_ladder
@@ -881,15 +1030,19 @@ export default function OperationsReviewPage() {
         </section>
       ) : !displayWorkspaceData ? (
         <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
-          Loading sender-first review workspace…
+          {selectedCluster && !clusterUrlSynced
+            ? 'Resolving the selected cleanup group for Sender Decisions…'
+            : 'Loading sender-first review workspace…'}
         </section>
       ) : stage === 'senders' && displayWorkspaceData ? (
         <SenderDecisionStage
+          key={displayWorkspaceData.selected_cluster.cluster_id}
           data={displayWorkspaceData}
           isRefreshing={workspaceState.refreshing}
           blockingError={workspaceState.status === 'error' ? workspaceState.error : null}
           draftSavedAt={draft.updatedAt}
           policyBySender={draft.senderPolicies}
+          committedBySender={committedBySender}
           openSenderKey={openSenderKey}
           onToggleSender={(senderKey) => setOpenSenderKey((current) => (current === senderKey ? null : senderKey))}
           onPolicyChange={handlePolicyChange}
@@ -931,6 +1084,7 @@ export default function OperationsReviewPage() {
           createArchiveApproval={createArchiveApproval}
           creatingApproval={creatingApproval}
           actionNote={actionNote}
+          hasPendingSessionDecisions={Object.keys(draft.senderPolicies).length > 0}
           policyBySender={draft.senderPolicies}
           onPolicyChange={(senderKey, sender, policy) =>
             void applySenderPolicy(senderKey, sender, policy, { allowToggle: false })

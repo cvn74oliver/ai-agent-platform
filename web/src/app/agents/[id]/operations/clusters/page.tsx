@@ -130,15 +130,16 @@ export default function OperationsClustersPage() {
     <div className="space-y-4">
       <GmailScopeLadder
         title="Cleanup Groups"
-        subtitle="The count narrows in steps: whole mailbox -> cleanup candidate universe -> one cleanup group -> sender set -> loaded preview rows."
+        subtitle="Cleanup Groups narrows the high-level dashboard into one sender cluster at a time: whole mailbox -> cleanup candidates -> cleanup group -> sender set."
         counts={resolvedState.data.scope_ladder}
+        hiddenKeys={['loaded_preview_rows']}
       />
 
       <section className="rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
         <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Cleanup Groups</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">Choose one sender cluster to review next</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-white">Choose the sender group to review next</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-300">
-          A cleanup group is a set of related senders. Sender counts lead the review decision; message totals stay visible only as supporting impact context.
+          Cleanup Groups is the full selection surface for sender clusters. Pick the group that best matches the kind of senders you want to decide on next, then continue into Sender Decisions for the deeper drill-down.
         </p>
       </section>
 
@@ -161,9 +162,16 @@ export default function OperationsClustersPage() {
                     <p className="text-base font-semibold text-white">{group.title}</p>
                     <p className="mt-1 text-sm text-gray-300">{group.why_selected}</p>
                   </div>
-                  <span className="rounded-full border border-gray-700 bg-gray-900/70 px-2.5 py-1 text-xs text-gray-200">
-                    {group.share_pct}% of candidates
-                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {highlighted ? (
+                      <span className="rounded-full border border-cyan-700/60 bg-cyan-950/25 px-2.5 py-1 text-xs text-cyan-100">
+                        Recommended next
+                      </span>
+                    ) : null}
+                    <span className="rounded-full border border-gray-700 bg-gray-900/70 px-2.5 py-1 text-xs text-gray-200">
+                      {group.share_pct}% of candidates
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -182,13 +190,24 @@ export default function OperationsClustersPage() {
                 </div>
 
                 <div className="mt-4 space-y-2 text-sm text-gray-300">
-                  <p>Why it exists: {group.why_selected}</p>
-                  <p>Why it is safe or risky: {group.safety_note} {group.risk_note}</p>
-                  <p className="text-xs text-gray-500">
-                    Dominant sender: {group.dominant_sender || '—'} · dominant pattern:{' '}
-                    {group.dominant_pattern || '—'} · uncertain senders:{' '}
-                    {group.uncertain_sender_count.toLocaleString()}
+                  <p>
+                    Review {group.sender_count.toLocaleString()} senders here when you want a sender-centric pass on this cleanup group.
                   </p>
+                  <details className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                    <summary className="cursor-pointer text-sm font-medium text-white">
+                      Sender context and review cautions
+                    </summary>
+                    <div className="mt-3 space-y-2 text-sm text-gray-300">
+                      <p>Safety context: {group.safety_note}</p>
+                      <p>Review caution: {group.risk_note}</p>
+                      <p className="text-xs text-gray-500">
+                        Dominant sender: {group.dominant_sender || '—'} · dominant pattern:{' '}
+                        {group.dominant_pattern || '—'} · uncertain senders:{' '}
+                        {group.uncertain_sender_count.toLocaleString()} · protected messages:{' '}
+                        {group.protected_message_count.toLocaleString()}
+                      </p>
+                    </div>
+                  </details>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">

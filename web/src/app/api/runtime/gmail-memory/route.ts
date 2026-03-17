@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
-import { loadGmailMonitoringSummary, persistGmailCleanupMemory } from '@/lib/runtime/gmailCleanupMemory'
+import {
+  loadGmailDecisionManagementSummary,
+  loadGmailMonitoringSummary,
+  persistGmailCleanupMemory,
+} from '@/lib/runtime/gmailCleanupMemory'
 import type { GmailCleanupMemoryWritePayload } from '@/lib/runtime/gmailCleanupWorkspace'
 import { isUuid } from '@/lib/runtime/types'
 
@@ -91,6 +95,87 @@ function parseBody(value: unknown): GmailCleanupMemoryWritePayload | null {
     }
   }
 
+  if (value.action.type === 'destination_commit') {
+    if (!Array.isArray(value.action.senders) || value.action.senders.length === 0) return null
+    const senders = value.action.senders
+      .filter(
+        (
+          entry
+        ): entry is {
+          senderKey: string
+          sender: string
+          destinationState: 'KEEP' | 'ARCHIVE' | 'QUARANTINE' | 'UNSUBSCRIBE' | 'CUSTOM_RULE'
+          source: string
+          reason: string
+          messageCount?: number | null
+          trustSignals?: Record<string, unknown> | null
+        } =>
+          isRecord(entry) &&
+          typeof entry.senderKey === 'string' &&
+          typeof entry.sender === 'string' &&
+          typeof entry.destinationState === 'string' &&
+          typeof entry.source === 'string' &&
+          typeof entry.reason === 'string'
+      )
+      .map((entry) => ({
+        senderKey: entry.senderKey.trim(),
+        sender: entry.sender.trim(),
+        destinationState: entry.destinationState,
+        source: entry.source.trim(),
+        reason: entry.reason.trim(),
+        messageCount:
+          typeof entry.messageCount === 'number' && Number.isFinite(entry.messageCount)
+            ? entry.messageCount
+            : null,
+        trustSignals: isRecord(entry.trustSignals) ? entry.trustSignals : null,
+      }))
+      .filter(
+        (entry) =>
+          entry.senderKey &&
+          entry.sender &&
+          entry.source &&
+          entry.reason &&
+          (entry.destinationState === 'KEEP' ||
+            entry.destinationState === 'ARCHIVE' ||
+            entry.destinationState === 'QUARANTINE' ||
+            entry.destinationState === 'UNSUBSCRIBE' ||
+            entry.destinationState === 'CUSTOM_RULE')
+      )
+
+    if (senders.length === 0) return null
+
+    return {
+      agentId,
+      sessionId,
+      cluster,
+      action: {
+        type: 'destination_commit',
+        senders,
+      },
+    }
+  }
+
+  if (value.action.type === 'destination_state_clear') {
+    if (
+      typeof value.action.senderKey !== 'string' ||
+      typeof value.action.sender !== 'string' ||
+      typeof value.action.reason !== 'string'
+    ) {
+      return null
+    }
+    return {
+      agentId,
+      sessionId,
+      cluster,
+      action: {
+        type: 'destination_state_clear',
+        senderKey: value.action.senderKey.trim(),
+        sender: value.action.sender.trim(),
+        reason: value.action.reason.trim(),
+      },
+    }
+  }
+
   return null
 }
 
@@ -119,13 +204,20 @@ export async function GET(req: Request) {
       : []
 
     const supabase = await getSupabaseAdmin()
-    const summary = await loadGmailMonitoringSummary({
-      supabase,
-      agentId,
-      clusterId: url.searchParams.get('cluster_id'),
-      clusterTitle: url.searchParams.get('cluster_title'),
-      candidateSenders,
-    })
+    const requestedView = url.searchParams.get('view')?.trim() || 'monitoring'
+    const summary =
+      requestedView === 'decision_management'
+        ? await loadGmailDecisionManagementSummary({
+            supabase,
+            agentId,
+          })
+        : await loadGmailMonitoringSummary({
+            supabase,
+            agentId,
+            clusterId: url.searchParams.get('cluster_id'),
+            clusterTitle: url.searchParams.get('cluster_title'),
+            candidateSenders,
+          })
 
     if (!summary.ok) {
       return NextResponse.json({ ok: false, error: summary.error }, { status: 500 })

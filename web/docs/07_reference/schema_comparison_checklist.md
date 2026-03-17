@@ -36,6 +36,8 @@ Before starting, confirm you have:
 - ✅ Terminal access
 - ✅ Supabase Studio access
 - ✅ Project reference ID for psql dry-runs
+- ✅ Access to Supabase CLI (optional but recommended)
+- ✅ Ability to run `pg_dump` or Supabase schema export
 
 ---
 
@@ -86,6 +88,11 @@ Pay special attention to these patterns:
 | `CREATE TRIGGER` | Trigger not already attached |
 | `DROP` statements | Ensure they are intentional and safe |
 
+⚠️ Additional Supabase-specific checks:
+- RLS policies must be reviewed for unintended overrides
+- Auth schema tables (`auth.users`, etc.) must NEVER be modified
+- Ensure no changes break existing foreign key relationships
+
 ---
 
 ### 4️⃣ Convert Unsafe Statements
@@ -102,6 +109,15 @@ If a statement already exists in live schema:
 ```sql
 ALTER TABLE public.guided_setup_sessions
 ADD COLUMN IF NOT EXISTS new_column text;
+```
+
+**Option C — Use idempotent patterns**
+```sql
+CREATE INDEX IF NOT EXISTS idx_example ON table_name(column_name);
+```
+
+```sql
+CREATE OR REPLACE FUNCTION function_name(...) RETURNS ...
 ```
 
 ---
@@ -121,6 +137,12 @@ This is the only file allowed to be executed.
 ---
 
 ### 6️⃣ Perform a Local Dry Run (Highly Recommended)
+
+Alternative (Supabase CLI):
+```bash
+supabase db reset
+supabase db push
+```
 
 ```bash
 psql \
@@ -166,6 +188,9 @@ After execution:
 - ✅ Confirm app loads successfully
 - ✅ Confirm no 500 errors in API routes
 - ✅ Confirm new columns appear in Supabase UI
+- ✅ Verify no unexpected row deletions occurred
+- ✅ Verify triggers/functions execute correctly
+- ✅ Check Supabase logs for errors (Database → Logs)
 
 ---
 
@@ -202,6 +227,10 @@ bash web/automation/generate_project_tree.sh
 
 after any structural change.
 
+- 🧱 Always prefer additive changes over destructive ones
+- 🔁 Ensure migrations are idempotent (safe to re-run)
+- 🧾 Keep a rollback plan for every migration
+
 ---
 
 ## 🚦 Stop Conditions
@@ -215,6 +244,34 @@ Do NOT proceed if:
 - A previous migration failed
 
 Escalate to Project Manager review before execution.
+
+---
+
+This checklist must be followed for:
+- Phase migrations
+- RAG schema updates
+- Agent session analytics updates
+- Fine-tuning schema changes
+- Any new table or policy introduction
+
+---
+
+## 🔄 Rollback Strategy (Required)
+
+Before executing any migration, define:
+
+- How to revert schema changes
+- Whether data loss is possible
+- Backup location (snapshot or export)
+
+Example rollback:
+```sql
+ALTER TABLE table_name DROP COLUMN IF EXISTS new_column;
+```
+
+```bash
+pg_restore --clean --if-exists --dbname=postgres backup.dump
+```
 
 ---
 

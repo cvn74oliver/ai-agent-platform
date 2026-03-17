@@ -65,6 +65,13 @@ function assistantSuggestedPrompts(pathname: string, reviewStage: string | null)
       'How does this group narrow the sender universe?',
     ]
   }
+  if (pathname.includes('/operations/management')) {
+    return [
+      'Which destination states need attention right now?',
+      'What has been committed versus actually executed?',
+      'Which sender states should I revisit next?',
+    ]
+  }
   if (pathname.includes('/operations/approvals')) {
     return [
       'What happens if I approve this request?',
@@ -126,6 +133,11 @@ function buildAssistantContext(params: {
       'Current context: Cleanup Groups. Focus on sender-cluster prioritization, scope narrowing, and safest review order.'
     )
   }
+  if (params.pathname.includes('/operations/management')) {
+    return withScope(
+      'Current context: Decision Management. Focus on committed sender destinations, execution truth, warnings, and which destination states need follow-up next.'
+    )
+  }
   if (params.pathname.includes('/operations/approvals')) {
     return withScope(
       'Current context: Pending Approvals. Focus on approval consequences and reversibility.'
@@ -141,7 +153,7 @@ function buildAssistantContext(params: {
 
 function sectionTitle(section: RailItem['section']): string {
   if (section === 'workflow') return 'Workflow'
-  if (section === 'queue') return 'Queue & Audit'
+  if (section === 'queue') return 'Legacy & Audit'
   return 'Tools'
 }
 
@@ -236,21 +248,21 @@ function OperationsWorkspaceShellInner(props: {
         key: 'intelligence',
         section: 'workflow',
         label: 'Mailbox Intelligence',
-        caption: 'Main Gmail cleanup dashboard',
+        caption: 'Mission, status, and high-level cleanup summary',
         href: `/agents/${props.agentId}/operations/intelligence${query}`,
       },
       {
         key: 'clusters',
         section: 'workflow',
         label: 'Cleanup Groups',
-        caption: 'Choose one sender cluster to review',
+        caption: 'Full sender-group selection surface',
         href: `/agents/${props.agentId}/operations/clusters${query}`,
       },
       {
         key: 'senders',
         section: 'workflow',
         label: 'Sender Decisions',
-        caption: 'Main sender-first review workspace',
+        caption: 'Drill into senders, analytics, and evidence',
         href: reviewHref('senders'),
         stage: 'senders',
       },
@@ -258,22 +270,29 @@ function OperationsWorkspaceShellInner(props: {
         key: 'confirmation',
         section: 'workflow',
         label: 'Confirmation',
-        caption: 'See exact message impact',
+        caption: 'Approve archive-now work and saved later preferences',
         href: reviewHref('confirmation'),
         stage: 'confirmation',
+      },
+      {
+        key: 'management',
+        section: 'workflow',
+        label: 'Management',
+        caption: 'Destination states, execution truth, and follow-up',
+        href: `/agents/${props.agentId}/operations/management${query}`,
       },
       {
         key: 'approvals',
         section: 'queue',
         label: 'Pending Approvals',
-        caption: 'Approve or reject queued requests',
+        caption: 'Legacy queue surface kept route-safe for older runtime flows',
         href: `/agents/${props.agentId}/operations/approvals${query}`,
       },
       {
         key: 'executed',
         section: 'queue',
         label: 'Executed Actions',
-        caption: 'Recently completed operations',
+        caption: 'Legacy execution audit view',
         href: `/agents/${props.agentId}/operations/history?${new URLSearchParams({
           tab: 'executed',
           ...(props.sessionId ? { playground_session_id: props.sessionId } : {}),
@@ -286,7 +305,7 @@ function OperationsWorkspaceShellInner(props: {
         key: 'history',
         section: 'queue',
         label: 'History',
-        caption: 'Audit trail and execution timeline',
+        caption: 'Legacy audit timeline and runtime history',
         href: `/agents/${props.agentId}/operations/history${query}`,
       },
       {
@@ -601,7 +620,7 @@ function OperationsWorkspaceShellInner(props: {
         <div className="space-y-2.5 pb-3.5 border-b border-gray-800">
           <p className="text-[11px] uppercase tracking-wide text-cyan-300">Operations Workspace</p>
           <p className="text-[11px] text-gray-400 leading-snug">
-            Session-scoped operator workflow for inbox review, approvals, and execution audit.
+            Session-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.
           </p>
           <div className="space-y-1.5 rounded border border-gray-800 bg-gray-950/50 p-2">
             <p className="text-[9px] uppercase tracking-wide text-gray-500">Analysis window</p>
@@ -660,31 +679,11 @@ function OperationsWorkspaceShellInner(props: {
               </p>
             ) : null}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded border border-amber-900/55 bg-amber-950/20 px-2 py-1.5">
-              <p className="text-[9px] uppercase tracking-wide text-amber-300">Pending</p>
-              <p className="text-xs font-semibold text-amber-100">
-                {runtime.data?.runtime_approval_queue_summary?.pending || 0}
-              </p>
-            </div>
-            <div className="rounded border border-blue-900/55 bg-blue-950/20 px-2 py-1.5">
-              <p className="text-[9px] uppercase tracking-wide text-blue-300">Approved</p>
-              <p className="text-xs font-semibold text-blue-100">
-                {runtime.data?.runtime_approval_queue_summary?.approved || 0}
-              </p>
-            </div>
-            <div className="rounded border border-emerald-900/55 bg-emerald-950/20 px-2 py-1.5">
-              <p className="text-[9px] uppercase tracking-wide text-emerald-300">Executed</p>
-              <p className="text-xs font-semibold text-emerald-100">
-                {runtime.data?.runtime_approval_queue_summary?.executed || 0}
-              </p>
-            </div>
-            <div className="rounded border border-rose-900/55 bg-rose-950/20 px-2 py-1.5">
-              <p className="text-[9px] uppercase tracking-wide text-rose-300">Rejected</p>
-              <p className="text-xs font-semibold text-rose-100">
-                {runtime.data?.runtime_approval_queue_summary?.rejected || 0}
-              </p>
-            </div>
+          <div className="rounded border border-gray-800 bg-gray-950/45 px-3 py-2.5 space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-gray-500">Post-confirmation home</p>
+            <p className="text-[11px] text-gray-300 leading-relaxed">
+              Decision Management is now the primary post-confirmation surface for committed sender states and execution truth. Pending Approvals and History remain available below as legacy audit routes only.
+            </p>
           </div>
         </div>
 

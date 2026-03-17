@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundation stabilization)_
+_Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification pass)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -14,7 +14,41 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
 
 ---
 
+```
+- 🚀 Mailbox Intelligence Finalization (NEW — CRITICAL HANDOFF PRIORITY)
+  - [ ] Finalize Mailbox Intelligence as the AI Intelligent Decision Dashboard (command center layer)
+  - [ ] Ensure dashboard clearly communicates the goal:
+        "A clean inbox = every sender has a decision"
+  - [ ] Align all health metrics to sender-decision coverage (NOT message count)
+  - [ ] Fix all hero metrics so denominators are clear and non-misleading
+  - [ ] Add strong visual meaning to all bars/meters (no decorative-only visuals)
+  - [ ] Add actionable CTAs for every Mission Control directive (no dead instructions)
+  - [ ] Improve hover intelligence so it adds NEW insight (not repeated data)
+  - [ ] Refine Pressure Trend to show:
+        - sender-level drivers
+        - period-over-period change explanation
+        - actionable intervention insight
+  - [ ] Ensure page tells a clear story:
+        Health → Bottleneck → Action → Impact → Progress
+  - [ ] Remove any remaining ambiguity around "index", "universe", and "scope"
+  - [ ] Add management-layer signal awareness (archive/quarantine/rules presence indicators)
+```
 0) Gmail Cleanup Sender-First Follow-up (NEW)
+   - [x] Replace post-confirmation approval-queue handoff with direct sender destination-state commits
+   - [x] Add durable sender destination profiles to Gmail cleanup memory
+   - [x] Create a route-safe Decision Management Dashboard scaffold for destination summaries and recent decision activity
+   - [x] Separate destination commit state from execution state in sender destination profiles
+   - [x] Demote legacy approval/audit routes and promote Management into the primary Gmail cleanup navigation
+   - [x] Add real archive execution verification before surfacing `succeeded`
+   - [x] Add a real archive restore path from Decision Management
+   - [ ] Decision Destinations follow-up:
+     - verify approved Confirmation decisions persist into destination states across reload
+     - confirm no new Pending Approval items are created by the Gmail Confirmation approve action
+     - browser-verify the new archive execution truth states (`succeeded` / `failed` / `deferred` / `not_applicable`) and capture exact failure modes
+     - browser-verify archive restore end to end against live Gmail inbox state
+     - add sender-level restore / revert execution flows beyond the current archive restore + destination removal controls
+     - add focused destination drill-down views for Keep / Archive / Quarantine / Unsubscribe / Custom Rule
+     - connect future AI rule recommendations to the shared management layer
    - [x] Stabilize sender-first cleanup-group generation at the data layer
    - [x] Add shared cached derived workspace state for intelligence / sender workspace / confirmation
    - [x] Restore Mailbox Intelligence analytics visuals with interactive sender controls
@@ -35,11 +69,31 @@ _Last updated: 2026-03-15 (PM v8 review • Gmail Phase 1 sender-first foundatio
    - [x] Reduce sender-page signal loading cost by skipping the broad indexed message scan on the fast review path
    - [x] Stop navigation-only cleanup-discovery rebuilds caused by stale TTL or sync-timestamp-only changes
    - [x] Add Phase 1-safe decision editing controls inside Confirmation
+   - [x] Serve the latest stable cached runtime snapshot first on interactive Phase 1 routes instead of auto-refreshing on short local TTL age
+   - [x] Tighten runtime/discovery invalidation so only real indexed snapshot advancement can trigger interactive refresh paths
+   - [x] Prevent Sender Decisions direct entry from kicking off fallback-cluster work before recommended cluster resolution finishes
+   - [x] Reframe Mailbox Intelligence as the high-level mission/status dashboard instead of a second sender review page
+   - [x] Tighten Mailbox Intelligence into a true mission-control surface where health / next action / progress / risk outrank lower-value stats
+   - [x] Reduce Cleanup Groups duplication on Mailbox Intelligence to a lightweight preview plus explicit handoff
+   - [x] Reduce Mailbox Intelligence cleanup-group preview to a single recommended handoff instead of a second selection surface
+   - [x] Collapse the lower Mailbox Intelligence dashboard into one health-outlook block plus a minimal Cleanup Groups handoff
+   - [x] Remove technical scope-ladder / telemetry-heavy clutter from Mailbox Intelligence so the page reads as one decisive control surface
+   - [x] Reduce Mailbox Intelligence cold-load stalls by making indexed-row loading concurrent/shared and by reusing mailbox intelligence caches across cleanup-plan timestamp churn
+   - [x] Render a runtime-backed Mailbox Intelligence mission boot panel while detailed intelligence hydrates
+   - [x] Strengthen Sender Decisions as the primary sender analytics + evidence drill-down workspace
+   - [x] Clarify Confirmation wording so archive-now and saved-later Phase 1 decisions read like deliberate operator choices
+   - [x] Demote low-value technical scope wording such as `loaded preview rows` in the high-level surfaces
    - [ ] Phase 1 validation follow-up:
      - perform browser verification for direct `/operations/review?stage=senders` entry with no `cluster_id`
+     - perform browser verification that Mailbox Intelligence and Cleanup Groups stay on the stable cached snapshot during normal navigation and do not regress into 15–40s recomputation
      - verify Phase 1 draft restore across navigation, reload, and pagination changes
      - verify sender analytics clicks drive the sender list without focus loss or full blackout reloads
      - verify Confirmation edit actions correctly round-trip back into Sender Decisions
+     - verify Mailbox Intelligence now feels like the high-level mission dashboard while Cleanup Groups owns the full cluster-selection surface
+     - verify the new Mailbox Intelligence mission panel answers the core operator questions quickly: inbox health, what matters now, what to do next, and what work is already in progress
+     - verify the simplified Intelligence lower half no longer feels like a second analytics/status dashboard underneath the mission header
+     - capture fresh cold-path timing for `mailbox_intelligence` after the concurrent indexed-row loader + mailbox-snapshot cache-key changes
+     - verify Sender Decisions now reads as the primary drill-down workspace and Confirmation language feels operator-trustworthy
      - resolve the current `npm run build` Next 16 / Turbopack compile hang and capture a definitive production-build result
      - perform browser verification for Mailbox Intelligence, Cleanup Groups, Sender Decisions, Confirmation, and direct placeholder routes
    - [ ] Phase 2 planning follow-up:
@@ -285,6 +339,20 @@ No cross-domain edits in a single Codex thread.
 
 This model reduces bureaucracy, avoids redundant Codex calls, and preserves system integrity.
 ---
+### 🔒 UI Execution Guardrail (NEW — REQUIRED)
+Every Codex UI prompt MUST include:
+
+"Before changing UI, read:
+- GMAIL_WORKSPACE_UI_STRUCTURE.md
+- GMAIL_WORKSPACE_UX_SPEC.md
+- gmail-workspace-visual-intelligence-spec.md
+- gmail-workspace-intelligent-dashboard-spec.md"
+
+Rules:
+- No UI work without reading specs
+- No visual elements without meaning
+- No duplicate data representation
+- Every UI element must answer a user question or guide action
 1) **PM v8 Activation + Clean Handoff (PRIMARY PRIORITY)**
    - [x] RAG ingestion verified (Drive + URL, embeddings confirmed)
    - [x] Retrieval weighting hierarchy implemented (Drive boost, product intent tuning)
@@ -687,3 +755,27 @@ Still next:
 - [ ] Ensure the deploy branch includes every locally present runtime module referenced by source before the next Vercel build.
 - [ ] Re-run `npm run build` from a clean stabilization branch or workspace that does not include unrelated in-progress product rebuild changes.
 - [ ] Keep this thread scoped to build integrity only; do not continue sender-first product redesign work here.
+
+---
+
+## 🔁 PM v9 Handoff Preparation (NEW)
+
+- [ ] Mailbox Intelligence considered "good enough" (clear story + usable visuals)
+- [ ] Decision Management dashboard productized (not raw data dump)
+- [ ] Sender Decisions UX stabilized (no refresh issues, clear states)
+- [ ] Confirmation + execution flows verified end-to-end
+- [ ] Archive execution + restore verified with real Gmail behavior
+- [ ] Visual Intelligence spec applied consistently across all pages
+- [ ] Codex UI guardrail enforced in prompts
+- [ ] Process standardized via PMCodexUIReviewProtocol.md
+
+Handoff Criteria:
+- Dashboard communicates value without explanation
+- UI decisions no longer require repeated rework
+- System feels guided, not analytical
+
+Next Phase (PM v9):
+- Visual system standardization across ALL pages
+- Management drill-down pages (Keep / Archive / Rules / etc.)
+- AI rule recommendation engine integration
+- Cross-page visual intelligence consistency

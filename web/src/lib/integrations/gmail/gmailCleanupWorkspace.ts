@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  buildGmailPressureTrendData,
   buildCleanupGroupIntelligence,
   buildQueryClusterBrowserSenderBreakdown,
   classifySenderCleanupCluster,
@@ -24,6 +25,8 @@ import type {
   GmailCleanupPreviewMessage,
   GmailConfirmationPreviewData,
   GmailMailboxIntelligenceData,
+  GmailPressureTrendData,
+  GmailPressureTrendWindow,
   GmailScopeLadderCounts,
   GmailSenderPolicy,
   GmailSenderWorkspaceFilter,
@@ -46,6 +49,12 @@ type LoadedMailboxContext = {
   coverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>>
   scopedRows: GmailMailboxIndexRow[]
   scopedInboxRows: GmailMailboxIndexRow[]
+  snapshot_key: string
+}
+
+type MailboxCoverageSnapshot = {
+  coverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>>
+  snapshot_key: string
 }
 
 type ClusterResolution = {
@@ -78,6 +87,7 @@ type SenderWorkspaceBaseCacheEntry = {
 type ConfirmationResolution = {
   preview: GmailConfirmationPreviewData
   archiveMessageIds: string[]
+  archiveMessageIdsBySender: Record<string, string[]>
 }
 
 const GMAIL_DERIVED_WORKSPACE_CACHE_TTL_MS = 1000 * 60 * 10
@@ -171,38 +181,32 @@ function ensureSelectedClusterIncluded(
 }
 
 function derivedWorkspaceCacheKey(params: {
-  tenantId: string
-  analysisScope: GmailAnalysisScope
-  cacheVersion?: string | null
+  mailboxSnapshotKey: string
   clusters: ClusterInput[]
 }): string {
   const clusterSignature = params.clusters
     .map((cluster) => [cluster.cluster_id, cluster.cluster_type, cluster.title, cluster.query].join('::'))
     .sort()
-  return [
-    params.tenantId.trim(),
-    params.analysisScope,
-    params.cacheVersion?.trim() || 'default',
-    ...clusterSignature,
-  ].join('|||')
+  return [params.mailboxSnapshotKey, ...clusterSignature].join('|||')
 }
 
-function mailboxContextCacheKey(params: {
+function mailboxSnapshotKey(params: {
   tenantId: string
   analysisScope: GmailAnalysisScope
-  cacheVersion?: string | null
+  coverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>>
 }): string {
   return [
     params.tenantId.trim(),
     params.analysisScope,
-    params.cacheVersion?.trim() || 'default',
+    String(params.coverage.indexed_total_rows),
+    String(params.coverage.indexed_inbox_rows),
+    params.coverage.indexed_date_span_start || 'no-start',
+    params.coverage.indexed_date_span_end || 'no-end',
   ].join('|||')
 }
 
 function senderWorkspaceBaseCacheKey(params: {
-  tenantId: string
-  analysisScope: GmailAnalysisScope
-  cacheVersion?: string | null
+  mailboxSnapshotKey: string
   clusters: ClusterInput[]
   selectedCluster: ClusterInput
 }): string {
@@ -217,18 +221,41 @@ function isRowWithinDays(row: GmailMailboxIndexRow, days: number, nowMs: number)
   return (row.internal_date_ms || 0) >= nowMs - days * 24 * 60 * 60 * 1000
 }
 
+async function loadMailboxCoverageSnapshot(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope?: GmailAnalysisScope
+}): Promise<MailboxCoverageSnapshot> {
+  const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
+  const coverage = await loadGmailMailboxIndexCoverageForTenant({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+  })
+  return {
+    coverage,
+    snapshot_key: mailboxSnapshotKey({
+      tenantId: params.tenantId,
+      analysisScope,
+      coverage,
+    }),
+  }
+}
+
 async function loadMailboxContext(params: {
   supabase: SupabaseClient
   tenantId: string
   analysisScope?: GmailAnalysisScope
-  cacheVersion?: string | null
+  coverageSnapshot?: MailboxCoverageSnapshot
 }): Promise<{ ok: true; data: LoadedMailboxContext } | ReturnType<typeof fail>> {
   const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
-  const cacheKey = mailboxContextCacheKey({
-    tenantId: params.tenantId,
-    analysisScope,
-    cacheVersion: params.cacheVersion,
-  })
+  const coverageSnapshot =
+    params.coverageSnapshot ||
+    (await loadMailboxCoverageSnapshot({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope,
+    }))
+  const cacheKey = coverageSnapshot.snapshot_key
   const cached = loadedMailboxContextCache.get(cacheKey)
   if (cached && cached.expires_at_ms > Date.now()) {
     return { ok: true, data: cached.data }
@@ -238,17 +265,11 @@ async function loadMailboxContext(params: {
   if (inflight) return inflight
 
   const request = (async (): Promise<{ ok: true; data: LoadedMailboxContext } | ReturnType<typeof fail>> => {
-    const [coverage, indexedRows] = await Promise.all([
-      loadGmailMailboxIndexCoverageForTenant({
-        supabase: params.supabase,
-        tenantId: params.tenantId,
-      }),
-      loadIndexedGmailMessagesForTenant({
-        supabase: params.supabase,
-        tenantId: params.tenantId,
-        limit: 50_000,
-      }),
-    ])
+    const indexedRows = await loadIndexedGmailMessagesForTenant({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      limit: 50_000,
+    })
 
     const nowMs = Date.now()
     const selectedScopeDays = scopeDays(analysisScope)
@@ -258,9 +279,10 @@ async function loadMailboxContext(params: {
         : indexedRows
     const scopedInboxRows = scopedRows.filter((row) => row.is_in_inbox)
     const data: LoadedMailboxContext = {
-      coverage,
+      coverage: coverageSnapshot.coverage,
       scopedRows,
       scopedInboxRows,
+      snapshot_key: cacheKey,
     }
     loadedMailboxContextCache.set(cacheKey, {
       expires_at_ms: Date.now() + GMAIL_DERIVED_WORKSPACE_CACHE_TTL_MS,
@@ -327,15 +349,17 @@ async function loadDerivedWorkspaceState(params: {
   supabase: SupabaseClient
   tenantId: string
   analysisScope?: GmailAnalysisScope
-  cacheVersion?: string | null
   clusters: ClusterInput[]
 }): Promise<{ ok: true; data: DerivedWorkspaceState } | ReturnType<typeof fail>> {
   const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
   const clusters = normalizeClusters(params.clusters)
-  const cacheKey = derivedWorkspaceCacheKey({
+  const coverageSnapshot = await loadMailboxCoverageSnapshot({
+    supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope,
-    cacheVersion: params.cacheVersion,
+  })
+  const cacheKey = derivedWorkspaceCacheKey({
+    mailboxSnapshotKey: coverageSnapshot.snapshot_key,
     clusters,
   })
   const nowMs = Date.now()
@@ -352,7 +376,7 @@ async function loadDerivedWorkspaceState(params: {
       supabase: params.supabase,
       tenantId: params.tenantId,
       analysisScope,
-      cacheVersion: params.cacheVersion,
+      coverageSnapshot,
     })
     if (!mailbox.ok) return mailbox
 
@@ -538,20 +562,16 @@ async function loadSenderWorkspaceBaseState(params: {
   supabase: SupabaseClient
   tenantId: string
   analysisScope?: GmailAnalysisScope
-  cacheVersion?: string | null
   clusters: ClusterInput[]
   selectedCluster: ClusterInput
   workspace: DerivedWorkspaceState
 }): Promise<{ ok: true; data: SenderWorkspaceBaseState } | ReturnType<typeof fail>> {
-  const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
   const clusters = normalizeClusters(params.clusters)
   const selectedCluster = normalizeClusters([params.selectedCluster])[0]
   if (!selectedCluster) return fail(400, 'selected_cluster is required for sender workspace base state.')
 
   const cacheKey = senderWorkspaceBaseCacheKey({
-    tenantId: params.tenantId,
-    analysisScope,
-    cacheVersion: params.cacheVersion,
+    mailboxSnapshotKey: params.workspace.snapshot_key,
     clusters,
     selectedCluster,
   })
@@ -778,6 +798,58 @@ function buildMailboxSenderRanking(params: {
     )
 }
 
+function normalizePressureTrendWindow(value: unknown): GmailPressureTrendWindow {
+  if (
+    value === 'all_indexed' ||
+    value === 'last_year' ||
+    value === 'last_quarter' ||
+    value === 'last_month' ||
+    value === 'last_week' ||
+    value === 'last_day' ||
+    value === 'custom'
+  ) {
+    return value
+  }
+  return 'all_indexed'
+}
+
+export async function loadGmailPressureTrendForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  cacheVersion?: string | null
+  clusters: ClusterInput[]
+  pressureWindow?: GmailPressureTrendWindow
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
+}): Promise<{ ok: true; data: GmailPressureTrendData } | ReturnType<typeof fail>> {
+  if (!params.tenantId) return fail(400, 'User profile is missing tenant_id.')
+  const clusters = normalizeClusters(params.clusters)
+  if (clusters.length === 0) return fail(400, 'clusters[] is required for mailbox_pressure_trend.')
+
+  const workspace = await loadDerivedWorkspaceState({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    analysisScope: 'all_indexed',
+    clusters,
+  })
+  if (!workspace.ok) return workspace
+
+  const trend = buildGmailPressureTrendData({
+    rows: workspace.data.candidateRows,
+    coverage: workspace.data.coverage,
+    pressureWindow: normalizePressureTrendWindow(params.pressureWindow),
+    pressureStart: params.pressureStart,
+    pressureEnd: params.pressureEnd,
+    timeZone: params.timeZone,
+  })
+  if (!trend.ok) {
+    return fail(400, trend.error)
+  }
+
+  return { ok: true, data: trend.data }
+}
+
 export async function loadGmailMailboxIntelligenceForTenant(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -794,7 +866,6 @@ export async function loadGmailMailboxIntelligenceForTenant(params: {
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope,
-    cacheVersion: params.cacheVersion,
     clusters,
   })
   if (!workspace.ok) return workspace
@@ -952,7 +1023,6 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope,
-    cacheVersion: params.cacheVersion,
     clusters: ensureSelectedClusterIncluded(clusters, selectedCluster),
   })
   if (!workspace.ok) return workspace
@@ -961,7 +1031,6 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope,
-    cacheVersion: params.cacheVersion,
     clusters: ensureSelectedClusterIncluded(clusters, selectedCluster),
     selectedCluster,
     workspace: workspace.data,
@@ -1166,6 +1235,17 @@ function buildConfirmationPreview(params: {
     messageOverrides: params.messageOverrides,
   })
   const archiveMessageIdSet = new Set(archiveResolution.archiveRows.map((row) => row.message_id))
+  const archiveMessageIdsBySender = archiveResolution.archiveRows.reduce<Record<string, string[]>>(
+    (acc, row) => {
+      const sender = rowSender(row) || 'Unknown sender'
+      const senderKey = normalizeSender(sender) || sender.toLowerCase()
+      const current = acc[senderKey] || []
+      current.push(row.message_id)
+      acc[senderKey] = current
+      return acc
+    },
+    {}
+  )
 
   for (const [senderKey, rows] of rowsBySender.entries()) {
     const sender = rowSender(rows[0]) || 'Unknown sender'
@@ -1251,6 +1331,7 @@ function buildConfirmationPreview(params: {
   return {
     preview,
     archiveMessageIds: archiveResolution.archiveRows.map((row) => row.message_id),
+    archiveMessageIdsBySender,
   }
 }
 
@@ -1275,7 +1356,6 @@ export async function loadGmailConfirmationPreviewForTenant(params: {
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope,
-    cacheVersion: params.cacheVersion,
     clusters: ensureSelectedClusterIncluded(clusters, selectedCluster),
   })
   if (!workspace.ok) return workspace
@@ -1314,6 +1394,7 @@ export async function resolveGmailSenderPolicyArchiveScopeForTenant(params: {
       ok: true
       data: {
         messageIds: string[]
+        messageIdsBySender: Record<string, string[]>
         selectedCount: number
         matchingMessagesInScope: number
         senderCount: number
@@ -1332,7 +1413,6 @@ export async function resolveGmailSenderPolicyArchiveScopeForTenant(params: {
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope,
-    cacheVersion: params.cacheVersion,
     clusters: ensureSelectedClusterIncluded(clusters, selectedCluster),
   })
   if (!workspace.ok) return workspace
@@ -1356,6 +1436,7 @@ export async function resolveGmailSenderPolicyArchiveScopeForTenant(params: {
     ok: true,
     data: {
       messageIds: resolution.archiveMessageIds,
+      messageIdsBySender: resolution.archiveMessageIdsBySender,
       selectedCount: resolution.preview.exact_archive_impact.message_count,
       matchingMessagesInScope: selectedClusterRows.length,
       senderCount: resolution.preview.exact_archive_impact.sender_count,

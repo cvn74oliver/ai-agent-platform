@@ -32,6 +32,7 @@
 │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
 │   │   ├── GMAIL_WORKSPACE_CODEX_SAFEGUARDS.md
+│   │   ├── GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_DECISION_UI_FLOW.md
@@ -42,6 +43,7 @@
 │   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_ALGORITHM_MODEL.md
 │   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_INBOX_INGESTION_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_ORCHESTRATOR.md
 │   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_SYSTEM_INDEX.md
 │   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
@@ -54,11 +56,14 @@
 │   │   ├── GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md
 │   │   ├── GMAIL_WORKSPACE_SPEC.md
 │   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-│   │   └── GMAIL_WORKSPACE_UX_SPEC.md
+│   │   ├── GMAIL_WORKSPACE_UX_SPEC.md
+│   │   └── GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
 │   ├── 04_product_design
 │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── operational_workflow.md
-│   │   └── playground-runtime-architecture.md
+│   │   ├── playground-runtime-architecture.md
+│   │   ├── PM_CODEX_EXECUTION_SYSTEM.md
+│   │   └── PM_ONBOARDING_BRIEF.md
 │   ├── 05_operational_playbooks
 │   │   ├── daily_checklist.md
 │   │   ├── monthly_checklist.md
@@ -81,22 +86,44 @@
 │   │   ├── automation_map.md
 │   │   ├── phase1_clarify_spec.md
 │   │   ├── project_structure.txt
-│   │   └── schema_comparison_checklist.md
-│   └── 08_codex_instructions
-│       ├── CODEX_ARCHITECTURE_LOCK.md
-│       ├── CODEX_DEBUG_PLAYBOOK.md
-│       ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
-│       ├── CODEX_EXECUTION_CHECKLIST.md
-│       ├── CODEX_EXECUTION_RULES.md
-│       ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
-│       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
-│       ├── CODEX_PHASE_EXECUTION_PLAN.md
-│       ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
-│       ├── CODEX_PM_REVIEW_PACKET_SPEC.md
-│       ├── CODEX_REBUILD_PROTOCOL.md
-│       ├── CODEX_RELIABILITY_SYSTEM.md
-│       ├── CODEX_SESSION_START_PROMPT.md
-│       └── CODEX_SOURCE_OF_TRUTH.md
+│   │   ├── schema_comparison_checklist.md
+│   │   └── SYSTEM_MEMORY_MAP.md
+│   ├── 08_codex_instructions
+│   │   ├── CODEX_ARCHITECTURE_LOCK.md
+│   │   ├── CODEX_DEBUG_PLAYBOOK.md
+│   │   ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
+│   │   ├── CODEX_EXECUTION_CHECKLIST.md
+│   │   ├── CODEX_EXECUTION_RULES.md
+│   │   ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
+│   │   ├── CODEX_MASTER_INSTRUCTION_PACKET.md
+│   │   ├── CODEX_PHASE_EXECUTION_PLAN.md
+│   │   ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
+│   │   ├── CODEX_PM_REVIEW_PACKET_SPEC.md
+│   │   ├── CODEX_REBUILD_PROTOCOL.md
+│   │   ├── CODEX_RELIABILITY_SYSTEM.md
+│   │   ├── CODEX_SESSION_START_PROMPT.md
+│   │   ├── CODEX_SOURCE_OF_TRUTH.md
+│   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+│   └── visuals
+│       ├── Agent Next Training Suggestion Prompt.png
+│       ├── Agent Playground.png
+│       ├── Agent Summary.png
+│       ├── Agents.png
+│       ├── Automations Tab.png
+│       ├── Cleanup Groups.png
+│       ├── Confirmation.png
+│       ├── Dashboard.png
+│       ├── Executed Actions.png
+│       ├── Fine Tune Dataset Preview p1.png
+│       ├── Fine Tune Dataset Preview p2.png
+│       ├── Mailbox Intelligence.png
+│       ├── Management.png
+│       ├── New Agent Prompt.png
+│       ├── Pending Approvals.png
+│       ├── PM_VISUAL_REFERENCE.md
+│       ├── Review Timeline.png
+│       ├── Sender Decisions.png
+│       └── Settings Tab.png
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
 ├── package.json
@@ -125,8 +152,6 @@
     │   │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
     │   │   ├── 10_CODEX_SESSION_CHECKLIST.md
     │   │   └── agent_activation_checklist.md
-    │   ├── 00_MASTER_PROJECT.md
-    │   ├── 01_ARCHITECT_CONTEXT.md
     │   ├── 01_workspace_architecture
     │   │   ├── AI_WORKSPACE_ARCHITECTURE.md
     │   │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
@@ -141,41 +166,53 @@
     │   │   ├── AI_WORKSPACE_AGENT_EXECUTION_ENGINE.md
     │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
     │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
-    │   ├── 02_FRONTEND_CONTEXT.md
-    │   ├── 03_BACKEND_CONTEXT.md
     │   ├── 03_gmail_workspace
     │   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
     │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
     │   │   ├── GMAIL_WORKSPACE_CODEX_SAFEGUARDS.md
+    │   │   ├── GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_DECISION_UI_FLOW.md
     │   │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_HEALTH_ENGINE.md
     │   │   ├── GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md
+    │   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_ALGORITHM_MODEL.md
+    │   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_INBOX_INGESTION_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_ORCHESTRATOR.md
+    │   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_SYSTEM_INDEX.md
     │   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_PHASE_PLAN.md
     │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md
     │   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
+    │   │   ├── GMAIL_WORKSPACE_RECOMMENDATION_ENGINE_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_SELF_LEARNING_INBOX_INTELLIGENCE_PIPELINE.md
+    │   │   ├── GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md
     │   │   ├── GMAIL_WORKSPACE_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-    │   │   └── GMAIL_WORKSPACE_UX_SPEC.md
+    │   │   ├── GMAIL_WORKSPACE_UX_SPEC.md
+    │   │   └── GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
     │   ├── 04_product_design
     │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
     │   │   ├── operational_workflow.md
-    │   │   └── playground-runtime-architecture.md
-    │   ├── 04_WORKFLOWS_CONTEXT.md
-    │   ├── 05_LLM_TRAINER_CONTEXT.md
+    │   │   ├── playground-runtime-architecture.md
+    │   │   ├── PM_CODEX_EXECUTION_SYSTEM.md
+    │   │   └── PM_ONBOARDING_BRIEF.md
     │   ├── 05_operational_playbooks
     │   │   ├── daily_checklist.md
     │   │   ├── monthly_checklist.md
     │   │   ├── troubleshooting_recovery.md
     │   │   └── weekly_checklist.md
-    │   ├── 06_AVATAR_VOICE_CONTEXT.md
     │   ├── 06_system_state
     │   │   ├── ARCHIVE_TODO_HISTORY.md
     │   │   ├── CHANGELOG.md
     │   │   ├── CURRENT_STATE.md
     │   │   └── TODO.md
-    │   ├── 07_PROJECT_MANAGER_CONTEXT.md
     │   ├── 07_reference
     │   │   ├── AI_WORKSPACE_ACTION_MODEL.md
     │   │   ├── AI_WORKSPACE_DATA_MODEL.md
@@ -188,7 +225,8 @@
     │   │   ├── automation_map.md
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
-    │   │   └── schema_comparison_checklist.md
+    │   │   ├── schema_comparison_checklist.md
+    │   │   └── SYSTEM_MEMORY_MAP.md
     │   ├── 08_codex_instructions
     │   │   ├── CODEX_ARCHITECTURE_LOCK.md
     │   │   ├── CODEX_DEBUG_PLAYBOOK.md
@@ -203,52 +241,28 @@
     │   │   ├── CODEX_REBUILD_PROTOCOL.md
     │   │   ├── CODEX_RELIABILITY_SYSTEM.md
     │   │   ├── CODEX_SESSION_START_PROMPT.md
-    │   │   └── CODEX_SOURCE_OF_TRUTH.md
-    │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
-    │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
-    │   ├── 10_CODEX_SESSION_CHECKLIST.md
-    │   ├── agent_activation_checklist.md
-    │   ├── AGENT_MEMORY_AND_DECISION_ENGINE.md
-    │   ├── AI_AGENT_RUNTIME.md
-    │   ├── AI_WORKSPACE_ACTION_MODEL.md
-    │   ├── AI_WORKSPACE_AGENT_BEHAVIOR.md
-    │   ├── AI_WORKSPACE_AGENT_EXECUTION_ENGINE.md
-    │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
-    │   ├── AI_WORKSPACE_ARCHITECTURE.md
-    │   ├── AI_WORKSPACE_DATA_MODEL.md
-    │   ├── AI_WORKSPACE_EVENT_MODEL.md
-    │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
-    │   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
-    │   ├── AI_WORKSPACE_MASTER_BLUEPRINT.md
-    │   ├── AI_WORKSPACE_PRODUCT_ARCHITECTURE.md
-    │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
-    │   ├── AI_WORKSPACE_QUERY_PATTERNS.md
-    │   ├── AI_WORKSPACE_RAG_PIPELINE.md
-    │   ├── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
-    │   ├── AI_WORKSPACE_SYSTEM_INDEX.md
-    │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
-    │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
-    │   ├── ARCHIVE_TODO_HISTORY.md
-    │   ├── automation_map.md
-    │   ├── CHANGELOG.md
-    │   ├── CURRENT_STATE.md
-    │   ├── daily_checklist.md
-    │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
-    │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
-    │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
-    │   ├── GMAIL_WORKSPACE_SPEC.md
-    │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-    │   ├── monthly_checklist.md
-    │   ├── operational_workflow
-    │   ├── operational_workflow.md
-    │   ├── phase1_clarify_spec.md
-    │   ├── playground-runtime-architecture.md
-    │   ├── project_structure.txt
-    │   ├── schema_comparison_checklist.md
-    │   ├── system_overview.md
-    │   ├── TODO.md
-    │   ├── troubleshooting_recovery.md
-    │   └── weekly_checklist.md
+    │   │   ├── CODEX_SOURCE_OF_TRUTH.md
+    │   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+    │   └── visuals
+    │       ├── Agent Next Training Suggestion Prompt.png
+    │       ├── Agent Playground.png
+    │       ├── Agent Summary.png
+    │       ├── Agents.png
+    │       ├── Automations Tab.png
+    │       ├── Cleanup Groups.png
+    │       ├── Confirmation.png
+    │       ├── Dashboard.png
+    │       ├── Executed Actions.png
+    │       ├── Fine Tune Dataset Preview p1.png
+    │       ├── Fine Tune Dataset Preview p2.png
+    │       ├── Mailbox Intelligence.png
+    │       ├── Management.png
+    │       ├── New Agent Prompt.png
+    │       ├── Pending Approvals.png
+    │       ├── PM_VISUAL_REFERENCE.md
+    │       ├── Review Timeline.png
+    │       ├── Sender Decisions.png
+    │       └── Settings Tab.png
     ├── eslint.config.mjs
     ├── next-env.d.ts
     ├── next.config.ts
@@ -340,6 +354,7 @@
     │   │   │   │   ├── confidence
     │   │   │   │   ├── eligibility
     │   │   │   │   ├── execute
+    │   │   │   │   ├── gmail-destinations
     │   │   │   │   ├── gmail-memory
     │   │   │   │   ├── mode
     │   │   │   │   └── plan
@@ -447,4 +462,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-111 directories, 337 files
+114 directories, 349 files

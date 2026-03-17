@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 15, 2026_
+_Last Updated: March 16, 2026_
 
 ---
 
@@ -75,11 +75,37 @@ Current Gmail cleanup architecture:
 - Phase 1 cache invalidation for the active Gmail cleanup workflow now keys off the cleanup snapshot itself:
   - `runtime_cleanup_plan.generated_at`
   - not broader mailbox-profile freshness during normal navigation
+- Interactive runtime boot is now “stable snapshot first”:
+  - the latest cached runtime snapshot is served immediately on interactive Phase 1 routes
+  - runtime refresh is no longer triggered just because the local cache aged past a short TTL
+  - post-boot refresh now depends on missing snapshot, zero-cluster recovery, or real indexed snapshot change
 - Mailbox Intelligence and Cleanup Groups now prefer exact warm cached intelligence payloads before issuing new requests.
 - Mailbox Intelligence and Cleanup Groups now reuse the same cached intelligence payload client-side, preventing repeated mailbox recomputation during navigation.
+- Mailbox Intelligence cold-load behavior is now more defensive:
+  - indexed mailbox row paging is concurrent and shared on the cold server path instead of strictly sequential
+  - mailbox-context / derived-workspace server caches now key off the indexed mailbox snapshot (counts/date span) rather than cleanup-plan timestamp churn alone
+  - the Intelligence page can render a runtime-backed mission boot state before the full mailbox-intelligence payload is ready
 - Mailbox Intelligence is now intentionally high-level only:
   - sender-specific analytics have moved into Sender Decisions
   - cleanup groups are previewed there, but the full cleanup-group selection surface remains on the Cleanup Groups page
+  - low-value technical scope details such as `loaded preview rows` are now demoted on the high-level surfaces so Mailbox Intelligence reads like a mission dashboard instead of a debug view
+- Mailbox Intelligence now behaves more explicitly like mission control:
+  - current status, inbox health, progress, next recommended action, top risk, started work, resume work, and approval queue lead the page
+  - sender counts outrank raw mailbox/message counts
+  - the page now previews only the single top recommended cleanup group as a handoff into Cleanup Groups rather than acting like a second cluster-selection surface
+  - the Intelligence page no longer shows its scope ladder or older telemetry-heavy lower dashboard sections
+  - the lower half is now reduced to one `Inbox Health Outlook` explanation layer plus a compact Cleanup Groups handoff
+  - the only remaining supporting visual is a compact pressure-trend chart so the page feels like mission control, not a sender drill-down analytics surface
+- Cleanup Groups is now more clearly the full sender-group selection surface:
+  - Mailbox Intelligence previews only the top recommended group plus a direct CTA into Cleanup Groups
+  - Cleanup Group cards can expose lightweight sender context / cautions without turning into the full Sender Decisions workspace
+- Sender Decisions is now more clearly the drill-down workspace:
+  - cluster-specific briefing at the top
+  - sender analytics stay on this page
+  - sender profile / caution context is more prominent directly on the sender cards
+- Confirmation wording now reads as a cleaner Phase 1 review surface:
+  - `Archive` = executes now after approval
+  - `Keep`, `Quarantine`, `Unsubscribe`, and `Custom Rule` = saved-later Phase 1 preferences only
 - Gmail cleanup client caching now includes:
   - in-memory reuse
   - sessionStorage mirror for same-session returns
@@ -107,6 +133,7 @@ Current Gmail cleanup architecture:
   - filtered pagination metadata
 - Direct review reliability is stronger:
   - missing/stale `cluster_id` now resolves to a recommended cleanup group automatically
+  - direct entry waits for that recommended-cluster resolution instead of starting sender-workspace work for a fallback cluster first
   - Sender Decisions no longer depends on manual refresh to escape an empty direct-entry route
 - Sender Decisions interaction hardening now includes:
   - debounced sender search
@@ -139,10 +166,43 @@ Current Gmail cleanup architecture:
 - Cleanup-discovery refresh is now more conservative during navigation:
   - normal rehydrate flows do not rebuild just because the stale TTL expired
   - navigation refresh now keys off actual indexed snapshot changes instead of sync timestamp movement alone
+  - the server runtime state service now uses the same material-advance rule, so background sync timestamp changes alone do not hijack interactive routes
 - Confirmation now supports Phase 1-safe editing:
   - change stored sender decision
   - clear stored decision
   - jump back into Sender Decisions for that sender
+- Gmail cleanup now has the first Decision Destinations foundation layer after Confirmation:
+  - approving Confirmation decisions commits durable sender destination states directly
+  - destination states currently include:
+    - `KEEP`
+    - `ARCHIVE`
+    - `QUARANTINE`
+    - `UNSUBSCRIBE`
+    - `CUSTOM_RULE`
+  - sender profiles are now scaffolded in Gmail memory with:
+    - sender identity
+    - trust signals snapshot
+    - current destination state
+    - destination history
+    - execution state
+    - execution warning
+    - last action timestamp
+  - archive decisions now attempt direct Gmail archive execution immediately after the destination-state commit
+  - execution truth is now separate from destination truth:
+    - destination commit does not automatically imply archive execution success
+    - archive can now surface as `succeeded`, `failed`, `deferred`, or `not_applicable`
+    - `succeeded` is only allowed once inbox-label removal is actually confirmed against Gmail
+  - archive destination profiles now retain the targeted archive message ids needed for truthful restore
+  - `/operations/management` now supports a real archive restore path:
+    - restore re-adds the `INBOX` label to the stored archive scope
+    - restore must be verified before the archive destination state is cleared
+    - if restore cannot be confirmed, the destination state remains active with a truthful warning state
+  - the post-confirmation management scaffold now exists at `/operations/management`
+  - the Gmail cleanup left rail now promotes `Management` as the post-confirmation destination surface and demotes approval/history pages into legacy audit status
+  - this is still a structural layer only:
+    - no full rule engine
+    - no unsubscribe executor
+    - no monitoring workflow activation
 - Gmail cleanup learning is now wired end-to-end:
   - sender decisions persisted to `agent_events`
   - rule intents persisted to `agent_events`
@@ -267,6 +327,131 @@ Current Gmail Operations hardening status:
 - Initial review paint now defers non-critical sender intelligence and rule enrichment until the operator expands sender details or explicitly requests deeper sender analysis.
 - Cleanup discovery logs now expose detailed timing subphases and runtime-state timing includes `cleanup_plan_detail_ms`, making long background regenerate paths diagnosable without Supabase inspection.
 - Background cleanup refresh can skip a fresh mailbox index sync when a recent usable indexed state already exists, so repeated manual regenerate actions do less redundant index work.
+
+---
+
+## 🎯 Mailbox Intelligence — Command Dashboard Contract (Phase 1)
+
+This defines how the **Mailbox Intelligence page MUST behave**.
+
+### Core Goal (Non-Negotiable)
+A "clean inbox" is NOT zero messages.
+A clean inbox = **every sender has a decision**.
+
+Primary metric:
+- Sender Decision Coverage = decided_senders / total_indexed_senders
+
+Message counts are **impact only**, never the definition of cleanliness.
+
+---
+
+### Required Story Flow (Top → Bottom)
+The page MUST answer, within 3–5 seconds:
+
+1. What is the size of my problem?
+2. How clean is my inbox?
+3. What is blocking progress?
+4. What do I do next?
+5. What happens if I do it?
+
+---
+
+### Required Sections (Locked Order)
+
+1. Inbox Health (visual first)
+2. Global Scale (senders + messages)
+3. Cleanliness Goal (sender coverage)
+4. Mission Control (AI briefing)
+5. Pressure Trend (time-based signal)
+6. Cleanup Groups Handoff (single next step only)
+
+NO duplicate downstream dashboards.
+NO Cleanup Groups exploration here.
+
+---
+
+### Visual Intelligence Rules
+
+Every metric MUST have:
+- a visual representation
+- a clear denominator
+- an explanation of meaning
+
+If a visual does NOT add meaning → remove it.
+
+Hover behavior MUST:
+- add NEW information
+- NEVER repeat visible text
+
+---
+
+### Interaction Rules
+
+If the system tells the user to do something →
+THERE MUST BE A BUTTON.
+
+Examples:
+- "Approve archive queue" → button required
+- "Resume work" → strong CTA styling required
+- "Open cleanup group" → direct action
+
+No passive instructions.
+
+---
+
+### Pressure Trend Rules
+
+- Must be FULL WIDTH
+- Must be BAR-based (not thin lines)
+- Hover must show:
+  - exact period values
+  - previous period values
+  - delta
+  - dominant sender group
+  - recommended action
+
+Numbers alone are NOT enough.
+
+---
+
+### Management Signals (Required Next Integration)
+Mailbox Intelligence MUST eventually surface:
+- archive count
+- quarantine count
+- unsubscribe count
+- custom-rule count
+- restore activity
+
+These are the **true system outcomes**.
+
+---
+
+### Anti-Patterns (Strictly Disallowed)
+
+- Repeating the same data in multiple places
+- Showing percentages without denominators
+- Mixing "index health" with "inbox health"
+- Hover states that duplicate visible text
+- Large empty visual areas
+- Non-clickable next steps
+
+---
+
+### Codex UI Enforcement Rule (CRITICAL)
+
+Every UI Codex prompt MUST include:
+
+"Before changing UI, read:
+- GMAIL_WORKSPACE_UI_STRUCTURE.md
+- GMAIL_WORKSPACE_UX_SPEC.md
+- GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
+- Gmail Workspace Intelligent Dashboard spec
+
+Do NOT introduce new UI patterns.
+Only extend existing patterns.
+If unclear, match existing layout and hierarchy exactly."
+
+This prevents regression and UI drift.
 
 ---
 
@@ -654,6 +839,33 @@ Thread naming guidance:
 Current operating convention:
 - Multi-file code work = Codex
 - Single-file doc or constrained one-file edits = direct ChatGPT edit
+
+
+### 🧪 PM UI Review Protocol (Enforced)
+
+UI testing must follow a tight loop:
+
+1. Cold load
+2. Warm load
+3. Click only new/changed elements
+4. Report ONLY:
+   - pass/fail
+   - what changed
+   - what broke
+
+Do NOT re-review entire system.
+Do NOT repeat previous feedback.
+
+PM is responsible for:
+- interpreting screenshots
+- mapping to spec
+- generating next Codex instruction
+
+Operator only provides:
+- screenshots
+- minimal behavior notes
+
+This keeps iteration speed high.
 
 ## 📁 Key Folders
 /ai-agent-platform

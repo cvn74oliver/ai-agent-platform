@@ -249,6 +249,61 @@ Codex must:
 
 ---
 
+## UI SPEC LOCK RULE
+
+When implementing or modifying any user-facing interface, Codex must treat the
+Visual Intelligence specification as a mandatory source of truth.
+
+The following document must always be consulted before writing UI code:
+
+gmail-workspace-visual-intelligence-spec.md
+
+This rule applies to:
+
+- Mailbox Intelligence
+- Cleanup Groups
+- Sender Decisions
+- Confirmation
+- Management
+- Any future Gmail Workspace visual surface
+
+### Required Process
+
+Before modifying UI:
+
+1. Read the relevant section of `gmail-workspace-visual-intelligence-spec.md`.
+2. Identify the visual components required by the spec.
+3. Confirm that the proposed implementation follows the defined layout,
+   hierarchy, and interaction model.
+
+### Required Output
+
+Any UI implementation must include a **Spec Alignment section** in the PM Review Packet explaining:
+
+- Which spec section was implemented
+- Which visual components were created or updated
+- How the layout matches the spec hierarchy
+
+Example:
+
+Spec Alignment:
+- Implemented Mailbox Intelligence visual layer from gmail-workspace-visual-intelligence-spec.md
+- Added Inbox Health Gauge as the primary hero visual
+- Implemented Pressure Trend chart as full-width trend visualization
+- Implemented Cleanup Opportunity distribution chart
+
+### Forbidden Behavior
+
+Codex must NOT:
+
+- invent new visual layouts that conflict with the spec
+- replace existing visual patterns with different ones without explanation
+- change component hierarchy defined in the visual intelligence spec
+
+If Codex believes the spec should change, it must propose a **Spec Revision** instead of silently deviating from it.
+
+----
+
 # Final Rule
 
 Codex is allowed to build **within** the architecture.

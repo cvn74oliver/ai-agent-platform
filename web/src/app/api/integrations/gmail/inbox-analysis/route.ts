@@ -14,6 +14,7 @@ import {
 import {
   loadGmailConfirmationPreviewForTenant,
   loadGmailMailboxIntelligenceForTenant,
+  loadGmailPressureTrendForTenant,
   loadGmailSenderWorkspaceForTenant,
 } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
 
@@ -355,6 +356,79 @@ export async function POST(req: Request) {
         cleanup_candidate_messages: intelligence.data.cleanup_candidate_universe.message_count,
       })
       return NextResponse.json({ ok: true, data: intelligence.data })
+    }
+
+    if (action === 'mailbox_pressure_trend') {
+      const cacheVersion =
+        typeof body?.cache_version === 'string' && body.cache_version.trim()
+          ? body.cache_version.trim()
+          : null
+      const pressureWindow =
+        body?.pressure_window === 'all_indexed' ||
+        body?.pressure_window === 'last_year' ||
+        body?.pressure_window === 'last_quarter' ||
+        body?.pressure_window === 'last_month' ||
+        body?.pressure_window === 'last_week' ||
+        body?.pressure_window === 'last_day' ||
+        body?.pressure_window === 'custom'
+          ? body.pressure_window
+          : 'all_indexed'
+      const pressureStart =
+        typeof body?.pressure_start === 'string' && body.pressure_start.trim()
+          ? body.pressure_start.trim()
+          : null
+      const pressureEnd =
+        typeof body?.pressure_end === 'string' && body.pressure_end.trim()
+          ? body.pressure_end.trim()
+          : null
+      const timeZone =
+        typeof body?.time_zone === 'string' && body.time_zone.trim()
+          ? body.time_zone.trim()
+          : null
+      const rawClusters = Array.isArray(body?.clusters)
+        ? body.clusters.filter(
+            (
+              entry
+            ): entry is {
+              cluster_id: string
+              cluster_type: string
+              title: string
+              query: string
+              why_selected?: string
+              risk_note?: string
+              safety_note?: string
+            } =>
+              typeof entry === 'object' &&
+              entry !== null &&
+              typeof (entry as { cluster_id?: unknown }).cluster_id === 'string' &&
+              typeof (entry as { cluster_type?: unknown }).cluster_type === 'string' &&
+              typeof (entry as { title?: unknown }).title === 'string' &&
+              typeof (entry as { query?: unknown }).query === 'string'
+          )
+        : []
+
+      const trend = await loadGmailPressureTrendForTenant({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+        cacheVersion,
+        clusters: rawClusters,
+        pressureWindow,
+        pressureStart,
+        pressureEnd,
+        timeZone,
+      })
+
+      if (!trend.ok) {
+        logRequest(trend.status, false, { cluster_count: rawClusters.length, pressure_window: pressureWindow })
+        return NextResponse.json({ error: trend.error }, { status: trend.status })
+      }
+
+      logRequest(200, true, {
+        cluster_count: rawClusters.length,
+        pressure_window: pressureWindow,
+        series_count: trend.data.series.length,
+      })
+      return NextResponse.json({ ok: true, data: trend.data })
     }
 
     if (action === 'sender_workspace') {

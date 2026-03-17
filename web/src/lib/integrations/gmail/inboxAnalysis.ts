@@ -7,6 +7,12 @@ import {
   type GmailMailboxIndexSyncResult,
   type GmailMailboxIndexRow,
 } from '@/lib/integrations/gmail/gmailMailboxIndexer'
+import type {
+  GmailPressureTrendBucket,
+  GmailPressureTrendData,
+  GmailPressureTrendGrouping,
+  GmailPressureTrendWindow,
+} from '@/lib/runtime/gmailCleanupWorkspace'
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 const GMAIL_MESSAGES_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages'
@@ -26,6 +32,10 @@ const QUERY_CLUSTER_REVIEW_UNIT_MAX_MESSAGES = 2_000
 const QUERY_CLUSTER_FAST_PATH_FETCH_LIMIT = 5_000
 const QUERY_CLUSTER_MATCH_CACHE_TTL_MS = 1000 * 60 * 5
 const CLEANUP_GROUP_INTELLIGENCE_CACHE_TTL_MS = 1000 * 60 * 2
+const GMAIL_BATCH_MODIFY_CHUNK_SIZE = 100
+const GMAIL_BATCH_MODIFY_CONCURRENCY = 4
+const GMAIL_VERIFY_DEFAULT_CONCURRENCY = 120
+const GMAIL_VERIFY_MAX_CONCURRENCY = 200
 
 const INBOX_READ_SCOPE_SUFFIXES = new Set(['/gmail.readonly', '/gmail.metadata', '/gmail.modify'])
 const INBOX_MODIFY_SCOPE_SUFFIXES = new Set(['/gmail.modify'])
@@ -109,6 +119,11 @@ type GoogleRefreshTokenResponse = {
   access_token?: string
   error?: string
   error_description?: string
+}
+
+export type GmailTenantAccessContext = {
+  accessToken: string
+  refreshToken: string
 }
 
 type GmailMessagesListResponse = {
@@ -334,6 +349,19 @@ export type GmailQueryClusterBrowserResult =
   | { ok: true; data: GmailQueryClusterBrowserData }
   | GmailReadFailure
 
+export type GmailPressureTimelineComposition = {
+  label: string
+  count: number
+  share_pct: number
+}
+
+export type GmailPressureTimelineEvidenceSignal = {
+  label: string
+  count: number
+  share_pct: number
+  exactness: 'actual' | 'inferred'
+}
+
 export type GmailCleanupGroupIntelligenceData = {
   analysis_scope: GmailAnalysisScope
   effective_discovery_window_days: 7 | 30 | 60 | 90 | 180 | 365 | 'all_indexed'
@@ -359,6 +387,8 @@ export type GmailCleanupGroupIntelligenceData = {
   activity_timeline: Array<{
     label: string
     count: number
+    composition: GmailPressureTimelineComposition[]
+    evidence_signals: GmailPressureTimelineEvidenceSignal[]
   }>
   activity_timeline_granularity: 'week' | 'month'
   category_breakdown: Array<{
@@ -485,6 +515,31 @@ export type GmailArchiveMessagesData = {
 
 export type GmailArchiveMessagesResult =
   | { ok: true; data: GmailArchiveMessagesData }
+  | GmailReadFailure
+
+export type GmailInboxLabelMutationResult =
+  | {
+      ok: true
+      data: {
+        requested_count: number
+        accepted_count: number
+        accepted_message_ids: string[]
+        failed_message_ids: string[]
+        partial_failure: boolean
+      }
+    }
+  | GmailReadFailure
+
+export type GmailInboxStateVerificationResult =
+  | {
+      ok: true
+      data: {
+        expected_in_inbox: boolean
+        verified_message_ids: string[]
+        unresolved_message_ids: string[]
+        warning: string | null
+      }
+    }
   | GmailReadFailure
 
 export type GmailCleanupClusterType =
@@ -1561,6 +1616,754 @@ function intelligenceCategoryLabel(row: GmailMailboxIndexRow): string {
   return classifySenderPatternFromSubject(row.subject)
 }
 
+function normalizePressureMixCategory(label: string): string {
+  if (label === 'Promotions' || label === 'Newsletter / promotional') {
+    return 'Newsletter promotions'
+  }
+  if (label === 'Invoices / receipts' || label === 'Commerce / shipping updates') {
+    return 'Commerce / shipping updates'
+  }
+  if (label === 'Alerts / security') return 'Alerts / security'
+  if (label === 'Human correspondence') return 'Human correspondence'
+  return 'General updates'
+}
+
+function buildPressureEvidenceSignals(params: {
+  total: number
+  machineLikeCount: number
+  humanLikeCount: number
+  protectedCount: number
+}): GmailPressureTimelineEvidenceSignal[] {
+  const share = (count: number) =>
+    params.total > 0 ? Math.round((count / params.total) * 100) : 0
+
+  return [
+    {
+      label: 'Machine-likely correspondence',
+      count: params.machineLikeCount,
+      share_pct: share(params.machineLikeCount),
+      exactness: 'inferred' as const,
+    },
+    {
+      label: 'Human-likely correspondence',
+      count: params.humanLikeCount,
+      share_pct: share(params.humanLikeCount),
+      exactness: 'inferred' as const,
+    },
+    {
+      label: 'Protected evidence',
+      count: params.protectedCount,
+      share_pct: share(params.protectedCount),
+      exactness: 'actual' as const,
+    },
+  ].filter((item) => item.count > 0)
+}
+
+const PRESSURE_TREND_MS_PER_HOUR = 60 * 60 * 1000
+const PRESSURE_TREND_MS_PER_DAY = 24 * PRESSURE_TREND_MS_PER_HOUR
+const PRESSURE_TREND_MAX_BUCKETS = 512
+
+type PressureTrendCoverage = {
+  indexed_total_rows: number
+  indexed_inbox_rows: number
+  indexed_date_span_start: string | null
+  indexed_date_span_end: string | null
+}
+
+type PressureTrendZonedParts = {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+  second: number
+}
+
+type PressureTrendResolvedWindow = {
+  grouping: GmailPressureTrendGrouping
+  label: string
+  requestedStart: string | null
+  requestedEnd: string | null
+  effectiveStartMs: number | null
+  effectiveEndExclusiveMs: number | null
+  limitedByIndexedCoverage: boolean
+  timeZone: string
+}
+
+const pressureTrendDateTimeFormatters = new Map<string, Intl.DateTimeFormat>()
+const pressureTrendWeekdayFormatters = new Map<string, Intl.DateTimeFormat>()
+const pressureTrendHourLabelFormatters = new Map<string, Intl.DateTimeFormat>()
+const pressureTrendDayLabelFormatters = new Map<string, Intl.DateTimeFormat>()
+const pressureTrendMonthLabelFormatters = new Map<string, Intl.DateTimeFormat>()
+
+const PRESSURE_TREND_WEEKDAY_INDEX: Record<string, number> = {
+  Mon: 0,
+  Tue: 1,
+  Wed: 2,
+  Thu: 3,
+  Fri: 4,
+  Sat: 5,
+  Sun: 6,
+}
+
+function safePressureTrendTimeZone(value: string | null | undefined): string {
+  const normalized = typeof value === 'string' && value.trim() ? value.trim() : 'UTC'
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: normalized }).format(new Date())
+    return normalized
+  } catch {
+    return 'UTC'
+  }
+}
+
+function pressureTrendDateTimeFormatter(timeZone: string): Intl.DateTimeFormat {
+  const cached = pressureTrendDateTimeFormatters.get(timeZone)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  })
+  pressureTrendDateTimeFormatters.set(timeZone, formatter)
+  return formatter
+}
+
+function pressureTrendWeekdayFormatter(timeZone: string): Intl.DateTimeFormat {
+  const cached = pressureTrendWeekdayFormatters.get(timeZone)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+  })
+  pressureTrendWeekdayFormatters.set(timeZone, formatter)
+  return formatter
+}
+
+function pressureTrendHourLabelFormatter(timeZone: string): Intl.DateTimeFormat {
+  const cached = pressureTrendHourLabelFormatters.get(timeZone)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
+  pressureTrendHourLabelFormatters.set(timeZone, formatter)
+  return formatter
+}
+
+function pressureTrendDayLabelFormatter(timeZone: string): Intl.DateTimeFormat {
+  const cached = pressureTrendDayLabelFormatters.get(timeZone)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+  })
+  pressureTrendDayLabelFormatters.set(timeZone, formatter)
+  return formatter
+}
+
+function pressureTrendMonthLabelFormatter(timeZone: string): Intl.DateTimeFormat {
+  const cached = pressureTrendMonthLabelFormatters.get(timeZone)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: 'short',
+    year: 'numeric',
+  })
+  pressureTrendMonthLabelFormatters.set(timeZone, formatter)
+  return formatter
+}
+
+function pressureTrendPartsAt(utcMs: number, timeZone: string): PressureTrendZonedParts {
+  const parts = pressureTrendDateTimeFormatter(timeZone).formatToParts(new Date(utcMs))
+  const read = (type: Intl.DateTimeFormatPartTypes): number => {
+    const value = parts.find((part) => part.type === type)?.value || '0'
+    return Number.parseInt(value, 10) || 0
+  }
+
+  return {
+    year: read('year'),
+    month: read('month'),
+    day: read('day'),
+    hour: read('hour'),
+    minute: read('minute'),
+    second: read('second'),
+  }
+}
+
+function pressureTrendTimeZoneOffsetMs(utcMs: number, timeZone: string): number {
+  const normalizedUtcMs = Math.floor(utcMs / 1000) * 1000
+  const parts = pressureTrendPartsAt(normalizedUtcMs, timeZone)
+  const asUtcMs = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  )
+  return asUtcMs - normalizedUtcMs
+}
+
+function pressureTrendLocalDateTimeToUtcMs(
+  parts: PressureTrendZonedParts,
+  timeZone: string
+): number {
+  const guessUtcMs = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  )
+  const firstOffset = pressureTrendTimeZoneOffsetMs(guessUtcMs, timeZone)
+  let resolvedUtcMs = guessUtcMs - firstOffset
+  const secondOffset = pressureTrendTimeZoneOffsetMs(resolvedUtcMs, timeZone)
+  if (secondOffset !== firstOffset) {
+    resolvedUtcMs = guessUtcMs - secondOffset
+  }
+  return resolvedUtcMs
+}
+
+function pressureTrendShiftLocalParts(
+  parts: PressureTrendZonedParts,
+  grouping: GmailPressureTrendGrouping,
+  amount: number
+): PressureTrendZonedParts {
+  const shifted = new Date(
+    Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
+  )
+  if (grouping === 'hour') shifted.setUTCHours(shifted.getUTCHours() + amount)
+  else if (grouping === 'day') shifted.setUTCDate(shifted.getUTCDate() + amount)
+  else if (grouping === 'week') shifted.setUTCDate(shifted.getUTCDate() + amount * 7)
+  else if (grouping === 'month') shifted.setUTCMonth(shifted.getUTCMonth() + amount)
+  else if (grouping === 'quarter') shifted.setUTCMonth(shifted.getUTCMonth() + amount * 3)
+  else shifted.setUTCFullYear(shifted.getUTCFullYear() + amount)
+
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: grouping === 'hour' ? shifted.getUTCHours() : 0,
+    minute: 0,
+    second: 0,
+  }
+}
+
+function pressureTrendWeekdayIndex(utcMs: number, timeZone: string): number {
+  const label = pressureTrendWeekdayFormatter(timeZone).format(new Date(utcMs))
+  return PRESSURE_TREND_WEEKDAY_INDEX[label] ?? 0
+}
+
+function pressureTrendBucketStartUtcMs(
+  utcMs: number,
+  grouping: GmailPressureTrendGrouping,
+  timeZone: string
+): number {
+  const parts = pressureTrendPartsAt(utcMs, timeZone)
+  if (grouping === 'hour') {
+    return pressureTrendLocalDateTimeToUtcMs(
+      { ...parts, minute: 0, second: 0 },
+      timeZone
+    )
+  }
+  if (grouping === 'day') {
+    return pressureTrendLocalDateTimeToUtcMs(
+      { ...parts, hour: 0, minute: 0, second: 0 },
+      timeZone
+    )
+  }
+  if (grouping === 'week') {
+    const dayStart = pressureTrendLocalDateTimeToUtcMs(
+      { ...parts, hour: 0, minute: 0, second: 0 },
+      timeZone
+    )
+    const weekdayIndex = pressureTrendWeekdayIndex(dayStart, timeZone)
+    const shifted = pressureTrendShiftLocalParts(
+      { ...parts, hour: 0, minute: 0, second: 0 },
+      'day',
+      -weekdayIndex
+    )
+    return pressureTrendLocalDateTimeToUtcMs(shifted, timeZone)
+  }
+  if (grouping === 'month') {
+    return pressureTrendLocalDateTimeToUtcMs(
+      { year: parts.year, month: parts.month, day: 1, hour: 0, minute: 0, second: 0 },
+      timeZone
+    )
+  }
+  if (grouping === 'quarter') {
+    const month = Math.floor((parts.month - 1) / 3) * 3 + 1
+    return pressureTrendLocalDateTimeToUtcMs(
+      { year: parts.year, month, day: 1, hour: 0, minute: 0, second: 0 },
+      timeZone
+    )
+  }
+  return pressureTrendLocalDateTimeToUtcMs(
+    { year: parts.year, month: 1, day: 1, hour: 0, minute: 0, second: 0 },
+    timeZone
+  )
+}
+
+function pressureTrendNextBucketStartUtcMs(
+  bucketStartUtcMs: number,
+  grouping: GmailPressureTrendGrouping,
+  timeZone: string
+): number {
+  const parts = pressureTrendPartsAt(bucketStartUtcMs, timeZone)
+  const shifted = pressureTrendShiftLocalParts(
+    {
+      year: parts.year,
+      month: parts.month,
+      day: parts.day,
+      hour: grouping === 'hour' ? parts.hour : 0,
+      minute: 0,
+      second: 0,
+    },
+    grouping,
+    1
+  )
+  return pressureTrendLocalDateTimeToUtcMs(shifted, timeZone)
+}
+
+function pressureTrendBucketLabel(
+  bucketStartUtcMs: number,
+  grouping: GmailPressureTrendGrouping,
+  timeZone: string
+): string {
+  if (grouping === 'hour') {
+    return pressureTrendHourLabelFormatter(timeZone).format(new Date(bucketStartUtcMs))
+  }
+  if (grouping === 'day' || grouping === 'week') {
+    return pressureTrendDayLabelFormatter(timeZone).format(new Date(bucketStartUtcMs))
+  }
+  if (grouping === 'month') {
+    return pressureTrendMonthLabelFormatter(timeZone).format(new Date(bucketStartUtcMs))
+  }
+  if (grouping === 'quarter') {
+    const parts = pressureTrendPartsAt(bucketStartUtcMs, timeZone)
+    return `Q${Math.floor((parts.month - 1) / 3) + 1} ${parts.year}`
+  }
+  return String(pressureTrendPartsAt(bucketStartUtcMs, timeZone).year)
+}
+
+function pressureTrendLastDayWindow(nowMs: number, timeZone: string): {
+  effectiveStartMs: number
+  effectiveEndExclusiveMs: number
+} {
+  const nowParts = pressureTrendPartsAt(nowMs, timeZone)
+  const currentHourStartMs = pressureTrendLocalDateTimeToUtcMs(
+    {
+      year: nowParts.year,
+      month: nowParts.month,
+      day: nowParts.day,
+      hour: nowParts.hour,
+      minute: 0,
+      second: 0,
+    },
+    timeZone
+  )
+  const currentHourParts = pressureTrendPartsAt(currentHourStartMs, timeZone)
+  const effectiveEndExclusiveMs = pressureTrendNextBucketStartUtcMs(
+    currentHourStartMs,
+    'hour',
+    timeZone
+  )
+  const effectiveStartMs = pressureTrendLocalDateTimeToUtcMs(
+    pressureTrendShiftLocalParts(
+      {
+        year: currentHourParts.year,
+        month: currentHourParts.month,
+        day: currentHourParts.day,
+        hour: currentHourParts.hour,
+        minute: 0,
+        second: 0,
+      },
+      'hour',
+      -23
+    ),
+    timeZone
+  )
+
+  return {
+    effectiveStartMs,
+    effectiveEndExclusiveMs,
+  }
+}
+
+function pressureTrendWindowLabel(window: GmailPressureTrendWindow): string {
+  if (window === 'all_indexed') return 'All indexed history'
+  if (window === 'last_year') return 'Last year'
+  if (window === 'last_quarter') return 'Last quarter'
+  if (window === 'last_month') return 'Last month'
+  if (window === 'last_week') return 'Last week'
+  if (window === 'last_day') return 'Last day'
+  return 'Custom range'
+}
+
+function pressureTrendGroupingLabel(grouping: GmailPressureTrendGrouping): string {
+  if (grouping === 'hour') return 'Hourly bars'
+  if (grouping === 'day') return 'Daily bars'
+  if (grouping === 'week') return 'Weekly bars'
+  if (grouping === 'month') return 'Monthly bars'
+  if (grouping === 'quarter') return 'Quarterly bars'
+  return 'Yearly bars'
+}
+
+function pressureTrendAllIndexedGroupingForSpanMs(spanMs: number): GmailPressureTrendGrouping {
+  const spanDays = spanMs / PRESSURE_TREND_MS_PER_DAY
+  if (spanDays <= 548) return 'month'
+  if (spanDays <= 1825) return 'quarter'
+  return 'year'
+}
+
+function pressureTrendCustomGroupingForSpanMs(spanMs: number): GmailPressureTrendGrouping {
+  if (spanMs <= 48 * PRESSURE_TREND_MS_PER_HOUR) return 'hour'
+  if (spanMs <= 45 * PRESSURE_TREND_MS_PER_DAY) return 'day'
+  if (spanMs <= 120 * PRESSURE_TREND_MS_PER_DAY) return 'week'
+  if (spanMs <= 548 * PRESSURE_TREND_MS_PER_DAY) return 'month'
+  if (spanMs <= 1825 * PRESSURE_TREND_MS_PER_DAY) return 'quarter'
+  return 'year'
+}
+
+function pressureTrendParseDateInput(value: string | null | undefined): {
+  year: number
+  month: number
+  day: number
+} | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return null
+  const year = Number.parseInt(match[1], 10)
+  const month = Number.parseInt(match[2], 10)
+  const day = Number.parseInt(match[3], 10)
+  const validated = new Date(Date.UTC(year, month - 1, day))
+  if (
+    validated.getUTCFullYear() !== year ||
+    validated.getUTCMonth() + 1 !== month ||
+    validated.getUTCDate() !== day
+  ) {
+    return null
+  }
+  return { year, month, day }
+}
+
+function pressureTrendResolvedWindow(params: {
+  coverage: PressureTrendCoverage
+  pressureWindow: GmailPressureTrendWindow
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
+  nowMs?: number
+  rowStartMs?: number | null
+  rowEndMs?: number | null
+}): { ok: true; data: PressureTrendResolvedWindow } | { ok: false; error: string } {
+  const timeZone = safePressureTrendTimeZone(params.timeZone)
+  const nowMs = typeof params.nowMs === 'number' && Number.isFinite(params.nowMs) ? params.nowMs : Date.now()
+  const coverageStartMs = (() => {
+    const parsed = Date.parse(params.coverage.indexed_date_span_start || '')
+    if (Number.isFinite(parsed)) return parsed
+    return params.rowStartMs ?? null
+  })()
+  const coverageEndInclusiveMs = (() => {
+    const parsed = Date.parse(params.coverage.indexed_date_span_end || '')
+    if (Number.isFinite(parsed)) return parsed
+    return params.rowEndMs ?? null
+  })()
+  const coverageEndExclusiveMs =
+    coverageEndInclusiveMs != null ? coverageEndInclusiveMs + 1 : null
+  let effectiveStartMs: number | null = null
+  let effectiveEndExclusiveMs: number | null = null
+  let requestedStart: string | null = null
+  let requestedEnd: string | null = null
+  let limitedByIndexedCoverage = false
+
+  if (params.pressureWindow === 'all_indexed') {
+    effectiveStartMs = coverageStartMs
+    effectiveEndExclusiveMs = coverageEndExclusiveMs
+  } else if (params.pressureWindow === 'last_year') {
+    effectiveStartMs = nowMs - 365 * PRESSURE_TREND_MS_PER_DAY
+    effectiveEndExclusiveMs = nowMs + 1
+  } else if (params.pressureWindow === 'last_quarter') {
+    effectiveStartMs = nowMs - 90 * PRESSURE_TREND_MS_PER_DAY
+    effectiveEndExclusiveMs = nowMs + 1
+  } else if (params.pressureWindow === 'last_month') {
+    effectiveStartMs = nowMs - 30 * PRESSURE_TREND_MS_PER_DAY
+    effectiveEndExclusiveMs = nowMs + 1
+  } else if (params.pressureWindow === 'last_week') {
+    effectiveStartMs = nowMs - 7 * PRESSURE_TREND_MS_PER_DAY
+    effectiveEndExclusiveMs = nowMs + 1
+  } else if (params.pressureWindow === 'last_day') {
+    const lastDayWindow = pressureTrendLastDayWindow(nowMs, timeZone)
+    effectiveStartMs = lastDayWindow.effectiveStartMs
+    effectiveEndExclusiveMs = lastDayWindow.effectiveEndExclusiveMs
+  } else {
+    const startParts = pressureTrendParseDateInput(params.pressureStart)
+    const endParts = pressureTrendParseDateInput(params.pressureEnd)
+    if (!startParts || !endParts) {
+      return { ok: false, error: 'Custom Pressure Trend range requires valid start and end dates.' }
+    }
+    requestedStart = params.pressureStart?.trim() || null
+    requestedEnd = params.pressureEnd?.trim() || null
+    effectiveStartMs = pressureTrendLocalDateTimeToUtcMs(
+      {
+        year: startParts.year,
+        month: startParts.month,
+        day: startParts.day,
+        hour: 0,
+        minute: 0,
+        second: 0,
+      },
+      timeZone
+    )
+    effectiveEndExclusiveMs = pressureTrendLocalDateTimeToUtcMs(
+      pressureTrendShiftLocalParts(
+        {
+          year: endParts.year,
+          month: endParts.month,
+          day: endParts.day,
+          hour: 0,
+          minute: 0,
+          second: 0,
+        },
+        'day',
+        1
+      ),
+      timeZone
+    )
+    if (effectiveEndExclusiveMs <= effectiveStartMs) {
+      return { ok: false, error: 'Custom Pressure Trend end date must be on or after the start date.' }
+    }
+  }
+
+  if (coverageStartMs != null && effectiveStartMs != null && effectiveStartMs < coverageStartMs) {
+    effectiveStartMs = coverageStartMs
+    limitedByIndexedCoverage = true
+  }
+  if (
+    coverageEndExclusiveMs != null &&
+    effectiveEndExclusiveMs != null &&
+    effectiveEndExclusiveMs > coverageEndExclusiveMs
+  ) {
+    effectiveEndExclusiveMs = coverageEndExclusiveMs
+    limitedByIndexedCoverage = true
+  }
+
+  const grouping =
+    params.pressureWindow === 'all_indexed'
+      ? pressureTrendAllIndexedGroupingForSpanMs(
+          Math.max((effectiveEndExclusiveMs || 0) - (effectiveStartMs || 0), PRESSURE_TREND_MS_PER_DAY)
+        )
+      : params.pressureWindow === 'last_year'
+        ? 'month'
+        : params.pressureWindow === 'last_quarter'
+          ? 'week'
+          : params.pressureWindow === 'last_month' || params.pressureWindow === 'last_week'
+            ? 'day'
+            : params.pressureWindow === 'last_day'
+              ? 'hour'
+              : pressureTrendCustomGroupingForSpanMs(
+                  Math.max(
+                    (effectiveEndExclusiveMs || 0) - (effectiveStartMs || 0),
+                    PRESSURE_TREND_MS_PER_DAY
+                  )
+                )
+
+  return {
+    ok: true,
+    data: {
+      grouping,
+      label: pressureTrendWindowLabel(params.pressureWindow),
+      requestedStart,
+      requestedEnd,
+      effectiveStartMs,
+      effectiveEndExclusiveMs,
+      limitedByIndexedCoverage,
+      timeZone,
+    },
+  }
+}
+
+export function buildGmailPressureTrendData(params: {
+  rows: GmailMailboxIndexRow[]
+  coverage: PressureTrendCoverage
+  pressureWindow: GmailPressureTrendWindow
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
+  nowMs?: number
+}): { ok: true; data: GmailPressureTrendData } | { ok: false; error: string } {
+  const datedRows = params.rows.filter(
+    (row): row is GmailMailboxIndexRow & { internal_date_ms: number } =>
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+  )
+  let rowStartMs: number | null = null
+  let rowEndMs: number | null = null
+  for (const row of datedRows) {
+    if (rowStartMs == null || row.internal_date_ms < rowStartMs) {
+      rowStartMs = row.internal_date_ms
+    }
+    if (rowEndMs == null || row.internal_date_ms > rowEndMs) {
+      rowEndMs = row.internal_date_ms
+    }
+  }
+  const resolvedWindow = pressureTrendResolvedWindow({
+    coverage: params.coverage,
+    pressureWindow: params.pressureWindow,
+    pressureStart: params.pressureStart,
+    pressureEnd: params.pressureEnd,
+    timeZone: params.timeZone,
+    nowMs: params.nowMs,
+    rowStartMs,
+    rowEndMs,
+  })
+  if (!resolvedWindow.ok) return resolvedWindow
+
+  const { grouping, label, requestedStart, requestedEnd, effectiveStartMs, effectiveEndExclusiveMs, limitedByIndexedCoverage, timeZone } =
+    resolvedWindow.data
+
+  if (
+    effectiveStartMs == null ||
+    effectiveEndExclusiveMs == null ||
+    effectiveEndExclusiveMs <= effectiveStartMs
+  ) {
+    return {
+      ok: true,
+      data: {
+        window: {
+          key: params.pressureWindow,
+          label,
+          requested_start: requestedStart,
+          requested_end: requestedEnd,
+          effective_start: null,
+          effective_end: null,
+          limited_by_indexed_coverage: limitedByIndexedCoverage,
+        },
+        grouping: {
+          key: grouping,
+          label: pressureTrendGroupingLabel(grouping),
+        },
+        indexed_coverage: params.coverage,
+        time_zone: timeZone,
+        series: [],
+        source: 'gmail_index_cache',
+      },
+    }
+  }
+
+  const bucketMap = new Map<
+    string,
+    {
+      bucketStartMs: number
+      bucketEndExclusiveMs: number
+      count: number
+      compositionCounts: Map<string, number>
+      machineLikeCount: number
+      humanLikeCount: number
+      protectedCount: number
+    }
+  >()
+
+  let cursorMs = pressureTrendBucketStartUtcMs(effectiveStartMs, grouping, timeZone)
+  let bucketCount = 0
+  while (cursorMs < effectiveEndExclusiveMs && bucketCount < PRESSURE_TREND_MAX_BUCKETS) {
+    const nextCursorMs = pressureTrendNextBucketStartUtcMs(cursorMs, grouping, timeZone)
+    if (nextCursorMs <= cursorMs) break
+    bucketMap.set(String(cursorMs), {
+      bucketStartMs: cursorMs,
+      bucketEndExclusiveMs: nextCursorMs,
+      count: 0,
+      compositionCounts: new Map<string, number>(),
+      machineLikeCount: 0,
+      humanLikeCount: 0,
+      protectedCount: 0,
+    })
+    cursorMs = nextCursorMs
+    bucketCount += 1
+  }
+
+  for (const row of datedRows) {
+    if (row.internal_date_ms < effectiveStartMs || row.internal_date_ms >= effectiveEndExclusiveMs) continue
+    const bucketStartMs = pressureTrendBucketStartUtcMs(row.internal_date_ms, grouping, timeZone)
+    const bucket = bucketMap.get(String(bucketStartMs))
+    if (!bucket) continue
+    const categoryLabel = intelligenceCategoryLabel(row)
+    const pressureMixCategory = normalizePressureMixCategory(categoryLabel)
+    const machineLike = isLikelyMachineGeneratedRow(row)
+    const humanLike = !machineLike && isLikelyHumanPriorityRow(row)
+    const protectedRow =
+      row.is_starred || row.is_important || rowCategoryHas(row, 'CATEGORY_PRIMARY')
+    bucket.count += 1
+    bucket.compositionCounts.set(
+      pressureMixCategory,
+      (bucket.compositionCounts.get(pressureMixCategory) || 0) + 1
+    )
+    if (machineLike) bucket.machineLikeCount += 1
+    if (humanLike) bucket.humanLikeCount += 1
+    if (protectedRow) bucket.protectedCount += 1
+  }
+
+  const series: GmailPressureTrendBucket[] = Array.from(bucketMap.values())
+    .sort((left, right) => left.bucketStartMs - right.bucketStartMs)
+    .map((bucket) => {
+      const clippedStartMs = Math.max(bucket.bucketStartMs, effectiveStartMs)
+      const clippedEndInclusiveMs = Math.max(
+        clippedStartMs,
+        Math.min(bucket.bucketEndExclusiveMs, effectiveEndExclusiveMs) - 1
+      )
+      return {
+        label: pressureTrendBucketLabel(bucket.bucketStartMs, grouping, timeZone),
+        count: bucket.count,
+        bucket_start_at: new Date(clippedStartMs).toISOString(),
+        bucket_end_at: new Date(clippedEndInclusiveMs).toISOString(),
+        composition: Array.from(bucket.compositionCounts.entries())
+          .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+          .map(([compositionLabel, count]) => ({
+            label: compositionLabel,
+            count,
+            share_pct: bucket.count > 0 ? Math.round((count / bucket.count) * 100) : 0,
+          })),
+        evidence_signals: buildPressureEvidenceSignals({
+          total: bucket.count,
+          machineLikeCount: bucket.machineLikeCount,
+          humanLikeCount: bucket.humanLikeCount,
+          protectedCount: bucket.protectedCount,
+        }),
+      }
+    })
+
+  return {
+    ok: true,
+    data: {
+      window: {
+        key: params.pressureWindow,
+        label,
+        requested_start: requestedStart,
+        requested_end: requestedEnd,
+        effective_start: new Date(effectiveStartMs).toISOString(),
+        effective_end: new Date(Math.max(effectiveStartMs, effectiveEndExclusiveMs - 1)).toISOString(),
+        limited_by_indexed_coverage: limitedByIndexedCoverage,
+      },
+      grouping: {
+        key: grouping,
+        label: pressureTrendGroupingLabel(grouping),
+      },
+      indexed_coverage: params.coverage,
+      time_zone: timeZone,
+      series,
+      source: 'gmail_index_cache',
+    },
+  }
+}
+
 export function buildCleanupGroupIntelligence(params: {
   rows: GmailMailboxIndexRow[]
   coverage: {
@@ -1594,7 +2397,16 @@ export function buildCleanupGroupIntelligence(params: {
     ['Human-like', 0],
     ['Mixed / unclear', 0],
   ])
-  const timelineCounts = new Map<string, number>()
+  const timelineBuckets = new Map<
+    string,
+    {
+      count: number
+      compositionCounts: Map<string, number>
+      machineLikeCount: number
+      humanLikeCount: number
+      protectedCount: number
+    }
+  >()
 
   const scopeDaysValue = scopeDays(params.analysisScope)
   const timelineGranularity: 'week' | 'month' =
@@ -1631,6 +2443,11 @@ export function buildCleanupGroupIntelligence(params: {
     const categoryLabel = intelligenceCategoryLabel(row)
     categoryCounts.set(categoryLabel, (categoryCounts.get(categoryLabel) || 0) + 1)
     current.categoryCounts.set(categoryLabel, (current.categoryCounts.get(categoryLabel) || 0) + 1)
+    const pressureMixCategory = normalizePressureMixCategory(categoryLabel)
+    const machineLike = isLikelyMachineGeneratedRow(row)
+    const humanLike = !machineLike && isLikelyHumanPriorityRow(row)
+    const protectedRow =
+      row.is_starred || row.is_important || rowCategoryHas(row, 'CATEGORY_PRIMARY')
 
     const timestamp =
       typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
@@ -1653,15 +2470,31 @@ export function buildCleanupGroupIntelligence(params: {
               return start.toISOString().slice(0, 10)
             })()
           : `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
-      timelineCounts.set(bucket, (timelineCounts.get(bucket) || 0) + 1)
+      const currentBucket =
+        timelineBuckets.get(bucket) || {
+          count: 0,
+          compositionCounts: new Map<string, number>(),
+          machineLikeCount: 0,
+          humanLikeCount: 0,
+          protectedCount: 0,
+        }
+      currentBucket.count += 1
+      currentBucket.compositionCounts.set(
+        pressureMixCategory,
+        (currentBucket.compositionCounts.get(pressureMixCategory) || 0) + 1
+      )
+      if (machineLike) currentBucket.machineLikeCount += 1
+      if (humanLike) currentBucket.humanLikeCount += 1
+      if (protectedRow) currentBucket.protectedCount += 1
+      timelineBuckets.set(bucket, currentBucket)
     }
 
-    if (isLikelyMachineGeneratedRow(row)) {
+    if (machineLike) {
       humanAutomationCounts.set(
         'Automation-heavy',
         (humanAutomationCounts.get('Automation-heavy') || 0) + 1
       )
-    } else if (isLikelyHumanPriorityRow(row)) {
+    } else if (humanLike) {
       humanAutomationCounts.set('Human-like', (humanAutomationCounts.get('Human-like') || 0) + 1)
     } else {
       humanAutomationCounts.set(
@@ -1719,9 +2552,9 @@ export function buildCleanupGroupIntelligence(params: {
     else senderVolumeDistribution[5].sender_count += 1
   }
 
-  const activityTimeline = Array.from(timelineCounts.entries())
+  const activityTimeline = Array.from(timelineBuckets.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([label, count]) => ({
+    .map(([label, bucket]) => ({
       label:
         timelineGranularity === 'week'
           ? label
@@ -1735,7 +2568,20 @@ export function buildCleanupGroupIntelligence(params: {
                 timeZone: 'UTC',
               })
             })(),
-      count,
+      count: bucket.count,
+      composition: Array.from(bucket.compositionCounts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([compositionLabel, count]) => ({
+          label: compositionLabel,
+          count,
+          share_pct: bucket.count > 0 ? Math.round((count / bucket.count) * 100) : 0,
+        })),
+      evidence_signals: buildPressureEvidenceSignals({
+        total: bucket.count,
+        machineLikeCount: bucket.machineLikeCount,
+        humanLikeCount: bucket.humanLikeCount,
+        protectedCount: bucket.protectedCount,
+      }),
     }))
 
   return {
@@ -5557,135 +6403,481 @@ export async function archiveGmailMessagesForTenant(params: {
   logPrefix?: string
 }): Promise<GmailArchiveMessagesResult> {
   const logPrefix = params.logPrefix ?? '[integrations/gmail/archive-messages]'
+  const mutation = await mutateGmailInboxLabelStateForTenant({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    messageIds: params.messageIds,
+    removeLabelIds: ['INBOX'],
+    logPrefix,
+  })
 
+  if (!mutation.ok) {
+    return mutation
+  }
+
+  return {
+    ok: true,
+    data: {
+      sender:
+        typeof params.sender === 'string' && params.sender.trim() ? params.sender.trim() : null,
+      batch_title:
+        typeof params.batchTitle === 'string' && params.batchTitle.trim()
+          ? params.batchTitle.trim()
+          : null,
+      requested_count: mutation.data.requested_count,
+      archived_count: mutation.data.accepted_count,
+      message_ids: mutation.data.accepted_message_ids.slice(0, 100),
+    },
+  }
+}
+
+export async function loadGmailAccessContextForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  requireModifyScope: boolean
+  logPrefix: string
+}): Promise<
+  | {
+      ok: true
+      data: GmailTenantAccessContext
+    }
+  | GmailReadFailure
+> {
   if (!params.tenantId) {
     return fail(400, 'User profile is missing tenant_id.')
   }
 
+  const { data: connectionRowRaw, error: connectionError } = await params.supabase
+    .from('integration_connections')
+    .select('access_token,refresh_token,expires_at,scopes')
+    .eq('tenant_id', params.tenantId)
+    .eq('provider', 'gmail')
+    .maybeSingle()
+
+  const connectionRow = connectionRowRaw as IntegrationConnectionRow | null
+
+  if (connectionError) {
+    console.error(`${params.logPrefix} integration_connections lookup error:`, connectionError)
+    return fail(500, 'Failed to load Gmail connection.')
+  }
+
+  if (!connectionRow) {
+    return fail(
+      412,
+      params.requireModifyScope
+        ? 'Gmail is not connected for this tenant. Reconnect Gmail with modify scope.'
+        : 'Gmail is not connected for this tenant. Reconnect Gmail with inbox-read scope.'
+    )
+  }
+
+  if (params.requireModifyScope && !hasInboxModifyScope(connectionRow.scopes)) {
+    return fail(
+      412,
+      'Connected Gmail token does not include modify scope. Reconnect with gmail.modify or mail.google.com scope.'
+    )
+  }
+
+  if (!params.requireModifyScope && !hasInboxReadScope(connectionRow.scopes)) {
+    return fail(
+      412,
+      'Connected Gmail token does not include inbox-read scope. Reconnect with gmail.readonly, gmail.metadata, gmail.modify, or mail.google.com scope.'
+    )
+  }
+
+  const refreshToken =
+    typeof connectionRow.refresh_token === 'string' ? connectionRow.refresh_token.trim() : ''
+  let accessToken =
+    typeof connectionRow.access_token === 'string' ? connectionRow.access_token.trim() : ''
+
+  if (!accessToken || !refreshToken) {
+    return fail(
+      412,
+      params.requireModifyScope
+        ? 'Gmail token is incomplete for this tenant. Reconnect Gmail with modify scope.'
+        : 'Gmail token is incomplete for this tenant. Reconnect Gmail with inbox-read scope.'
+    )
+  }
+
+  if (isExpiredTimestamp(connectionRow.expires_at)) {
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return fail(500, 'Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET.')
+    }
+
+    const refreshed = await refreshGmailAccessToken({
+      refreshToken,
+      clientId,
+      clientSecret,
+      logPrefix: params.logPrefix,
+    })
+
+    if (!refreshed) {
+      return fail(
+        412,
+        params.requireModifyScope
+          ? 'Failed to refresh Gmail access token. Reconnect Gmail with modify scope.'
+          : 'Failed to refresh Gmail access token. Reconnect Gmail with inbox-read scope.'
+      )
+    }
+
+    accessToken = refreshed.accessToken
+  }
+
+  return {
+    ok: true,
+    data: {
+      accessToken,
+      refreshToken,
+    },
+  }
+}
+
+function normalizeUniqueMessageIds(messageIds: string[]): string[] {
   const seenMessageIds = new Set<string>()
-  const messageIds: string[] = []
-  for (const rawId of params.messageIds || []) {
+  const normalized: string[] = []
+  for (const rawId of messageIds || []) {
     const id = typeof rawId === 'string' ? rawId.trim() : ''
     if (!id || seenMessageIds.has(id)) continue
     seenMessageIds.add(id)
-    messageIds.push(id)
+    normalized.push(id)
   }
+  return normalized
+}
 
+export async function mutateGmailInboxLabelStateForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  messageIds: string[]
+  addLabelIds?: string[]
+  removeLabelIds?: string[]
+  logPrefix: string
+  accessContext?: GmailTenantAccessContext
+}): Promise<GmailInboxLabelMutationResult> {
+  const messageIds = normalizeUniqueMessageIds(params.messageIds)
   if (messageIds.length === 0) {
     return fail(400, 'message_ids are required for archive_messages.')
   }
 
-  try {
-    const { data: connectionRowRaw, error: connectionError } = await params.supabase
-      .from('integration_connections')
-      .select('access_token,refresh_token,expires_at,scopes')
-      .eq('tenant_id', params.tenantId)
-      .eq('provider', 'gmail')
-      .maybeSingle()
-
-    const connectionRow = connectionRowRaw as IntegrationConnectionRow | null
-
-    if (connectionError) {
-      console.error(`${logPrefix} integration_connections lookup error:`, connectionError)
-      return fail(500, 'Failed to load Gmail connection.')
-    }
-
-    if (!connectionRow) {
-      return fail(412, 'Gmail is not connected for this tenant. Reconnect Gmail with modify scope.')
-    }
-
-    if (!hasInboxModifyScope(connectionRow.scopes)) {
-      return fail(
-        412,
-        'Connected Gmail token does not include modify scope. Reconnect with gmail.modify or mail.google.com scope.'
-      )
-    }
-
-    const refreshToken =
-      typeof connectionRow.refresh_token === 'string' ? connectionRow.refresh_token.trim() : ''
-    let accessToken =
-      typeof connectionRow.access_token === 'string' ? connectionRow.access_token.trim() : ''
-
-    if (!accessToken || !refreshToken) {
-      return fail(
-        412,
-        'Gmail token is incomplete for this tenant. Reconnect Gmail with modify scope.'
-      )
-    }
-
-    if (isExpiredTimestamp(connectionRow.expires_at)) {
-      const clientId = process.env.GOOGLE_CLIENT_ID
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-
-      if (!clientId || !clientSecret) {
-        return fail(500, 'Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET.')
-      }
-
-      const refreshed = await refreshGmailAccessToken({
-        refreshToken,
-        clientId,
-        clientSecret,
-        logPrefix,
+  const accessContextResult = params.accessContext
+    ? { ok: true as const, data: params.accessContext }
+    : await loadGmailAccessContextForTenant({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        requireModifyScope: true,
+        logPrefix: params.logPrefix,
       })
+  if (!accessContextResult.ok) return accessContextResult
 
-      if (!refreshed) {
-        return fail(412, 'Failed to refresh Gmail access token. Reconnect Gmail with modify scope.')
-      }
+  const accessContext = accessContextResult.data
+  const refreshToken = accessContext.refreshToken
+  const clientId = process.env.GOOGLE_CLIENT_ID || ''
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || ''
 
-      accessToken = refreshed.accessToken
-    }
+  const chunks: string[][] = []
+  for (let offset = 0; offset < messageIds.length; offset += GMAIL_BATCH_MODIFY_CHUNK_SIZE) {
+    chunks.push(messageIds.slice(offset, offset + GMAIL_BATCH_MODIFY_CHUNK_SIZE))
+  }
 
-    let archivedCount = 0
-    for (let offset = 0; offset < messageIds.length; offset += 100) {
-      const chunk = messageIds.slice(offset, offset + 100)
-      const modifyResponse = await fetch(GMAIL_BATCH_MODIFY_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ids: chunk,
-          removeLabelIds: ['INBOX'],
-        }),
-        cache: 'no-store',
+  const acceptedMessageIds: string[] = []
+  const failedMessageIds: string[] = []
+
+  for (
+    let offset = 0;
+    offset < chunks.length;
+    offset += GMAIL_BATCH_MODIFY_CONCURRENCY
+  ) {
+    const concurrentChunks = chunks.slice(offset, offset + GMAIL_BATCH_MODIFY_CONCURRENCY)
+    const chunkResults = await Promise.all(
+      concurrentChunks.map(async (chunk) => {
+        let retriedAfterUnauthorized = false
+        let accessToken = accessContext.accessToken
+
+        for (;;) {
+          const modifyResponse = await fetch(GMAIL_BATCH_MODIFY_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ids: chunk,
+              ...(params.addLabelIds && params.addLabelIds.length > 0
+                ? { addLabelIds: params.addLabelIds }
+                : {}),
+              ...(params.removeLabelIds && params.removeLabelIds.length > 0
+                ? { removeLabelIds: params.removeLabelIds }
+                : {}),
+            }),
+            cache: 'no-store',
+          })
+
+          const modifyData = (await modifyResponse
+            .json()
+            .catch(() => null)) as GmailBatchModifyResponse | null
+
+          if (modifyResponse.status === 401 && !retriedAfterUnauthorized) {
+            const refreshed = await refreshGmailAccessToken({
+              refreshToken,
+              clientId,
+              clientSecret,
+              logPrefix: params.logPrefix,
+            })
+            if (!refreshed) {
+              return fail(
+                412,
+                'Failed to refresh Gmail access token. Reconnect Gmail with modify scope.'
+              )
+            }
+            accessContext.accessToken = refreshed.accessToken
+            accessToken = refreshed.accessToken
+            retriedAfterUnauthorized = true
+            continue
+          }
+
+          if (hasInsufficientScopeError(modifyResponse.status, modifyData)) {
+            return fail(
+              412,
+              'Connected Gmail token does not include modify scope. Reconnect with gmail.modify or mail.google.com scope.'
+            )
+          }
+
+          if (!modifyResponse.ok) {
+            console.error(`${params.logPrefix} Gmail batchModify failed:`, modifyData)
+            return {
+              ok: true as const,
+              data: { acceptedMessageIds: [] as string[], failedMessageIds: chunk },
+            }
+          }
+
+          return {
+            ok: true as const,
+            data: { acceptedMessageIds: chunk, failedMessageIds: [] as string[] },
+          }
+        }
       })
+    )
 
-      const modifyData = (await modifyResponse
-        .json()
-        .catch(() => null)) as GmailBatchModifyResponse | null
-      if (hasInsufficientScopeError(modifyResponse.status, modifyData)) {
-        return fail(
-          412,
-          'Connected Gmail token does not include modify scope. Reconnect with gmail.modify or mail.google.com scope.'
-        )
-      }
-
-      if (!modifyResponse.ok) {
-        console.error(`${logPrefix} Gmail batchModify failed:`, modifyData)
-        return fail(502, 'Failed to archive Gmail messages from Inbox.')
-      }
-
-      archivedCount += chunk.length
+    for (const result of chunkResults) {
+      if (!result.ok) return result
+      acceptedMessageIds.push(...result.data.acceptedMessageIds)
+      failedMessageIds.push(...result.data.failedMessageIds)
     }
+  }
 
+  return {
+    ok: true,
+    data: {
+      requested_count: messageIds.length,
+      accepted_count: acceptedMessageIds.length,
+      accepted_message_ids: acceptedMessageIds,
+      failed_message_ids: failedMessageIds,
+      partial_failure: failedMessageIds.length > 0,
+    },
+  }
+}
+
+export async function verifyGmailMessagesInboxStateForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  messageIds: string[]
+  expectInInbox: boolean
+  logPrefix?: string
+  accessContext?: GmailTenantAccessContext
+  concurrency?: number
+  maxAttempts?: number
+  retryDelayMs?: number
+}): Promise<GmailInboxStateVerificationResult> {
+  const logPrefix = params.logPrefix ?? '[integrations/gmail/verify-inbox-state]'
+  const messageIds = normalizeUniqueMessageIds(params.messageIds)
+  if (messageIds.length === 0) {
     return {
       ok: true,
       data: {
-        sender:
-          typeof params.sender === 'string' && params.sender.trim() ? params.sender.trim() : null,
-        batch_title:
-          typeof params.batchTitle === 'string' && params.batchTitle.trim()
-            ? params.batchTitle.trim()
-            : null,
-        requested_count: messageIds.length,
-        archived_count: archivedCount,
-        message_ids: messageIds.slice(0, 100),
+        expected_in_inbox: params.expectInInbox,
+        verified_message_ids: [],
+        unresolved_message_ids: [],
+        warning: null,
       },
     }
-  } catch (error) {
-    console.error(`${logPrefix} Unexpected error:`, error)
-    return fail(500, 'Unexpected error while archiving Gmail messages.')
+  }
+
+  const accessContextResult = params.accessContext
+    ? { ok: true as const, data: params.accessContext }
+    : await loadGmailAccessContextForTenant({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        requireModifyScope: false,
+        logPrefix,
+      })
+  if (!accessContextResult.ok) return accessContextResult
+
+  const accessContext = accessContextResult.data
+  const refreshToken = accessContext.refreshToken
+  const clientId = process.env.GOOGLE_CLIENT_ID || ''
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || ''
+  const concurrency = Math.max(
+    10,
+    Math.min(params.concurrency ?? GMAIL_VERIFY_DEFAULT_CONCURRENCY, GMAIL_VERIFY_MAX_CONCURRENCY)
+  )
+  const maxAttempts = Math.max(1, Math.min(params.maxAttempts ?? 3, 3))
+  const retryDelayMs = Math.max(0, params.retryDelayMs ?? 150)
+  let refreshedAfterUnauthorized = false
+  const verified = new Set<string>()
+  let unresolved = messageIds.slice()
+  let verificationWarning: string | null = null
+
+  for (let attempt = 1; attempt <= maxAttempts && unresolved.length > 0; attempt += 1) {
+    const nextUnresolved: string[] = []
+    let shouldRetryAllAfterRefresh = false
+
+    for (let offset = 0; offset < unresolved.length; offset += concurrency) {
+      const chunk = unresolved.slice(offset, offset + concurrency)
+      const chunkResults = await Promise.all(
+        chunk.map(async (messageId) => {
+          const accessToken = accessContext.accessToken
+          const messageUrl = new URL(`${GMAIL_MESSAGE_ENDPOINT}/${encodeURIComponent(messageId)}`)
+          messageUrl.searchParams.set('format', 'minimal')
+          const response = await fetch(messageUrl.toString(), {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            cache: 'no-store',
+          }).catch(() => null)
+
+          if (!response) {
+            return { messageId, state: 'network_error' as const }
+          }
+
+          const responseData = (await response
+            .json()
+            .catch(() => null)) as GmailMessageMetadataResponse | null
+
+          if (response.status === 401) {
+            return { messageId, state: 'unauthorized' as const }
+          }
+          if (response.status === 404) {
+            return { messageId, state: 'missing' as const }
+          }
+          if (response.status === 429 || response.status >= 500) {
+            return { messageId, state: 'transient_error' as const }
+          }
+          if (!response.ok || !responseData) {
+            return { messageId, state: 'unexpected_error' as const }
+          }
+
+          const labelIds = normalizeLabelIds(responseData.labelIds)
+          const matches = params.expectInInbox ? labelIds.includes('INBOX') : !labelIds.includes('INBOX')
+          return {
+            messageId,
+            state: matches ? ('verified' as const) : ('not_yet_applied' as const),
+          }
+        })
+      )
+
+      for (const result of chunkResults) {
+        if (result.state === 'verified') {
+          verified.add(result.messageId)
+          continue
+        }
+          if (result.state === 'unauthorized' && !refreshedAfterUnauthorized) {
+            const refreshed = await refreshGmailAccessToken({
+              refreshToken,
+              clientId,
+              clientSecret,
+              logPrefix,
+            })
+            if (!refreshed) {
+              return fail(
+                412,
+                'Failed to refresh Gmail access token. Reconnect Gmail with inbox-read or modify scope.'
+              )
+            }
+            accessContext.accessToken = refreshed.accessToken
+            refreshedAfterUnauthorized = true
+            shouldRetryAllAfterRefresh = true
+            break
+        }
+
+        nextUnresolved.push(result.messageId)
+        if (verificationWarning == null) {
+          verificationWarning =
+            result.state === 'missing'
+              ? 'Some Gmail messages could not be found during verification.'
+              : result.state === 'network_error' || result.state === 'transient_error'
+                ? 'Gmail verification could not be completed for every message yet.'
+                : result.state === 'unexpected_error'
+                  ? 'Gmail returned an unexpected response during verification.'
+                  : null
+        }
+      }
+
+      if (shouldRetryAllAfterRefresh) break
+    }
+
+    if (shouldRetryAllAfterRefresh) {
+      continue
+    }
+
+    unresolved = nextUnresolved
+    if (unresolved.length > 0 && attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs * attempt))
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      expected_in_inbox: params.expectInInbox,
+      verified_message_ids: Array.from(verified),
+      unresolved_message_ids: unresolved,
+      warning:
+        verificationWarning ||
+        (unresolved.length > 0
+          ? params.expectInInbox
+            ? 'Inbox restore could not be confirmed for every targeted message yet.'
+            : 'Inbox-label removal could not be confirmed for every targeted message yet.'
+          : null),
+    },
+  }
+}
+
+export async function restoreGmailMessagesToInboxForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  messageIds: string[]
+  sender?: string | null
+  batchTitle?: string | null
+  logPrefix?: string
+}): Promise<GmailArchiveMessagesResult> {
+  const logPrefix = params.logPrefix ?? '[integrations/gmail/restore-messages]'
+  const mutation = await mutateGmailInboxLabelStateForTenant({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    messageIds: params.messageIds,
+    addLabelIds: ['INBOX'],
+    logPrefix,
+  })
+
+  if (!mutation.ok) {
+    return mutation
+  }
+
+  return {
+    ok: true,
+    data: {
+      sender:
+        typeof params.sender === 'string' && params.sender.trim() ? params.sender.trim() : null,
+      batch_title:
+        typeof params.batchTitle === 'string' && params.batchTitle.trim()
+          ? params.batchTitle.trim()
+          : null,
+      requested_count: mutation.data.requested_count,
+      archived_count: mutation.data.accepted_count,
+      message_ids: mutation.data.accepted_message_ids.slice(0, 100),
+    },
   }
 }
 

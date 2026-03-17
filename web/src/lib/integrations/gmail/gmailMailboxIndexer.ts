@@ -19,6 +19,7 @@ const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504])
 const HISTORY_RECOVERY_FULL_SCAN_COOLDOWN_MS = 30 * 60 * 1000
 const HISTORY_RECOVERY_PARTIAL_SCAN_COOLDOWN_MS = 10 * 60 * 1000
 const INDEXED_ROWS_CACHE_TTL_MS = 1000 * 60 * 3
+const INDEX_QUERY_CONCURRENCY = 8
 
 type GmailConnectionRow = {
   access_token: unknown
@@ -131,6 +132,7 @@ type IndexedRowsCacheEntry = {
 }
 
 const indexedRowsCache = new Map<string, IndexedRowsCacheEntry>()
+const indexedRowsInflight = new Map<string, Promise<GmailMailboxIndexRow[]>>()
 
 type GmailMailboxIndexFailureReason =
   | 'missing_tenant'
@@ -325,6 +327,11 @@ function roundPercent(value: number): number {
 function clearIndexedRowsCacheForTenant(tenantId: string): void {
   if (!tenantId.trim()) return
   indexedRowsCache.delete(tenantId.trim())
+  for (const key of indexedRowsInflight.keys()) {
+    if (key.startsWith(`${tenantId.trim()}::`)) {
+      indexedRowsInflight.delete(key)
+    }
+  }
 }
 
 function isRetryableStatus(status: number): boolean {
@@ -1751,40 +1758,104 @@ export async function loadIndexedGmailMessagesForTenant(params: {
   const limit = Math.min(Math.max(params.limit ?? DEFAULT_MAX_MESSAGES, 1), DEFAULT_MAX_MESSAGES)
   const pageSize = Math.min(INDEX_QUERY_PAGE_SIZE, limit)
   const nowMs = Date.now()
+  const requestKey = `${tenantId}::${limit}`
   const cached = indexedRowsCache.get(tenantId)
   if (cached && cached.expires_at_ms > nowMs && cached.rows.length >= limit) {
     return cached.rows.slice(0, limit)
   }
 
-  const rows: GmailMailboxIndexRow[] = []
-  let offset = 0
+  const inflight = indexedRowsInflight.get(requestKey)
+  if (inflight) {
+    return (await inflight).slice(0, limit)
+  }
 
-  while (rows.length < limit) {
-    const rangeEnd = Math.min(offset + pageSize - 1, limit - 1)
-    const { data, error } = await params.supabase
-      .from('gmail_messages')
-      .select(
-        'tenant_id,message_id,thread_id,sender,subject,internal_date_ms,date,label_ids,category_labels,is_in_inbox,is_unread,is_starred,is_important,indexed_at,updated_at'
+  const request = (async (): Promise<GmailMailboxIndexRow[]> => {
+    const startedAt = Date.now()
+    const pageCount = Math.ceil(limit / pageSize)
+    const pages = new Map<number, GmailMailboxIndexRow[]>()
+    let highestLoadedPage = -1
+
+    for (let pageStart = 0; pageStart < pageCount; pageStart += INDEX_QUERY_CONCURRENCY) {
+      const pageIndexes = Array.from(
+        { length: Math.min(INDEX_QUERY_CONCURRENCY, pageCount - pageStart) },
+        (_, offset) => pageStart + offset
       )
-      .eq('tenant_id', tenantId)
-      .order('internal_date_ms', { ascending: false })
-      .order('message_id', { ascending: false })
-      .range(offset, rangeEnd)
 
-    if (error || !Array.isArray(data)) {
-      return rows.length > 0 ? rows : []
+      const batch = await Promise.all(
+        pageIndexes.map(async (pageIndex) => {
+          const rangeStart = pageIndex * pageSize
+          const rangeEnd = Math.min(rangeStart + pageSize - 1, limit - 1)
+          const { data, error } = await params.supabase
+            .from('gmail_messages')
+            .select(
+              'tenant_id,message_id,thread_id,sender,subject,internal_date_ms,date,label_ids,category_labels,is_in_inbox,is_unread,is_starred,is_important,indexed_at,updated_at'
+            )
+            .eq('tenant_id', tenantId)
+            .order('internal_date_ms', { ascending: false })
+            .order('message_id', { ascending: false })
+            .range(rangeStart, rangeEnd)
+
+          return {
+            pageIndex,
+            rows: Array.isArray(data) ? (data as GmailMailboxIndexRow[]) : [],
+            error,
+          }
+        })
+      )
+
+      const firstError = batch.find((entry) => entry.error)
+      if (firstError?.error) {
+        console.warn(
+          `[integrations/gmail/mailbox-indexer] indexed row load failed on page ${firstError.pageIndex}:`,
+          firstError.error.message
+        )
+        break
+      }
+
+      for (const page of batch) {
+        pages.set(page.pageIndex, page.rows)
+        highestLoadedPage = Math.max(highestLoadedPage, page.pageIndex)
+      }
+
+      if (batch.some((entry) => entry.rows.length < pageSize)) {
+        break
+      }
     }
 
-    rows.push(...(data as GmailMailboxIndexRow[]))
-    if (data.length < pageSize) break
-    offset += data.length
+    const rows: GmailMailboxIndexRow[] = []
+    for (let pageIndex = 0; pageIndex <= highestLoadedPage; pageIndex += 1) {
+      const pageRows = pages.get(pageIndex) || []
+      rows.push(...pageRows)
+      if (pageRows.length < pageSize || rows.length >= limit) break
+    }
+
+    const sliced = rows.slice(0, limit)
+    if (tenantId) {
+      indexedRowsCache.set(tenantId, {
+        expires_at_ms: nowMs + INDEXED_ROWS_CACHE_TTL_MS,
+        rows: sliced,
+      })
+    }
+
+    console.info(
+      `[integrations/gmail/mailbox-indexer/indexed-rows] ${JSON.stringify({
+        tenant_id: tenantId,
+        requested_limit: limit,
+        returned_rows: sliced.length,
+        page_size: pageSize,
+        page_count_requested: pageCount,
+        query_concurrency: INDEX_QUERY_CONCURRENCY,
+        duration_ms: Math.max(0, Date.now() - startedAt),
+      })}`
+    )
+
+    return sliced
+  })()
+
+  indexedRowsInflight.set(requestKey, request)
+  try {
+    return await request
+  } finally {
+    indexedRowsInflight.delete(requestKey)
   }
-  const sliced = rows.slice(0, limit)
-  if (tenantId) {
-    indexedRowsCache.set(tenantId, {
-      expires_at_ms: nowMs + INDEXED_ROWS_CACHE_TTL_MS,
-      rows: sliced,
-    })
-  }
-  return sliced
 }

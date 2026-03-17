@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-15  
+Last updated: 2026-03-16  
 Project Manager: v8 (active — synchronized under Codex Hybrid Execution Model)
 
 ---
@@ -27,7 +27,230 @@ Golden Path Health Check:
 Agents: Healthy  
 Documentation: Synced  
 
+- March 17 Mailbox Intelligence dashboard alignment summary:
+  - Mailbox Intelligence is now converging toward the "AI Intelligent Decision Dashboard" model:
+    - command-first layout
+    - sender-decision goal explicitly defined (clean inbox = all senders decided)
+    - visual intelligence prioritized over raw metrics
+  - Visual intelligence layer improvements (UI-only passes):
+    - health rail + scale metrics integrated into a single hero layer
+    - pressure trend upgraded to full-width bar-based visualization
+    - hover behavior now reveals reasoning (driver, intervention, payoff) instead of repeating visible data
+  - Remaining UI gaps identified and tracked for next phase:
+    - metric bars lack clear denominators and semantic meaning
+    - hover panels still under-informative (need multi-line actionable insight)
+    - Mission Control lacks consistent CTA hierarchy (buttons for Do Next / Approval / Resume not standardized)
+    - management-layer signals (archive, quarantine, rules) not yet surfaced in dashboard
+    - double sidebar layout still impacting visual density
+  - Strategic decision:
+    - Mailbox Intelligence is considered "near-complete for Phase 1"
+    - further refinement will be handled under a new Project Manager to avoid context degradation
+  - Validation:
+    - UI rendering stable
+    - TypeScript + ESLint passing
+    - cold/warm load acceptable after prior performance passes
+
+---
+
 Gmail Operations (latest pass):
+- March 16 Archive execution verification + restore summary:
+  - Archive execution is no longer limited to truth-safe `deferred` after a Gmail mutation request.
+  - The archive path now:
+    - commits destination state first
+    - attempts Gmail inbox-label removal
+    - verifies targeted Gmail messages directly
+    - only marks archive `succeeded` when inbox removal is actually confirmed
+  - Archive sender profiles now retain the targeted archive message ids needed for reversal.
+  - `/operations/management` now supports a real archive restore path:
+    - restore re-adds `INBOX` to the stored archive scope
+    - restore is verified before archive state is cleared
+    - if restore cannot be confirmed, the destination state stays active with truthful warning state
+  - Non-archive destinations remain intentionally non-executing in Phase 1:
+    - `KEEP` = `not_applicable`
+    - `QUARANTINE` = `deferred`
+    - `UNSUBSCRIBE` = `deferred`
+    - `CUSTOM_RULE` = `deferred`
+  - Validation:
+    - targeted archive execution ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 16 Decision Destinations execution-truth summary:
+  - Destination state and execution state are now modeled separately in Gmail sender destination profiles.
+  - Sender destination profiles now store:
+    - destination state
+    - execution state
+    - execution timestamp/source
+    - execution warning
+    - last action timestamp
+  - Archive is now truth-first:
+    - destination state still commits immediately on Confirmation approve
+    - archive failures set execution state to `failed`
+    - archive requests that were accepted by Gmail but not independently verified are marked `deferred`
+    - archive is no longer reported as executed just because the mutation request returned successfully
+  - Decision Management now shows execution truth directly:
+    - destination state
+    - execution state
+    - last action timestamp
+    - warnings needing follow-up
+    - scaffold-level destination removal control
+  - Left navigation now reflects the destination model more clearly:
+    - `Management` is part of the primary Gmail cleanup workflow
+    - `Pending Approvals`, `Executed Actions`, and `History` remain route-safe but are explicitly demoted to legacy/audit surfaces
+  - Validation:
+    - targeted destination/execution ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 16 Decision Destinations foundation summary:
+  - Confirmation approval no longer creates a new Pending Approval request for Gmail cleanup decisions.
+  - Approved senders now move directly into durable destination states:
+    - `KEEP`
+    - `ARCHIVE`
+    - `QUARANTINE`
+    - `UNSUBSCRIBE`
+    - `CUSTOM_RULE`
+  - Gmail cleanup memory now persists sender destination state in two layers:
+    - sender-level history events in `agent_events`
+    - current sender profile documents in `rag_documents`
+  - Archive decisions now attempt direct Gmail archive execution immediately after destination-state commit:
+    - no new Pending Approval request is created for the archive path
+    - non-archive destinations remain durable post-confirmation states only in this pass
+  - Sender profile scaffolding now stores:
+    - sender identity
+    - trust signals snapshot
+    - current destination state
+    - destination history
+    - last action timestamp
+  - A new route-safe Decision Management scaffold is available at `/operations/management`:
+    - destination summaries
+    - sender state overview
+    - recent decision activity
+    - deferred AI rule recommendation placeholder
+  - The active Phase 1 workflow remains unchanged before approval:
+    - Mailbox Intelligence
+    - Cleanup Groups
+    - Sender Decisions
+    - Confirmation
+  - Validation:
+    - targeted destination-layer ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 15 Mailbox Intelligence cold-load performance summary:
+  - Cold Mailbox Intelligence no longer depends on strictly sequential indexed-row paging.
+  - The indexed `gmail_messages` loader now:
+    - reuses in-flight row loads
+    - loads pages concurrently on the cold path
+    - emits explicit indexed-row load timing logs for future measurement
+  - Mailbox Intelligence server caches are now keyed to the actual indexed mailbox snapshot rather than cleanup-plan timestamp churn:
+    - raw mailbox context now reuses cache when indexed totals/date span are unchanged
+    - derived workspace cache now reuses that mailbox snapshot plus cluster signature
+  - Mailbox Intelligence client boot is more resilient:
+    - latest stable Intelligence cache can render first if the exact cleanup-snapshot cache misses
+    - `/operations/intelligence` now shows a runtime-backed mission boot panel instead of a blank full-page stall while detailed intelligence finishes loading
+  - Validation:
+    - targeted Gmail performance ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 15 Mailbox Intelligence simplification summary:
+  - Mailbox Intelligence now reads as one coherent high-level control surface instead of a mission header stacked on top of an older analytics dashboard.
+  - The top mission-control section remains intact:
+    - sender-first inbox briefing
+    - current status
+    - next recommended action
+    - top risk
+    - inbox health
+    - progress
+    - approval queue
+    - resume work
+  - The lower half is now much simpler:
+    - one `Inbox Health Outlook` block explains why health is in its current state, what matters most, what improves it fastest, and how pressure is moving
+    - one compact pressure-trend visual remains as the supporting mission visual
+    - Cleanup Groups is reduced to a minimal handoff preview with one recommended group, one optional alternate, and a CTA
+  - Low-value technical hierarchy UI was removed from Mailbox Intelligence:
+    - the scope ladder no longer renders on this page
+    - the older telemetry-heavy metric/status blocks are gone from this surface
+  - Validation:
+    - targeted Mailbox Intelligence ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 15 Mailbox Intelligence mission-control summary:
+  - Mailbox Intelligence is now more explicitly the high-level mission / status surface for Phase 1:
+    - current status
+    - inbox health
+    - progress
+    - next recommended action
+    - top risk
+    - started work / resume work
+    - approval queue
+  - Sender-first framing is stronger:
+    - sender counts lead the page
+    - whole-mailbox senders and inbox rows remain as supporting context only
+    - raw message totals no longer dominate the first-view hierarchy
+  - Cleanup Groups duplication is reduced again:
+    - Intelligence now previews only the single top recommended sender group
+    - the page more clearly positions Cleanup Groups as the full cluster-selection surface
+  - High-level visuals remain, but are framed as inbox-health drivers instead of deeper sender-review analytics.
+  - Validation:
+    - targeted Mailbox Intelligence ESLint passed
+    - `npx tsc --noEmit` passed
+    - production build was intentionally not rerun in this pass
+
+- March 15 Phase 1 UX structure polish summary:
+  - Mailbox Intelligence is now more intentionally the high-level mission dashboard:
+    - sender-first summary cards lead the page
+    - high-level sender volume/timeline context remains
+    - low-value `loaded_preview_rows` emphasis is removed from this stage
+    - Cleanup Groups is previewed lightly instead of duplicated heavily
+  - Cleanup Groups is now more clearly the full sender-group selection surface:
+    - Intelligence previews only the top two groups plus a direct CTA into Cleanup Groups
+    - cluster cards now expose lightweight expandable sender context and review cautions
+  - Sender Decisions is now more clearly the drill-down workspace:
+    - cluster-specific hero + briefing
+    - saved-decision progress summary
+    - quick sender-centric filter chips
+    - clearer sender-profile badges and explanation copy
+  - Confirmation wording is more operator-facing:
+    - `Archive now after approval`
+    - keep / quarantine / unsubscribe / custom rule framed as saved Phase 1 preferences for later
+    - stored-later copy now says Gmail does not change yet for those actions
+  - Navigation wording now reinforces the same hierarchy:
+    - Mailbox Intelligence = mission / status / high-level summary
+    - Cleanup Groups = full sender-group selection surface
+    - Sender Decisions = sender analytics and evidence drill-down
+    - Confirmation = archive-now plus saved-later review
+  - Validation:
+    - targeted Gmail ESLint passed
+    - `npx tsc --noEmit` passed
+    - full-repo `npm run lint` still fails on unrelated legacy lint debt outside the Gmail workspace
+    - production build was intentionally not rerun in this pass
+
+- March 15 Phase 1 runtime stabilization summary:
+  - Interactive Phase 1 routes now serve the latest stable cached runtime snapshot immediately instead of auto-refreshing just because the local snapshot aged past a short TTL.
+  - Cached runtime refresh is now materially driven:
+    - no cached runtime snapshot
+    - zero-cluster cleanup plan with indexed mail available
+    - or true indexed snapshot advancement
+  - “Indexed snapshot advancement” is now based on actual indexed mailbox changes:
+    - indexed total rows
+    - indexed inbox rows
+    - indexed date-span start/end
+    not raw sync timestamp movement alone.
+  - Cleanup discovery refresh on the server now follows the same stricter rule, which reduces surprise recomputation during normal navigation.
+  - Sender Decisions direct entry is more stable:
+    - the route now waits for deterministic recommended-cluster resolution instead of beginning sender-workspace fetches for a fallback cluster first
+    - this reduces cold-load churn and helps avoid the earlier hanging loading state
+  - Net effect:
+    - Mailbox Intelligence, Cleanup Groups, and Sender Decisions are more likely to stay on a stable UI-safe snapshot while background refresh work remains separate
+  - Validation:
+    - targeted Gmail/runtime ESLint passed
+    - `npx tsc --noEmit` passed
+    - full-repo `npm run lint` still fails on unrelated legacy lint debt outside the Gmail workspace
+    - production build was intentionally not rerun in this pass
+
 - March 15 Phase 1 UX validation fix summary:
   - Sender Decisions direct-entry reliability is improved:
     - `/operations/review?stage=senders` now auto-selects a recommended cleanup group when `cluster_id` is missing or stale
@@ -926,6 +1149,42 @@ Phase 3 — Controlled Expansion
    - Maintain authoritative docs as the source of truth
    - Keep Codex aligned to CURRENT_STATE.md, CHANGELOG.md, TODO.md, and system_overview.md after each milestone
    - Preserve clean handoff readiness for future PM transitions
+   - PM v8 introduced a new Codex interaction model:
+     - Project Manager performs primary product/design review using screenshots
+     - User provides minimal UI test signals (load time + click behavior)
+     - Codex receives tightly scoped execution instructions
+   - New UI reliability rule introduced:
+     - Every Codex UI prompt must include:
+       "Before changing UI, read the following:" + relevant spec excerpts
+     - This prevents UI regression and keeps Codex aligned with design intent
+## Mailbox Intelligence — Product Direction Lock
+
+- Mailbox Intelligence is now defined as:
+  "AI Intelligent Decision Dashboard"
+
+- Core responsibilities:
+  - define the goal (clean inbox = all senders decided)
+  - show current state (health, scale, progress)
+  - identify bottleneck (what is blocking progress)
+  - guide next action (clear CTA-driven workflow)
+  - show expected payoff (what improves if user acts)
+
+- Design constraints:
+  - must remain command-first, not analytics-heavy
+  - must not duplicate Cleanup Groups surface
+  - must prioritize sender-level logic over message-level metrics
+  - every major metric must have:
+    - clear denominator
+    - visual representation
+    - actionable meaning
+
+- Deferred to next PM:
+  - management-layer signals integration
+  - advanced hover intelligence (multi-line actionable insights)
+  - unified chart system (shared visual components)
+  - sidebar layout consolidation
+
+# 🧪 Operational Safety Tools
 
 4. Hybrid Execution Governance
    - Codex reserved for multi-file or system-level changes
@@ -1364,3 +1623,26 @@ Current validation snapshot:
 
 - Full-repo `eslint` and `tsc` remain noisy in this local workspace because of unrelated in-progress files outside the stabilization scope.
 - Local `next build` no longer reproduced the original missing-module crash in the current tree, but this thread did not produce a fully clean end-to-end build result from the dirty workspace.
+
+---
+
+# 🔄 Handoff Note (PM v8 → Next PM)
+
+The system is stable, and the Gmail Phase 1 workflow is functionally complete.
+
+Key transition state:
+- Mailbox Intelligence is visually and structurally close to target, but requires one final polish pass under a fresh context window.
+- Management layer is now functionally correct (destination + execution truth + restore), but needs visual intelligence layering.
+- Sender Decisions + Confirmation flows are stable and no longer require structural changes.
+
+Next Project Manager should focus on:
+1. Final Mailbox Intelligence polish (visual + semantic clarity)
+2. Management dashboard visual intelligence layer
+3. Shared chart/visual system implementation
+4. UI consistency + interaction standardization
+
+Do NOT re-architect Phase 1 flow.
+Do NOT regress sender-first model.
+Do NOT reintroduce message-first logic.
+
+This is a polish + intelligence layering phase, not a rebuild phase.
