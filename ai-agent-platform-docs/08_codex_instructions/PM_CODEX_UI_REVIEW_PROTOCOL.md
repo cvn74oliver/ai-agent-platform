@@ -568,3 +568,75 @@ If a task attempts to modify multiple areas:
 → it must be rejected and rewritten as separate sniper passes
 
 ---
+
+---
+
+## Rule 0B — Binary Plan Approval (CRITICAL)
+
+At the moment of plan approval, the Project Manager MUST follow a strict binary decision:
+
+### ONLY TWO VALID RESPONSES:
+
+1. **"Yes, implement this plan."**
+2. **"No — revise the plan."**
+
+---
+
+### ❌ NOT ALLOWED:
+
+- Mixing approval with additional instructions  
+- Saying "yes" and then adding modifications  
+- Sending follow-up correction messages after approval  
+- Partially approving a plan  
+
+---
+
+### WHY THIS RULE EXISTS:
+
+Codex operates in two exclusive modes:
+
+- **Plan Mode**
+- **Execution Mode**
+
+Once "Yes, implement" is sent:
+→ Codex exits Plan Mode  
+→ Codex executes exactly what was approved  
+
+Any additional instructions after approval:
+→ are ignored or cause drift  
+→ create inconsistent behavior  
+→ break the PM → Codex workflow  
+
+---
+
+### CORRECT FLOW:
+
+1. Codex submits plan  
+2. PM evaluates plan  
+3. PM chooses:
+
+- If incorrect → **"No — revise the plan"**
+- If correct → **"Yes, implement this plan"**
+
+4. No further instructions are sent in that step
+
+---
+
+### ENFORCEMENT RULE:
+
+If the PM feels the need to:
+- clarify
+- modify
+- add constraints
+
+Then the plan is **NOT READY** and must be revised.
+
+---
+
+### SUMMARY:
+
+Plan phase = thinking  
+Approval = binary decision  
+Execution = no interference  
+
+This rule is mandatory for preventing drift, confusion, and repeated failed implementations.
