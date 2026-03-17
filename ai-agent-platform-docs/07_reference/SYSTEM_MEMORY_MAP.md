@@ -57,8 +57,6 @@ These files define the stable architectural model of the overall platform.
 
 ### Primary files
 - `01_workspace_architecture/AI_WORKSPACE_ARCHITECTURE.md`
-- `01_workspace_architecture/AI_WORKSPACE_PRODUCT_ARCHITECTURE.md`
-- `01_workspace_architecture/AI_WORKSPACE_MASTER_BLUEPRINT.md`
 - `01_workspace_architecture/AI_WORKSPACE_IMPLEMENTATION_RULES.md`
 - `01_workspace_architecture/AI_WORKSPACE_SYSTEM_INDEX.md`
 - `01_workspace_architecture/system_overview.md`
@@ -79,28 +77,28 @@ This is currently the **most active system** in the project.
 ### Core Gmail product / implementation files
 - `03_gmail_workspace/GMAIL_WORKSPACE_PHASE_PLAN.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_ENGINEERING_SPEC.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_UI_STRUCTURE.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_UX_SPEC.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_PERFORMANCE_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_ANALYTICS_SPEC.md`
+- `03_gmail_workspace/GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md`
 
 ### Gmail decision / workflow files
 - `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_UI_FLOW.md`
+- `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md`
 
 ### Gmail health / intelligence files
 - `03_gmail_workspace/GMAIL_WORKSPACE_HEALTH_ENGINE.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_INBOX_HEALTH_SPEC.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_INBOX_HEALTH_ALGORITHM_MODEL.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_INBOX_INGESTION_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_RECOMMENDATION_ENGINE_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md`
 - `03_gmail_workspace/GMAIL_WORKSPACE_INTELLIGENCE_ORCHESTRATOR.md`
+- `03_gmail_workspace/GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md`
+- `03_gmail_workspace/GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md`
+- `03_gmail_workspace/GMAIL_WORKSPACE_SELF_LEARNING_INBOX_INTELLIGENCE_PIPELINE.md`
 
 ### Use this layer when
 - reviewing Mailbox Intelligence screenshots
@@ -137,14 +135,11 @@ These files define how Codex should be managed, constrained, and evaluated.
 ### Primary files
 - `08_codex_instructions/CODEX_ARCHITECTURE_LOCK.md`
 - `08_codex_instructions/CODEX_DEBUG_PLAYBOOK.md`
-- `08_codex_instructions/CODEX_DUAL_THREAD_CONTROL_SYSTEM.md`
 - `08_codex_instructions/CODEX_EXECUTION_CHECKLIST.md`
 - `08_codex_instructions/CODEX_EXECUTION_RULES.md`
-- `08_codex_instructions/CODEX_IMPLEMENTATION_GUARDRAILS.md`
-- `08_codex_instructions/CODEX_MASTER_INSTRUCTION_PACKET.md`
-- `08_codex_instructions/CODEX_PHASE_EXECUTION_PLAN.md`
-- `08_codex_instructions/CODEX_REBUILD_PROTOCOL.md`
-- `08_codex_instructions/CODEX_SOURCE_OF_TRUTH.md`
+- `08_codex_instructions/PM_CODEX_UI_REVIEW_PROTOCOL.md`
+- `00_core_context/09_CODEX_EXECUTION_PROTOCOL.md`
+- `00_core_context/10_CODEX_SESSION_CHECKLIST.md`
 
 ### Use this layer when
 - preparing a Codex task
@@ -161,10 +156,14 @@ These files define how Codex should be managed, constrained, and evaluated.
 Consult in this order:
 
 1. `00_MASTER_PROJECT.md`
-2. `AI_WORKSPACE_PRODUCT_ARCHITECTURE.md`
-3. relevant `03_gmail_workspace/*` product and UX files
-4. `CURRENT_STATE.md`
-5. `CODEX_SOURCE_OF_TRUTH.md`
+2. `07_PROJECT_MANAGER_CONTEXT.md`
+3. `system_overview.md`
+4. `GMAIL_WORKSPACE_UI_STRUCTURE.md`
+5. `GMAIL_WORKSPACE_UX_SPEC.md`
+6. `GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md`
+7. `GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md`
+8. `CURRENT_STATE.md`
+9. `TODO.md`
 
 ---
 
@@ -172,12 +171,13 @@ Consult in this order:
 Consult in this order:
 
 1. `00_MASTER_PROJECT.md`
-2. `PROJECT_MANAGER_CONTEXT.md`
+2. `07_PROJECT_MANAGER_CONTEXT.md`
 3. relevant Gmail implementation / UX / engineering spec
 4. `CURRENT_STATE.md`
 5. `TODO.md`
-6. `CODEX_EXECUTION_PROTOCOL.md`
-7. `CODEX_SOURCE_OF_TRUTH.md`
+6. `09_CODEX_EXECUTION_PROTOCOL.md`
+7. `10_CODEX_SESSION_CHECKLIST.md`
+8. `PM_CODEX_UI_REVIEW_PROTOCOL.md` (for UI tasks)
 
 ---
 
@@ -241,13 +241,13 @@ The Gmail Workspace intelligence stack currently consists of:
 
 ```text
 Inbox Ingestion
-→ Sender Trust Graph
 → Inbox Health Engine
-→ Recommendation Engine
 → Decision Model
 → Decision Storage
-→ Autonomous Inbox Evolution Loop
 → Intelligence Orchestrator
+→ Intelligence Dashboard Layer
+→ Visual Intelligence Layer
+→ Management / Rule Signals (next integration)
 ```
 
 These systems should be consulted conceptually when determining whether a dashboard, recommendation, or sender workflow is aligned with the documented product.
@@ -349,7 +349,8 @@ If the repo structure changes materially, this section should be refreshed.
 │   ├── 04_product_design
 │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── operational_workflow.md
-│   │   └── playground-runtime-architecture.md
+│   │   ├── playground-runtime-architecture.md
+│   │   └── PM_CODEX_EXECUTION_SYSTEM.md
 │   ├── 05_operational_playbooks
 │   │   ├── daily_checklist.md
 │   │   ├── monthly_checklist.md
@@ -414,10 +415,23 @@ If source/file limits exist, prioritize these groups in order:
 3. `03_gmail_workspace`
 4. `06_system_state`
 5. `08_codex_instructions`
+6. `04_product_design`
+7. `07_reference`
 
-If a source cap is tight, keep this file plus the Gmail Workspace and Codex instruction files before lower-priority materials.
+### Active 40-File Source Strategy
 
-When the full repository tree is not available as a live source, use the `Repository Document Tree (Reference Snapshot)` section in this file as the quick structural map for where document families live.
+The current preferred 40-file source set is optimized for:
+- Project Manager startup speed
+- Gmail Workspace execution accuracy
+- Codex prompt quality
+- current system-state awareness
+
+That means the source set should prioritize:
+- live system-state docs (`CHANGELOG`, `CURRENT_STATE`, `TODO`)
+- Gmail Workspace dashboard / visual-intelligence specs
+- PM ↔ Codex workflow docs
+
+Older planning-heavy files that are not actively used in execution can be deprioritized when source limits are tight.
 
 ---
 
@@ -452,3 +466,36 @@ It tells the system:
 
 This file should be treated as the **memory navigation layer** for the project.
 It now also includes a compact repository-tree snapshot so the PM and Codex can quickly remember where major document families live without requiring Oliver to repeatedly paste the full documentation tree into chat.
+# Summary
+
+`SYSTEM_MEMORY_MAP.md` is the documentation-memory entry point for the AI Agent Platform.
+
+It tells the system:
+
+- what the most important documents are
+- which order to consult them in
+- which files govern the Gmail Workspace
+- how to reason about implementation, review, and Codex direction without repeatedly reconstructing the architecture from scratch
+
+This file should be treated as the **memory navigation layer** for the project.
+It now also includes a compact repository-tree snapshot so the PM and Codex can quickly remember where major document families live without requiring Oliver to repeatedly paste the full documentation tree into chat.
+
+# Current Workflow Reality (March 2026)
+
+The AI Agent Platform is currently operating on a simplified execution model:
+
+```text
+Oliver
+→ Project Manager
+→ Codex
+```
+
+This has replaced the earlier multi-agent execution concept in day-to-day practice.
+
+Operational truths:
+- PM is the primary product thinker and reviewer
+- Codex is the primary implementation engine
+- Oliver provides lightweight validation, screenshots, and approvals
+- UI work must be spec-driven, not improvisational
+
+This should be assumed when reasoning about active project execution unless a future system explicitly reintroduces specialist execution agents.

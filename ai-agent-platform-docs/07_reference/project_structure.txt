@@ -179,7 +179,8 @@
     │   ├── 04_product_design
     │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
     │   │   ├── operational_workflow.md
-    │   │   └── playground-runtime-architecture.md
+    │   │   ├── playground-runtime-architecture.md
+    │   │   └── PM_CODEX_EXECUTION_SYSTEM.md
     │   ├── 05_operational_playbooks
     │   │   ├── daily_checklist.md
     │   │   ├── monthly_checklist.md
@@ -419,4 +420,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-112 directories, 308 files
+112 directories, 309 files
