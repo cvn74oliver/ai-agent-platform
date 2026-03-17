@@ -1355,3 +1355,128 @@ Together they create:
 → fast, predictable iteration cycles
 
 ---
+
+---
+
+### 🎯 Sniper Method Execution Protocol (March 2026 – REQUIRED)
+
+Purpose:
+Eliminate repeated regressions, reduce frustration, and ensure each Codex pass produces clear, measurable improvement by narrowing scope to a single focused objective.
+
+---
+
+#### Core Principle
+
+Every Codex pass must target **ONE clearly defined problem or surface only**.
+
+No multi-surface cleanup.
+No “while we’re here” improvements.
+No broad UI rewrites.
+
+---
+
+#### Sniper Method Rules
+
+1. **One Surface Per Pass**
+   - Example: “Top row hero cards only”
+   - Never mix with other areas (e.g., charts, signals, CTAs)
+
+2. **One Problem Per Pass**
+   - Example: “Visual hierarchy of numbers”
+   - Not: “visuals + spacing + logic + interactions”
+
+3. **Clear Before/After Intent**
+   - PM must define:
+     - what is wrong now
+     - what it should look like after
+
+4. **No Guessing Allowed**
+   - If the correct solution is unclear:
+     - STOP
+     - discuss with Oliver
+     - define the exact expected outcome
+
+5. **No Semantic Drift**
+   - If a pass is visual-only:
+     - no logic changes
+     - no behavior changes
+     - no data interpretation changes
+
+---
+
+#### Codex Instructions Requirements
+
+Every sniper pass must include:
+
+- Scope Lock (exact elements to change)
+- Explicit Out-of-Scope list
+- Exact UI behavior rules
+- Visual constraints (what NOT to introduce)
+
+Codex must NOT:
+- expand scope
+- "improve" unrelated areas
+- reinterpret product intent
+
+---
+
+#### Validation Requirements
+
+Each sniper pass must include:
+
+- 30–60 second test checklist
+- 3–5 specific validation steps
+- no broad review instructions
+
+---
+
+#### Failure Handling
+
+If a sniper pass:
+- regresses behavior
+- introduces confusion
+- fails to improve clarity
+
+Then:
+1. STOP
+2. Return to Plan Mode
+3. Rewrite the plan with tighter constraints
+
+---
+
+#### Success Criteria
+
+A sniper pass is successful if:
+
+- The targeted issue is clearly improved
+- No new confusion is introduced
+- No unrelated UI changes occurred
+- The result matches the approved plan exactly
+
+---
+
+#### Relationship to Existing Protocols
+
+This protocol extends:
+- Plan-First Codex Execution Protocol
+- Scoped Validation Protocol
+
+Together they form:
+
+Plan → Approve → Sniper Pass → Targeted Test → Iterate
+
+---
+
+#### Strategic Impact
+
+This protocol:
+- prevents repeated "fix the same thing 10 times" cycles
+- eliminates expectation gaps between PM and Codex
+- reduces frustration for Oliver during testing
+- enables fast, controlled convergence on correct UI
+
+---
+
+> This is now the DEFAULT execution strategy for all UI refinement work.
+
+---

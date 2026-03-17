@@ -50,6 +50,21 @@ The PM **owns product quality and architecture decisions**.
 
 ---
 
+### PM Sniper Instruction Requirement
+
+For every Codex execution task, the PM MUST:
+
+- Define a **single surface**
+- Define a **single problem being solved**
+- Provide a **Scope Lock block**
+- Provide a **Not In Scope block**
+- Provide a **30–60 second Test Checklist**
+
+If any of these are missing:
+→ the task is considered incomplete and should not be executed
+
+---
+
 ## Codex — Implementation Engine
 
 Responsibilities:
@@ -153,6 +168,22 @@ Codex implements:
 - no additional interpretation
 
 Codex returns a **PM REVIEW PACKET**.
+
+---
+
+### PM Review Packet Requirement (MANDATORY)
+
+Codex MUST return a **PM REVIEW PACKET** for every implementation.
+
+The packet must include:
+
+1. What changed (scoped only)
+2. Confirmation that scope was respected
+3. Confirmation that no unrelated areas were modified
+4. Any risks or edge cases
+
+If the PM REVIEW PACKET is missing:
+→ the task is considered incomplete
 
 ---
 
@@ -261,6 +292,8 @@ Test only:
 2. chart filter click
 
 Not the entire system.
+
+If a test exceeds 2 minutes or requires checking multiple sections, the scope definition is incorrect and must be rewritten.
 
 ---
 
@@ -514,5 +547,24 @@ Together they ensure:
 - faster convergence to correct UI
 
 Scoped validation is now REQUIRED for all implementation passes.
+
+---
+
+# Sniper Method Integration
+
+This protocol now operates under strict sniper execution:
+
+- One surface per pass
+- One problem per pass
+- One measurable outcome per pass
+
+This ensures:
+
+- no repeated regressions
+- no scope confusion
+- faster iteration cycles
+
+If a task attempts to modify multiple areas:
+→ it must be rejected and rewritten as separate sniper passes
 
 ---

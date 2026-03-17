@@ -170,6 +170,127 @@ Never multiple areas at once.
 
 ---
 
+## 🎯 Sniper Method (Default UI Execution Mode)
+
+All UI refinement tasks MUST follow the Sniper Method.
+
+This is now the DEFAULT execution strategy for all UI work.
+
+---
+
+### Core Rule
+
+> One surface. One problem. One outcome.
+
+---
+
+### Sniper Method Requirements
+
+Every Codex task MUST:
+
+1. **Target ONE surface only**
+   - Example: “Top row hero cards”
+   - Never: “top row + signals + chart + CTAs”
+
+2. **Target ONE problem only**
+   - Example: “visual hierarchy of numbers”
+   - Not: “visuals + spacing + semantics + interaction”
+
+3. **Define exact before/after state**
+   - What is wrong now
+   - What it should look like after
+
+4. **Explicitly define OUT OF SCOPE**
+   - List everything that must NOT change
+   - Prevent Codex from "helpfully" modifying other areas
+
+5. **No guessing allowed**
+   - If the correct solution is unclear:
+     → STOP
+     → PM + Operator alignment first
+     → THEN execute
+
+---
+
+### Codex Instruction Requirements (Sniper Mode)
+
+Every prompt MUST include:
+
+- Scope Lock (exact UI elements)
+- Not In Scope list
+- Exact visual rules
+- Exact constraints (what NOT to introduce)
+
+Codex MUST NOT:
+- expand scope
+- reinterpret the product
+- introduce new design patterns
+
+---
+
+### Validation Protocol (Sniper Mode)
+
+Each task MUST include a **30–60 second test**:
+
+Example format:
+
+```
+Check ONLY:
+1. X
+2. Y
+3. Z
+
+Ignore everything else
+```
+
+Operator should NOT review the whole page.
+
+---
+
+### Failure Handling
+
+If a pass:
+- regresses behavior
+- introduces confusion
+- fails to improve clarity
+
+Then:
+1. STOP
+2. Return to Plan Mode
+3. Rewrite with tighter scope
+
+---
+
+### Success Criteria
+
+A sniper pass is successful when:
+
+- The targeted issue is clearly improved
+- No unrelated changes occurred
+- No new ambiguity is introduced
+- The result matches the plan exactly
+
+---
+
+### Relationship to Existing System
+
+Sniper Method integrates with:
+
+Plan → Approve → Sniper Pass → Targeted Test → Iterate
+
+---
+
+### Strategic Outcome
+
+This method:
+- eliminates repeated regression loops
+- prevents expectation mismatch
+- reduces operator frustration
+- accelerates convergence to correct UI
+
+---
+---
+
 ## Plan Mode Future Improvement (Quality Gate)
 
 All plans must pass a strict approval criteria before moving to execution.
