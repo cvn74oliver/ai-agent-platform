@@ -110,7 +110,27 @@ Examples:
 
 The user should understand the scale of the inbox **without reading numbers first**.
 
+
 Numbers explain the visuals, not the other way around.
+
+### Visual-First Command Rule
+
+The dashboard must be understandable at a glance **before** the operator reads paragraphs of copy.
+
+Required priority order for every major dashboard surface:
+
+1. Visual signal
+2. Short label
+3. Key number
+4. Supporting explanation
+
+If the operator must read dense text to understand what is happening, the visual system has failed.
+
+The intended standard is:
+
+> A first-time operator should be able to land on the page and understand the current state, the main blocker, and the next action without needing to read every card.
+
+This rule exists because Mailbox Intelligence is the template for future workspaces across the platform, not just Gmail.
 
 ---
 
@@ -188,7 +208,110 @@ Examples:
 
 These signals should appear as small visual indicators within the health layer rather than as separate dashboard sections.
 
+
 The purpose is to ensure the operator can see **execution friction** without navigating away from the command dashboard.
+
+### Hero Visual Contract (Hard Rule)
+
+The hero layer must use a **strict and repeatable visual grammar**.
+
+This rule is non-negotiable because the hero becomes the framework template for future workspaces.
+
+Allowed hero visual types:
+
+1. **Neutral scope meter**
+   - used for scale or context
+   - must NOT look like completion
+   - examples: total senders indexed, total supporting messages
+
+2. **True progress meter**
+   - used only when progress toward a goal is being shown
+   - examples: senders already decided, inbox cleanliness goal
+
+3. **Health rail**
+   - used only for inbox-health state
+   - must remain separate from progress and scale visuals
+
+### Hero Consistency Rule
+
+All top-row metrics must share one coherent visual system.
+
+The operator must not have to decode different meanings for:
+- circles
+- segmented rails
+- gradients
+- center markers
+- empty bars
+- full bars
+
+If multiple hero metrics use different visual grammars, the dashboard is considered visually inconsistent.
+
+### Visual Semantics Rule
+
+A visual may NOT look like a completion bar unless it genuinely represents completion or progress.
+
+Examples:
+- A full-width filled rail implies completion.
+- A partially filled rail implies measurable progress.
+- A neutral scope indicator must not resemble a progress bar.
+
+If a metric is about scope, density, or pressure, it must not visually read as “done” or “good.”
+
+### Single Strong Progress Rule
+
+The hero may contain multiple metrics, but it must have only **one dominant progress truth**:
+
+```text
+Every sender should have a decision.
+```
+
+That progress truth belongs to the **Inbox Cleanliness Goal**.
+
+The cleanliness goal must:
+- use one progress bar only
+- use one denominator only
+- visually outrank all other hero progress-like visuals
+- clearly show:
+  - decided senders
+  - total indexed sender universe
+
+No secondary hero element may visually compete with this progress signal.
+
+### Management Signal Display Rule
+
+Management signals inside the Inbox Health layer must behave like **signal displays**, not generic stat cards.
+
+The count is the primary visual anchor.
+
+Required structure:
+- large visible count
+- short label
+- one-line explanation
+- action path only when relevant
+
+Examples:
+- approvals waiting
+- archive follow-up
+- quarantine states
+- rule intent coverage
+- recent restores
+
+### Management Signal Interaction Rule
+
+If a management signal requires action, it must expose a clear action path.
+
+Examples:
+- approvals waiting → open Confirmation
+- archive follow-up requiring investigation → open Management
+- quarantine/rule coverage with no immediate action → may remain informational only
+
+Repeated generic buttons such as `Open Management` under every signal should be avoided.
+
+The signal should either:
+- provide a relevant action, or
+- remain a read-only signal
+
+but not pretend every signal deserves the same navigation pattern.
 
 ---
 
@@ -210,6 +333,7 @@ Current Status → Main Bottleneck → Do Next → Expected Payoff
 4. Expected Payoff
 5. Work Already In Motion
 6. Approval Checkpoint
+
 
 ### Interaction Rules
 
@@ -233,6 +357,31 @@ Example:
 Do Next
 Open Subscription Senders
 ```
+
+### CTA Hierarchy Rule
+
+Mission Control must have a clear action hierarchy.
+
+Required:
+- one obvious primary action
+- supportive secondary status panels
+- no repeated competing buttons
+
+The `Do Next` block must visually dominate the Mission Control row.
+
+Primary action treatment should be:
+- high-contrast
+- unmistakably clickable
+- visually stronger than supporting cards
+
+Secondary actions such as:
+- resume sender review
+- approval checkpoint follow-up
+- cleanup group handoff
+
+may be visible, but they must not compete with the primary action.
+
+If multiple buttons in the same section appear equally important, the hierarchy has failed.
 
 ---
 
@@ -274,12 +423,12 @@ Likely Driver: Dormant low‑attention senders
 Action That Would Help Most: Open Subscription Senders
 ```
 
+
 ### Time Range Controls
 
-The pressure trend must support time‑range filtering so operators can understand momentum across different horizons.
+The pressure trend should support time-range filtering **only when the underlying data actually supports it**.
 
-Required ranges:
-
+Allowed ranges when implemented:
 - Last 24 hours
 - Last 7 days
 - Last 30 days
@@ -290,12 +439,39 @@ Required ranges:
 The chart must dynamically adjust its bar grouping based on the selected range.
 
 Examples:
-
 - 24h range → hourly bars
 - 30d range → daily bars
 - 12m range → monthly bars
 
-This ensures the pressure visualization remains readable regardless of dataset size.
+### Interaction Honesty Rule
+
+The UI must never present controls that look interactive if they do not actually work.
+
+Therefore:
+- working time filters may appear as clickable controls
+- non-working future filters must not appear as normal selectable chips
+- if only one range is currently supported, the UI should show a clear **active trend window indicator** instead of fake controls
+
+No fake interaction is allowed on the Intelligence Dashboard.
+
+### Pressure Insight Rule
+
+Hover and selected-period behavior must provide **new insight**, not just swap repeated numbers.
+
+The pressure experience should distribute information clearly:
+- one place for current period value
+- one place for previous period comparison
+- one place for change between periods
+- one place for dominant driver
+- one place for best next move
+
+If the same value is repeated across the tooltip, label pills, and lower cards without adding new meaning, the chart is considered informationally redundant.
+
+The selected period should teach the operator:
+- whether cleanup gained or lost ground
+- why that happened
+- what kind of sender pressure mattered most
+- which action would have changed the outcome
 
 ---
 
@@ -397,7 +573,48 @@ Examples:
 - Decision Coverage Meter (decided senders vs total)
 - Active Review Indicator (senders currently under review)
 
+
 The operator must understand the **scale of the system instantly**.
+
+### Metric-Specific Dashboard Contract
+
+The Mailbox Intelligence dashboard must treat these four hero metrics differently.
+
+#### 1. Total Senders Indexed
+Purpose:
+- show the indexed sender universe size
+- establish cleanup scale
+
+Allowed visual behavior:
+- neutral scope meter only
+- must NOT look like progress or completion
+
+#### 2. Total Supporting Messages
+Purpose:
+- show inbox pressure / supporting-message context
+- represent load, not success
+
+Allowed visual behavior:
+- neutral load or density meter only
+- must NOT look like a “good when full” progress bar
+
+#### 3. Senders Currently Under Review
+Purpose:
+- show how much of the cleanup candidate universe is currently surfaced for active work
+
+Allowed visual behavior:
+- proportional active-work meter
+- denominator must be visible or immediately understandable
+
+#### 4. Senders Already Decided
+Purpose:
+- show real cleanup progress
+
+Allowed visual behavior:
+- true progress meter
+- denominator must be the indexed sender universe unless otherwise explicitly labeled
+
+This metric is the only top-row metric that should feel like clear completion progress.
 
 ---
 
@@ -438,7 +655,54 @@ The operator should be able to glance at the dashboard and immediately know:
 - which sender group to open
 - how much improvement to expect
 
+
 If the operator must read multiple panels to understand what to do, the dashboard has failed.
+
+# Mailbox Intelligence Page Contract (Implementation Lock)
+
+This section exists to remove ambiguity during implementation.
+
+## Non-Negotiable Rules
+
+1. The page must be **visual-first**.
+2. The hero must use a coherent and repeatable visual grammar.
+3. The cleanliness goal must be the strongest progress signal on the page.
+4. Management signals must read like signals, not generic mini-cards.
+5. Mission Control must have one obvious primary action.
+6. Pressure Trend must provide real insight, not decorative number swapping.
+7. No UI element may look interactive unless it truly works.
+
+## Failure Conditions
+
+The page should be considered failed if any of the following occur:
+
+- the user cannot tell what the top-row visuals mean at a glance
+- multiple hero visuals compete as “progress” indicators
+- management signals look like generic stat cards instead of operational alerts
+- hover only repeats visible numbers
+- multiple CTAs compete with the main next action
+- fake time filters or fake controls are shown
+- the dashboard resembles Cleanup Groups, Sender Decisions, or Management instead of summarizing and directing
+
+## Framework Rule
+
+Mailbox Intelligence is not a one-off Gmail page.
+It is the framework template for future workspaces across the AI Agent Platform.
+
+Therefore every visual and interaction pattern defined here must be:
+- understandable
+- reusable
+- duplicatable across other workspace types
+
+Examples of future workspaces include:
+- tax
+- crypto investing
+- customer service
+- email marketing
+- Facebook ads
+- Google ads
+
+If a dashboard pattern is too confusing, too text-heavy, or too Gmail-specific to generalize, it should not be used as the framework standard.
 
 ---
 

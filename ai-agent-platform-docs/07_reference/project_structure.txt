@@ -201,7 +201,8 @@
     │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
     │   │   ├── operational_workflow.md
     │   │   ├── playground-runtime-architecture.md
-    │   │   └── PM_CODEX_EXECUTION_SYSTEM.md
+    │   │   ├── PM_CODEX_EXECUTION_SYSTEM.md
+    │   │   └── PM_ONBOARDING_BRIEF.md
     │   ├── 05_operational_playbooks
     │   │   ├── daily_checklist.md
     │   │   ├── monthly_checklist.md
@@ -226,22 +227,42 @@
     │   │   ├── project_structure.txt
     │   │   ├── schema_comparison_checklist.md
     │   │   └── SYSTEM_MEMORY_MAP.md
-    │   └── 08_codex_instructions
-    │       ├── CODEX_ARCHITECTURE_LOCK.md
-    │       ├── CODEX_DEBUG_PLAYBOOK.md
-    │       ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
-    │       ├── CODEX_EXECUTION_CHECKLIST.md
-    │       ├── CODEX_EXECUTION_RULES.md
-    │       ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
-    │       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
-    │       ├── CODEX_PHASE_EXECUTION_PLAN.md
-    │       ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
-    │       ├── CODEX_PM_REVIEW_PACKET_SPEC.md
-    │       ├── CODEX_REBUILD_PROTOCOL.md
-    │       ├── CODEX_RELIABILITY_SYSTEM.md
-    │       ├── CODEX_SESSION_START_PROMPT.md
-    │       ├── CODEX_SOURCE_OF_TRUTH.md
-    │       └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+    │   ├── 08_codex_instructions
+    │   │   ├── CODEX_ARCHITECTURE_LOCK.md
+    │   │   ├── CODEX_DEBUG_PLAYBOOK.md
+    │   │   ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
+    │   │   ├── CODEX_EXECUTION_CHECKLIST.md
+    │   │   ├── CODEX_EXECUTION_RULES.md
+    │   │   ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
+    │   │   ├── CODEX_MASTER_INSTRUCTION_PACKET.md
+    │   │   ├── CODEX_PHASE_EXECUTION_PLAN.md
+    │   │   ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
+    │   │   ├── CODEX_PM_REVIEW_PACKET_SPEC.md
+    │   │   ├── CODEX_REBUILD_PROTOCOL.md
+    │   │   ├── CODEX_RELIABILITY_SYSTEM.md
+    │   │   ├── CODEX_SESSION_START_PROMPT.md
+    │   │   ├── CODEX_SOURCE_OF_TRUTH.md
+    │   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+    │   └── visuals
+    │       ├── Agent Next Training Suggestion Prompt.png
+    │       ├── Agent Playground.png
+    │       ├── Agent Summary.png
+    │       ├── Agents.png
+    │       ├── Automations Tab.png
+    │       ├── Cleanup Groups.png
+    │       ├── Confirmation.png
+    │       ├── Dashboard.png
+    │       ├── Executed Actions.png
+    │       ├── Fine Tune Dataset Preview p1.png
+    │       ├── Fine Tune Dataset Preview p2.png
+    │       ├── Mailbox Intelligence.png
+    │       ├── Management.png
+    │       ├── New Agent Prompt.png
+    │       ├── Pending Approvals.png
+    │       ├── PM_VISUAL_REFERENCE.md
+    │       ├── Review Timeline.png
+    │       ├── Sender Decisions.png
+    │       └── Settings Tab.png
     ├── eslint.config.mjs
     ├── next-env.d.ts
     ├── next.config.ts
@@ -441,4 +462,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-113 directories, 329 files
+114 directories, 349 files

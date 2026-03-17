@@ -58,6 +58,25 @@ Visuals must answer questions instantly:
 
 A user should understand the page **in under 3 seconds**.
 
+### Visual-First Command Rule (Global)
+
+All visual intelligence surfaces must prioritize **instant comprehension over completeness**.
+
+Required reading order for any screen:
+
+1. Visual signal
+2. Short label
+3. Key number
+4. Supporting explanation
+
+If the operator must read multiple lines of text to understand what is happening, the visual layer has failed.
+
+The intended experience is:
+
+> The operator should understand the current state, the main problem, and the next action in under 3 seconds without needing to read every card.
+
+This rule applies across all current and future workspaces and must not be violated.
+
 ---
 
 # Visual Components Library
@@ -79,6 +98,27 @@ Line or area chart
 Hover:
 
 Shows exact values for that date.
+
+### Trend Interaction Rule
+
+Trend charts must provide **insight, not repetition**.
+
+Required behavior:
+
+- One location shows the current value
+- One location shows the previous comparison
+- One location shows the change (delta)
+- One location shows the dominant driver
+- One location shows the recommended action
+
+The same number must not be repeated across:
+- tooltip
+- label
+- lower panels
+
+without adding new meaning.
+
+If the interaction only swaps numbers without changing interpretation, the chart is considered low-value.
 
 ---
 
@@ -110,6 +150,27 @@ Type:
 
 Horizontal progress bar
 
+### Single Progress Rule
+
+Each surface should have only **one dominant progress signal**.
+
+For the Gmail Workspace:
+
+```text
+Every sender should have a decision
+```
+
+This is the primary progress metric.
+
+Requirements:
+- only one progress bar should represent this goal
+- it must visually outrank other metrics
+- it must clearly show:
+  - current value (decided senders)
+  - total value (indexed sender universe)
+
+No secondary element should visually compete with this progress signal.
+
 ---
 
 ## Impact Charts
@@ -124,6 +185,54 @@ Type:
 Bar chart comparing:
 
 Before cleanup vs after cleanup
+
+---
+
+## Visual Semantics Rules (Non-Negotiable)
+
+Visual components must have **clear, consistent meaning across the entire platform**.
+
+### Allowed Visual Meanings
+
+1. **Progress**
+   - Indicates movement toward a goal
+   - Must always have a clear denominator
+   - Example: sender decision coverage
+
+2. **Scope / Scale**
+   - Indicates size of the system or dataset
+   - Must NOT look like progress
+   - Example: total senders indexed
+
+3. **Pressure / Load**
+   - Indicates volume or system stress
+   - Must not visually imply success or completion
+   - Example: supporting messages
+
+4. **Health**
+   - Indicates system condition
+   - Must use a dedicated health visualization (rail, gauge, etc.)
+
+### Visual Integrity Rule
+
+A visual may NOT look like a progress bar unless it represents true progress.
+
+Examples of violations:
+- full-width bars for non-progress metrics
+- gradients that imply improvement when none exists
+- decorative segmented rails without defined meaning
+
+If a visual can be misinterpreted as “good,” “complete,” or “improving” when it is not, it must be redesigned.
+
+### Consistency Rule
+
+All metrics in the same row must use a **shared visual grammar**.
+
+The user must not need to decode:
+- circles vs bars vs segments vs gradients
+- different meanings for similar shapes
+
+If multiple visual grammars are present in the same metric row, the UI is considered inconsistent.
 
 ---
 
@@ -180,6 +289,47 @@ Donut chart showing:
 Bar chart showing:
 
 Projected inbox reduction after next action.
+
+---
+
+### Hero Visual Contract (Mailbox Intelligence)
+
+The Mailbox Intelligence hero must follow a strict visual system.
+
+Allowed visual types in the hero:
+
+1. Neutral scope indicators (for scale)
+2. True progress indicators (for decision coverage)
+3. Health rail or gauge (for inbox condition)
+
+Disallowed:
+- decorative bars with unclear meaning
+- multiple competing progress visuals
+- mixed visual grammars in the same metric row
+
+### Cleanliness Goal Rule
+
+The cleanliness goal must be the strongest visual element in the hero.
+
+Requirements:
+- one progress bar only
+- no duplicate bars
+- clear numerator and denominator
+- visually dominant compared to other metrics
+
+### Management Signal Rule
+
+Management signals must behave like **signal displays**, not standard metric cards.
+
+Requirements:
+- count-first visual design
+- large, high-contrast numbers
+- minimal text
+- action only when relevant
+
+Do not use generic icons as the primary visual anchor.
+
+The number itself must carry the visual weight.
 
 ---
 
@@ -292,54 +442,64 @@ Example:
 
 Clicking the "Archive" segment filters the sender list to archive senders.
 
----
+### Interaction Honesty Rule
 
-# Visual Layout Pattern
+UI controls must never appear interactive unless they actually function.
 
-Every page should follow the same structure.
+Examples:
+- clickable-looking filters must work
+- time-range selectors must switch data
 
-```
-Page Header
+If functionality is not implemented:
+- the control must be removed, or
+- the control must be clearly styled as non-interactive
 
-Visual Intelligence Layer
-
-Key Metrics
-
-Operational Actions
-
-Raw Data Table
-```
-
-This consistency ensures users always know where to look.
+Fake interaction breaks operator trust and is not allowed.
 
 ---
 
-# Performance Requirements
+# Mailbox Intelligence Visual Contract (Implementation Lock)
 
-Visual components must:
+This section exists to remove ambiguity during implementation.
 
-• render under 100ms on warm load
-• reuse cached datasets
-• avoid triggering additional backend queries
+## Non-Negotiable Rules
 
-Charts should be derived from **already‑loaded page data**.
+1. Visuals must be understandable instantly.
+2. The hero must use one consistent visual grammar.
+3. Only one dominant progress signal is allowed.
+4. Non-progress metrics must not look like progress.
+5. Management signals must be count-led, not icon-led.
+6. Trend interactions must provide new insight.
+7. No fake or non-functional controls may appear interactive.
 
----
+## Failure Conditions
 
-# Future AI Intelligence Layer
+The UI is considered incorrect if:
 
-Later phases will allow the AI agent to:
+- users cannot explain what the top visuals mean
+- multiple elements look like progress indicators
+- visuals feel decorative instead of informative
+- hover interactions only repeat numbers
+- signal blocks look like generic stat cards
+- controls look clickable but do not function
 
-• highlight anomalies
-• predict inbox risk
-• recommend automation rules
-• suggest next actions
+## Framework Rule
 
-These AI signals will appear visually on charts as:
+The Gmail Workspace defines the visual framework for all future workspaces.
 
-• highlighted segments
-• alert markers
-• recommended action overlays
+This includes:
+- tax
+- crypto
+- customer support
+- email marketing
+- paid ads platforms
+
+All visual decisions must be:
+- reusable
+- consistent
+- easy to understand
+
+If a visual pattern cannot be reused across workspaces, it should not be part of the framework.
 
 ---
 
