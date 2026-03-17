@@ -1955,6 +1955,41 @@ function pressureTrendBucketLabel(
   return String(pressureTrendPartsAt(bucketStartUtcMs, timeZone).year)
 }
 
+function pressureTrendLastDayWindowFromAnchor(params: {
+  anchorUtcMs: number
+  timeZone: string
+  effectiveEndExclusiveMs?: number
+}): {
+  effectiveStartMs: number
+  effectiveEndExclusiveMs: number
+} {
+  const anchorHourStartMs = pressureTrendBucketStartUtcMs(params.anchorUtcMs, 'hour', params.timeZone)
+  const anchorHourParts = pressureTrendPartsAt(anchorHourStartMs, params.timeZone)
+  const effectiveEndExclusiveMs =
+    params.effectiveEndExclusiveMs ??
+    pressureTrendNextBucketStartUtcMs(anchorHourStartMs, 'hour', params.timeZone)
+  const effectiveStartMs = pressureTrendLocalDateTimeToUtcMs(
+    pressureTrendShiftLocalParts(
+      {
+        year: anchorHourParts.year,
+        month: anchorHourParts.month,
+        day: anchorHourParts.day,
+        hour: anchorHourParts.hour,
+        minute: 0,
+        second: 0,
+      },
+      'hour',
+      -23
+    ),
+    params.timeZone
+  )
+
+  return {
+    effectiveStartMs,
+    effectiveEndExclusiveMs,
+  }
+}
+
 function pressureTrendLastDayWindow(nowMs: number, timeZone: string): {
   effectiveStartMs: number
   effectiveEndExclusiveMs: number
@@ -1971,32 +2006,10 @@ function pressureTrendLastDayWindow(nowMs: number, timeZone: string): {
     },
     timeZone
   )
-  const currentHourParts = pressureTrendPartsAt(currentHourStartMs, timeZone)
-  const effectiveEndExclusiveMs = pressureTrendNextBucketStartUtcMs(
-    currentHourStartMs,
-    'hour',
-    timeZone
-  )
-  const effectiveStartMs = pressureTrendLocalDateTimeToUtcMs(
-    pressureTrendShiftLocalParts(
-      {
-        year: currentHourParts.year,
-        month: currentHourParts.month,
-        day: currentHourParts.day,
-        hour: currentHourParts.hour,
-        minute: 0,
-        second: 0,
-      },
-      'hour',
-      -23
-    ),
-    timeZone
-  )
-
-  return {
-    effectiveStartMs,
-    effectiveEndExclusiveMs,
-  }
+  return pressureTrendLastDayWindowFromAnchor({
+    anchorUtcMs: currentHourStartMs,
+    timeZone,
+  })
 }
 
 function pressureTrendWindowLabel(window: GmailPressureTrendWindow): string {
@@ -2105,6 +2118,19 @@ function pressureTrendResolvedWindow(params: {
     const lastDayWindow = pressureTrendLastDayWindow(nowMs, timeZone)
     effectiveStartMs = lastDayWindow.effectiveStartMs
     effectiveEndExclusiveMs = lastDayWindow.effectiveEndExclusiveMs
+    if (
+      coverageEndExclusiveMs != null &&
+      effectiveEndExclusiveMs > coverageEndExclusiveMs
+    ) {
+      const clampedLastDayWindow = pressureTrendLastDayWindowFromAnchor({
+        anchorUtcMs: Math.max(coverageEndExclusiveMs - 1, 0),
+        timeZone,
+        effectiveEndExclusiveMs: coverageEndExclusiveMs,
+      })
+      effectiveStartMs = clampedLastDayWindow.effectiveStartMs
+      effectiveEndExclusiveMs = clampedLastDayWindow.effectiveEndExclusiveMs
+      limitedByIndexedCoverage = true
+    }
   } else {
     const startParts = pressureTrendParseDateInput(params.pressureStart)
     const endParts = pressureTrendParseDateInput(params.pressureEnd)
@@ -2154,6 +2180,28 @@ function pressureTrendResolvedWindow(params: {
     effectiveEndExclusiveMs > coverageEndExclusiveMs
   ) {
     effectiveEndExclusiveMs = coverageEndExclusiveMs
+    limitedByIndexedCoverage = true
+  }
+  if (
+    params.pressureWindow === 'last_day' &&
+    coverageEndExclusiveMs != null &&
+    effectiveStartMs != null &&
+    effectiveEndExclusiveMs != null &&
+    effectiveEndExclusiveMs <= effectiveStartMs
+  ) {
+    const recoveredLastDayWindow = pressureTrendLastDayWindowFromAnchor({
+      anchorUtcMs: Math.max(coverageEndExclusiveMs - 1, 0),
+      timeZone,
+      effectiveEndExclusiveMs: coverageEndExclusiveMs,
+    })
+    effectiveStartMs = recoveredLastDayWindow.effectiveStartMs
+    effectiveEndExclusiveMs = recoveredLastDayWindow.effectiveEndExclusiveMs
+    if (coverageStartMs != null && effectiveStartMs < coverageStartMs) {
+      effectiveStartMs = coverageStartMs
+    }
+    if (effectiveEndExclusiveMs > coverageEndExclusiveMs) {
+      effectiveEndExclusiveMs = coverageEndExclusiveMs
+    }
     limitedByIndexedCoverage = true
   }
 

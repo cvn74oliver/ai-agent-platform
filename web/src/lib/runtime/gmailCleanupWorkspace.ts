@@ -1002,6 +1002,8 @@ function mailboxIntelligenceCacheMatches(params: {
   return actualSuffix.every((segment, index) => segment === expectedSuffix[index])
 }
 
+const PRESSURE_TREND_CLIENT_CACHE_VERSION = 'v2'
+
 function pressureTrendCacheKey(params: {
   clusters: GmailCleanupClusterRef[]
   cacheVersion: string
@@ -1012,6 +1014,7 @@ function pressureTrendCacheKey(params: {
 }): string {
   return [
     'pressure_trend',
+    PRESSURE_TREND_CLIENT_CACHE_VERSION,
     params.cacheVersion,
     params.pressureWindow,
     params.pressureStart || 'none',

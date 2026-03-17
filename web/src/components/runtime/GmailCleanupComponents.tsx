@@ -867,6 +867,33 @@ function CompactTrendChart(props: {
     const segments = visibleComposition.map((item) => `${item.label} ${item.share_pct}%`)
     return segments.join(' · ')
   }
+  const summarizeEvidenceSignals = (
+    evidenceSignals: Array<{ label: string; share_pct: number }>
+  ): string | null => {
+    const signalOrder: Record<string, number> = {
+      'Machine-likely correspondence': 0,
+      'Human-likely correspondence': 1,
+      'Protected evidence': 2,
+    }
+    const signalLabel: Record<string, string> = {
+      'Machine-likely correspondence': 'Machine-likely',
+      'Human-likely correspondence': 'Human-likely',
+      'Protected evidence': 'Protected evidence',
+    }
+    const visibleSignals = evidenceSignals
+      .filter((item) => item.share_pct > 0)
+      .slice()
+      .sort(
+        (left, right) =>
+          (signalOrder[left.label] ?? 99) - (signalOrder[right.label] ?? 99) ||
+          right.share_pct - left.share_pct ||
+          left.label.localeCompare(right.label)
+      )
+    if (visibleSignals.length === 0) return null
+    return visibleSignals
+      .map((item) => `${signalLabel[item.label] || item.label} ${item.share_pct}%`)
+      .join(' · ')
+  }
 
   const hoverHasPeriodComposition = Boolean(
     hoveredItem && Array.isArray(hoveredItem.composition) && hoveredItem.count > 0
@@ -876,6 +903,10 @@ function CompactTrendChart(props: {
     : []
   const hoverPressureMixSummary =
     hoverComposition.length === 0 ? null : summarizePressureMix(hoverComposition)
+  const hoverEvidenceSignalSummary =
+    !hoveredItem || hoveredItem.count === 0
+      ? null
+      : summarizeEvidenceSignals(hoveredItem.evidence_signals || [])
   const hoverBestNextMove = hoverHasPeriodComposition ? interventionTitle : null
   const hoverCardWidth = hoverHasPeriodComposition
     ? isDesktopViewport
@@ -1019,6 +1050,13 @@ function CompactTrendChart(props: {
       : (() => {
           const summary = summarizePressureMix(periodComposition)
           return summary ? `Pressure mix: ${summary}.` : null
+        })()
+  const selectedEvidenceSignalSummary =
+    !activeItem || activeItem.count === 0
+      ? null
+      : (() => {
+          const summary = summarizeEvidenceSignals(activeItem.evidence_signals || [])
+          return summary ? `Evidence signals: ${summary}. These overlap with Pressure mix.` : null
         })()
   const defaultSummary = props.loading
     ? 'Loading Pressure Trend…'
@@ -1222,6 +1260,14 @@ function CompactTrendChart(props: {
                             </p>
                           </div>
                         ) : null}
+                        {hoverEvidenceSignalSummary ? (
+                          <div className="mt-2">
+                            <p className="text-gray-500">Evidence signals (overlap)</p>
+                            <p className="mt-0.5 leading-5 text-gray-200">
+                              {hoverEvidenceSignalSummary}
+                            </p>
+                          </div>
+                        ) : null}
                         {hoverBestNextMove ? (
                           <div className="mt-2 flex items-start justify-between gap-3">
                             <span className="text-gray-500">Best next move</span>
@@ -1395,9 +1441,14 @@ function CompactTrendChart(props: {
             <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Selected period</p>
             <p className="mt-2 text-lg font-semibold text-white">{selectedPeriodLabel}</p>
             <p className="mt-1 text-sm text-cyan-50/90">{selectedPeriodSummary}</p>
-            {hasPeriodCompositionPayload && selectedPressureMixSummary ? (
+            {selectedPressureMixSummary ? (
               <p className="mt-2 text-xs leading-5 text-cyan-100/80">
                 {selectedPressureMixSummary}
+              </p>
+            ) : null}
+            {selectedEvidenceSignalSummary ? (
+              <p className="mt-2 text-xs leading-5 text-cyan-100/70">
+                {selectedEvidenceSignalSummary}
               </p>
             ) : null}
           </div>
