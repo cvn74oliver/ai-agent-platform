@@ -170,6 +170,43 @@ Never multiple areas at once.
 
 ---
 
+## Plan Mode Future Improvement (Quality Gate)
+
+All plans must pass a strict approval criteria before moving to execution.
+
+A plan is ONLY approved if:
+
+1. **Visual meaning is obvious at a glance**
+   - The operator can understand what each element represents without explanation
+
+2. **No element can be misinterpreted**
+   - No ambiguous visuals
+   - No mixed visual semantics (progress vs scope vs pressure)
+
+3. **Exactly one dominant progress signal exists**
+   - The page must clearly communicate a single “how far are we” metric
+   - No competing progress indicators
+
+4. **No UI element is decorative without purpose**
+   - Every visual must convey meaning
+   - If removed, the system should lose insight (not just styling)
+
+5. **All CTAs are clearly actionable**
+   - The next action must be obvious
+   - Buttons must look clickable
+   - No passive-looking actions
+
+---
+
+This becomes the **Plan Approval Quality Gate**.
+
+If any of the above fail:
+
+→ The plan must be revised before implementation
+
+---
+---
+
 ## Logging Rule
 
 Codex should update logs ONLY when:

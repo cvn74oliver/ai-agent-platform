@@ -984,6 +984,125 @@ Codex Execution Protocol (CRITICAL)
 
 ---
 
+### Plan-First Codex Execution Protocol (March 2026 – MANDATORY)
+
+Purpose:
+Eliminate implementation drift, reduce iteration cycles, and ensure Codex executes against a fully validated plan before writing code.
+
+This protocol is now the **default execution pattern** for all non-trivial Codex tasks.
+
+#### Core Rule
+All multi-step, UI, or system-behavior tasks must follow:
+
+1. **PLAN MODE → PM REVIEW → EXECUTION MODE**
+
+Codex must not proceed directly to implementation unless explicitly instructed.
+
+---
+
+#### When Plan Mode is REQUIRED
+
+Plan Mode must be used when a task involves:
+
+- UI / UX changes (any surface)
+- Visual intelligence or dashboard behavior
+- Multi-file changes
+- Any task with ambiguity in interpretation
+- Any task previously requiring more than one corrective pass
+
+---
+
+#### Plan Mode Responsibilities (Codex)
+
+When operating in Plan Mode, Codex must:
+
+- Read all referenced specs and treat them as **hard constraints**
+- Produce a structured plan broken into explicit sections
+- Describe UI changes in **visual terms**, not just code intent
+- Call out:
+  - what will be removed
+  - what will be simplified
+  - what will be unified
+  - what will remain unchanged
+- Identify any ambiguity or spec conflicts in a **Risk Check section**
+
+Codex must NOT:
+
+- write code
+- partially implement
+- skip planning sections
+
+---
+
+#### PM Responsibilities (Plan Review)
+
+The Project Manager must:
+
+- Review the plan against:
+  - visual-intelligence spec
+  - dashboard spec
+  - system goals (clarity, simplicity, operator-first UX)
+- Identify:
+  - ambiguity
+  - over-design
+  - visual inconsistency
+  - missing constraints
+- Issue **targeted plan revisions** before any implementation begins
+
+PM must not approve a plan that:
+
+- leaves visual interpretation open
+- introduces multiple competing UI patterns
+- allows ambiguous or decorative visuals
+
+---
+
+#### Execution Phase Rules
+
+Only after explicit PM approval:
+
+- Codex may switch to implementation mode
+- Codex must follow the approved plan exactly
+- No additional design decisions should be introduced during execution
+
+---
+
+#### Failure Handling
+
+If implementation deviates from the approved plan:
+
+- Stop execution loop
+- Return to Plan Mode
+- Issue corrected plan
+
+If Codex fails twice on the same surface:
+
+- Treat as specification gap
+- Update authoritative docs before retrying
+
+---
+
+#### Benefits
+
+- Reduces iteration cycles from 5–10 → 1–2
+- Eliminates UI drift and inconsistent visual patterns
+- Forces clarity before execution
+- Aligns Codex with PM as planner and Codex as executor
+
+---
+
+#### Relationship to Existing Protocol
+
+This protocol extends (not replaces):
+
+- Codex Execution Protocol
+- PM Review Packet workflow
+- Screenshot-first review loop
+
+Plan Mode becomes the **entry point** for all complex work.
+
+---
+
 ### UI Change Guardrail (March 2026 – Codex Stability Rule)
 
 To prevent UI regressions and ensure Codex consistently follows the product design specifications, every Codex task that modifies **any UI surface** must begin with the following instruction block:

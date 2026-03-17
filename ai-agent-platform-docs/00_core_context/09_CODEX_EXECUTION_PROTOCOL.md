@@ -148,6 +148,102 @@ This prevents architectural drift.
 
 ## 6. REASONING LEVEL REQUIREMENT
 
+---
+
+## 6A. PLAN-FIRST EXECUTION (MANDATORY)
+
+Purpose:
+Ensure Codex implements **approved plans only**, eliminating UI/UX drift and reducing iteration cycles.
+
+### Core Flow
+All non-trivial tasks must follow:
+
+1. **PLAN MODE → PM REVIEW → EXECUTION MODE**
+
+Codex must not proceed directly to implementation unless explicitly instructed.
+
+---
+
+### When Plan Mode is REQUIRED
+
+Use Plan Mode when the task involves:
+
+- Any UI / UX surface (especially dashboards)
+- Visual intelligence or chart behavior
+- Multi-file changes
+- Ambiguity in interpretation
+- Any surface that previously required corrective passes
+
+---
+
+### Plan Mode Requirements (Codex)
+
+Codex must:
+
+- Read all referenced specs as **hard constraints**
+- Produce a structured plan with explicit sections
+- Describe changes in **visual terms** (what user sees)
+- Specify:
+  - what will be removed
+  - what will be simplified
+  - what will be unified
+  - what will remain unchanged
+- Include a **Risk Check** section (ambiguities, spec conflicts)
+
+Codex must NOT:
+
+- write code
+- partially implement
+- skip sections
+
+---
+
+### Plan Approval Quality Gate (PM)
+
+A plan is ONLY approved if ALL are true:
+
+1. **Visual meaning is obvious at a glance**
+2. **No element can be misinterpreted** (no mixed semantics: progress vs scope vs pressure)
+3. **Exactly one dominant progress signal exists**
+4. **No UI element is decorative without purpose**
+5. **All CTAs are clearly actionable** (look clickable, one primary action)
+
+If any fail → plan must be revised.
+
+---
+
+### Execution Mode Rules
+
+After approval:
+
+- Codex implements the plan exactly
+- No new design decisions are introduced
+- Scope remains confined to declared files and domain
+
+---
+
+### Failure Handling (Plan-First)
+
+If implementation deviates from the approved plan:
+
+- Stop
+- Return to Plan Mode
+- Issue corrected plan
+
+If Codex fails twice on the same surface:
+
+- Treat as **specification gap**
+- Update authoritative docs before retrying
+
+---
+
+### Notes
+
+- This protocol extends (does not replace) TASK STRUCTURE, PM REVIEW PACKET, and SESSION CLOSING rules.
+- Plan Mode is the **default entry point** for complex work.
+
+---
+
 Every Codex task must include **exactly one** reasoning level:
 
 - **LOW**
