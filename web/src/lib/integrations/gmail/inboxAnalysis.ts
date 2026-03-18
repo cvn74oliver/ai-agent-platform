@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { GMAIL_MAILBOX_INDEX_MAX_MESSAGES } from '@/lib/integrations/gmail/gmailMailboxIndexConfig'
 import {
   loadGmailMailboxIndexCoverageForTenant,
   loadGmailMailboxIndexState,
@@ -3530,7 +3531,7 @@ export async function analyzeGmailInboxForTenant(params: {
       supabase: params.supabase,
       tenantId: params.tenantId,
       mode: 'incremental',
-      maxMessages: 50_000,
+      maxMessages: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
       allowFullRescanOnHistoryGap: false,
       logPrefix: `${logPrefix}/index-sync`,
     })
@@ -3541,7 +3542,7 @@ export async function analyzeGmailInboxForTenant(params: {
     const indexedRows = await loadIndexedGmailMessagesForTenant({
       supabase: params.supabase,
       tenantId: params.tenantId,
-      limit: 50_000,
+      limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
     })
     if (indexedRows.length > 0) {
       return {
@@ -5372,7 +5373,7 @@ export async function browseIndexedGmailQueryClusterMessagesForTenant(params: {
             const indexedRows = await loadIndexedGmailMessagesForTenant({
               supabase: params.supabase,
               tenantId: params.tenantId,
-              limit: 50_000,
+              limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
             })
             const selectedScopeDays = scopeDays(analysisScope)
             const inboxRows = indexedRows.filter((row) => row.is_in_inbox)
@@ -5633,7 +5634,7 @@ export async function loadGmailCleanupGroupIntelligenceForTenant(params: {
       const indexedRows = await loadIndexedGmailMessagesForTenant({
         supabase: params.supabase,
         tenantId: params.tenantId,
-        limit: 50_000,
+        limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
       })
       const indexedRowsLoadMs = Math.max(0, Date.now() - indexedRowsStartedAt)
 
@@ -7020,7 +7021,7 @@ export async function discoverGmailCleanupClustersForTenant(params: {
         supabase: params.supabase,
         tenantId: params.tenantId,
         mode: 'incremental',
-        maxMessages: 50_000,
+        maxMessages: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
         allowFullRescanOnHistoryGap: params.allowFullRescanOnIndexSyncFailure ?? true,
         logPrefix: `${logPrefix}/index-sync`,
       })
@@ -7037,7 +7038,7 @@ export async function discoverGmailCleanupClustersForTenant(params: {
     const indexedRows = await loadIndexedGmailMessagesForTenant({
       supabase: params.supabase,
       tenantId: params.tenantId,
-      limit: 50_000,
+      limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
     })
     diagnostics.indexed_rows_load_ms = Math.max(0, Date.now() - indexedRowsStartedAt)
     diagnostics.indexed_row_count = indexedRows.length

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { GMAIL_MAILBOX_INDEX_MAX_MESSAGES } from '@/lib/integrations/gmail/gmailMailboxIndexConfig'
 import {
   buildGmailPressureTrendData,
   buildCleanupGroupIntelligence,
@@ -268,7 +269,7 @@ async function loadMailboxContext(params: {
     const indexedRows = await loadIndexedGmailMessagesForTenant({
       supabase: params.supabase,
       tenantId: params.tenantId,
-      limit: 50_000,
+      limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
     })
 
     const nowMs = Date.now()

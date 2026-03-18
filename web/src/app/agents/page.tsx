@@ -364,6 +364,20 @@ async function createAgent() {
                   Edit Agent
                 </button>
 
+                {agent.id ? (
+                  <button
+                    onClick={() => (window.location.href = `/agents/${agent.id}/operations/intelligence`)}
+                    disabled={editingId === agent.id || savingEdit}
+                    className={`px-5 py-2 rounded text-white text-sm mb-2 ${
+                      editingId === agent.id || savingEdit
+                        ? 'bg-gray-600 cursor-not-allowed'
+                        : 'bg-cyan-600 hover:bg-cyan-700'
+                    }`}
+                  >
+                    Open Operations
+                  </button>
+                ) : null}
+
                 <button
                   onClick={() => (window.location.href = `/automations?agent_id=${agent.id}`)}
                   disabled={editingId === agent.id || savingEdit}

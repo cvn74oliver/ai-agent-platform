@@ -28,7 +28,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">
-      <h1 className="text-3xl font-bold mb-6">Sign in to your AI Agent</h1>
+      <h1 className="text-3xl font-bold mb-6">Sign in to Automata</h1>
       <input
         value={email}
         onChange={(e) => setEmail(e.target.value)}

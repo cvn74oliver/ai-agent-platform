@@ -1960,7 +1960,7 @@ export function MailboxMissionPanel(props: {
           {showApprovalLink ? (
             <Link
               href={props.approvalHref || '#'}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-amber-700/60 bg-amber-950/25 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:border-amber-600 hover:bg-amber-950/35"
+              className="automata-primary-button mt-4 inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
             >
               Open Confirmation
             </Link>
@@ -3034,7 +3034,7 @@ export function DeferredStagePlaceholder(props: {
         </Link>
         <Link
           href={props.openConfirmationHref}
-          className="rounded-full border border-gray-700 px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
+          className="automata-primary-button rounded-full px-4 py-2 text-sm font-medium text-white"
         >
           Open Confirmation
         </Link>

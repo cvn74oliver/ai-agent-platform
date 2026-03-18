@@ -1,16 +1,68 @@
 'use client'
-import { useState, useEffect, ReactNode } from 'react'
+
+import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import AutomataLogo from '@/components/ui/automata-logo'
 import { createClient } from '@/lib/supabase'
-import { useRouter, usePathname } from 'next/navigation'
 
 interface Props {
   children: ReactNode
 }
 
+type NavItem = {
+  href: string
+  label: string
+  matches: (pathname: string) => boolean
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    href: '/dashboard',
+    label: 'Dashboard',
+    matches: (pathname) => pathname === '/dashboard',
+  },
+  {
+    href: '/agents',
+    label: 'Agents',
+    matches: (pathname) => pathname.startsWith('/agents'),
+  },
+  {
+    href: '/automations',
+    label: 'Automations',
+    matches: (pathname) => pathname.startsWith('/automations'),
+  },
+  {
+    href: '/settings',
+    label: 'Settings',
+    matches: (pathname) => pathname.startsWith('/settings'),
+  },
+]
+
+function navItemClass(active: boolean): string {
+  return [
+    'automata-nav-link inline-flex items-center justify-center rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap',
+    active ? 'automata-nav-link-active' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function shellTitle(pathname: string): string | null {
+  if (pathname.startsWith('/agents/') && pathname.includes('/operations')) return 'Operations'
+  if (pathname.startsWith('/onboarding')) return 'Onboarding'
+  if (pathname.startsWith('/automations')) return 'Automations'
+  if (pathname.startsWith('/settings')) return 'Settings'
+  if (pathname.startsWith('/agents')) return 'Agents'
+  if (pathname.startsWith('/dashboard')) return 'Dashboard'
+  return null
+}
+
 export default function DashboardLayout({ children }: Props) {
-  const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
+  const [supabase] = useState(() => createClient())
   const [email, setEmail] = useState<string | null>(null)
 
   useEffect(() => {
@@ -19,82 +71,72 @@ export default function DashboardLayout({ children }: Props) {
     })
   }, [supabase])
 
+  useEffect(() => {
+    const section = shellTitle(pathname)
+    document.title = section ? `Automata – ${section}` : 'Automata'
+  }, [pathname])
+
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
   return (
-    <div className="flex h-screen text-white bg-gray-900">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 flex flex-col">
-        <div className="p-6 text-2xl font-bold border-b border-gray-700">
-          AI Agent
-        </div>
-        <nav className="flex-1 p-4 space-y-3">
-          <a
-            href="/dashboard"
-            className={`block ${
-              pathname === '/dashboard'
-                ? 'text-blue-400'
-                : 'hover:text-blue-400'
-            }`}
-          >
-            Dashboard
-          </a>
-          <a
-            href="/agents"
-            className={`block ${
-              pathname === '/agents'
-                ? 'text-blue-400'
-                : 'hover:text-blue-400'
-            }`}
-          >
-            Agents
-          </a>
-          <a
-            href="/automations"
-            className={`block ${
-              pathname === '/automations'
-                ? 'text-blue-400'
-                : 'hover:text-blue-400'
-            }`}
-          >
-            Automations
-          </a>
-          <a
-            href="/settings"
-            className={`block ${
-              pathname === '/settings'
-                ? 'text-blue-400'
-                : 'hover:text-blue-400'
-            }`}
-          >
-            Settings
-          </a>
-        </nav>
-      </aside>
+    <div className="flex min-h-screen flex-col bg-gray-950 text-white">
+      <header className="automata-topbar sticky top-0 z-40 border-b border-white/5">
+        <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
+          <div className="flex flex-wrap items-center gap-3 py-3 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-6">
+            <Link href="/dashboard" className="flex items-center gap-3 text-white">
+              <span className="automata-brand-mark flex h-10 w-10 items-center justify-center rounded-xl text-white">
+                <AutomataLogo className="h-5 w-5" />
+              </span>
+              <span className="text-base font-semibold tracking-[0.01em] text-white">Automata</span>
+            </Link>
 
-      {/* Main content */}
-      <div className="flex flex-col flex-1">
-        {/* Header */}
-        <header className="flex items-center justify-between px-6 py-3 border-b border-gray-700">
-          <h1 className="text-lg font-semibold">AI Agent Platform</h1>
+            <div className="ml-auto flex items-center gap-2 sm:gap-3 md:hidden">
+              <p className="max-w-[8rem] truncate text-sm text-gray-300 sm:max-w-xs">
+                {email || 'Loading...'}
+              </p>
+              <button
+                onClick={handleLogout}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:border-white/20 hover:bg-white/10"
+              >
+                Logout
+              </button>
+            </div>
 
-          <div className="flex items-center gap-4">
-            <p className="text-sm text-gray-300">{email}</p>
-            <button
-              onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm"
-            >
-              Logout
-            </button>
+            <nav className="flex min-w-0 basis-full items-center gap-2 overflow-x-auto pb-1 md:basis-auto md:justify-center md:overflow-visible md:pb-0">
+              {NAV_ITEMS.map((item) => {
+                const active = item.matches(pathname)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={navItemClass(active)}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+
+            <div className="hidden min-w-0 items-center justify-end gap-2 sm:gap-3 md:flex">
+              <p className="max-w-[10rem] truncate text-sm text-gray-300 lg:max-w-xs">
+                {email || 'Loading...'}
+              </p>
+              <button
+                onClick={handleLogout}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:border-white/20 hover:bg-white/10"
+              >
+                Logout
+              </button>
+            </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
+      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">{children}</main>
     </div>
   )
 }

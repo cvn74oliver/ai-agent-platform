@@ -55,7 +55,7 @@ function prettyAgentTitle(raw: string | null): string {
   // Generic short title fallback (max 6 words)
   const short = words.slice(0, 6).join(' ')
   // If it's still huge (e.g., one giant token), keep it safe.
-  if (short.length > 60) return 'AI Agent'
+  if (short.length > 60) return 'Automata'
   return short
 }
 

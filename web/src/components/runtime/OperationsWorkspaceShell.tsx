@@ -159,8 +159,79 @@ function sectionTitle(section: RailItem['section']): string {
 
 function railItemClass(active: boolean): string {
   return active
-    ? 'group relative block rounded-xl border border-cyan-700/70 bg-cyan-950/35 px-3.5 py-3.5'
-    : 'group relative block rounded-xl border border-gray-800 bg-gray-950/25 px-3.5 py-3.5 hover:border-gray-700 hover:bg-gray-900/35'
+    ? 'automata-workspace-nav-item automata-workspace-nav-item-active group relative block rounded-xl px-3.5 py-3.5'
+    : 'automata-workspace-nav-item group relative block rounded-xl px-3.5 py-3.5'
+}
+
+const MAILBOX_INDEX_COUNT_FORMATTER = new Intl.NumberFormat('en-US')
+
+function formatMailboxIndexCount(value: number | null | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? MAILBOX_INDEX_COUNT_FORMATTER.format(Math.round(value))
+    : '—'
+}
+
+function formatMailboxIndexDateTime(value: string | null | undefined): string {
+  if (!value) return '—'
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) return '—'
+  return new Date(parsed).toLocaleString()
+}
+
+function formatMailboxIndexDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) return '—'
+  return new Date(parsed).toLocaleDateString()
+}
+
+function mailboxIndexTriggerLabel(value: string | null | undefined): string {
+  if (value === 'manual_full_reindex') return 'manual_full_reindex'
+  if (value === 'runtime_bootstrap') return 'runtime_bootstrap'
+  if (value === 'runtime_backfill') return 'runtime_backfill'
+  if (value === 'runtime_recovery') return 'runtime_recovery'
+  if (value === 'analysis_refresh') return 'analysis_refresh'
+  return '—'
+}
+
+function mailboxIndexCoverageLabel(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start && !end) return '—'
+  return `${formatMailboxIndexDate(start)} -> ${formatMailboxIndexDate(end)}`
+}
+
+function mailboxIndexYieldRangeLabel(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start && !end) return '—'
+  return `${formatMailboxIndexDate(start)} -> ${formatMailboxIndexDate(end)}`
+}
+
+function mailboxIndexNextPageTokenLabel(value: boolean | null | undefined): string {
+  if (value === true) return 'present'
+  if (value === false) return 'absent'
+  return '—'
+}
+
+function mailboxIndexYieldLines(
+  yieldDetail:
+    | {
+        inserted_rows: number
+        updated_rows: number
+        already_indexed_rows: number
+        oldest_message_seen_at: string | null
+        newest_message_seen_at: string | null
+        next_page_token_present: boolean | null
+      }
+    | null
+    | undefined
+): string[] {
+  if (!yieldDetail) return []
+  return [
+    `Inserted / updated / already indexed: ${formatMailboxIndexCount(yieldDetail.inserted_rows)} / ${formatMailboxIndexCount(yieldDetail.updated_rows)} / ${formatMailboxIndexCount(yieldDetail.already_indexed_rows)}`,
+    `Seen range: ${mailboxIndexYieldRangeLabel(
+      yieldDetail.oldest_message_seen_at,
+      yieldDetail.newest_message_seen_at
+    )}`,
+    `Next page token: ${mailboxIndexNextPageTokenLabel(yieldDetail.next_page_token_present)}`,
+  ]
 }
 
 function OperationsWorkspaceShellInner(props: {
@@ -181,6 +252,10 @@ function OperationsWorkspaceShellInner(props: {
   const [regeneratingClusters, setRegeneratingClusters] = useState(false)
   const [lastRegeneratedAt, setLastRegeneratedAt] = useState<number | null>(null)
   const [regenerationStatusNote, setRegenerationStatusNote] = useState<string | null>(null)
+  const [manualReindexNotice, setManualReindexNotice] = useState<{
+    tone: 'info' | 'error'
+    text: string
+  } | null>(null)
   const [pendingRegenerateBaseline, setPendingRegenerateBaseline] = useState<{
     clusterIdKey: string
     clusterCount: number
@@ -225,6 +300,24 @@ function OperationsWorkspaceShellInner(props: {
     runtime.data?.runtime_mailbox_profile?.freshness?.last_generated_at ||
     runtime.data?.runtime_mailbox_profile?.generated_at ||
     null
+  const mailboxIndexHealth = runtime.mailboxIndexHealth
+  const activeMailboxIndexRun = mailboxIndexHealth?.active_run ?? null
+  const activeManualMailboxReindex =
+    activeMailboxIndexRun?.trigger === 'manual_full_reindex' ? activeMailboxIndexRun : null
+  const lastManualMailboxReindex =
+    mailboxIndexHealth?.last_result?.trigger === 'manual_full_reindex'
+      ? mailboxIndexHealth.last_result
+      : null
+  const blockingMailboxIndexRun =
+    mailboxIndexHealth?.execution_state === 'running' &&
+    activeMailboxIndexRun &&
+    activeMailboxIndexRun.trigger !== 'manual_full_reindex'
+      ? activeMailboxIndexRun
+      : null
+  const manualReindexDisabled =
+    runtime.manualMailboxReindexStarting ||
+    mailboxIndexHealth?.execution_state === 'running' ||
+    mailboxIndexHealth?.requires_reconnect === true
   const query = useMemo(
     () => serializeOperationsQuery(props.sessionId, props.analysisScope),
     [props.analysisScope, props.sessionId]
@@ -561,6 +654,143 @@ function OperationsWorkspaceShellInner(props: {
     [props.pathname, props.reviewStage]
   )
 
+  const manualReindexStatus = useMemo(() => {
+    if (!mailboxIndexHealth) {
+      return {
+        tone: 'gray' as const,
+        title: 'Mailbox index status unavailable',
+        lines: ['Mailbox index health has not loaded yet.'],
+      }
+    }
+
+    const baseLines = [
+      `Indexed rows: ${formatMailboxIndexCount(mailboxIndexHealth.indexed_message_count)}`,
+      `Coverage: ${mailboxIndexCoverageLabel(
+        mailboxIndexHealth.indexed_oldest_message_at,
+        mailboxIndexHealth.indexed_newest_message_at
+      )}`,
+    ]
+
+    if (activeManualMailboxReindex) {
+      return {
+        tone: 'cyan' as const,
+        title: 'Manual full reindex running',
+        lines: [
+          ...baseLines,
+          `Run id: ${activeManualMailboxReindex.run_id || '—'}`,
+          `Requested/effective mode: ${activeManualMailboxReindex.requested_mode || '—'} / ${
+            activeManualMailboxReindex.effective_mode || activeManualMailboxReindex.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(activeManualMailboxReindex.trigger)}`,
+          `Started: ${formatMailboxIndexDateTime(activeManualMailboxReindex.started_at)}`,
+          `Latest heartbeat: ${formatMailboxIndexDateTime(activeManualMailboxReindex.heartbeat_at)}`,
+          `Rows before: ${formatMailboxIndexCount(activeManualMailboxReindex.rows_before)}`,
+          `Current indexed rows: ${formatMailboxIndexCount(mailboxIndexHealth.indexed_message_count)}`,
+          `Pages fetched so far: ${formatMailboxIndexCount(activeManualMailboxReindex.list_pages_fetched)}`,
+          `Messages processed so far: ${formatMailboxIndexCount(activeManualMailboxReindex.processed_messages)}`,
+          ...mailboxIndexYieldLines(activeManualMailboxReindex.yield_detail),
+        ],
+      }
+    }
+
+    if (runtime.manualMailboxReindexStarting) {
+      return {
+        tone: 'cyan' as const,
+        title: 'Starting manual full reindex...',
+        lines: [
+          ...baseLines,
+          'Waiting for mailbox index status to confirm the active full-scan run.',
+        ],
+      }
+    }
+
+    if (lastManualMailboxReindex) {
+      const growthDelta = lastManualMailboxReindex.growth_delta
+      const failed =
+        mailboxIndexHealth.execution_state === 'failed' ||
+        Boolean(lastManualMailboxReindex.failure_reason) ||
+        (typeof lastManualMailboxReindex.status === 'string' &&
+          (lastManualMailboxReindex.status.includes('failed') ||
+            lastManualMailboxReindex.status.includes('out_of_date') ||
+            lastManualMailboxReindex.status.includes('listing_failed')))
+      const stoppedByPagination =
+        lastManualMailboxReindex.terminal_reason === 'gmail_pagination_exhausted' ||
+        lastManualMailboxReindex.terminal_reason === 'empty_page'
+      const completedWithNoGrowth =
+        !failed && !stoppedByPagination && (typeof growthDelta === 'number' ? growthDelta <= 0 : false)
+
+      return {
+        tone: failed ? ('rose' as const) : stoppedByPagination ? ('amber' as const) : completedWithNoGrowth ? ('gray' as const) : ('emerald' as const),
+        title: failed
+          ? 'Reindex failed'
+          : stoppedByPagination
+            ? 'Stopped because Gmail returned no more pages'
+            : completedWithNoGrowth
+              ? 'Completed with no growth'
+              : 'Completed with growth',
+        lines: [
+          ...baseLines,
+          `Run id: ${lastManualMailboxReindex.run_id || '—'}`,
+          `Rows: ${formatMailboxIndexCount(lastManualMailboxReindex.rows_before)} -> ${formatMailboxIndexCount(
+            lastManualMailboxReindex.rows_after
+          )} (${typeof growthDelta === 'number' ? `${growthDelta >= 0 ? '+' : ''}${formatMailboxIndexCount(growthDelta)}` : '—'})`,
+          `Requested/effective mode: ${lastManualMailboxReindex.requested_mode || '—'} / ${
+            lastManualMailboxReindex.effective_mode || lastManualMailboxReindex.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(lastManualMailboxReindex.trigger)}`,
+          `Completed: ${formatMailboxIndexDateTime(lastManualMailboxReindex.completed_at)}`,
+          `Stop reason: ${lastManualMailboxReindex.terminal_reason || '—'}`,
+          ...(typeof lastManualMailboxReindex.gmail_result_size_estimate === 'number'
+            ? [`Gmail estimate: ${formatMailboxIndexCount(lastManualMailboxReindex.gmail_result_size_estimate)}`]
+            : []),
+          ...(typeof lastManualMailboxReindex.list_pages_fetched === 'number'
+            ? [`List pages fetched: ${formatMailboxIndexCount(lastManualMailboxReindex.list_pages_fetched)}`]
+            : []),
+          ...mailboxIndexYieldLines(lastManualMailboxReindex.yield_detail),
+          ...(lastManualMailboxReindex.failure_reason
+            ? [`Failure: ${lastManualMailboxReindex.failure_reason}`]
+            : []),
+          ...(mailboxIndexHealth.last_sync_error
+            ? [`Error: ${mailboxIndexHealth.last_sync_error}`]
+            : []),
+        ],
+      }
+    }
+
+    return {
+      tone: mailboxIndexHealth.requires_reconnect ? ('rose' as const) : ('gray' as const),
+      title: mailboxIndexHealth.requires_reconnect
+        ? 'Reconnect Gmail to run a full mailbox reindex'
+        : 'No manual full reindex started yet',
+      lines: [
+        ...baseLines,
+        mailboxIndexHealth.requires_reconnect
+          ? 'Mailbox indexing is blocked until Gmail is reconnected.'
+          : 'Use Run full mailbox reindex to verify mailbox growth explicitly.',
+      ],
+    }
+  }, [activeManualMailboxReindex, lastManualMailboxReindex, mailboxIndexHealth, runtime.manualMailboxReindexStarting])
+
+  const triggerManualMailboxReindex = async () => {
+    setManualReindexNotice(null)
+    const result = await runtime.triggerManualFullMailboxReindex()
+    if (result.ok) {
+      setManualReindexNotice(
+        result.attached
+          ? {
+              tone: 'info',
+              text: 'A mailbox index run is already in progress. Showing its live mailbox-index state below.',
+            }
+          : {
+              tone: 'info',
+              text: 'Manual full mailbox reindex finished. The latest mailbox-index result is shown below.',
+            }
+      )
+    } else {
+      setManualReindexNotice({ tone: 'error', text: result.error })
+    }
+  }
+
   const sendAssistantMessage = async () => {
     const text = assistantInput.trim()
     if (!text || assistantSending) return
@@ -652,6 +882,21 @@ function OperationsWorkspaceShellInner(props: {
             >
               {regeneratingClusters ? 'Refreshing cleanup analysis…' : 'Refresh cleanup analysis'}
             </button>
+            <p className="text-[10px] text-amber-200/80">
+              Refreshing cleanup analysis does not increase indexed mailbox coverage.
+            </p>
+            <button
+              type="button"
+              onClick={() => void triggerManualMailboxReindex()}
+              disabled={manualReindexDisabled}
+              className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                manualReindexDisabled
+                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                  : 'bg-emerald-700 hover:bg-emerald-600 text-white'
+              }`}
+            >
+              {runtime.manualMailboxReindexStarting ? 'Starting full mailbox reindex…' : 'Run full mailbox reindex'}
+            </button>
             <p className="text-[10px] text-gray-500">
               Scope: {analysisScopeLabel(props.analysisScope)} · Last refresh:{' '}
               {runtime.loadedAt ? new Date(runtime.loadedAt).toLocaleTimeString() : '—'}
@@ -678,6 +923,49 @@ function OperationsWorkspaceShellInner(props: {
                 Refreshing cleanup analysis in the background. Current cleanup groups stay visible until the new results are ready.
               </p>
             ) : null}
+            <div className="rounded border border-gray-800 bg-gray-950/45 px-2.5 py-2 space-y-1.5">
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">Mailbox index</p>
+              <p
+                className={`text-[11px] font-medium ${
+                  manualReindexStatus.tone === 'cyan'
+                    ? 'text-cyan-300'
+                    : manualReindexStatus.tone === 'emerald'
+                      ? 'text-emerald-300'
+                      : manualReindexStatus.tone === 'amber'
+                        ? 'text-amber-300'
+                        : manualReindexStatus.tone === 'rose'
+                          ? 'text-rose-300'
+                          : 'text-gray-300'
+                }`}
+              >
+                {manualReindexStatus.title}
+              </p>
+              {manualReindexStatus.lines.map((line, index) => (
+                <p key={`${index}-${line}`} className="text-[10px] leading-snug text-gray-400">
+                  {line}
+                </p>
+              ))}
+              {blockingMailboxIndexRun ? (
+                <p className="text-[10px] leading-snug text-amber-300">
+                  Another mailbox index run is already active: {blockingMailboxIndexRun.requested_mode || '—'} /{' '}
+                  {mailboxIndexTriggerLabel(blockingMailboxIndexRun.trigger)}. The manual full reindex button will unlock when it finishes.
+                </p>
+              ) : null}
+              {mailboxIndexHealth?.requires_reconnect ? (
+                <p className="text-[10px] leading-snug text-rose-300">
+                  Reconnect Gmail before running a manual full mailbox reindex.
+                </p>
+              ) : null}
+              {manualReindexNotice ? (
+                <p
+                  className={`text-[10px] leading-snug ${
+                    manualReindexNotice.tone === 'error' ? 'text-rose-300' : 'text-cyan-300'
+                  }`}
+                >
+                  {manualReindexNotice.text}
+                </p>
+              ) : null}
+            </div>
           </div>
           <div className="rounded border border-gray-800 bg-gray-950/45 px-3 py-2.5 space-y-1.5">
             <p className="text-[10px] uppercase tracking-wide text-gray-500">Post-confirmation home</p>
