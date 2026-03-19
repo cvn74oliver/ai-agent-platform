@@ -436,6 +436,8 @@ Purpose
 - 03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md
 - 03_gmail_workspace/05_management_execution/management_execution_engine.md
 - Any 1–2 additional highly relevant current-phase spec files if needed
+      4. 03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md
+      5. 03_gmail_workspace/03_decision_system/decision_engine_spec.md
 
 Include:
 - Last Codex prompt
