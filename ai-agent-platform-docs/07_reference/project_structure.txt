@@ -30,10 +30,9 @@
 │   ├── 03_gmail_workspace
 │   │   ├── 00_overview
 │   │   │   ├── final_product_spec.md
-│   │   │   ├── gmail_workspace_master_spec.md
 │   │   │   ├── gmail_workspace_phase_plan.md
 │   │   │   └── gmail_workspace_product_flow.md
-│   │   ├── 01_injestion
+│   │   ├── 01_ingestion
 │   │   │   ├── inbox_ingestion_spec.md
 │   │   │   └── smart_sync_and_maintenance_spec.md
 │   │   ├── 02_intelligence
@@ -51,22 +50,18 @@
 │   │   │   ├── decision_scoring_advanced.md
 │   │   │   └── decision_storage_spec.md
 │   │   ├── 04_sender_decision_ui
-│   │   │   ├── build_decision_mode_dev_spec.md
 │   │   │   ├── decision_mode_animation_spec.md
-│   │   │   ├── decision_mode_build_sequence.md
 │   │   │   ├── decision_mode_component_map.md
+│   │   │   ├── decision_mode_full_build_spec.md
 │   │   │   ├── decision_mode_ui_final_build_spec.md
 │   │   │   ├── decision_ui_flow.md
 │   │   │   ├── sender_decision_mode_spec.md
-│   │   │   ├── sender_decision_ui_spec.md
-│   │   │   ├── start_building_decision_mode_components.md
 │   │   │   ├── workspace_ui_structure.md
 │   │   │   └── workspace_ux_spec.md
 │   │   ├── 05_management_execution
 │   │   │   ├── execution_queue_spec.md
 │   │   │   ├── execution_safety_preview.md
 │   │   │   ├── management_execution_engine.md
-│   │   │   ├── management_execution_spec_full_system.md
 │   │   │   └── management_flow_spec.md
 │   │   ├── 06_learning_system
 │   │   │   ├── ai_learning_layer_moat.md
@@ -205,6 +200,65 @@
     │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
     │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
     │   ├── 03_gmail_workspace
+    │   │   ├── 00_overview
+    │   │   │   ├── final_product_spec.md
+    │   │   │   ├── gmail_workspace_master_spec.md
+    │   │   │   ├── gmail_workspace_phase_plan.md
+    │   │   │   └── gmail_workspace_product_flow.md
+    │   │   ├── 01_injestion
+    │   │   │   ├── inbox_ingestion_spec.md
+    │   │   │   └── smart_sync_and_maintenance_spec.md
+    │   │   ├── 02_intelligence
+    │   │   │   ├── analytics_spec.md
+    │   │   │   ├── health_engine.md
+    │   │   │   ├── inbox_health_algorithm.md
+    │   │   │   ├── inbox_health_spec.md
+    │   │   │   ├── intelligence_dashboard_spec.md
+    │   │   │   ├── intelligence_orchestrator.md
+    │   │   │   └── visual_intelligence_spec.md
+    │   │   ├── 03_decision_system
+    │   │   │   ├── decision_destinations_spec.md
+    │   │   │   ├── decision_engine_spec.md
+    │   │   │   ├── decision_model_spec.md
+    │   │   │   ├── decision_scoring_advanced.md
+    │   │   │   └── decision_storage_spec.md
+    │   │   ├── 04_sender_decision_ui
+    │   │   │   ├── build_decision_mode_dev_spec.md
+    │   │   │   ├── decision_mode_animation_spec.md
+    │   │   │   ├── decision_mode_build_sequence.md
+    │   │   │   ├── decision_mode_component_map.md
+    │   │   │   ├── decision_mode_ui_final_build_spec.md
+    │   │   │   ├── decision_ui_flow.md
+    │   │   │   ├── sender_decision_mode_spec.md
+    │   │   │   ├── sender_decision_ui_spec.md
+    │   │   │   ├── start_building_decision_mode_components.md
+    │   │   │   ├── workspace_ui_structure.md
+    │   │   │   └── workspace_ux_spec.md
+    │   │   ├── 05_management_execution
+    │   │   │   ├── execution_queue_spec.md
+    │   │   │   ├── execution_safety_preview.md
+    │   │   │   ├── management_execution_engine.md
+    │   │   │   ├── management_execution_spec_full_system.md
+    │   │   │   └── management_flow_spec.md
+    │   │   ├── 06_learning_system
+    │   │   │   ├── ai_learning_layer_moat.md
+    │   │   │   ├── autonomous_inbox_evolution_loop.md
+    │   │   │   ├── self_learning_pipeline.md
+    │   │   │   └── system_feedback_and_reinforcement.md
+    │   │   ├── 07_engines
+    │   │   │   ├── recommendation_engine_spec.md
+    │   │   │   └── sender_trust_graph.md
+    │   │   ├── 08_gamification
+    │   │   │   └── gamification_reward_system.md
+    │   │   ├── 09_reference
+    │   │   │   ├── codex_safeguards.md
+    │   │   │   ├── engineering_spec.md
+    │   │   │   ├── gmail_workspace_system_index.md
+    │   │   │   ├── implementation_phase_1.md
+    │   │   │   └── performance_spec.md
+    │   │   ├── 10_archive_legacy
+    │   │   │   ├── legacy_cleanup_rebuild_plan.md
+    │   │   │   └── legacy_product_flow_v2.md
     │   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
     │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
@@ -503,4 +557,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-126 directories, 378 files
+137 directories, 421 files

@@ -16,7 +16,27 @@ The system must prioritize:
 
 ---
 
+
 # Core Product Philosophy
+
+## System Role & Platform Positioning
+
+The Gmail Workspace serves two roles:
+
+1. A practical inbox cleanup and automation system
+2. The reference architecture for all future AI Workspaces
+
+This workspace defines how the platform transforms large datasets into guided decision systems that train AI agents over time.
+
+Future workspaces that will reuse this architecture include:
+
+- CRM management
+- Advertising optimization
+- Crypto portfolio management
+- Tax categorization
+- Email marketing analysis
+
+---
 
 An inbox is **not a collection of messages**.
 
@@ -64,6 +84,28 @@ Optional filters may still exist, such as:
 
 But these should be **filters**, not analysis limitations.
 
+## Historical Backfill Strategy (Updated)
+
+The system uses a bounded historical backfill strategy:
+
+- Default backfill target: last 24 months
+- Optional extended backfill: last 36 months
+
+Rules:
+
+• Backfill runs newest → oldest
+• Stops after a committed page crosses the cutoff date
+• Uses Gmail `internalDate` as the source of truth
+• Continues across slices using resume checkpoints
+
+This ensures:
+
+- high-quality recent data
+- faster initial usability
+- controlled processing time
+
+Older data beyond the cutoff is not required for core decision accuracy.
+
 
 ---
 
@@ -76,13 +118,13 @@ The canonical flow is:
 0. Introduction
 1. Mailbox Intelligence
 2. Choose Cleanup Group
-3. Sender Overview (High-Level)
-4. Sender Decision Mode (Focused / One-at-a-time)
-5. Exceptions / Verification
-6. Confirmation
-7. Automation Rules
-8. AI Monitoring
-9. Continuous Maintenance (Smart Sync)
+3. Sender Overview (High-Level Table)
+3.5 Sender Decision Mode (Focused UI)
+4. Exceptions / Verification
+5. Confirmation (optional/minimized)
+6. Automation Rules
+7. AI Monitoring
+8. Continuous Maintenance (Smart Sync)
 
 
 ---
@@ -157,6 +199,8 @@ This prevents users from being overwhelmed by the entire mailbox.
 ---
 
 # Step 3 — Sender Decisions
+
+NOTE: This step has two modes — a high-level table view and a focused "Decision Mode" (defined in Step 3.5).
 
 This is the core workspace.
 
@@ -357,6 +401,26 @@ Dashboard shows:
 Clicking this re-enters Sender Decision Mode for only new senders.
 
 No need to reprocess the entire inbox.
+
+## Maintenance Model Clarification
+
+Smart Sync operates only on incremental changes:
+
+• New senders
+• New messages
+• Label/category changes
+
+It does NOT perform historical traversal.
+
+Historical traversal is handled exclusively by:
+
+• Continue Backfill (operator-driven)
+
+This separation ensures:
+
+- predictable performance
+- no accidental full reindexing
+- stable automation behavior
 
 
 ---

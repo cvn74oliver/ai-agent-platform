@@ -255,3 +255,278 @@ This mode plugs into the existing flow:
 Mailbox Intelligence → Cleanup Groups → **Sender Decision Mode** → Management → Ongoing Maintenance
 
 It does not replace any stage — it **optimizes the decision stage**.
+
+# GMAIL WORKSPACE — SENDER DECISION MODE (MERGED SPEC)
+
+## 1. Purpose
+
+This document defines the **Sender Decision Mode UI + Interaction System**.
+
+This is the core interaction layer of the Gmail Workspace.
+
+Goals:
+- Maximize speed of decision-making
+- Minimize cognitive load
+- Create momentum through rapid decisions
+- Provide a clear, structured path into Management execution
+- Deliver a **Tinder-style decision flow** for senders
+
+---
+
+## 2. Core Principle
+
+> One sender at a time. One clear decision. Immediate progression.
+
+The system:
+1. Shows one sender
+2. Captures one decision
+3. Moves instantly to the next
+
+No lists. No tables. No clutter.
+
+---
+
+## 3. Entry Flow
+
+1. User selects a **Cleanup Group**
+2. Lands on **Sender Overview Dashboard** (IMPORTANT — DO NOT REMOVE)
+3. Sees:
+   - Total senders
+   - Email volume
+   - Category distribution
+   - Machine vs Human signals
+4. User clicks:
+
+👉 **"Start Reviewing Senders"**
+
+System enters **Decision Mode**
+
+---
+
+## 4. Modes
+
+### 4.1 Overview Mode (Default)
+- Data-rich dashboard
+- Charts + analytics
+- Bird’s-eye understanding of the group
+- No decisions made here
+
+---
+
+### 4.2 Decision Mode (Primary Experience)
+- Full-screen focus mode
+- Background dimmed
+- One sender at a time
+- No distractions
+
+---
+
+## 5. Layout: Decision Mode
+
+```
+--------------------------------------------------
+| Sender Card (Centered)                         |
+|                                                |
+|  [Hero Image / Logo]                           |
+|  Sender Name                                   |
+|  Short Description                             |
+|                                                |
+|  Signals + Stats                               |
+|                                                |
+|  Expandable Email Categories                   |
+|                                                |
+|  Action Buttons                                |
+--------------------------------------------------
+```
+
+---
+
+## 6. Sender Card Components
+
+### 6.1 Hero Section
+- Sender logo / avatar
+- Fallback: generated initials icon
+
+---
+
+### 6.2 Identity Block
+- Sender name (bold)
+- Email domain
+- AI-generated description
+  - Example: "Weekly marketing emails from Nike"
+
+---
+
+### 6.3 Signal Indicators (Badges)
+- Machine Likely (%)
+- Human Likely (%)
+- Promotions / Updates / Alerts tags
+
+---
+
+### 6.4 Stats Row
+- Total emails
+- Frequency (daily / weekly / occasional)
+- Last seen timestamp
+
+---
+
+### 6.5 Category Breakdown (Expandable)
+
+Each sender grouped into categories:
+- Promotions
+- Updates
+- Transactions
+- Alerts
+
+Each category shows:
+- Count
+- Relative share
+
+Expanded view:
+- 3–5 sample emails
+- Subject lines
+- Snippets
+
+---
+
+## 7. Core Decision Actions
+
+User selects ONE action:
+
+1. ✅ **Keep All**
+2. ⚖️ **Keep Some**
+3. 📦 **Archive All**
+4. ❓ **Not Sure**
+
+---
+
+## 8. Decision Mapping
+
+| Action        | Outcome                |
+|--------------|------------------------|
+| Keep All     | Keep bucket            |
+| Keep Some    | Custom Rules bucket    |
+| Archive All  | Archive bucket         |
+| Not Sure     | Quarantine bucket      |
+
+---
+
+## 9. Interaction Flow
+
+### Primary Loop
+
+For each sender:
+1. Show card
+2. User clicks decision
+3. Save decision instantly
+4. Load next sender immediately
+
+NO:
+- confirmation screens
+- modals
+- delays
+
+---
+
+## 10. Progress System
+
+### Top Progress Bar
+- "23 / 120 senders reviewed"
+- % completion
+
+Optional:
+- Estimated time remaining
+
+---
+
+## 11. Completion State
+
+When finished:
+
+Show:
+- "You're done 🎉"
+- Summary:
+  - X kept
+  - X archived
+  - X custom rules
+  - X deferred
+
+CTA:
+👉 "Go to Management"
+
+---
+
+## 12. Secondary Flow: Custom Rules (Keep Some)
+
+When user enters Management → Custom Rules:
+
+### Same Tinder-style flow, but at category level
+
+User sees:
+- Categories inside sender
+
+Actions:
+- 👍 Keep
+- 👎 Archive
+
+Outcome:
+- System builds rule per sender
+
+---
+
+## 13. Apply to Gmail
+
+Only required for:
+- Archive
+- Custom Rules
+
+User controls:
+- Apply to Gmail
+- Undo
+- Status indicator (Applied / Not Applied)
+
+---
+
+## 14. Maintenance Mode
+
+After cleanup:
+
+System behavior:
+- Detect new senders
+- Prompt:
+  - "New senders to review"
+
+User re-enters Decision Mode for only new senders
+
+---
+
+## 15. Performance Requirements
+
+- Transitions < 100ms
+- Preload next sender
+- No visible loading
+
+---
+
+## 16. Design Principles
+
+- One decision at a time
+- No clutter
+- No tables
+- No inbox-style UI
+- Momentum-first experience
+
+---
+
+## 17. Key Product Insight
+
+This system converts:
+
+👉 Inbox chaos
+
+into
+
+👉 Fast binary decisions
+
+This is the core engine of the product.
