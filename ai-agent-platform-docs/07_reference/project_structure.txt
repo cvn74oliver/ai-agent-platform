@@ -205,6 +205,9 @@
     │   │   │   ├── gmail_workspace_master_spec.md
     │   │   │   ├── gmail_workspace_phase_plan.md
     │   │   │   └── gmail_workspace_product_flow.md
+    │   │   ├── 01_ingestion
+    │   │   │   ├── inbox_ingestion_spec.md
+    │   │   │   └── smart_sync_and_maintenance_spec.md
     │   │   ├── 01_injestion
     │   │   │   ├── inbox_ingestion_spec.md
     │   │   │   └── smart_sync_and_maintenance_spec.md
@@ -227,6 +230,7 @@
     │   │   │   ├── decision_mode_animation_spec.md
     │   │   │   ├── decision_mode_build_sequence.md
     │   │   │   ├── decision_mode_component_map.md
+    │   │   │   ├── decision_mode_full_build_spec.md
     │   │   │   ├── decision_mode_ui_final_build_spec.md
     │   │   │   ├── decision_ui_flow.md
     │   │   │   ├── sender_decision_mode_spec.md
@@ -557,4 +561,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-137 directories, 421 files
+138 directories, 424 files

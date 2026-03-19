@@ -316,41 +316,66 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
 │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
 │   ├── 03_gmail_workspace
-│   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
-│   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
-│   │   ├── GMAIL_WORKSPACE_CODEX_SAFEGUARDS.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_UI_FLOW.md
-│   │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_HEALTH_ENGINE.md
-│   │   ├── GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_ALGORITHM_MODEL.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_INGESTION_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_ORCHESTRATOR.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_SYSTEM_INDEX.md
-│   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_PHASE_PLAN.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
-│   │   ├── GMAIL_WORKSPACE_RECOMMENDATION_ENGINE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_SELF_LEARNING_INBOX_INTELLIGENCE_PIPELINE.md
-│   │   ├── GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md
-│   │   ├── GMAIL_WORKSPACE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-│   │   ├── GMAIL_WORKSPACE_UX_SPEC.md
-│   │   └── GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
+│   │   ├── 00_overview
+│   │   │   ├── final_product_spec.md
+│   │   │   ├── gmail_workspace_phase_plan.md
+│   │   │   └── gmail_workspace_product_flow.md
+│   │   ├── 01_ingestion
+│   │   │   ├── inbox_ingestion_spec.md
+│   │   │   └── smart_sync_and_maintenance_spec.md
+│   │   ├── 02_intelligence
+│   │   │   ├── analytics_spec.md
+│   │   │   ├── health_engine.md
+│   │   │   ├── inbox_health_algorithm.md
+│   │   │   ├── inbox_health_spec.md
+│   │   │   ├── intelligence_dashboard_spec.md
+│   │   │   ├── intelligence_orchestrator.md
+│   │   │   └── visual_intelligence_spec.md
+│   │   ├── 03_decision_system
+│   │   │   ├── decision_destinations_spec.md
+│   │   │   ├── decision_engine_spec.md
+│   │   │   ├── decision_model_spec.md
+│   │   │   ├── decision_scoring_advanced.md
+│   │   │   └── decision_storage_spec.md
+│   │   ├── 04_sender_decision_ui
+│   │   │   ├── decision_mode_animation_spec.md
+│   │   │   ├── decision_mode_component_map.md
+│   │   │   ├── decision_mode_full_build_spec.md
+│   │   │   ├── decision_mode_ui_final_build_spec.md
+│   │   │   ├── decision_ui_flow.md
+│   │   │   ├── sender_decision_mode_spec.md
+│   │   │   ├── workspace_ui_structure.md
+│   │   │   └── workspace_ux_spec.md
+│   │   ├── 05_management_execution
+│   │   │   ├── execution_queue_spec.md
+│   │   │   ├── execution_safety_preview.md
+│   │   │   ├── management_execution_engine.md
+│   │   │   └── management_flow_spec.md
+│   │   ├── 06_learning_system
+│   │   │   ├── ai_learning_layer_moat.md
+│   │   │   ├── autonomous_inbox_evolution_loop.md
+│   │   │   ├── self_learning_pipeline.md
+│   │   │   └── system_feedback_and_reinforcement.md
+│   │   ├── 07_engines
+│   │   │   ├── recommendation_engine_spec.md
+│   │   │   └── sender_trust_graph.md
+│   │   ├── 08_gamification
+│   │   │   └── gamification_reward_system.md
+│   │   ├── 09_reference
+│   │   │   ├── codex_safeguards.md
+│   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_workspace_system_index.md
+│   │   │   ├── implementation_phase_1.md
+│   │   │   └── performance_spec.md
+│   │   └── 10_archive_legacy
+│   │       ├── legacy_cleanup_rebuild_plan.md
+│   │       └── legacy_product_flow_v2.md
 │   ├── 04_product_design
 │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── operational_workflow.md
 │   │   ├── playground-runtime-architecture.md
-│   │   └── PM_CODEX_EXECUTION_SYSTEM.md
+│   │   ├── PM_CODEX_EXECUTION_SYSTEM.md
+│   │   └── PM_ONBOARDING_BRIEF.md
 │   ├── 05_operational_playbooks
 │   │   ├── daily_checklist.md
 │   │   ├── monthly_checklist.md
@@ -375,22 +400,42 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── project_structure.txt
 │   │   ├── schema_comparison_checklist.md
 │   │   └── SYSTEM_MEMORY_MAP.md
-│   └── 08_codex_instructions
-│       ├── CODEX_ARCHITECTURE_LOCK.md
-│       ├── CODEX_DEBUG_PLAYBOOK.md
-│       ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
-│       ├── CODEX_EXECUTION_CHECKLIST.md
-│       ├── CODEX_EXECUTION_RULES.md
-│       ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
-│       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
-│       ├── CODEX_PHASE_EXECUTION_PLAN.md
-│       ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
-│       ├── CODEX_PM_REVIEW_PACKET_SPEC.md
-│       ├── CODEX_REBUILD_PROTOCOL.md
-│       ├── CODEX_RELIABILITY_SYSTEM.md
-│       ├── CODEX_SESSION_START_PROMPT.md
-│       ├── CODEX_SOURCE_OF_TRUTH.md
-│       └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+│   ├── 08_codex_instructions
+│   │   ├── CODEX_ARCHITECTURE_LOCK.md
+│   │   ├── CODEX_DEBUG_PLAYBOOK.md
+│   │   ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
+│   │   ├── CODEX_EXECUTION_CHECKLIST.md
+│   │   ├── CODEX_EXECUTION_RULES.md
+│   │   ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
+│   │   ├── CODEX_MASTER_INSTRUCTION_PACKET.md
+│   │   ├── CODEX_PHASE_EXECUTION_PLAN.md
+│   │   ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
+│   │   ├── CODEX_PM_REVIEW_PACKET_SPEC.md
+│   │   ├── CODEX_REBUILD_PROTOCOL.md
+│   │   ├── CODEX_RELIABILITY_SYSTEM.md
+│   │   ├── CODEX_SESSION_START_PROMPT.md
+│   │   ├── CODEX_SOURCE_OF_TRUTH.md
+│   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+│   └── visuals
+│       ├── Agent Next Training Suggestion Prompt.png
+│       ├── Agent Playground.png
+│       ├── Agent Summary.png
+│       ├── Agents.png
+│       ├── Automations Tab.png
+│       ├── Cleanup Groups.png
+│       ├── Confirmation.png
+│       ├── Dashboard.png
+│       ├── Executed Actions.png
+│       ├── Fine Tune Dataset Preview p1.png
+│       ├── Fine Tune Dataset Preview p2.png
+│       ├── Mailbox Intelligence.png
+│       ├── Management.png
+│       ├── New Agent Prompt.png
+│       ├── Pending Approvals.png
+│       ├── PM_VISUAL_REFERENCE.md
+│       ├── Review Timeline.png
+│       ├── Sender Decisions.png
+│       └── Settings Tab.png
 ```
 
 ## Practical Folder Meanings
