@@ -1274,7 +1274,6 @@ Dry Run Safety
 - “Dry run” means: run evaluation/rewrite logic and show the result, but do NOT persist changes to Supabase.
 - Use dry runs for risky prompt rewrites or schema-adjacent changes.
 
-Current Checkpoint (March 2026)
 - Google Drive PDF ingestion is working end-to-end:
   - `rag_documents` contains substantial Drive chunks with embeddings.
   - `title` is set to the Drive filename and `source_url` is the Drive file view URL.
@@ -1327,6 +1326,60 @@ Current Focus
 		•	Favor repeated narrow Codex passes over broad Gmail UI rewrites so product review and regression detection stay controllable.
 	•	Define the real inbox-cleanup progress model before shipping any percentage-based “overall cleanup” claim.
 	•	Prepare clean handoffs between PM versions at stable checkpoints.
+
+### 📬 Gmail Mailbox Indexing System – March 2026 (CRITICAL STATE UPDATE)
+
+Status:
+- Smart Sync (incremental) is now stable and fully separated from historical traversal.
+- Historical Backfill (operator_backfill) is now the ONLY path for full mailbox coverage.
+- Checkpoint-based resume is functioning and confirmed in live runs (resuming >100k+ pages without page-1 restart).
+
+Key Architectural Truths:
+- Smart Sync MUST remain incremental-only.
+- Continue Backfill is the ONLY trigger allowed to:
+  - resume historical traversal
+  - use page tokens
+  - progress deeper into inbox history
+- Full traversal is intentionally sliced (100k per run) to avoid:
+  - Gmail API timeouts
+  - token invalidation
+  - quota spikes
+
+Checkpoint System:
+- Dedicated backfill checkpoint fields are now canonical:
+  - backfill_resume_page_token
+  - backfill_resume_page_index
+  - backfill_resume_processed_messages
+- These MUST NOT be overwritten by:
+  - Smart Sync
+  - manual full reindex
+  - runtime recovery
+
+Operator Model (FINALIZED):
+- Smart Sync → daily incremental updates (fast, safe)
+- Continue Backfill → historical completion (multi-run, resumable)
+- Run Full Mailbox Reindex → destructive reset/admin only
+
+Non-Negotiable Rules:
+- NEVER allow Smart Sync to enter full mode
+- NEVER allow shared resume checkpoint reuse for backfill
+- NEVER clear backfill checkpoint unless:
+  - gmail_pagination_exhausted
+  - empty_page
+
+Known Constraints:
+- Gmail API pagination + quotas require chunked traversal
+- Backfill may take multiple runs to reach full coverage (~195k messages)
+- Auth expiration can interrupt runs; system must resume cleanly
+
+Next Focus:
+- Remove or raise 100k slice limit (now safe after checkpoint fix)
+- Add auto-daily Smart Sync scheduling (cron or background trigger)
+- Add visible % completion for full mailbox coverage
+- Add progress feedback for long-running backfill jobs
+
+Summary:
+The mailbox indexing system has transitioned from unstable full-scan behavior to a controlled, resumable, production-safe ingestion pipeline.
 Project Sources & Memory Discipline
 - The project Sources set is the preferred long-lived reference layer for PM review work. It should contain the most decision-critical docs rather than every file in the repo.
 - `SYSTEM_MEMORY_MAP.md` should be treated as the navigation layer for the uploaded Sources set.
