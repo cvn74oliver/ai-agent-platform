@@ -1,3 +1,68 @@
+### March 19, 2026 - Historical Backfill System Stabilization + Bounded Window Implementation
+
+Root-cause addressed:
+- Historical backfill was repeatedly restarting from page 1 due to shared checkpoint state being overwritten by other triggers.
+- Smart Sync and backfill responsibilities were conflated, causing unintended full-resume behavior.
+- Operator controls could become locked due to stale reconnect flags and frontend state drift.
+- Backfill runs could immediately terminate at the 100k limit when resuming due to incorrect processed-count reuse.
+- System had no bounded historical target, leading to unbounded indexing (200k+ emails) with diminishing analytical value.
+
+What changed:
+- Introduced **dedicated backfill checkpoint system**:
+  - `operator_backfill` now uses isolated checkpoint fields (`backfill_resume_*`)
+  - no longer depends on shared resume state used by other triggers
+  - ensures true continuation beyond page 1 across runs
+- Enforced **strict operator-only backfill execution**:
+  - backend now requires explicit operator intent for `operator_backfill`
+  - prevents unintended background or automatic backfill launches
+- Fixed **resume-limit bug**:
+  - resumed runs now start with `processed_messages = 0` (per-slice)
+  - historical progress is tracked separately from per-run limits
+  - prevents immediate `requested_limit_reached` on resume
+- Separated **Smart Sync from historical backfill**:
+  - Smart Sync is now strictly incremental-only
+  - cannot trigger or resume full historical traversal
+- Fixed **frontend lock-state issues**:
+  - buttons now unlock correctly based on `has_gmail_connection`
+  - stale `requires_reconnect` no longer blocks actions after reconnect
+- Stabilized **runtime behavior under reconnects and server restarts**:
+  - system now correctly resumes from checkpoint after auth failures
+  - no longer loses progress during Gmail reconnect cycles
+- Introduced **bounded historical backfill model**:
+  - default operator target: **24 months**
+  - optional extension: **36 months**
+  - stop rule enforced after committed page using Gmail `internalDate`
+  - prevents unnecessary deep-history indexing with low value
+- Added **historical boundary telemetry**:
+  - `historical_boundary_reached` event with cutoff + page diagnostics
+
+Operator impact:
+- Historical indexing is now **stable, resumable, and predictable**
+- Operators no longer lose progress due to restarts, reconnects, or competing triggers
+- System focuses on **high-value recent data (24–36 months)** instead of unbounded history
+- Smart Sync and Backfill roles are now clearly separated:
+  - Smart Sync = maintenance
+  - Backfill = historical completion
+- UI controls now reflect real backend state and remain usable after interruptions
+
+Validation:
+- Multiple live runs verified:
+  - successful resume above page 1 (100k → 150k+ → 170k+ progression)
+  - Smart Sync confirmed incremental-only (`incremental / incremental`)
+  - Continue Backfill confirmed checkpoint-based continuation
+- Targeted ESLint passed
+- `npx tsc --noEmit` passed
+- Supabase schema verified and synchronized with new backfill-window fields
+
+Next recommended step:
+- Begin **Sender Decision UI implementation (Decision Mode system)**
+- Treat current backfill system as stable foundation
+- Future optimization:
+  - recency-weighted intelligence layer
+  - adaptive backfill targeting
+  - background maintenance automation
+
+---
 ### March 17, 2026 - Mailbox Intelligence Dashboard Story + Semantics Alignment Pass
 
 Root-cause addressed:

@@ -15,15 +15,39 @@ The goal is to:
 
 ## Core Principle
 
-> The Project Manager THINKS.
-> Codex EXECUTES.
-> The Operator VALIDATES (quickly).
+> The Project Manager THINKS and DECIDES.
+> Codex EXECUTES with precision.
+> The Operator VALIDATES quickly and reports truth.
 
-The operator should **NOT be responsible for redesigning the product during testing**.
+The operator should **NOT redesign, reinterpret, or solve product problems during testing**.
+The system must minimize operator thinking and maximize execution clarity.
 
 ---
 
 ## Execution Flow (Always Follow This)
+
+---
+
+## 🔒 Execution Integrity Rule (NEW – CRITICAL)
+
+Long-running processes (Gmail indexing, backfill, ingestion, etc.) are **sacred execution states**.
+
+During these processes:
+- DO NOT restart the dev server
+- DO NOT trigger competing actions
+- DO NOT switch execution strategies mid-run
+- ALWAYS prefer resume over restart
+
+If a process is interrupted:
+→ Resume from checkpoint
+→ Never restart from zero unless explicitly required
+
+Violating this rule causes:
+- lost progress
+- corrupted operator trust
+- wasted execution cycles
+
+---
 
 ### Step 1 — PM Defines Target
 PM:
@@ -67,12 +91,12 @@ Codex:
 ---
 
 ### Step 4 — Operator UI Check (FAST)
-Operator ONLY reports:
+Operator ONLY reports (no thinking, no redesign):
 
 ```
-1. Did it load? (fast / slow)
-2. What did you click?
-3. What happened?
+1. What did you click?
+2. What happened?
+3. Expected vs actual (1 sentence)
 4. Pass or Fail
 ```
 
@@ -100,12 +124,13 @@ Codex MUST:
    - clarity
    - guidance
    - decision-making
+5. NEVER modify behavior outside the defined trigger or flow
 
 ---
 
 ## Dashboard Philosophy (Critical)
 
-The system is NOT a dashboard.
+The system is NOT a traditional dashboard.
 
 It is:
 
@@ -130,6 +155,8 @@ The user goal is:
 NOT zero inbox.
 
 Health = decision coverage.
+
+Recency-weighted decisions matter more than historical noise.
 
 ---
 
@@ -170,6 +197,22 @@ Never multiple areas at once.
 
 ---
 
+## 🧠 Data Strategy Principle (NEW)
+
+The system prioritizes **recent user behavior over historical data**.
+
+This means:
+- Recent senders and interactions carry more weight
+- Older data is still useful but progressively deprioritized
+- Historical backfill exists for completeness, not dominance
+
+Future systems should:
+- apply recency weighting
+- decay outdated signals
+- reinforce recent decisions
+
+---
+
 ## 🎯 Sniper Method (Default UI Execution Mode)
 
 All UI refinement tasks MUST follow the Sniper Method.
@@ -181,6 +224,8 @@ This is now the DEFAULT execution strategy for all UI work.
 ### Core Rule
 
 > One surface. One problem. One outcome.
+
+No exceptions. No bundling. No “while we’re here” changes.
 
 ---
 
@@ -330,7 +375,7 @@ If any of the above fail:
 
 ## Logging Rule
 
-Codex should update logs ONLY when:
+Codex MUST update logs ONLY when:
 - behavior changes
 - architecture changes
 - system state changes
@@ -355,3 +400,22 @@ If followed correctly:
 > Build a system that THINKS for the user.
 > Not a system that REPORTS to the user.
 
+---
+
+## 🚀 System Evolution Note (Forward Guidance)
+
+The system is evolving from:
+- data ingestion → intelligence → decision → execution
+
+Into:
+- guided decision flows
+- behavioral learning loops
+- automated maintenance systems
+
+All future features must support:
+- speed of decision-making
+- clarity of action
+- reduction of user cognitive load
+
+If a feature adds complexity without increasing clarity:
+→ it should not be built

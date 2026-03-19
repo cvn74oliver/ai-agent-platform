@@ -1,5 +1,5 @@
 # 🧩 Schema Comparison & Safe Migration Checklist  
-_Last updated: February 2026_
+_Last updated: March 2026_
 
 ---
 
@@ -14,6 +14,24 @@ It prevents:
 - ❌ Production data loss  
 
 This process is **mandatory before running any migration in Supabase Studio**.
+
+---
+
+## ⚠️ Critical Upgrade: Migration Truth Enforcement
+
+This checklist is now part of the **system reliability layer** and must be treated as a **hard gate**, not a suggestion.
+
+New rules:
+- Any migration touching `gmail_mailbox_index_state` MUST be verified against production schema before execution
+- Silent failures (missing columns, ignored upserts, null state loads) are considered **critical system faults**
+- All schema mismatches must FAIL LOUDLY — never degrade into "idle" or "no-op" behavior
+
+This prevents:
+- Hidden production drift
+- "POST accepted but GET idle" failures
+- Broken indexing / backfill state
+
+If schema mismatch is detected → STOP and repair before continuing
 
 ---
 
@@ -87,6 +105,7 @@ Pay special attention to these patterns:
 | `CREATE FUNCTION` | Function name + signature not duplicated |
 | `CREATE TRIGGER` | Trigger not already attached |
 | `DROP` statements | Ensure they are intentional and safe |
+| Existing Columns Used by Code | Must exist in live schema OR migration must add them (no silent assumptions) |
 
 ⚠️ Additional Supabase-specific checks:
 - RLS policies must be reviewed for unintended overrides
@@ -119,6 +138,9 @@ CREATE INDEX IF NOT EXISTS idx_example ON table_name(column_name);
 ```sql
 CREATE OR REPLACE FUNCTION function_name(...) RETURNS ...
 ```
+
+⚠️ NEVER assume a column exists because code references it.
+If code depends on a column → it MUST be verified in the snapshot OR explicitly added in the migration.
 
 ---
 
@@ -162,6 +184,9 @@ If:
 - ✅ No errors → safe to proceed
 - ❌ Errors → fix before production execution
 
+🔴 If the migration references columns that do not exist in the live schema, this dry run must FAIL.
+If it does not fail, your validation process is incomplete.
+
 ---
 
 ### 7️⃣ Execute in Supabase Studio
@@ -191,6 +216,9 @@ After execution:
 - ✅ Verify no unexpected row deletions occurred
 - ✅ Verify triggers/functions execute correctly
 - ✅ Check Supabase logs for errors (Database → Logs)
+- ✅ Confirm API GET endpoints reflect new schema fields (no missing/null critical fields)
+- ✅ Confirm state writes are not silently failing
+- ✅ Confirm no "accepted but idle" behavior in runtime systems
 
 ---
 
@@ -230,6 +258,8 @@ after any structural change.
 - 🧱 Always prefer additive changes over destructive ones
 - 🔁 Ensure migrations are idempotent (safe to re-run)
 - 🧾 Keep a rollback plan for every migration
+- 🚨 Schema mismatch must NEVER fail silently — throw, log, and surface errors immediately
+- 🧠 Backend logic must not assume schema correctness; it must validate or fail loudly
 
 ---
 
@@ -242,6 +272,8 @@ Do NOT proceed if:
 - DROP statements affect unknown tables
 - RLS policies are being replaced without review
 - A previous migration failed
+- Mailbox index GET returns idle when a run should be active
+- Migration introduces fields not reflected in GET responses
 
 Escalate to Project Manager review before execution.
 
@@ -281,3 +313,20 @@ This checklist must be followed for:
 - Agent session analytics updates
 - Fine-tuning schema changes
 - Any new table or policy introduction
+
+---
+
+## 🧱 System Reliability Principle
+
+Schema correctness is a **first-class system dependency**.
+
+If schema and code diverge:
+- The system must fail loudly
+- The operator must be notified
+- No silent fallback behavior is allowed
+
+This is critical for:
+- Mailbox indexing
+- Backfill continuation
+- Smart Sync correctness
+- Runtime decision systems

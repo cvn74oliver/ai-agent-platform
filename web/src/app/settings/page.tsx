@@ -1,4 +1,9 @@
 import DashboardLayout from '@/app/components/DashboardLayout'
+import { appButtonClassName } from '@/components/ui/app-button'
+import PageHeader from '@/components/ui/page-header'
+import StatePanel from '@/components/ui/state-panel'
+import StatusBadge from '@/components/ui/status-badge'
+import SurfaceCard from '@/components/ui/surface-card'
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase'
 
@@ -32,26 +37,65 @@ export default async function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <h2 className="text-2xl font-bold mb-4">Settings</h2>
-      <p className="text-gray-400">
-        Update your profile, company details, and platform preferences here.
-      </p>
+      <div className="app-page-stack">
+        <PageHeader
+          eyebrow="Settings"
+          title="Workspace settings"
+          description="Manage the integrations and baseline platform configuration that support every workspace surface."
+          tone="hero"
+          actions={
+            !gmailConnected ? (
+              <a href="/api/integrations/gmail/start" className={appButtonClassName({ variant: 'primary', size: 'md' })}>
+                Connect Gmail
+              </a>
+            ) : undefined
+          }
+        />
 
-      <section className="mt-8 rounded-lg border border-gray-700 bg-gray-800/40 p-5 max-w-xl">
-        <h3 className="text-lg font-semibold">Company Integrations</h3>
-        <p className="text-sm text-gray-400 mt-2">
-          Gmail status:{' '}
-          <span className={gmailConnected ? 'text-green-400' : 'text-gray-300'}>
-            {gmailConnected ? 'Connected' : 'Not connected'}
-          </span>
-        </p>
-        <a
-          href="/api/integrations/gmail/start"
-          className="inline-block mt-4 rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-        >
-          Connect Gmail
-        </a>
-      </section>
+        <SurfaceCard className="max-w-3xl p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="app-eyebrow">Integrations</p>
+              <h2 className="mt-2 text-xl font-semibold text-white">Company integrations</h2>
+              <p className="mt-3 text-sm text-gray-300">
+                Gmail is the current workspace implementation and remains the main integration managed from this screen.
+              </p>
+            </div>
+            <StatusBadge
+              label={gmailConnected ? 'Connected' : 'Not Connected'}
+              tone={gmailConnected ? 'success' : 'neutral'}
+            />
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
+            <StatePanel
+              tone={gmailConnected ? 'success' : 'warning'}
+              title={`Gmail is ${gmailConnected ? 'connected' : 'not connected'}`}
+              description={
+                gmailConnected
+                  ? 'The Gmail workspace can continue using indexed mailbox data, operations surfaces, and decision management.'
+                  : 'Connect Gmail to unlock the current workspace implementation and its operations workflow.'
+              }
+            />
+
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-5">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Available action</p>
+              <p className="mt-2 text-lg font-semibold text-white">
+                {gmailConnected ? 'Reconnect or review Gmail access' : 'Connect Gmail to this workspace'}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-gray-300">
+                No runtime logic changes happen here. This screen stays focused on connection status and access setup.
+              </p>
+              <a
+                href="/api/integrations/gmail/start"
+                className={`${appButtonClassName({ variant: 'secondary', size: 'md' })} mt-5 inline-flex`}
+              >
+                {gmailConnected ? 'Reconnect Gmail' : 'Connect Gmail'}
+              </a>
+            </div>
+          </div>
+        </SurfaceCard>
+      </div>
     </DashboardLayout>
   )
 }

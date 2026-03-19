@@ -70,44 +70,75 @@ These files define the stable architectural model of the overall platform.
 ---
 
 ## Layer 3 — Active Product System: Gmail Workspace
-These files define the Gmail Workspace product, architecture, UX, intelligence layer, and implementation phases.
+These files define the Gmail Workspace product, architecture, UX, intelligence layer, ingestion model, sender-decision system, and management/execution behavior.
 
-This is currently the **most active system** in the project.
+This is currently the **most active product system** in the project.
 
-### Core Gmail product / implementation files
-- `03_gmail_workspace/GMAIL_WORKSPACE_PHASE_PLAN.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_ENGINEERING_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_UI_STRUCTURE.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_UX_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_PERFORMANCE_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md`
+### Core Gmail overview files
+- `03_gmail_workspace/00_overview/gmail_workspace_phase_plan.md`
+- `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
+- `03_gmail_workspace/00_overview/final_product_spec.md`
+- `03_gmail_workspace/09_reference/gmail_workspace_system_index.md`
 
-### Gmail decision / workflow files
-- `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_UI_FLOW.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md`
+### Gmail ingestion files
+- `03_gmail_workspace/01_ingestion/inbox_ingestion_spec.md`
+- `03_gmail_workspace/01_ingestion/smart_sync_and_maintenance_spec.md`
 
-### Gmail health / intelligence files
-- `03_gmail_workspace/GMAIL_WORKSPACE_HEALTH_ENGINE.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_INBOX_HEALTH_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_INBOX_HEALTH_ALGORITHM_MODEL.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_INBOX_INGESTION_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_INTELLIGENCE_ORCHESTRATOR.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md`
-- `03_gmail_workspace/GMAIL_WORKSPACE_SELF_LEARNING_INBOX_INTELLIGENCE_PIPELINE.md`
+### Gmail intelligence files
+- `03_gmail_workspace/02_intelligence/inbox_health_spec.md`
+- `03_gmail_workspace/02_intelligence/inbox_health_algorithm.md`
+- `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
+- `03_gmail_workspace/02_intelligence/intelligence_orchestrator.md`
+- `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
+- `03_gmail_workspace/02_intelligence/analytics_spec.md`
+- `03_gmail_workspace/02_intelligence/health_engine.md`
+
+### Gmail decision-system files
+- `03_gmail_workspace/03_decision_system/decision_model_spec.md`
+- `03_gmail_workspace/03_decision_system/decision_storage_spec.md`
+- `03_gmail_workspace/03_decision_system/decision_destinations_spec.md`
+- `03_gmail_workspace/03_decision_system/decision_engine_spec.md`
+- `03_gmail_workspace/03_decision_system/decision_scoring_advanced.md`
+
+### Gmail sender-decision UI files
+- `03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md`
+- `03_gmail_workspace/04_sender_decision_ui/decision_ui_flow.md`
+- `03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md`
+- `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
+- `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
+- `03_gmail_workspace/04_sender_decision_ui/decision_mode_animation_spec.md`
+- `03_gmail_workspace/04_sender_decision_ui/decision_mode_component_map.md`
+- `03_gmail_workspace/04_sender_decision_ui/decision_mode_ui_final_build_spec.md`
+
+### Gmail management / execution files
+- `03_gmail_workspace/05_management_execution/management_flow_spec.md`
+- `03_gmail_workspace/05_management_execution/management_execution_engine.md`
+- `03_gmail_workspace/05_management_execution/execution_queue_spec.md`
+- `03_gmail_workspace/05_management_execution/execution_safety_preview.md`
+
+### Gmail learning / reinforcement files
+- `03_gmail_workspace/06_learning_system/ai_learning_layer_moat.md`
+- `03_gmail_workspace/06_learning_system/system_feedback_and_reinforcement.md`
+- `03_gmail_workspace/06_learning_system/self_learning_pipeline.md`
+- `03_gmail_workspace/06_learning_system/autonomous_inbox_evolution_loop.md`
+
+### Gmail engine / supporting files
+- `03_gmail_workspace/07_engines/recommendation_engine_spec.md`
+- `03_gmail_workspace/07_engines/sender_trust_graph.md`
+- `03_gmail_workspace/08_gamification/gamification_reward_system.md`
+- `03_gmail_workspace/09_reference/codex_safeguards.md`
+- `03_gmail_workspace/09_reference/engineering_spec.md`
+- `03_gmail_workspace/09_reference/implementation_phase_1.md`
+- `03_gmail_workspace/09_reference/performance_spec.md`
 
 ### Use this layer when
 - reviewing Mailbox Intelligence screenshots
 - reviewing Cleanup Groups screenshots
 - reviewing Sender Decisions screenshots
-- reviewing Confirmation behavior
-- deciding Phase 1 vs Phase 2 scope
+- reviewing Management / execution behavior
+- deciding whether a requested improvement belongs to ingestion, intelligence, decision UI, or management execution
 - instructing Codex on Gmail implementation
-- deciding whether a requested improvement belongs to runtime, UX, or future automation phases
+- deciding what belongs in current scope vs later optimization
 
 ---
 
@@ -158,12 +189,13 @@ Consult in this order:
 1. `00_MASTER_PROJECT.md`
 2. `07_PROJECT_MANAGER_CONTEXT.md`
 3. `system_overview.md`
-4. `GMAIL_WORKSPACE_UI_STRUCTURE.md`
-5. `GMAIL_WORKSPACE_UX_SPEC.md`
-6. `GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md`
-7. `GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md`
-8. `CURRENT_STATE.md`
-9. `TODO.md`
+4. `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
+5. `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
+6. `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
+7. `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
+8. `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
+9. `CURRENT_STATE.md`
+10. `TODO.md`
 
 ---
 
@@ -172,7 +204,11 @@ Consult in this order:
 
 1. `00_MASTER_PROJECT.md`
 2. `07_PROJECT_MANAGER_CONTEXT.md`
-3. relevant Gmail implementation / UX / engineering spec
+3. relevant Gmail spec from:
+   - `03_gmail_workspace/00_overview/`
+   - `03_gmail_workspace/03_decision_system/`
+   - `03_gmail_workspace/04_sender_decision_ui/`
+   - `03_gmail_workspace/05_management_execution/`
 4. `CURRENT_STATE.md`
 5. `TODO.md`
 6. `09_CODEX_EXECUTION_PROTOCOL.md`
@@ -195,62 +231,64 @@ Consult in this order:
 ## If deciding whether something is Phase 1 or later
 Consult in this order:
 
-1. `GMAIL_WORKSPACE_PHASE_PLAN.md`
-2. `GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md`
-3. `GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md`
-4. `GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md`
+1. `03_gmail_workspace/00_overview/gmail_workspace_phase_plan.md`
+2. `03_gmail_workspace/09_reference/implementation_phase_1.md`
+3. `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
+4. `03_gmail_workspace/00_overview/final_product_spec.md`
 5. `TODO.md`
 
 ---
 
 # Gmail Workspace Quick Memory Model
 
-When reasoning about the Gmail Workspace, hold this hierarchy:
-
 ```text
 Mailbox Intelligence
-→ high-level mission dashboard
+→ high-level mission dashboard and macro inbox understanding
 
 Cleanup Groups
-→ group selection and handoff
+→ cluster selection and handoff into sender review
 
-Sender Decisions
-→ primary drill-down and decision workspace
+Sender Overview
+→ high-level sender analytics for the chosen group
 
-Confirmation
-→ review + archive-now approval + stored-later preference clarity
+Decision Mode
+→ primary one-sender-at-a-time Tinder-style decision engine
 
-Rules / Monitoring
-→ deferred beyond current Phase 1 unless explicitly activated
+Management
+→ execution buckets, preview, push-to-Gmail, undo
+
+Rules / Monitoring / Maintenance
+→ learning, automation evolution, and Smart Sync-driven upkeep
 ```
 
 And hold these product truths:
 
 - the system is **sender-first**, not message-first
-- Mailbox Intelligence should not become a second Sender Decisions page
+- Mailbox Intelligence should not become a second Sender Overview page
 - Cleanup Groups should not become a full review workspace
-- Sender Decisions should carry the deepest sender analytics and reasoning
-- Confirmation should clearly distinguish archive-now from stored-later decisions
+- Sender Overview provides the macro context before Decision Mode starts
+- Decision Mode is the deepest focused interaction layer and must remain one-sender-at-a-time
+- Management is where actions become real and trust is won or lost
+- Smart Sync handles incremental maintenance only; historical traversal belongs to Continue Backfill
 - runtime stability should be preserved while UX improves incrementally
 
 ---
 
 # Gmail Workspace Intelligence Memory Model
 
-The Gmail Workspace intelligence stack currently consists of:
-
 ```text
 Inbox Ingestion
 → Inbox Health Engine
-→ Decision Model
-→ Decision Storage
 → Intelligence Orchestrator
-→ Intelligence Dashboard Layer
-→ Visual Intelligence Layer
-→ Management / Rule Signals (next integration)
+→ Sender Decision Model
+→ Decision Storage
+→ Sender Decision UI
+→ Management Execution Engine
+→ Learning / Reinforcement Layer
+→ Smart Sync Maintenance Layer
 ```
 
-These systems should be consulted conceptually when determining whether a dashboard, recommendation, or sender workflow is aligned with the documented product.
+These systems should be consulted conceptually when determining whether a dashboard, recommendation, sender workflow, or execution behavior is aligned with the documented product.
 
 ---
 
@@ -316,41 +354,66 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
 │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
 │   ├── 03_gmail_workspace
-│   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
-│   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
-│   │   ├── GMAIL_WORKSPACE_CODEX_SAFEGUARDS.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_UI_FLOW.md
-│   │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_HEALTH_ENGINE.md
-│   │   ├── GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_ALGORITHM_MODEL.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_INGESTION_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_ORCHESTRATOR.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_SYSTEM_INDEX.md
-│   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_PHASE_PLAN.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
-│   │   ├── GMAIL_WORKSPACE_RECOMMENDATION_ENGINE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_SELF_LEARNING_INBOX_INTELLIGENCE_PIPELINE.md
-│   │   ├── GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md
-│   │   ├── GMAIL_WORKSPACE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-│   │   ├── GMAIL_WORKSPACE_UX_SPEC.md
-│   │   └── GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
+│   │   ├── 00_overview
+│   │   │   ├── final_product_spec.md
+│   │   │   ├── gmail_workspace_phase_plan.md
+│   │   │   └── gmail_workspace_product_flow.md
+│   │   ├── 01_ingestion
+│   │   │   ├── inbox_ingestion_spec.md
+│   │   │   └── smart_sync_and_maintenance_spec.md
+│   │   ├── 02_intelligence
+│   │   │   ├── analytics_spec.md
+│   │   │   ├── health_engine.md
+│   │   │   ├── inbox_health_algorithm.md
+│   │   │   ├── inbox_health_spec.md
+│   │   │   ├── intelligence_dashboard_spec.md
+│   │   │   ├── intelligence_orchestrator.md
+│   │   │   └── visual_intelligence_spec.md
+│   │   ├── 03_decision_system
+│   │   │   ├── decision_destinations_spec.md
+│   │   │   ├── decision_engine_spec.md
+│   │   │   ├── decision_model_spec.md
+│   │   │   ├── decision_scoring_advanced.md
+│   │   │   └── decision_storage_spec.md
+│   │   ├── 04_sender_decision_ui
+│   │   │   ├── decision_mode_animation_spec.md
+│   │   │   ├── decision_mode_component_map.md
+│   │   │   ├── decision_mode_full_build_spec.md
+│   │   │   ├── decision_mode_ui_final_build_spec.md
+│   │   │   ├── decision_ui_flow.md
+│   │   │   ├── sender_decision_mode_spec.md
+│   │   │   ├── workspace_ui_structure.md
+│   │   │   └── workspace_ux_spec.md
+│   │   ├── 05_management_execution
+│   │   │   ├── execution_queue_spec.md
+│   │   │   ├── execution_safety_preview.md
+│   │   │   ├── management_execution_engine.md
+│   │   │   └── management_flow_spec.md
+│   │   ├── 06_learning_system
+│   │   │   ├── ai_learning_layer_moat.md
+│   │   │   ├── autonomous_inbox_evolution_loop.md
+│   │   │   ├── self_learning_pipeline.md
+│   │   │   └── system_feedback_and_reinforcement.md
+│   │   ├── 07_engines
+│   │   │   ├── recommendation_engine_spec.md
+│   │   │   └── sender_trust_graph.md
+│   │   ├── 08_gamification
+│   │   │   └── gamification_reward_system.md
+│   │   ├── 09_reference
+│   │   │   ├── codex_safeguards.md
+│   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_workspace_system_index.md
+│   │   │   ├── implementation_phase_1.md
+│   │   │   └── performance_spec.md
+│   │   └── 10_archive_legacy
+│   │       ├── legacy_cleanup_rebuild_plan.md
+│   │       └── legacy_product_flow_v2.md
 │   ├── 04_product_design
 │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── operational_workflow.md
 │   │   ├── playground-runtime-architecture.md
-│   │   └── PM_CODEX_EXECUTION_SYSTEM.md
+│   │   ├── PM_CODEX_EXECUTION_SYSTEM.md
+│   │   └── PM_ONBOARDING_BRIEF.md
 │   ├── 05_operational_playbooks
 │   │   ├── daily_checklist.md
 │   │   ├── monthly_checklist.md
@@ -375,22 +438,42 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── project_structure.txt
 │   │   ├── schema_comparison_checklist.md
 │   │   └── SYSTEM_MEMORY_MAP.md
-│   └── 08_codex_instructions
-│       ├── CODEX_ARCHITECTURE_LOCK.md
-│       ├── CODEX_DEBUG_PLAYBOOK.md
-│       ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
-│       ├── CODEX_EXECUTION_CHECKLIST.md
-│       ├── CODEX_EXECUTION_RULES.md
-│       ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
-│       ├── CODEX_MASTER_INSTRUCTION_PACKET.md
-│       ├── CODEX_PHASE_EXECUTION_PLAN.md
-│       ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
-│       ├── CODEX_PM_REVIEW_PACKET_SPEC.md
-│       ├── CODEX_REBUILD_PROTOCOL.md
-│       ├── CODEX_RELIABILITY_SYSTEM.md
-│       ├── CODEX_SESSION_START_PROMPT.md
-│       ├── CODEX_SOURCE_OF_TRUTH.md
-│       └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+│   ├── 08_codex_instructions
+│   │   ├── CODEX_ARCHITECTURE_LOCK.md
+│   │   ├── CODEX_DEBUG_PLAYBOOK.md
+│   │   ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
+│   │   ├── CODEX_EXECUTION_CHECKLIST.md
+│   │   ├── CODEX_EXECUTION_RULES.md
+│   │   ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
+│   │   ├── CODEX_MASTER_INSTRUCTION_PACKET.md
+│   │   ├── CODEX_PHASE_EXECUTION_PLAN.md
+│   │   ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
+│   │   ├── CODEX_PM_REVIEW_PACKET_SPEC.md
+│   │   ├── CODEX_REBUILD_PROTOCOL.md
+│   │   ├── CODEX_RELIABILITY_SYSTEM.md
+│   │   ├── CODEX_SESSION_START_PROMPT.md
+│   │   ├── CODEX_SOURCE_OF_TRUTH.md
+│   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+│   └── visuals
+│       ├── Agent Next Training Suggestion Prompt.png
+│       ├── Agent Playground.png
+│       ├── Agent Summary.png
+│       ├── Agents.png
+│       ├── Automations Tab.png
+│       ├── Cleanup Groups.png
+│       ├── Confirmation.png
+│       ├── Dashboard.png
+│       ├── Executed Actions.png
+│       ├── Fine Tune Dataset Preview p1.png
+│       ├── Fine Tune Dataset Preview p2.png
+│       ├── Mailbox Intelligence.png
+│       ├── Management.png
+│       ├── New Agent Prompt.png
+│       ├── Pending Approvals.png
+│       ├── PM_VISUAL_REFERENCE.md
+│       ├── Review Timeline.png
+│       ├── Sender Decisions.png
+│       └── Settings Tab.png
 ```
 
 ## Practical Folder Meanings
@@ -412,26 +495,72 @@ If source/file limits exist, prioritize these groups in order:
 
 1. `00_core_context`
 2. `01_workspace_architecture`
-3. `03_gmail_workspace`
-4. `06_system_state`
-5. `08_codex_instructions`
-6. `04_product_design`
-7. `07_reference`
+3. `06_system_state`
+4. `03_gmail_workspace/00_overview`
+5. `03_gmail_workspace/03_decision_system`
+6. `03_gmail_workspace/04_sender_decision_ui`
+7. `03_gmail_workspace/05_management_execution`
+8. `03_gmail_workspace/01_ingestion` and `03_gmail_workspace/02_intelligence`
+9. `08_codex_instructions`
+10. `07_reference`
 
 ### Active 40-File Source Strategy
 
 The current preferred 40-file source set is optimized for:
 - Project Manager startup speed
 - Gmail Workspace execution accuracy
+- Sender Decision UI build quality
 - Codex prompt quality
 - current system-state awareness
 
-That means the source set should prioritize:
-- live system-state docs (`CHANGELOG`, `CURRENT_STATE`, `TODO`)
-- Gmail Workspace dashboard / visual-intelligence specs
-- PM ↔ Codex workflow docs
+The current preferred 40-file source set is:
 
-Older planning-heavy files that are not actively used in execution can be deprioritized when source limits are tight.
+1. `00_core_context/00_MASTER_PROJECT.md`
+2. `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+3. `00_core_context/09_CODEX_EXECUTION_PROTOCOL.md`
+4. `00_core_context/10_CODEX_SESSION_CHECKLIST.md`
+5. `00_core_context/agent_activation_checklist.md`
+6. `01_workspace_architecture/AI_WORKSPACE_ARCHITECTURE.md`
+7. `01_workspace_architecture/AI_WORKSPACE_IMPLEMENTATION_RULES.md`
+8. `01_workspace_architecture/AI_WORKSPACE_SYSTEM_INDEX.md`
+9. `01_workspace_architecture/system_overview.md`
+10. `06_system_state/CHANGELOG.md`
+11. `06_system_state/CURRENT_STATE.md`
+12. `06_system_state/TODO.md`
+13. `07_reference/SYSTEM_MEMORY_MAP.md`
+14. `03_gmail_workspace/09_reference/gmail_workspace_system_index.md`
+15. `03_gmail_workspace/00_overview/gmail_workspace_phase_plan.md`
+16. `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
+17. `03_gmail_workspace/00_overview/final_product_spec.md`
+18. `03_gmail_workspace/01_ingestion/inbox_ingestion_spec.md`
+19. `03_gmail_workspace/01_ingestion/smart_sync_and_maintenance_spec.md`
+20. `03_gmail_workspace/02_intelligence/inbox_health_spec.md`
+21. `03_gmail_workspace/02_intelligence/inbox_health_algorithm.md`
+22. `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
+23. `03_gmail_workspace/02_intelligence/intelligence_orchestrator.md`
+24. `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
+25. `03_gmail_workspace/03_decision_system/decision_model_spec.md`
+26. `03_gmail_workspace/03_decision_system/decision_storage_spec.md`
+27. `03_gmail_workspace/03_decision_system/decision_destinations_spec.md`
+28. `03_gmail_workspace/03_decision_system/decision_engine_spec.md`
+29. `03_gmail_workspace/03_decision_system/decision_scoring_advanced.md`
+30. `03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md`
+31. `03_gmail_workspace/04_sender_decision_ui/decision_ui_flow.md`
+32. `03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md`
+33. `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
+34. `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
+35. `03_gmail_workspace/05_management_execution/management_flow_spec.md`
+36. `03_gmail_workspace/05_management_execution/management_execution_engine.md`
+37. `03_gmail_workspace/05_management_execution/execution_queue_spec.md`
+38. `03_gmail_workspace/05_management_execution/execution_safety_preview.md`
+39. `03_gmail_workspace/06_learning_system/ai_learning_layer_moat.md`
+40. `03_gmail_workspace/06_learning_system/system_feedback_and_reinforcement.md`
+
+When source limits are tight, deprioritize:
+- legacy archived docs
+- duplicate pre-merge docs
+- low-use design-side support docs
+- generated mirror docs under `/web/docs`
 
 ---
 
@@ -466,19 +595,6 @@ It tells the system:
 
 This file should be treated as the **memory navigation layer** for the project.
 It now also includes a compact repository-tree snapshot so the PM and Codex can quickly remember where major document families live without requiring Oliver to repeatedly paste the full documentation tree into chat.
-# Summary
-
-`SYSTEM_MEMORY_MAP.md` is the documentation-memory entry point for the AI Agent Platform.
-
-It tells the system:
-
-- what the most important documents are
-- which order to consult them in
-- which files govern the Gmail Workspace
-- how to reason about implementation, review, and Codex direction without repeatedly reconstructing the architecture from scratch
-
-This file should be treated as the **memory navigation layer** for the project.
-It now also includes a compact repository-tree snapshot so the PM and Codex can quickly remember where major document families live without requiring Oliver to repeatedly paste the full documentation tree into chat.
 
 # Current Workflow Reality (March 2026)
 
@@ -499,3 +615,8 @@ Operational truths:
 - UI work must be spec-driven, not improvisational
 
 This should be assumed when reasoning about active project execution unless a future system explicitly reintroduces specialist execution agents.
+
+For the current Sender Decisions project, this also means:
+- the PM should drive spec interpretation and Codex correction
+- Oliver should not need to repeatedly restate the product direction
+- Sources must stay tightly curated so the PM can reason from the correct merged Gmail docs without drift

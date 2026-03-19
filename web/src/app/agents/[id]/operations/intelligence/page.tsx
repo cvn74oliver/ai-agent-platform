@@ -1045,7 +1045,7 @@ export default function OperationsIntelligencePage() {
 
     return (
       <div className="space-y-4">
-        <section className="rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
+        <section className="app-page-header app-page-header-hero rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
           <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Mailbox Intelligence</p>
           <h1 className="mt-2 text-2xl font-semibold text-white">
             Sender-first Gmail cleanup mission control
@@ -1122,7 +1122,7 @@ export default function OperationsIntelligencePage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
+      <section className="app-page-header app-page-header-hero rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
         <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Mailbox Intelligence</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">
           Sender-first Gmail cleanup mission control

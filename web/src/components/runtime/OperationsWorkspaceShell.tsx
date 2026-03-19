@@ -187,6 +187,8 @@ function formatMailboxIndexDate(value: string | null | undefined): string {
 
 function mailboxIndexTriggerLabel(value: string | null | undefined): string {
   if (value === 'manual_full_reindex') return 'manual_full_reindex'
+  if (value === 'smart_sync') return 'smart_sync'
+  if (value === 'operator_backfill') return 'operator_backfill'
   if (value === 'runtime_bootstrap') return 'runtime_bootstrap'
   if (value === 'runtime_backfill') return 'runtime_backfill'
   if (value === 'runtime_recovery') return 'runtime_recovery'
@@ -234,6 +236,43 @@ function mailboxIndexYieldLines(
   ]
 }
 
+function mailboxIndexResumeCheckpointLines(
+  checkpoint:
+    | {
+        usable: boolean
+        next_page_token_present: boolean
+        page_index: number | null
+        processed_messages: number | null
+        processed_at: string | null
+      }
+    | null
+    | undefined
+): string[] {
+  if (!checkpoint?.usable) return []
+  return [
+    `Resume checkpoint page: ${formatMailboxIndexCount(checkpoint.page_index)}`,
+    `Resume checkpoint messages: ${formatMailboxIndexCount(checkpoint.processed_messages)}`,
+    `Resume checkpoint next token: ${mailboxIndexNextPageTokenLabel(checkpoint.next_page_token_present)}`,
+  ]
+}
+
+function mailboxIndexBackfillWindowLabel(value: number | null | undefined): string {
+  if (value === 24) return 'recent 24-month window'
+  if (value === 36) return 'extended 36-month window'
+  return 'historical window'
+}
+
+function mailboxIndexBackfillTargetLines(params: {
+  windowMonths: number | null | undefined
+  cutoffAt: string | null | undefined
+}): string[] {
+  if (params.windowMonths == null && !params.cutoffAt) return []
+  return [
+    `Backfill target: ${mailboxIndexBackfillWindowLabel(params.windowMonths)}`,
+    `Historical cutoff: ${formatMailboxIndexDate(params.cutoffAt)}`,
+  ]
+}
+
 function OperationsWorkspaceShellInner(props: {
   agentId: string
   children: ReactNode
@@ -248,11 +287,12 @@ function OperationsWorkspaceShellInner(props: {
   const router = useRouter()
   const searchParams = useSearchParams()
   const runtime = useOperationsRuntime()
+  const isMailboxIntelligencePage = props.pathname.includes('/operations/intelligence')
   const [scopeUpdating, setScopeUpdating] = useState(false)
   const [regeneratingClusters, setRegeneratingClusters] = useState(false)
   const [lastRegeneratedAt, setLastRegeneratedAt] = useState<number | null>(null)
   const [regenerationStatusNote, setRegenerationStatusNote] = useState<string | null>(null)
-  const [manualReindexNotice, setManualReindexNotice] = useState<{
+  const [mailboxIndexNotice, setMailboxIndexNotice] = useState<{
     tone: 'info' | 'error'
     text: string
   } | null>(null)
@@ -302,8 +342,27 @@ function OperationsWorkspaceShellInner(props: {
     null
   const mailboxIndexHealth = runtime.mailboxIndexHealth
   const activeMailboxIndexRun = mailboxIndexHealth?.active_run ?? null
+  const activeSmartMailboxSync =
+    activeMailboxIndexRun?.trigger === 'smart_sync' ? activeMailboxIndexRun : null
+  const pendingSmartMailboxSyncRun =
+    !activeSmartMailboxSync && runtime.pendingSmartMailboxSyncRun?.trigger === 'smart_sync'
+      ? runtime.pendingSmartMailboxSyncRun
+      : null
+  const activeOperatorBackfill =
+    activeMailboxIndexRun?.trigger === 'operator_backfill' ? activeMailboxIndexRun : null
+  const pendingOperatorBackfillRun =
+    !activeOperatorBackfill &&
+    runtime.pendingOperatorMailboxBackfillRun?.trigger === 'operator_backfill'
+      ? runtime.pendingOperatorMailboxBackfillRun
+      : null
   const activeManualMailboxReindex =
     activeMailboxIndexRun?.trigger === 'manual_full_reindex' ? activeMailboxIndexRun : null
+  const lastSmartMailboxSync =
+    mailboxIndexHealth?.last_result?.trigger === 'smart_sync' ? mailboxIndexHealth.last_result : null
+  const lastOperatorBackfill =
+    mailboxIndexHealth?.last_result?.trigger === 'operator_backfill'
+      ? mailboxIndexHealth.last_result
+      : null
   const lastManualMailboxReindex =
     mailboxIndexHealth?.last_result?.trigger === 'manual_full_reindex'
       ? mailboxIndexHealth.last_result
@@ -311,13 +370,28 @@ function OperationsWorkspaceShellInner(props: {
   const blockingMailboxIndexRun =
     mailboxIndexHealth?.execution_state === 'running' &&
     activeMailboxIndexRun &&
-    activeMailboxIndexRun.trigger !== 'manual_full_reindex'
+    activeMailboxIndexRun.trigger !== 'manual_full_reindex' &&
+    activeMailboxIndexRun.trigger !== 'smart_sync' &&
+    activeMailboxIndexRun.trigger !== 'operator_backfill'
       ? activeMailboxIndexRun
       : null
-  const manualReindexDisabled =
+  const historicalBackfill = mailboxIndexHealth?.historical_backfill ?? null
+  const recent24MonthBackfillComplete =
+    historicalBackfill?.completed_window_months != null &&
+    historicalBackfill.completed_window_months >= 24
+  const extended36MonthBackfillComplete =
+    historicalBackfill?.completed_window_months != null &&
+    historicalBackfill.completed_window_months >= 36
+  const mailboxIndexReconnectBlocked = mailboxIndexHealth?.has_gmail_connection === false
+  const mailboxIndexActionDisabled =
     runtime.manualMailboxReindexStarting ||
+    runtime.smartMailboxSyncStarting ||
+    runtime.operatorMailboxBackfillStarting ||
     mailboxIndexHealth?.execution_state === 'running' ||
-    mailboxIndexHealth?.requires_reconnect === true
+    mailboxIndexReconnectBlocked
+  const showDefaultContinueBackfillButton = !recent24MonthBackfillComplete
+  const showExtendedContinueBackfillButton =
+    recent24MonthBackfillComplete && !extended36MonthBackfillComplete
   const query = useMemo(
     () => serializeOperationsQuery(props.sessionId, props.analysisScope),
     [props.analysisScope, props.sessionId]
@@ -431,6 +505,12 @@ function OperationsWorkspaceShellInner(props: {
     }
   }, [])
   const isReviewPage = props.pathname.includes('/operations/review')
+  const shellGridClassName = isMailboxIntelligencePage
+    ? 'grid grid-cols-1 gap-4 xl:grid-cols-[272px_minmax(0,1fr)] 2xl:grid-cols-[272px_minmax(0,1fr)_300px]'
+    : 'grid grid-cols-1 gap-4 xl:grid-cols-[284px_minmax(0,1fr)_340px]'
+  const assistantRailClassName = isMailboxIntelligencePage
+    ? 'app-surface-card min-w-0 rounded-xl bg-gray-950/35 p-3 flex flex-col gap-2 xl:col-span-2 xl:h-auto 2xl:col-span-1 2xl:h-[calc(100vh-12rem)]'
+    : 'app-surface-card min-w-0 rounded-xl bg-gray-950/35 p-3 flex flex-col gap-2 h-[calc(100vh-12rem)]'
   const assistantRequestMode = isReviewPage ? 'playground_review_detail' : 'playground'
   const assistantScopeKey = `${assistantRequestMode}:${props.resultId || ''}:${props.clusterId || ''}`
 
@@ -654,7 +734,7 @@ function OperationsWorkspaceShellInner(props: {
     [props.pathname, props.reviewStage]
   )
 
-  const manualReindexStatus = useMemo(() => {
+  const mailboxIndexStatus = useMemo(() => {
     if (!mailboxIndexHealth) {
       return {
         tone: 'gray' as const,
@@ -670,6 +750,178 @@ function OperationsWorkspaceShellInner(props: {
         mailboxIndexHealth.indexed_newest_message_at
       )}`,
     ]
+
+    if (activeSmartMailboxSync) {
+      const resumedFromCheckpoint =
+        activeSmartMailboxSync.requested_mode === 'full' &&
+        activeSmartMailboxSync.effective_mode === 'full'
+      return {
+        tone: 'cyan' as const,
+        title: resumedFromCheckpoint
+          ? 'Smart Sync resumed from checkpoint'
+          : 'Smart Sync running incrementally',
+        lines: [
+          ...baseLines,
+          `Run id: ${activeSmartMailboxSync.run_id || '—'}`,
+          `Requested/effective mode: ${activeSmartMailboxSync.requested_mode || '—'} / ${
+            activeSmartMailboxSync.effective_mode || activeSmartMailboxSync.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(activeSmartMailboxSync.trigger)}`,
+          `Started: ${formatMailboxIndexDateTime(activeSmartMailboxSync.started_at)}`,
+          `Latest heartbeat: ${formatMailboxIndexDateTime(activeSmartMailboxSync.heartbeat_at)}`,
+          ...(typeof activeSmartMailboxSync.rows_before === 'number'
+            ? [`Rows before: ${formatMailboxIndexCount(activeSmartMailboxSync.rows_before)}`]
+            : []),
+          `Current indexed rows: ${formatMailboxIndexCount(mailboxIndexHealth.indexed_message_count)}`,
+          ...(typeof activeSmartMailboxSync.list_pages_fetched === 'number'
+            ? [`Pages fetched so far: ${formatMailboxIndexCount(activeSmartMailboxSync.list_pages_fetched)}`]
+            : []),
+          `Messages processed so far: ${formatMailboxIndexCount(activeSmartMailboxSync.processed_messages)}`,
+          ...mailboxIndexResumeCheckpointLines(activeSmartMailboxSync.resume_checkpoint),
+          ...mailboxIndexYieldLines(activeSmartMailboxSync.yield_detail),
+        ],
+      }
+    }
+
+    if (pendingSmartMailboxSyncRun) {
+      const resumedFromCheckpoint =
+        pendingSmartMailboxSyncRun.requested_mode === 'full' &&
+        pendingSmartMailboxSyncRun.effective_mode === 'full'
+      return {
+        tone: 'cyan' as const,
+        title: resumedFromCheckpoint
+          ? 'Smart Sync resumed from checkpoint'
+          : runtime.smartMailboxSyncStarting
+            ? 'Starting Smart Sync...'
+            : 'Smart Sync accepted',
+        lines: [
+          ...baseLines,
+          `Run id: ${pendingSmartMailboxSyncRun.run_id || '—'}`,
+          `Requested/effective mode: ${pendingSmartMailboxSyncRun.requested_mode || '—'} / ${
+            pendingSmartMailboxSyncRun.effective_mode || pendingSmartMailboxSyncRun.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(pendingSmartMailboxSyncRun.trigger)}`,
+          `Accepted: ${formatMailboxIndexDateTime(pendingSmartMailboxSyncRun.started_at)}`,
+          'Waiting for mailbox-index state to confirm the live Smart Sync run.',
+        ],
+      }
+    }
+
+    if (runtime.smartMailboxSyncStarting) {
+      return {
+        tone: 'cyan' as const,
+        title: 'Starting Smart Sync...',
+        lines: [
+          ...baseLines,
+          'Waiting for mailbox index status to confirm the active Smart Sync run.',
+        ],
+      }
+    }
+
+    if (activeOperatorBackfill) {
+      const resumedFromCheckpoint = activeOperatorBackfill.started_from_checkpoint === true
+      return {
+        tone: 'cyan' as const,
+        title: resumedFromCheckpoint
+          ? 'Resumed historical backfill from saved checkpoint'
+          : 'Fresh historical backfill started',
+        lines: [
+          ...baseLines,
+          `Run id: ${activeOperatorBackfill.run_id || '—'}`,
+          `Requested/effective mode: ${activeOperatorBackfill.requested_mode || '—'} / ${
+            activeOperatorBackfill.effective_mode || activeOperatorBackfill.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(activeOperatorBackfill.trigger)}`,
+          `Started: ${formatMailboxIndexDateTime(activeOperatorBackfill.started_at)}`,
+          `Latest heartbeat: ${formatMailboxIndexDateTime(activeOperatorBackfill.heartbeat_at)}`,
+          ...(typeof activeOperatorBackfill.rows_before === 'number'
+            ? [`Rows before: ${formatMailboxIndexCount(activeOperatorBackfill.rows_before)}`]
+            : []),
+          `Current indexed rows: ${formatMailboxIndexCount(mailboxIndexHealth.indexed_message_count)}`,
+          ...mailboxIndexBackfillTargetLines({
+            windowMonths: activeOperatorBackfill.backfill_window_months,
+            cutoffAt: activeOperatorBackfill.backfill_cutoff_at,
+          }),
+          ...(typeof activeOperatorBackfill.list_pages_fetched === 'number'
+            ? [`Pages fetched so far: ${formatMailboxIndexCount(activeOperatorBackfill.list_pages_fetched)}`]
+            : []),
+          `Messages processed so far: ${formatMailboxIndexCount(activeOperatorBackfill.processed_messages)}`,
+          ...mailboxIndexResumeCheckpointLines(activeOperatorBackfill.resume_checkpoint),
+          ...mailboxIndexYieldLines(activeOperatorBackfill.yield_detail),
+        ],
+      }
+    }
+
+    if (pendingOperatorBackfillRun) {
+      const resumedFromCheckpoint = pendingOperatorBackfillRun.started_from_checkpoint === true
+      return {
+        tone: 'cyan' as const,
+        title: resumedFromCheckpoint
+          ? 'Resumed historical backfill from saved checkpoint'
+          : runtime.operatorMailboxBackfillStarting
+            ? 'Fresh historical backfill started'
+            : 'Fresh historical backfill started',
+        lines: [
+          ...baseLines,
+          `Run id: ${pendingOperatorBackfillRun.run_id || '—'}`,
+          `Requested/effective mode: ${pendingOperatorBackfillRun.requested_mode || '—'} / ${
+            pendingOperatorBackfillRun.effective_mode || pendingOperatorBackfillRun.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(pendingOperatorBackfillRun.trigger)}`,
+          `Accepted: ${formatMailboxIndexDateTime(pendingOperatorBackfillRun.started_at)}`,
+          ...mailboxIndexBackfillTargetLines({
+            windowMonths: pendingOperatorBackfillRun.backfill_window_months,
+            cutoffAt: pendingOperatorBackfillRun.backfill_cutoff_at,
+          }),
+          ...mailboxIndexResumeCheckpointLines(pendingOperatorBackfillRun.resume_checkpoint),
+          'Waiting for mailbox-index state to confirm the live historical backfill run.',
+        ],
+      }
+    }
+
+    if (runtime.operatorMailboxBackfillStarting) {
+      return {
+        tone: 'cyan' as const,
+        title: 'Starting historical backfill...',
+        lines: [
+          ...baseLines,
+          'Waiting for mailbox index status to confirm the active historical backfill run.',
+        ],
+      }
+    }
+
+    const completedWindowMonths = historicalBackfill?.completed_window_months ?? null
+    const completedBackfillStateVisible =
+      completedWindowMonths != null &&
+      !activeManualMailboxReindex &&
+      !runtime.manualMailboxReindexStarting &&
+      (!lastOperatorBackfill ||
+        lastOperatorBackfill.terminal_reason === 'historical_window_reached' ||
+        lastOperatorBackfill.terminal_reason === 'gmail_pagination_exhausted' ||
+        lastOperatorBackfill.terminal_reason === 'empty_page')
+    if (completedBackfillStateVisible) {
+      return {
+        tone: 'emerald' as const,
+        title:
+          completedWindowMonths === 36
+            ? 'Historical backfill complete for extended 36-month window'
+            : 'Historical backfill complete for recent 24-month window',
+        lines: [
+          ...baseLines,
+          ...(historicalBackfill?.completed_at
+            ? [`Completed: ${formatMailboxIndexDateTime(historicalBackfill.completed_at)}`]
+            : []),
+          ...mailboxIndexBackfillTargetLines({
+            windowMonths: historicalBackfill?.completed_window_months,
+            cutoffAt: historicalBackfill?.completed_cutoff_at,
+          }),
+          'Smart Sync will maintain new activity going forward',
+          ...(completedWindowMonths === 24
+            ? ['Optional extended backfill to 36 months is available']
+            : []),
+        ],
+      }
+    }
 
     if (activeManualMailboxReindex) {
       return {
@@ -688,6 +940,7 @@ function OperationsWorkspaceShellInner(props: {
           `Current indexed rows: ${formatMailboxIndexCount(mailboxIndexHealth.indexed_message_count)}`,
           `Pages fetched so far: ${formatMailboxIndexCount(activeManualMailboxReindex.list_pages_fetched)}`,
           `Messages processed so far: ${formatMailboxIndexCount(activeManualMailboxReindex.processed_messages)}`,
+          ...mailboxIndexResumeCheckpointLines(activeManualMailboxReindex.resume_checkpoint),
           ...mailboxIndexYieldLines(activeManualMailboxReindex.yield_detail),
         ],
       }
@@ -700,6 +953,152 @@ function OperationsWorkspaceShellInner(props: {
         lines: [
           ...baseLines,
           'Waiting for mailbox index status to confirm the active full-scan run.',
+        ],
+      }
+    }
+
+    if (lastOperatorBackfill) {
+      const growthDelta = lastOperatorBackfill.growth_delta
+      const failed =
+        mailboxIndexHealth.execution_state === 'failed' ||
+        Boolean(lastOperatorBackfill.failure_reason) ||
+        (typeof lastOperatorBackfill.status === 'string' &&
+          (lastOperatorBackfill.status.includes('failed') ||
+            lastOperatorBackfill.status.includes('out_of_date') ||
+            lastOperatorBackfill.status.includes('listing_failed')))
+      const pausedAtLimit = lastOperatorBackfill.terminal_reason === 'requested_limit_reached'
+      const stoppedByPagination =
+        lastOperatorBackfill.terminal_reason === 'gmail_pagination_exhausted' ||
+        lastOperatorBackfill.terminal_reason === 'empty_page'
+      const completedWithNoGrowth =
+        !failed && !pausedAtLimit && !stoppedByPagination && (typeof growthDelta === 'number' ? growthDelta <= 0 : false)
+      const resumedFromCheckpoint = lastOperatorBackfill.started_from_checkpoint === true
+      const startModeLine = resumedFromCheckpoint
+        ? 'Start mode: Resumed historical backfill from saved checkpoint.'
+        : 'Start mode: Fresh historical backfill started.'
+
+      return {
+        tone: failed
+          ? ('rose' as const)
+          : pausedAtLimit || stoppedByPagination
+            ? ('amber' as const)
+            : completedWithNoGrowth
+              ? ('gray' as const)
+              : ('emerald' as const),
+        title: failed
+          ? 'Historical backfill failed'
+          : pausedAtLimit
+            ? 'Historical backfill paused at limit'
+            : stoppedByPagination
+              ? 'Historical backfill finished available history'
+              : completedWithNoGrowth
+                ? 'Historical backfill completed with no growth'
+                : resumedFromCheckpoint
+                  ? 'Historical backfill continued successfully'
+                  : 'Historical backfill completed with growth',
+        lines: [
+          ...baseLines,
+          `Run id: ${lastOperatorBackfill.run_id || '—'}`,
+          `Rows: ${formatMailboxIndexCount(lastOperatorBackfill.rows_before)} -> ${formatMailboxIndexCount(
+            lastOperatorBackfill.rows_after
+          )} (${typeof growthDelta === 'number' ? `${growthDelta >= 0 ? '+' : ''}${formatMailboxIndexCount(growthDelta)}` : '—'})`,
+          `Requested/effective mode: ${lastOperatorBackfill.requested_mode || '—'} / ${
+            lastOperatorBackfill.effective_mode || lastOperatorBackfill.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(lastOperatorBackfill.trigger)}`,
+          startModeLine,
+          `Completed: ${formatMailboxIndexDateTime(lastOperatorBackfill.completed_at)}`,
+          `Stop reason: ${lastOperatorBackfill.terminal_reason || '—'}`,
+          ...mailboxIndexBackfillTargetLines({
+            windowMonths: lastOperatorBackfill.backfill_window_months,
+            cutoffAt: lastOperatorBackfill.backfill_cutoff_at,
+          }),
+          ...(typeof lastOperatorBackfill.processed_messages === 'number'
+            ? [`Messages processed: ${formatMailboxIndexCount(lastOperatorBackfill.processed_messages)}`]
+            : []),
+          ...(typeof lastOperatorBackfill.list_pages_fetched === 'number'
+            ? [`List pages fetched: ${formatMailboxIndexCount(lastOperatorBackfill.list_pages_fetched)}`]
+            : []),
+          ...mailboxIndexResumeCheckpointLines(lastOperatorBackfill.resume_checkpoint),
+          ...mailboxIndexYieldLines(lastOperatorBackfill.yield_detail),
+          ...(typeof lastOperatorBackfill.gmail_result_size_estimate === 'number'
+            ? [`Gmail estimate: ${formatMailboxIndexCount(lastOperatorBackfill.gmail_result_size_estimate)}`]
+            : []),
+          ...(pausedAtLimit
+            ? [
+                'Resume checkpoint saved.',
+                'Safe to continue with Continue Backfill.',
+              ]
+            : []),
+          ...(lastOperatorBackfill.failure_reason
+            ? [`Failure: ${lastOperatorBackfill.failure_reason}`]
+            : []),
+          ...(mailboxIndexHealth.last_sync_error
+            ? [`Error: ${mailboxIndexHealth.last_sync_error}`]
+            : []),
+        ],
+      }
+    }
+
+    if (lastSmartMailboxSync) {
+      const growthDelta = lastSmartMailboxSync.growth_delta
+      const failed =
+        mailboxIndexHealth.execution_state === 'failed' ||
+        Boolean(lastSmartMailboxSync.failure_reason) ||
+        (typeof lastSmartMailboxSync.status === 'string' &&
+          (lastSmartMailboxSync.status.includes('failed') ||
+            lastSmartMailboxSync.status.includes('out_of_date') ||
+            lastSmartMailboxSync.status.includes('listing_failed')))
+      const stoppedByPagination =
+        lastSmartMailboxSync.terminal_reason === 'gmail_pagination_exhausted' ||
+        lastSmartMailboxSync.terminal_reason === 'empty_page'
+      const completedWithNoGrowth =
+        !failed && !stoppedByPagination && (typeof growthDelta === 'number' ? growthDelta <= 0 : false)
+      const resumedFromCheckpoint =
+        lastSmartMailboxSync.requested_mode === 'full' && lastSmartMailboxSync.effective_mode === 'full'
+
+      return {
+        tone: failed
+          ? ('rose' as const)
+          : stoppedByPagination
+            ? ('amber' as const)
+            : completedWithNoGrowth
+              ? ('gray' as const)
+              : ('emerald' as const),
+        title: failed
+          ? 'Smart Sync failed'
+          : stoppedByPagination
+            ? 'Smart Sync stopped because Gmail returned no more pages'
+            : completedWithNoGrowth
+              ? 'Smart Sync completed with no growth'
+              : resumedFromCheckpoint
+                ? 'Smart Sync completed after checkpoint resume'
+                : 'Smart Sync completed incrementally',
+        lines: [
+          ...baseLines,
+          `Run id: ${lastSmartMailboxSync.run_id || '—'}`,
+          `Rows: ${formatMailboxIndexCount(lastSmartMailboxSync.rows_before)} -> ${formatMailboxIndexCount(
+            lastSmartMailboxSync.rows_after
+          )} (${typeof growthDelta === 'number' ? `${growthDelta >= 0 ? '+' : ''}${formatMailboxIndexCount(growthDelta)}` : '—'})`,
+          `Requested/effective mode: ${lastSmartMailboxSync.requested_mode || '—'} / ${
+            lastSmartMailboxSync.effective_mode || lastSmartMailboxSync.mode || '—'
+          }`,
+          `Trigger: ${mailboxIndexTriggerLabel(lastSmartMailboxSync.trigger)}`,
+          `Completed: ${formatMailboxIndexDateTime(lastSmartMailboxSync.completed_at)}`,
+          `Stop reason: ${lastSmartMailboxSync.terminal_reason || '—'}`,
+          ...(typeof lastSmartMailboxSync.processed_messages === 'number'
+            ? [`Messages processed: ${formatMailboxIndexCount(lastSmartMailboxSync.processed_messages)}`]
+            : []),
+          ...(typeof lastSmartMailboxSync.list_pages_fetched === 'number'
+            ? [`List pages fetched: ${formatMailboxIndexCount(lastSmartMailboxSync.list_pages_fetched)}`]
+            : []),
+          ...mailboxIndexResumeCheckpointLines(lastSmartMailboxSync.resume_checkpoint),
+          ...mailboxIndexYieldLines(lastSmartMailboxSync.yield_detail),
+          ...(typeof lastSmartMailboxSync.gmail_result_size_estimate === 'number'
+            ? [`Gmail estimate: ${formatMailboxIndexCount(lastSmartMailboxSync.gmail_result_size_estimate)}`]
+            : []),
+          ...(lastSmartMailboxSync.failure_reason ? [`Failure: ${lastSmartMailboxSync.failure_reason}`] : []),
+          ...(mailboxIndexHealth.last_sync_error ? [`Error: ${mailboxIndexHealth.last_sync_error}`] : []),
         ],
       }
     }
@@ -746,6 +1145,7 @@ function OperationsWorkspaceShellInner(props: {
           ...(typeof lastManualMailboxReindex.list_pages_fetched === 'number'
             ? [`List pages fetched: ${formatMailboxIndexCount(lastManualMailboxReindex.list_pages_fetched)}`]
             : []),
+          ...mailboxIndexResumeCheckpointLines(lastManualMailboxReindex.resume_checkpoint),
           ...mailboxIndexYieldLines(lastManualMailboxReindex.yield_detail),
           ...(lastManualMailboxReindex.failure_reason
             ? [`Failure: ${lastManualMailboxReindex.failure_reason}`]
@@ -758,24 +1158,39 @@ function OperationsWorkspaceShellInner(props: {
     }
 
     return {
-      tone: mailboxIndexHealth.requires_reconnect ? ('rose' as const) : ('gray' as const),
-      title: mailboxIndexHealth.requires_reconnect
-        ? 'Reconnect Gmail to run a full mailbox reindex'
-        : 'No manual full reindex started yet',
+      tone: mailboxIndexReconnectBlocked ? ('rose' as const) : ('gray' as const),
+      title: mailboxIndexReconnectBlocked
+        ? 'Reconnect Gmail to run Smart Sync or Continue Backfill'
+        : 'No mailbox index operator run started yet',
       lines: [
         ...baseLines,
-        mailboxIndexHealth.requires_reconnect
+        mailboxIndexReconnectBlocked
           ? 'Mailbox indexing is blocked until Gmail is reconnected.'
-          : 'Use Run full mailbox reindex to verify mailbox growth explicitly.',
+          : 'Use Smart Sync for daily updates, Continue Backfill for unfinished history, or Run full mailbox reindex for an explicit restart.',
       ],
     }
-  }, [activeManualMailboxReindex, lastManualMailboxReindex, mailboxIndexHealth, runtime.manualMailboxReindexStarting])
+  }, [
+    activeOperatorBackfill,
+    activeManualMailboxReindex,
+    pendingSmartMailboxSyncRun,
+    pendingOperatorBackfillRun,
+    activeSmartMailboxSync,
+    lastOperatorBackfill,
+    lastManualMailboxReindex,
+    lastSmartMailboxSync,
+    historicalBackfill,
+    mailboxIndexHealth,
+    mailboxIndexReconnectBlocked,
+    runtime.manualMailboxReindexStarting,
+    runtime.operatorMailboxBackfillStarting,
+    runtime.smartMailboxSyncStarting,
+  ])
 
   const triggerManualMailboxReindex = async () => {
-    setManualReindexNotice(null)
+    setMailboxIndexNotice(null)
     const result = await runtime.triggerManualFullMailboxReindex()
     if (result.ok) {
-      setManualReindexNotice(
+      setMailboxIndexNotice(
         result.attached
           ? {
               tone: 'info',
@@ -787,7 +1202,81 @@ function OperationsWorkspaceShellInner(props: {
             }
       )
     } else {
-      setManualReindexNotice({ tone: 'error', text: result.error })
+      setMailboxIndexNotice({ tone: 'error', text: result.error })
+    }
+  }
+
+  const triggerSmartSync = async () => {
+    setMailboxIndexNotice(null)
+    const result = await runtime.triggerSmartMailboxSync()
+    if (result.ok) {
+      setMailboxIndexNotice(
+        result.attached
+          ? {
+              tone: 'info',
+              text: 'A mailbox index run is already in progress. Showing its live mailbox-index state below.',
+            }
+          : {
+              tone: 'info',
+              text: 'Smart Sync accepted. Live mailbox-index state is shown below.',
+            }
+      )
+    } else {
+      setMailboxIndexNotice({ tone: 'error', text: result.error })
+    }
+  }
+
+  const triggerMailboxBackfill = async () => {
+    setMailboxIndexNotice(null)
+    const result = await runtime.triggerMailboxBackfill()
+    if (result.ok) {
+      setMailboxIndexNotice(
+        result.completed
+          ? {
+              tone: 'info',
+              text:
+                result.backfillWindowMonths === 36
+                  ? 'Historical backfill complete for extended 36-month window. Smart Sync will maintain new activity going forward.'
+                  : 'Historical backfill complete for recent 24-month window. Smart Sync will maintain new activity going forward.',
+            }
+          : result.attached
+          ? {
+              tone: 'info',
+              text: 'A mailbox index run is already in progress. Showing its live mailbox-index state below.',
+            }
+          : {
+              tone: 'info',
+              text: 'Continue Backfill accepted. Live mailbox-index state is shown below.',
+            }
+      )
+    } else {
+      setMailboxIndexNotice({ tone: 'error', text: result.error })
+    }
+  }
+
+  const triggerMailboxBackfillExtended = async () => {
+    setMailboxIndexNotice(null)
+    const result = await runtime.triggerMailboxBackfillExtended()
+    if (result.ok) {
+      setMailboxIndexNotice(
+        result.completed
+          ? {
+              tone: 'info',
+              text:
+                'Historical backfill complete for extended 36-month window. Smart Sync will maintain new activity going forward.',
+            }
+          : result.attached
+            ? {
+                tone: 'info',
+                text: 'A mailbox index run is already in progress. Showing its live mailbox-index state below.',
+              }
+            : {
+                tone: 'info',
+                text: 'Continue Backfill (36m) accepted. Live mailbox-index state is shown below.',
+              }
+      )
+    } else {
+      setMailboxIndexNotice({ tone: 'error', text: result.error })
     }
   }
 
@@ -845,8 +1334,8 @@ function OperationsWorkspaceShellInner(props: {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[284px_minmax(0,1fr)_340px]">
-      <aside className="rounded-2xl border border-gray-800 bg-gradient-to-b from-gray-950/65 to-gray-950/35 p-3.5 h-fit">
+    <div className={shellGridClassName}>
+      <aside className="app-surface-card rounded-2xl bg-gradient-to-b from-gray-950/65 to-gray-950/35 p-3.5 h-fit">
         <div className="space-y-2.5 pb-3.5 border-b border-gray-800">
           <p className="text-[11px] uppercase tracking-wide text-cyan-300">Operations Workspace</p>
           <p className="text-[11px] text-gray-400 leading-snug">
@@ -887,10 +1376,54 @@ function OperationsWorkspaceShellInner(props: {
             </p>
             <button
               type="button"
-              onClick={() => void triggerManualMailboxReindex()}
-              disabled={manualReindexDisabled}
+              onClick={() => void triggerSmartSync()}
+              disabled={mailboxIndexActionDisabled}
               className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
-                manualReindexDisabled
+                mailboxIndexActionDisabled
+                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                  : 'bg-sky-700 hover:bg-sky-600 text-white'
+              }`}
+            >
+              {runtime.smartMailboxSyncStarting ? 'Starting Smart Sync…' : 'Smart Sync'}
+            </button>
+            {showDefaultContinueBackfillButton ? (
+              <button
+                type="button"
+                onClick={() => void triggerMailboxBackfill()}
+                disabled={mailboxIndexActionDisabled}
+                className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                  mailboxIndexActionDisabled
+                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    : 'bg-amber-700 hover:bg-amber-600 text-white'
+                }`}
+              >
+                {runtime.operatorMailboxBackfillStarting
+                  ? 'Starting Continue Backfill…'
+                  : 'Continue Backfill'}
+              </button>
+            ) : null}
+            {showExtendedContinueBackfillButton ? (
+              <button
+                type="button"
+                onClick={() => void triggerMailboxBackfillExtended()}
+                disabled={mailboxIndexActionDisabled}
+                className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                  mailboxIndexActionDisabled
+                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    : 'bg-amber-900 hover:bg-amber-800 text-white'
+                }`}
+              >
+                {runtime.operatorMailboxBackfillStarting
+                  ? 'Starting Continue Backfill (36m)…'
+                  : 'Continue Backfill (36m)'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void triggerManualMailboxReindex()}
+              disabled={mailboxIndexActionDisabled}
+              className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                mailboxIndexActionDisabled
                   ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                   : 'bg-emerald-700 hover:bg-emerald-600 text-white'
               }`}
@@ -927,20 +1460,20 @@ function OperationsWorkspaceShellInner(props: {
               <p className="text-[10px] uppercase tracking-wide text-gray-500">Mailbox index</p>
               <p
                 className={`text-[11px] font-medium ${
-                  manualReindexStatus.tone === 'cyan'
+                  mailboxIndexStatus.tone === 'cyan'
                     ? 'text-cyan-300'
-                    : manualReindexStatus.tone === 'emerald'
+                    : mailboxIndexStatus.tone === 'emerald'
                       ? 'text-emerald-300'
-                      : manualReindexStatus.tone === 'amber'
+                      : mailboxIndexStatus.tone === 'amber'
                         ? 'text-amber-300'
-                        : manualReindexStatus.tone === 'rose'
+                        : mailboxIndexStatus.tone === 'rose'
                           ? 'text-rose-300'
                           : 'text-gray-300'
                 }`}
               >
-                {manualReindexStatus.title}
+                {mailboxIndexStatus.title}
               </p>
-              {manualReindexStatus.lines.map((line, index) => (
+              {mailboxIndexStatus.lines.map((line, index) => (
                 <p key={`${index}-${line}`} className="text-[10px] leading-snug text-gray-400">
                   {line}
                 </p>
@@ -948,21 +1481,21 @@ function OperationsWorkspaceShellInner(props: {
               {blockingMailboxIndexRun ? (
                 <p className="text-[10px] leading-snug text-amber-300">
                   Another mailbox index run is already active: {blockingMailboxIndexRun.requested_mode || '—'} /{' '}
-                  {mailboxIndexTriggerLabel(blockingMailboxIndexRun.trigger)}. The manual full reindex button will unlock when it finishes.
+                  {mailboxIndexTriggerLabel(blockingMailboxIndexRun.trigger)}. Mailbox index actions will unlock when it finishes.
                 </p>
               ) : null}
-              {mailboxIndexHealth?.requires_reconnect ? (
+              {mailboxIndexReconnectBlocked ? (
                 <p className="text-[10px] leading-snug text-rose-300">
-                  Reconnect Gmail before running a manual full mailbox reindex.
+                  Reconnect Gmail before running Smart Sync, Continue Backfill, or a manual full mailbox reindex.
                 </p>
               ) : null}
-              {manualReindexNotice ? (
+              {mailboxIndexNotice ? (
                 <p
                   className={`text-[10px] leading-snug ${
-                    manualReindexNotice.tone === 'error' ? 'text-rose-300' : 'text-cyan-300'
+                    mailboxIndexNotice.tone === 'error' ? 'text-rose-300' : 'text-cyan-300'
                   }`}
                 >
-                  {manualReindexNotice.text}
+                  {mailboxIndexNotice.text}
                 </p>
               ) : null}
             </div>
@@ -1020,7 +1553,7 @@ function OperationsWorkspaceShellInner(props: {
 
       <section className="min-w-0">{props.children}</section>
 
-      <aside className="rounded-xl border border-gray-800 bg-gray-950/35 p-3 flex flex-col gap-2 h-[calc(100vh-12rem)]">
+      <aside className={assistantRailClassName}>
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-cyan-300">AI Assistant</p>

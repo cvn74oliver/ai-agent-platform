@@ -18,7 +18,10 @@ import {
 } from '@/lib/runtime/operationsWorkspace'
 import {
   GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
-  targetGmailMailboxIndexRows,
+  GMAIL_OPERATOR_BACKFILL_DEFAULT_WINDOW_MONTHS,
+  GMAIL_OPERATOR_BACKFILL_EXTENDED_WINDOW_MONTHS,
+  GMAIL_OPERATOR_BACKFILL_INTENT,
+  type GmailOperatorBackfillWindowMonths,
 } from '@/lib/integrations/gmail/gmailMailboxIndexConfig'
 
 type SnapshotStatus = {
@@ -29,6 +32,10 @@ type SnapshotStatus = {
   loadedAt: number | null
   mailboxIndexHealth: MailboxIndexHealth | null
   manualMailboxReindexStarting: boolean
+  smartMailboxSyncStarting: boolean
+  operatorMailboxBackfillStarting: boolean
+  pendingSmartMailboxSyncRun: PendingMailboxIndexRun | null
+  pendingOperatorMailboxBackfillRun: PendingMailboxIndexRun | null
 }
 
 type SnapshotRefreshOptions = {
@@ -42,12 +49,50 @@ type TriggerManualReindexResult =
   | { ok: true; attached: boolean }
   | { ok: false; error: string }
 
+type TriggerSmartSyncResult =
+  | { ok: true; attached: boolean }
+  | { ok: false; error: string }
+
+type TriggerMailboxBackfillResult =
+  | {
+      ok: true
+      attached: boolean
+      completed?: boolean
+      backfillWindowMonths?: GmailOperatorBackfillWindowMonths | null
+    }
+  | { ok: false; error: string }
+
+type PendingMailboxIndexRun = {
+  run_id: string | null
+  mode: 'full' | 'incremental' | null
+  requested_mode: 'full' | 'incremental' | null
+  effective_mode: 'full' | 'incremental' | null
+  trigger:
+    | 'manual_full_reindex'
+    | 'smart_sync'
+    | 'operator_backfill'
+    | 'runtime_bootstrap'
+    | 'runtime_backfill'
+    | 'runtime_recovery'
+    | 'analysis_refresh'
+    | null
+  requested_max_messages: number | null
+  started_at: string | null
+  started_from_checkpoint: boolean | null
+  backfill_window_months: GmailOperatorBackfillWindowMonths | null
+  backfill_cutoff_at: string | null
+  resume_checkpoint: MailboxIndexResumeCheckpoint | null
+}
+
 type ContextValue = SnapshotStatus & {
   sessionId: string | null
   analysisScope: OperationsAnalysisScope
   lastRefreshReason: string | null
   refreshRuntimeSnapshot: (options?: SnapshotRefreshOptions) => Promise<void>
   triggerManualFullMailboxReindex: () => Promise<TriggerManualReindexResult>
+  triggerSmartMailboxSync: () => Promise<TriggerSmartSyncResult>
+  triggerMailboxBackfill: () => Promise<TriggerMailboxBackfillResult>
+  triggerMailboxBackfillExtended: () => Promise<TriggerMailboxBackfillResult>
 }
 
 type PersistedSnapshot = {
@@ -73,6 +118,22 @@ type MailboxIndexYieldDetail = {
   next_page_token_present: boolean | null
 }
 
+type MailboxIndexResumeCheckpoint = {
+  usable: boolean
+  next_page_token_present: boolean
+  page_index: number | null
+  processed_messages: number | null
+  processed_at: string | null
+}
+
+type MailboxIndexHistoricalBackfillSummary = {
+  active_window_months: GmailOperatorBackfillWindowMonths | null
+  active_cutoff_at: string | null
+  completed_window_months: GmailOperatorBackfillWindowMonths | null
+  completed_cutoff_at: string | null
+  completed_at: string | null
+}
+
 type MailboxIndexActiveRun = {
   run_id: string | null
   mode: 'full' | 'incremental' | null
@@ -80,6 +141,8 @@ type MailboxIndexActiveRun = {
   effective_mode: 'full' | 'incremental' | null
   trigger:
     | 'manual_full_reindex'
+    | 'smart_sync'
+    | 'operator_backfill'
     | 'runtime_bootstrap'
     | 'runtime_backfill'
     | 'runtime_recovery'
@@ -88,9 +151,13 @@ type MailboxIndexActiveRun = {
   requested_max_messages: number | null
   started_at: string | null
   heartbeat_at: string | null
+  started_from_checkpoint: boolean | null
   rows_before: number | null
   processed_messages: number | null
   list_pages_fetched: number | null
+  backfill_window_months: GmailOperatorBackfillWindowMonths | null
+  backfill_cutoff_at: string | null
+  resume_checkpoint: MailboxIndexResumeCheckpoint | null
   yield_detail: MailboxIndexYieldDetail | null
 }
 
@@ -100,6 +167,8 @@ type MailboxIndexLastResult = {
   run_id: string | null
   trigger:
     | 'manual_full_reindex'
+    | 'smart_sync'
+    | 'operator_backfill'
     | 'runtime_bootstrap'
     | 'runtime_backfill'
     | 'runtime_recovery'
@@ -108,6 +177,7 @@ type MailboxIndexLastResult = {
   requested_mode: 'full' | 'incremental' | null
   effective_mode: 'full' | 'incremental' | null
   completed_at: string | null
+  started_from_checkpoint: boolean | null
   rows_before: number | null
   rows_after: number | null
   growth_delta: number | null
@@ -118,6 +188,9 @@ type MailboxIndexLastResult = {
   terminal_reason: string | null
   gmail_result_size_estimate: number | null
   list_pages_fetched: number | null
+  backfill_window_months: GmailOperatorBackfillWindowMonths | null
+  backfill_cutoff_at: string | null
+  resume_checkpoint: MailboxIndexResumeCheckpoint | null
   yield_detail: MailboxIndexYieldDetail | null
 }
 
@@ -140,7 +213,9 @@ type MailboxIndexHealth = {
   execution_state: MailboxIndexExecutionState | null
   active_run: MailboxIndexActiveRun | null
   last_result: MailboxIndexLastResult | null
+  historical_backfill: MailboxIndexHistoricalBackfillSummary | null
   requires_reconnect: boolean
+  has_gmail_connection: boolean | null
   coverage_increased: boolean | null
   sync_health: 'healthy' | 'degraded_usable' | 'unavailable' | 'uninitialized' | null
   usable_with_cached_index: boolean
@@ -161,6 +236,115 @@ function parseMailboxIndexYieldDetail(value: unknown): MailboxIndexYieldDetail |
       typeof payload.newest_message_seen_at === 'string' ? payload.newest_message_seen_at : null,
     next_page_token_present:
       typeof payload.next_page_token_present === 'boolean' ? payload.next_page_token_present : null,
+  }
+}
+
+function parseMailboxIndexResumeCheckpoint(value: unknown): MailboxIndexResumeCheckpoint | null {
+  if (!value || typeof value !== 'object') return null
+  const payload = value as Record<string, unknown>
+  return {
+    usable: payload.usable === true,
+    next_page_token_present: payload.next_page_token_present === true,
+    page_index: typeof payload.page_index === 'number' ? payload.page_index : null,
+    processed_messages:
+      typeof payload.processed_messages === 'number' ? payload.processed_messages : null,
+    processed_at: typeof payload.processed_at === 'string' ? payload.processed_at : null,
+  }
+}
+
+function parseMailboxIndexHistoricalBackfillSummary(
+  value: unknown
+): MailboxIndexHistoricalBackfillSummary | null {
+  if (!value || typeof value !== 'object') return null
+  const payload = value as Record<string, unknown>
+  return {
+    active_window_months:
+      payload.active_window_months === 24 || payload.active_window_months === 36
+        ? payload.active_window_months
+        : null,
+    active_cutoff_at:
+      typeof payload.active_cutoff_at === 'string' ? payload.active_cutoff_at : null,
+    completed_window_months:
+      payload.completed_window_months === 24 || payload.completed_window_months === 36
+        ? payload.completed_window_months
+        : null,
+    completed_cutoff_at:
+      typeof payload.completed_cutoff_at === 'string' ? payload.completed_cutoff_at : null,
+    completed_at: typeof payload.completed_at === 'string' ? payload.completed_at : null,
+  }
+}
+
+function parsePendingMailboxIndexRun(value: unknown): PendingMailboxIndexRun | null {
+  if (!value || typeof value !== 'object') return null
+  const payload = value as Record<string, unknown>
+  return {
+    run_id: typeof payload.run_id === 'string' ? payload.run_id : null,
+    mode:
+      payload.mode === 'full' || payload.mode === 'incremental' ? payload.mode : null,
+    requested_mode:
+      payload.requested_mode === 'full' || payload.requested_mode === 'incremental'
+        ? payload.requested_mode
+        : null,
+    effective_mode:
+      payload.effective_mode === 'full' || payload.effective_mode === 'incremental'
+        ? payload.effective_mode
+        : null,
+    trigger:
+      payload.trigger === 'manual_full_reindex' ||
+      payload.trigger === 'smart_sync' ||
+      payload.trigger === 'operator_backfill' ||
+      payload.trigger === 'runtime_bootstrap' ||
+      payload.trigger === 'runtime_backfill' ||
+      payload.trigger === 'runtime_recovery' ||
+      payload.trigger === 'analysis_refresh'
+        ? payload.trigger
+        : null,
+    requested_max_messages:
+      typeof payload.requested_max_messages === 'number'
+        ? payload.requested_max_messages
+        : typeof payload.max_messages === 'number'
+          ? payload.max_messages
+          : null,
+    started_at: typeof payload.started_at === 'string' ? payload.started_at : new Date().toISOString(),
+    started_from_checkpoint:
+      typeof payload.started_from_checkpoint === 'boolean' ? payload.started_from_checkpoint : null,
+    backfill_window_months:
+      payload.backfill_window_months === 24 || payload.backfill_window_months === 36
+        ? payload.backfill_window_months
+        : null,
+    backfill_cutoff_at:
+      typeof payload.backfill_cutoff_at === 'string' ? payload.backfill_cutoff_at : null,
+    resume_checkpoint: parseMailboxIndexResumeCheckpoint(payload.resume_checkpoint),
+  }
+}
+
+function reconcileMailboxIndexHealthState(
+  prev: SnapshotStatus,
+  nextHealth: MailboxIndexHealth
+): SnapshotStatus {
+  const mailboxIndexIdle = nextHealth.execution_state !== 'running' && nextHealth.active_run == null
+  const smartSyncObserved =
+    nextHealth.active_run?.trigger === 'smart_sync' || nextHealth.last_result?.trigger === 'smart_sync'
+  const operatorBackfillObserved =
+    nextHealth.active_run?.trigger === 'operator_backfill' ||
+    nextHealth.last_result?.trigger === 'operator_backfill'
+
+  return {
+    ...prev,
+    mailboxIndexHealth: nextHealth,
+    manualMailboxReindexStarting: mailboxIndexIdle ? false : prev.manualMailboxReindexStarting,
+    smartMailboxSyncStarting: mailboxIndexIdle ? false : prev.smartMailboxSyncStarting,
+    operatorMailboxBackfillStarting: mailboxIndexIdle ? false : prev.operatorMailboxBackfillStarting,
+    pendingSmartMailboxSyncRun: mailboxIndexIdle
+      ? null
+      : smartSyncObserved
+        ? null
+        : prev.pendingSmartMailboxSyncRun,
+    pendingOperatorMailboxBackfillRun: mailboxIndexIdle
+      ? null
+      : operatorBackfillObserved
+        ? null
+        : prev.pendingOperatorMailboxBackfillRun,
   }
 }
 
@@ -256,6 +440,8 @@ async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
                 : null,
             trigger:
               activeRunPayload.trigger === 'manual_full_reindex' ||
+              activeRunPayload.trigger === 'smart_sync' ||
+              activeRunPayload.trigger === 'operator_backfill' ||
               activeRunPayload.trigger === 'runtime_bootstrap' ||
               activeRunPayload.trigger === 'runtime_backfill' ||
               activeRunPayload.trigger === 'runtime_recovery' ||
@@ -269,6 +455,10 @@ async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
             started_at: typeof activeRunPayload.started_at === 'string' ? activeRunPayload.started_at : null,
             heartbeat_at:
               typeof activeRunPayload.heartbeat_at === 'string' ? activeRunPayload.heartbeat_at : null,
+            started_from_checkpoint:
+              typeof activeRunPayload.started_from_checkpoint === 'boolean'
+                ? activeRunPayload.started_from_checkpoint
+                : null,
             rows_before:
               typeof activeRunPayload.rows_before === 'number' ? activeRunPayload.rows_before : null,
             processed_messages:
@@ -279,6 +469,18 @@ async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
               typeof activeRunPayload.list_pages_fetched === 'number'
                 ? activeRunPayload.list_pages_fetched
                 : null,
+            backfill_window_months:
+              activeRunPayload.backfill_window_months === 24 ||
+              activeRunPayload.backfill_window_months === 36
+                ? activeRunPayload.backfill_window_months
+                : null,
+            backfill_cutoff_at:
+              typeof activeRunPayload.backfill_cutoff_at === 'string'
+                ? activeRunPayload.backfill_cutoff_at
+                : null,
+            resume_checkpoint: parseMailboxIndexResumeCheckpoint(
+              'resume_checkpoint' in activeRunPayload ? activeRunPayload.resume_checkpoint : null
+            ),
             yield_detail: parseMailboxIndexYieldDetail(
               'yield_detail' in activeRunPayload ? activeRunPayload.yield_detail : null
             ),
@@ -294,6 +496,8 @@ async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
             run_id: typeof lastResultPayload.run_id === 'string' ? lastResultPayload.run_id : null,
             trigger:
               lastResultPayload.trigger === 'manual_full_reindex' ||
+              lastResultPayload.trigger === 'smart_sync' ||
+              lastResultPayload.trigger === 'operator_backfill' ||
               lastResultPayload.trigger === 'runtime_bootstrap' ||
               lastResultPayload.trigger === 'runtime_backfill' ||
               lastResultPayload.trigger === 'runtime_recovery' ||
@@ -312,6 +516,10 @@ async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
                 : null,
             completed_at:
               typeof lastResultPayload.completed_at === 'string' ? lastResultPayload.completed_at : null,
+            started_from_checkpoint:
+              typeof lastResultPayload.started_from_checkpoint === 'boolean'
+                ? lastResultPayload.started_from_checkpoint
+                : null,
             rows_before:
               typeof lastResultPayload.rows_before === 'number' ? lastResultPayload.rows_before : null,
             rows_after:
@@ -344,12 +552,31 @@ async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
               typeof lastResultPayload.list_pages_fetched === 'number'
                 ? lastResultPayload.list_pages_fetched
                 : null,
+            backfill_window_months:
+              lastResultPayload.backfill_window_months === 24 ||
+              lastResultPayload.backfill_window_months === 36
+                ? lastResultPayload.backfill_window_months
+                : null,
+            backfill_cutoff_at:
+              typeof lastResultPayload.backfill_cutoff_at === 'string'
+                ? lastResultPayload.backfill_cutoff_at
+                : null,
+            resume_checkpoint: parseMailboxIndexResumeCheckpoint(
+              'resume_checkpoint' in lastResultPayload ? lastResultPayload.resume_checkpoint : null
+            ),
             yield_detail: parseMailboxIndexYieldDetail(
               'yield_detail' in lastResultPayload ? lastResultPayload.yield_detail : null
             ),
           }
         : null,
+      historical_backfill: parseMailboxIndexHistoricalBackfillSummary(payload.data.historical_backfill),
       requires_reconnect: payload.data.requires_reconnect === true,
+      has_gmail_connection:
+        payload.data.has_gmail_connection === true
+          ? true
+          : payload.data.has_gmail_connection === false
+            ? false
+            : null,
       coverage_increased:
         typeof payload.data.coverage_increased === 'boolean' ? payload.data.coverage_increased : null,
       sync_health:
@@ -370,15 +597,13 @@ const OperationsRuntimeContext = createContext<ContextValue | null>(null)
 
 const STORAGE_PREFIX = 'operations.runtime.snapshot.v1'
 const INDEX_BOOTSTRAP_STORAGE_PREFIX = 'operations.mailbox-index.bootstrap.v1'
-const INDEX_BACKFILL_STORAGE_PREFIX = 'operations.mailbox-index.backfill.v1'
 const INDEX_RECOVERY_STORAGE_PREFIX = 'operations.mailbox-index.recovery.v1'
 const INDEX_BOOTSTRAP_COOLDOWN_MS = 10 * 60 * 1000
-const INDEX_BACKFILL_COOLDOWN_MS = 6 * 60 * 60 * 1000
 const INDEX_RECOVERY_COOLDOWN_MS = 30 * 60 * 1000
 const MEMORY_CACHE = new Map<string, PersistedSnapshot>()
 const INDEX_BOOTSTRAP_MEMORY = new Map<string, number>()
-const INDEX_BACKFILL_MEMORY = new Map<string, number>()
 const INDEX_RECOVERY_MEMORY = new Map<string, number>()
+const OPERATOR_CONFIRMED_RUNTIME_RECOVERY_REASON = 'operator_confirmed_runtime_recovery'
 
 function buildStorageKey(
   agentId: string,
@@ -390,10 +615,6 @@ function buildStorageKey(
 
 function buildIndexBootstrapKey(agentId: string, sessionId: string | null): string {
   return `${INDEX_BOOTSTRAP_STORAGE_PREFIX}:${agentId}:${sessionId || 'none'}`
-}
-
-function buildIndexBackfillKey(agentId: string, sessionId: string | null): string {
-  return `${INDEX_BACKFILL_STORAGE_PREFIX}:${agentId}:${sessionId || 'none'}`
 }
 
 function buildIndexRecoveryKey(agentId: string, sessionId: string | null): string {
@@ -446,6 +667,10 @@ function mailboxIndexSnapshotChanged(
   return false
 }
 
+function isOperatorConfirmedRuntimeRecoveryReason(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.trim() === OPERATOR_CONFIRMED_RUNTIME_RECOVERY_REASON
+}
+
 export function OperationsRuntimeProvider(props: {
   agentId: string
   sessionId: string | null
@@ -462,6 +687,10 @@ export function OperationsRuntimeProvider(props: {
     loadedAt: null,
     mailboxIndexHealth: null,
     manualMailboxReindexStarting: false,
+    smartMailboxSyncStarting: false,
+    operatorMailboxBackfillStarting: false,
+    pendingSmartMailboxSyncRun: null,
+    pendingOperatorMailboxBackfillRun: null,
   })
   const requestInFlightRef = useRef<Promise<void> | null>(null)
   const lastRefreshReasonRef = useRef<string | null>(null)
@@ -474,10 +703,6 @@ export function OperationsRuntimeProvider(props: {
     () => buildIndexBootstrapKey(props.agentId, sessionId),
     [props.agentId, sessionId]
   )
-  const indexBackfillKey = useMemo(
-    () => buildIndexBackfillKey(props.agentId, sessionId),
-    [props.agentId, sessionId]
-  )
   const indexRecoveryKey = useMemo(
     () => buildIndexRecoveryKey(props.agentId, sessionId),
     [props.agentId, sessionId]
@@ -486,7 +711,7 @@ export function OperationsRuntimeProvider(props: {
   const refreshMailboxIndexHealth = useCallback(async (): Promise<MailboxIndexHealth | null> => {
     const nextHealth = await fetchMailboxIndexHealth()
     if (!nextHealth) return null
-    setStatus((prev) => ({ ...prev, mailboxIndexHealth: nextHealth }))
+    setStatus((prev) => reconcileMailboxIndexHealthState(prev, nextHealth))
     return nextHealth
   }, [])
 
@@ -541,72 +766,26 @@ export function OperationsRuntimeProvider(props: {
     [indexBootstrapKey, props.agentId, refreshMailboxIndexHealth]
   )
 
-  const maybeScheduleIndexBackfill = useCallback(
-    async (health: MailboxIndexHealth | null) => {
-      if (!props.agentId.trim() || !health) return
-      if (health.requires_reconnect) return
-      if (health.indexed_message_count <= 0) return
-      if (
-        health.indexed_message_count >=
-        targetGmailMailboxIndexRows({
-          mailboxEstimatedTotal: health.mailbox_estimated_total,
-        })
-      ) {
-        return
-      }
-      if (health.execution_state === 'running') return
-
-      const lastFullScanMs =
-        typeof health.last_full_scan_at === 'string' && health.last_full_scan_at.trim()
-          ? Date.parse(health.last_full_scan_at)
-          : Number.NaN
-      if (Number.isFinite(lastFullScanMs) && Date.now() - lastFullScanMs < INDEX_BACKFILL_COOLDOWN_MS) {
-        return
-      }
-
-      let lastAttemptAt = INDEX_BACKFILL_MEMORY.get(indexBackfillKey) || 0
-      if (!lastAttemptAt && typeof window !== 'undefined') {
-        const stored = window.sessionStorage.getItem(indexBackfillKey)
-        const parsed = stored ? Number(stored) : Number.NaN
-        if (Number.isFinite(parsed) && parsed > 0) {
-          lastAttemptAt = parsed
-          INDEX_BACKFILL_MEMORY.set(indexBackfillKey, parsed)
-        }
-      }
-      if (Date.now() - lastAttemptAt < INDEX_BACKFILL_COOLDOWN_MS) return
-
-      const attemptedAt = Date.now()
-      INDEX_BACKFILL_MEMORY.set(indexBackfillKey, attemptedAt)
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(indexBackfillKey, String(attemptedAt))
-      }
-
-      try {
-        const res = await fetch('/api/integrations/gmail/mailbox-index', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'full',
-            background: true,
-            max_messages: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
-            trigger: 'runtime_backfill',
-          }),
-        })
-        if (!res.ok) return
-      } catch {
-        // best-effort background backfill
-      }
-    },
-    [indexBackfillKey, props.agentId]
-  )
-
   const maybeRecoverDegradedIndexSync = useCallback(
-    async (health: MailboxIndexHealth | null) => {
+    async (health: MailboxIndexHealth | null, refreshReason?: string | null) => {
       if (!props.agentId.trim() || !health) return
       if (health.requires_reconnect) return
       if (health.sync_health !== 'degraded_usable') return
       if (!health.usable_with_cached_index) return
       if (health.execution_state === 'running') return
+      if (!isOperatorConfirmedRuntimeRecoveryReason(refreshReason)) {
+        console.info(
+          `[operations][mailbox-index/recovery] ${JSON.stringify({
+            event: 'auto_recovery_skipped',
+            reason: 'operator_confirmation_required',
+            refresh_reason: refreshReason ?? null,
+            indexed_message_count: health.indexed_message_count,
+            sync_health: health.sync_health,
+            usable_with_cached_index: health.usable_with_cached_index,
+          })}`
+        )
+        return
+      }
 
       let lastAttemptAt = INDEX_RECOVERY_MEMORY.get(indexRecoveryKey) || 0
       if (!lastAttemptAt && typeof window !== 'undefined') {
@@ -690,6 +869,147 @@ export function OperationsRuntimeProvider(props: {
     }
   }, [refreshMailboxIndexHealth])
 
+  const triggerSmartMailboxSync = useCallback(async (): Promise<TriggerSmartSyncResult> => {
+    setStatus((prev) => ({
+      ...prev,
+      smartMailboxSyncStarting: true,
+      pendingSmartMailboxSyncRun: null,
+    }))
+    void refreshMailboxIndexHealth()
+    try {
+      const res = await fetch('/api/integrations/gmail/mailbox-index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'incremental',
+          background: true,
+          max_messages: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
+          trigger: 'smart_sync',
+        }),
+      })
+      const payload = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean
+            error?: string
+            reason?: string
+            deferred?: boolean
+            data?: unknown
+          }
+        | null
+
+      await refreshMailboxIndexHealth()
+
+      if (res.status === 409 && payload?.reason === 'already_running') {
+        return { ok: true, attached: true }
+      }
+      if (res.ok && payload?.ok && payload?.deferred === true) {
+        return { ok: true, attached: true }
+      }
+      if (res.ok && payload?.ok) {
+        const pendingRun = parsePendingMailboxIndexRun(payload?.data)
+        setStatus((prev) => ({
+          ...prev,
+          pendingSmartMailboxSyncRun: pendingRun?.trigger === 'smart_sync' ? pendingRun : prev.pendingSmartMailboxSyncRun,
+        }))
+        return { ok: true, attached: false }
+      }
+      return {
+        ok: false,
+        error: payload?.error || 'Failed to start Smart Sync.',
+      }
+    } catch {
+      return { ok: false, error: 'Failed to start Smart Sync.' }
+    } finally {
+      setStatus((prev) => ({ ...prev, smartMailboxSyncStarting: false }))
+      await refreshMailboxIndexHealth()
+    }
+  }, [refreshMailboxIndexHealth])
+
+  const triggerMailboxBackfillForWindow = useCallback(
+    async (
+      backfillWindowMonths: GmailOperatorBackfillWindowMonths
+    ): Promise<TriggerMailboxBackfillResult> => {
+      setStatus((prev) => ({
+        ...prev,
+        operatorMailboxBackfillStarting: true,
+        pendingOperatorMailboxBackfillRun: null,
+      }))
+      void refreshMailboxIndexHealth()
+      try {
+        const res = await fetch('/api/integrations/gmail/mailbox-index', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'full',
+            background: true,
+            max_messages: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
+            trigger: 'operator_backfill',
+            operator_intent: GMAIL_OPERATOR_BACKFILL_INTENT,
+            backfill_window_months: backfillWindowMonths,
+          }),
+        })
+        const payload = (await res.json().catch(() => null)) as
+          | {
+              ok?: boolean
+              error?: string
+              reason?: string
+              deferred?: boolean
+              complete?: boolean
+              data?: unknown
+            }
+          | null
+
+        await refreshMailboxIndexHealth()
+
+        if (res.status === 409 && payload?.reason === 'already_running') {
+          return { ok: true, attached: true, backfillWindowMonths }
+        }
+        if (res.ok && payload?.ok && payload?.deferred === true) {
+          return { ok: true, attached: true, backfillWindowMonths }
+        }
+        if (res.ok && payload?.ok && payload?.reason === 'historical_window_complete') {
+          return {
+            ok: true,
+            attached: false,
+            completed: true,
+            backfillWindowMonths,
+          }
+        }
+        if (res.ok && payload?.ok) {
+          const pendingRun = parsePendingMailboxIndexRun(payload?.data)
+          setStatus((prev) => ({
+            ...prev,
+            pendingOperatorMailboxBackfillRun:
+              pendingRun?.trigger === 'operator_backfill'
+                ? pendingRun
+                : prev.pendingOperatorMailboxBackfillRun,
+          }))
+          return { ok: true, attached: false, backfillWindowMonths }
+        }
+        return {
+          ok: false,
+          error: payload?.error || 'Failed to start Continue Backfill.',
+        }
+      } catch {
+        return { ok: false, error: 'Failed to start Continue Backfill.' }
+      } finally {
+        setStatus((prev) => ({ ...prev, operatorMailboxBackfillStarting: false }))
+        await refreshMailboxIndexHealth()
+      }
+    },
+    [refreshMailboxIndexHealth]
+  )
+
+  const triggerMailboxBackfill = useCallback(
+    () => triggerMailboxBackfillForWindow(GMAIL_OPERATOR_BACKFILL_DEFAULT_WINDOW_MONTHS),
+    [triggerMailboxBackfillForWindow]
+  )
+
+  const triggerMailboxBackfillExtended = useCallback(
+    () => triggerMailboxBackfillForWindow(GMAIL_OPERATOR_BACKFILL_EXTENDED_WINDOW_MONTHS),
+    [triggerMailboxBackfillForWindow]
+  )
+
   const persistSnapshot = useCallback(
     (loadedAt: number, data: OperationsRuntimeData) => {
       MEMORY_CACHE.set(storageKey, { loadedAt, data })
@@ -731,30 +1051,42 @@ export function OperationsRuntimeProvider(props: {
             fetchMailboxIndexHealth(),
           ])
           if (!payload.ok || !payload.data) {
-            setStatus((prev) => ({
-              ...prev,
-              loading: false,
-              refreshing: false,
-              error: payload.error || 'Failed to load runtime snapshot.',
-              mailboxIndexHealth,
-            }))
+            setStatus((prev) => {
+              const nextStatus: SnapshotStatus = {
+                ...prev,
+                loading: false,
+                refreshing: false,
+                error: payload.error || 'Failed to load runtime snapshot.',
+                mailboxIndexHealth: mailboxIndexHealth ?? null,
+              }
+              return mailboxIndexHealth
+                ? reconcileMailboxIndexHealthState(nextStatus, mailboxIndexHealth)
+                : nextStatus
+            })
             return
           }
           const runtimeData = payload.data as OperationsRuntimeData
           const loadedAt = Date.now()
           persistSnapshot(loadedAt, runtimeData)
-          setStatus((prev) => ({
-            ...prev,
-            loading: false,
-            refreshing: false,
-            error: null,
-            data: runtimeData,
-            loadedAt,
-            mailboxIndexHealth,
-          }))
+          setStatus((prev) => {
+            const nextStatus: SnapshotStatus = {
+              ...prev,
+              loading: false,
+              refreshing: false,
+              error: null,
+              data: runtimeData,
+              loadedAt,
+              mailboxIndexHealth: mailboxIndexHealth ?? null,
+            }
+            return mailboxIndexHealth
+              ? reconcileMailboxIndexHealthState(nextStatus, mailboxIndexHealth)
+              : nextStatus
+          })
+          const effectiveRefreshReason =
+            options?.refreshReason?.trim() ||
+            (options?.forceMailboxProfileRefresh ? 'manual_regenerate' : null)
           void maybeBootstrapMailboxIndex(mailboxIndexHealth)
-          void maybeScheduleIndexBackfill(mailboxIndexHealth)
-          void maybeRecoverDegradedIndexSync(mailboxIndexHealth)
+          void maybeRecoverDegradedIndexSync(mailboxIndexHealth, effectiveRefreshReason)
         } catch {
           setStatus((prev) => ({
             ...prev,
@@ -782,7 +1114,6 @@ export function OperationsRuntimeProvider(props: {
       analysisScope,
       maybeBootstrapMailboxIndex,
       maybeRecoverDegradedIndexSync,
-      maybeScheduleIndexBackfill,
       persistSnapshot,
       props.agentId,
       sessionId,
@@ -809,6 +1140,10 @@ export function OperationsRuntimeProvider(props: {
         loadedAt: cachedSnapshot.loadedAt,
         mailboxIndexHealth: null,
         manualMailboxReindexStarting: false,
+        smartMailboxSyncStarting: false,
+        operatorMailboxBackfillStarting: false,
+        pendingSmartMailboxSyncRun: null,
+        pendingOperatorMailboxBackfillRun: null,
       })
     } else {
       setStatus({
@@ -819,6 +1154,10 @@ export function OperationsRuntimeProvider(props: {
         loadedAt: null,
         mailboxIndexHealth: null,
         manualMailboxReindexStarting: false,
+        smartMailboxSyncStarting: false,
+        operatorMailboxBackfillStarting: false,
+        pendingSmartMailboxSyncRun: null,
+        pendingOperatorMailboxBackfillRun: null,
       })
     }
 
@@ -834,13 +1173,9 @@ export function OperationsRuntimeProvider(props: {
     // decide whether a background runtime refresh is actually necessary.
     void fetchMailboxIndexHealth().then((health) => {
       if (!health) return
-      setStatus((prev) => ({
-        ...prev,
-        mailboxIndexHealth: health,
-      }))
+      setStatus((prev) => reconcileMailboxIndexHealthState(prev, health))
       void maybeBootstrapMailboxIndex(health)
-      void maybeScheduleIndexBackfill(health)
-      void maybeRecoverDegradedIndexSync(health)
+      void maybeRecoverDegradedIndexSync(health, null)
       const cachedClusterCount =
         cachedSnapshot?.data?.runtime_cleanup_plan?.clusters?.length ?? 0
       if (cachedSnapshot && cachedClusterCount === 0 && health.indexed_message_count > 0) {
@@ -859,21 +1194,33 @@ export function OperationsRuntimeProvider(props: {
   }, [
     maybeBootstrapMailboxIndex,
     maybeRecoverDegradedIndexSync,
-    maybeScheduleIndexBackfill,
     props.agentId,
     refreshRuntimeSnapshot,
     storageKey,
   ])
 
   useEffect(() => {
-    if (!status.manualMailboxReindexStarting && status.mailboxIndexHealth?.execution_state !== 'running') return
+    if (
+      !status.manualMailboxReindexStarting &&
+      !status.smartMailboxSyncStarting &&
+      !status.operatorMailboxBackfillStarting &&
+      status.mailboxIndexHealth?.execution_state !== 'running'
+    ) {
+      return
+    }
 
     const pollId = window.setInterval(() => {
       void refreshMailboxIndexHealth()
     }, 5000)
 
     return () => window.clearInterval(pollId)
-  }, [refreshMailboxIndexHealth, status.mailboxIndexHealth?.execution_state, status.manualMailboxReindexStarting])
+  }, [
+    refreshMailboxIndexHealth,
+    status.mailboxIndexHealth?.execution_state,
+    status.manualMailboxReindexStarting,
+    status.operatorMailboxBackfillStarting,
+    status.smartMailboxSyncStarting,
+  ])
 
   const value: ContextValue = useMemo(
     () => ({
@@ -883,8 +1230,20 @@ export function OperationsRuntimeProvider(props: {
       lastRefreshReason: lastRefreshReasonRef.current,
       refreshRuntimeSnapshot,
       triggerManualFullMailboxReindex,
+      triggerSmartMailboxSync,
+      triggerMailboxBackfill,
+      triggerMailboxBackfillExtended,
     }),
-    [analysisScope, refreshRuntimeSnapshot, sessionId, status, triggerManualFullMailboxReindex]
+    [
+      analysisScope,
+      refreshRuntimeSnapshot,
+      sessionId,
+      status,
+      triggerMailboxBackfill,
+      triggerMailboxBackfillExtended,
+      triggerManualFullMailboxReindex,
+      triggerSmartMailboxSync,
+    ]
   )
 
   return (

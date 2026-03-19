@@ -12,7 +12,9 @@ export default async function OperationsLayout(props: {
 
   return (
     <DashboardLayout>
-      <OperationsWorkspaceShell agentId={id}>{props.children}</OperationsWorkspaceShell>
+      <div className="app-page-stack">
+        <OperationsWorkspaceShell agentId={id}>{props.children}</OperationsWorkspaceShell>
+      </div>
     </DashboardLayout>
   )
 }

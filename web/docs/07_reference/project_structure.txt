@@ -28,36 +28,60 @@
 │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
 │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
 │   ├── 03_gmail_workspace
-│   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
-│   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
-│   │   ├── GMAIL_WORKSPACE_CODEX_SAFEGUARDS.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_DESTINATIONS_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_MODEL_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_STORAGE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_DECISION_UI_FLOW.md
-│   │   ├── GMAIL_WORKSPACE_ENGINEERING_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_FINAL_PRODUCT_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_HEALTH_ENGINE.md
-│   │   ├── GMAIL_WORKSPACE_IMPLEMENTATION_PHASE_1.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_ALGORITHM_MODEL.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_HEALTH_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INBOX_INGESTION_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_ORCHESTRATOR.md
-│   │   ├── GMAIL_WORKSPACE_INTELLIGENCE_SYSTEM_INDEX.md
-│   │   ├── GMAIL_WORKSPACE_PERFORMANCE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_PHASE_PLAN.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW_V2.md
-│   │   ├── GMAIL_WORKSPACE_PRODUCT_FLOW.md
-│   │   ├── GMAIL_WORKSPACE_RECOMMENDATION_ENGINE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_SELF_LEARNING_INBOX_INTELLIGENCE_PIPELINE.md
-│   │   ├── GMAIL_WORKSPACE_SENDER_TRUST_GRAPH.md
-│   │   ├── GMAIL_WORKSPACE_SPEC.md
-│   │   ├── GMAIL_WORKSPACE_UI_STRUCTURE.md
-│   │   ├── GMAIL_WORKSPACE_UX_SPEC.md
-│   │   └── GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
+│   │   ├── 00_overview
+│   │   │   ├── final_product_spec.md
+│   │   │   ├── gmail_workspace_phase_plan.md
+│   │   │   └── gmail_workspace_product_flow.md
+│   │   ├── 01_ingestion
+│   │   │   ├── inbox_ingestion_spec.md
+│   │   │   └── smart_sync_and_maintenance_spec.md
+│   │   ├── 02_intelligence
+│   │   │   ├── analytics_spec.md
+│   │   │   ├── health_engine.md
+│   │   │   ├── inbox_health_algorithm.md
+│   │   │   ├── inbox_health_spec.md
+│   │   │   ├── intelligence_dashboard_spec.md
+│   │   │   ├── intelligence_orchestrator.md
+│   │   │   └── visual_intelligence_spec.md
+│   │   ├── 03_decision_system
+│   │   │   ├── decision_destinations_spec.md
+│   │   │   ├── decision_engine_spec.md
+│   │   │   ├── decision_model_spec.md
+│   │   │   ├── decision_scoring_advanced.md
+│   │   │   └── decision_storage_spec.md
+│   │   ├── 04_sender_decision_ui
+│   │   │   ├── decision_mode_animation_spec.md
+│   │   │   ├── decision_mode_component_map.md
+│   │   │   ├── decision_mode_full_build_spec.md
+│   │   │   ├── decision_mode_ui_final_build_spec.md
+│   │   │   ├── decision_ui_flow.md
+│   │   │   ├── sender_decision_mode_spec.md
+│   │   │   ├── workspace_ui_structure.md
+│   │   │   └── workspace_ux_spec.md
+│   │   ├── 05_management_execution
+│   │   │   ├── execution_queue_spec.md
+│   │   │   ├── execution_safety_preview.md
+│   │   │   ├── management_execution_engine.md
+│   │   │   └── management_flow_spec.md
+│   │   ├── 06_learning_system
+│   │   │   ├── ai_learning_layer_moat.md
+│   │   │   ├── autonomous_inbox_evolution_loop.md
+│   │   │   ├── self_learning_pipeline.md
+│   │   │   └── system_feedback_and_reinforcement.md
+│   │   ├── 07_engines
+│   │   │   ├── recommendation_engine_spec.md
+│   │   │   └── sender_trust_graph.md
+│   │   ├── 08_gamification
+│   │   │   └── gamification_reward_system.md
+│   │   ├── 09_reference
+│   │   │   ├── codex_safeguards.md
+│   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_workspace_system_index.md
+│   │   │   ├── implementation_phase_1.md
+│   │   │   └── performance_spec.md
+│   │   └── 10_archive_legacy
+│   │       ├── legacy_cleanup_rebuild_plan.md
+│   │       └── legacy_product_flow_v2.md
 │   ├── 04_product_design
 │   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
 │   │   ├── operational_workflow.md
@@ -131,7 +155,16 @@
 ├── supabase
 │   ├── migrations
 │   │   ├── 20251108205407_remote_schema.sql
-│   │   └── 20260311173000_gmail_mailbox_index.sql
+│   │   ├── 20260311173000_gmail_mailbox_index.sql
+│   │   ├── 20260317183000_gmail_mailbox_index_execution_state.sql
+│   │   ├── 20260317214500_gmail_mailbox_index_full_run_diagnostics.sql
+│   │   ├── 20260317231500_gmail_mailbox_index_last_run_identity.sql
+│   │   ├── 20260318000000_gmail_mailbox_index_active_progress.sql
+│   │   ├── 20260318003000_gmail_mailbox_index_failure_detail.sql
+│   │   ├── 20260318013000_gmail_mailbox_index_yield_detail.sql
+│   │   ├── 20260318020000_gmail_mailbox_index_resume_checkpoint.sql
+│   │   ├── 20260318120000_gmail_mailbox_index_operator_backfill_checkpoint.sql
+│   │   └── 20260319113000_gmail_mailbox_index_backfill_window.sql
 │   └── supabase
 └── web
     ├── automation
@@ -167,6 +200,69 @@
     │   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
     │   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
     │   ├── 03_gmail_workspace
+    │   │   ├── 00_overview
+    │   │   │   ├── final_product_spec.md
+    │   │   │   ├── gmail_workspace_master_spec.md
+    │   │   │   ├── gmail_workspace_phase_plan.md
+    │   │   │   └── gmail_workspace_product_flow.md
+    │   │   ├── 01_ingestion
+    │   │   │   ├── inbox_ingestion_spec.md
+    │   │   │   └── smart_sync_and_maintenance_spec.md
+    │   │   ├── 01_injestion
+    │   │   │   ├── inbox_ingestion_spec.md
+    │   │   │   └── smart_sync_and_maintenance_spec.md
+    │   │   ├── 02_intelligence
+    │   │   │   ├── analytics_spec.md
+    │   │   │   ├── health_engine.md
+    │   │   │   ├── inbox_health_algorithm.md
+    │   │   │   ├── inbox_health_spec.md
+    │   │   │   ├── intelligence_dashboard_spec.md
+    │   │   │   ├── intelligence_orchestrator.md
+    │   │   │   └── visual_intelligence_spec.md
+    │   │   ├── 03_decision_system
+    │   │   │   ├── decision_destinations_spec.md
+    │   │   │   ├── decision_engine_spec.md
+    │   │   │   ├── decision_model_spec.md
+    │   │   │   ├── decision_scoring_advanced.md
+    │   │   │   └── decision_storage_spec.md
+    │   │   ├── 04_sender_decision_ui
+    │   │   │   ├── build_decision_mode_dev_spec.md
+    │   │   │   ├── decision_mode_animation_spec.md
+    │   │   │   ├── decision_mode_build_sequence.md
+    │   │   │   ├── decision_mode_component_map.md
+    │   │   │   ├── decision_mode_full_build_spec.md
+    │   │   │   ├── decision_mode_ui_final_build_spec.md
+    │   │   │   ├── decision_ui_flow.md
+    │   │   │   ├── sender_decision_mode_spec.md
+    │   │   │   ├── sender_decision_ui_spec.md
+    │   │   │   ├── start_building_decision_mode_components.md
+    │   │   │   ├── workspace_ui_structure.md
+    │   │   │   └── workspace_ux_spec.md
+    │   │   ├── 05_management_execution
+    │   │   │   ├── execution_queue_spec.md
+    │   │   │   ├── execution_safety_preview.md
+    │   │   │   ├── management_execution_engine.md
+    │   │   │   ├── management_execution_spec_full_system.md
+    │   │   │   └── management_flow_spec.md
+    │   │   ├── 06_learning_system
+    │   │   │   ├── ai_learning_layer_moat.md
+    │   │   │   ├── autonomous_inbox_evolution_loop.md
+    │   │   │   ├── self_learning_pipeline.md
+    │   │   │   └── system_feedback_and_reinforcement.md
+    │   │   ├── 07_engines
+    │   │   │   ├── recommendation_engine_spec.md
+    │   │   │   └── sender_trust_graph.md
+    │   │   ├── 08_gamification
+    │   │   │   └── gamification_reward_system.md
+    │   │   ├── 09_reference
+    │   │   │   ├── codex_safeguards.md
+    │   │   │   ├── engineering_spec.md
+    │   │   │   ├── gmail_workspace_system_index.md
+    │   │   │   ├── implementation_phase_1.md
+    │   │   │   └── performance_spec.md
+    │   │   ├── 10_archive_legacy
+    │   │   │   ├── legacy_cleanup_rebuild_plan.md
+    │   │   │   └── legacy_product_flow_v2.md
     │   │   ├── GMAIL_CLEANUP_REBUILD_PLAN.md
     │   │   ├── GMAIL_WORKSPACE_ANALYTICS_SPEC.md
     │   │   ├── GMAIL_WORKSPACE_AUTONOMOUS_INBOX_EVOLUTION_LOOP.md
@@ -393,12 +489,21 @@
     │   │   │   ├── OperationsScopeStrip.tsx
     │   │   │   └── OperationsWorkspaceShell.tsx
     │   │   ├── ScenarioRecorder.tsx
+    │   │   ├── ui
+    │   │   │   ├── app-button.tsx
+    │   │   │   ├── automata-logo.tsx
+    │   │   │   ├── metric-card.tsx
+    │   │   │   ├── page-header.tsx
+    │   │   │   ├── state-panel.tsx
+    │   │   │   ├── status-badge.tsx
+    │   │   │   └── surface-card.tsx
     │   │   └── VoiceRecorder.tsx
     │   ├── lib
     │   │   ├── fine_tune_topics.ts
     │   │   ├── integrations
     │   │   │   └── gmail
     │   │   │       ├── gmailCleanupWorkspace.ts
+    │   │   │       ├── gmailMailboxIndexConfig.ts
     │   │   │       ├── gmailMailboxIndexer.ts
     │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
@@ -462,4 +567,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-114 directories, 349 files
+138 directories, 430 files

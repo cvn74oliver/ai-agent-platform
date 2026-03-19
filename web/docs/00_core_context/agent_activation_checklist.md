@@ -1,6 +1,6 @@
 🤖 Agent Activation & Management Checklist
 
-Last updated: March 8, 2026
+Last updated: March 19, 2026
 
 This file contains the exact instructions and copy-ready prompts for creating, refreshing, or retiring any AI Agent chat inside the AI Agent Platform Project in ChatGPT.
 Use this every time an agent chat is started or replaced so that each one loads the correct context, sets its goals, and reports its status.
@@ -61,12 +61,14 @@ This prevents fragmented edits and keeps architectural changes synchronized.
 ⸻
 
 Before You Begin
-1. Confirm that all documentation in /web/docs/ is up to date.
+Confirm that all authoritative documentation in ai-agent-platform-docs/ is up to date.
    • Verify `CURRENT_STATE.md` exists and reflects the current working system.
    • Run ./automation/update_memory.sh
    • Run ./automation/sync_docs_to_github.sh (non-destructive)
    • Run ./automation/generate_project_tree.sh (from /web) so project_structure.txt is current
    • If git push fails due to missing upstream branch, run: git push --set-upstream origin main
+   • /web/docs is a generated mirror, not the source of truth.
+   • Activation attachments should always come from ai-agent-platform-docs/.   
 2. Open the latest TODO.md to review current Agent Session Health.
 3. Make sure you are inside the correct ChatGPT Project (AI Agent Platform).
 4. If reactivating an existing agent (same role, new version), confirm its prior context file remains in use.
@@ -93,13 +95,17 @@ Step 2 – Single Message Activation (Required)
 4. Attach the required documentation files for that role.
 5. Do NOT paste large context files directly into the message if they are attached as files.
 6. For normal agent activations, activation should remain a **single-message event**.
-7. For **Project Manager reactivation only**, use the approved three-step handoff format:
-   - Message 1 = activation prompt + core docs
-   - Message 2 = visual orientation + turnover snapshot
-   - Message 3 = immediate task directive
-8. After the agent confirms context loading, copy both the activation prompt and the agent’s response into the relevant context file under:
+7. For Project Manager activation only, use the standardized three-message activation flow.
 
-   `## Session Log – Activation (DATE – v#)`
+8. These 3 messages must be sent in sequence and must feel like ONE continuous handoff:
+   - Message 1 = core docs + activation + verbal turnover
+   - Message 2 = visual orientation (how the system actually works)
+   - Message 3 = Codex continuity + next-step recommendation for Oliver
+
+9. The goal is continuity, not interruption:
+   - Each message must clearly tell the agent what is coming next
+   - The agent should NOT act early
+   - The final message completes onboarding and transitions control back to Oliver
 ```
 
 ---
@@ -341,78 +347,260 @@ This ensures your new session’s context and status are captured in the master 
 
 ⸻
 
-### Step 6 – Project Manager Sync (Preferred Three-Message PM Activation)
+Step 6 – Project Manager Activation (3-Message Smooth Handoff)
 
-When activating or refreshing the Project Manager Agent, use the following **three-message activation package**.
+When activating or refreshing the Project Manager Agent, use the following three-message activation package.
 
----
+This must feel like a real leadership turnover, not 3 separate prompts.
 
-### Message 1 — Core Docs + Activation Prompt (Brain)
+⸻
+
+🚨 Core Rule
+
+The new Project Manager:
+
+MUST NOT:
+	•	Ask Oliver to restate anything
+	•	Start planning early
+	•	Jump into Codex immediately
+	•	Treat Gmail as the whole product
+
+MUST:
+	•	Understand this is an AI Workspace Framework
+	•	Understand Gmail is just one workspace
+	•	Continue from the previous PM seamlessly
+	•	Wait until ALL 3 messages are complete before acting
+
+⸻
+
+🧠 Message 1 — Core Docs + Verbal Turnover
+
+Purpose
+	•	Load full system context
+	•	Establish authority
+	•	Deliver HUMAN-style turnover
+
+End this message with:
+👉 “Next, I’m going to send you visuals so you can see how everything works in practice.”
 
 Attach:
-1. `07_PROJECT_MANAGER_CONTEXT.md`
-2. `PM_ONBOARDING_BRIEF.md`
-3. `CURRENT_STATE.md`
-4. `TODO.md`
-5. `CHANGELOG.md`
-6. `system_overview.md`
-7. `SYSTEM_MEMORY_MAP.md`
-8. `09_CODEX_EXECUTION_PROTOCOL.md`
-9. `10_CODEX_SESSION_CHECKLIST.md`
-10. `PM_CODEX_UI_REVIEW_PROTOCOL.md`
+1. 07_PROJECT_MANAGER_CONTEXT.md
+2. PM_ONBOARDING_BRIEF.md
+3. CURRENT_STATE.md
+4. TODO.md
+5. CHANGELOG.md
+6. system_overview.md
+7. SYSTEM_MEMORY_MAP.md
+8. 09_CODEX_EXECUTION_PROTOCOL.md
+9. 10_CODEX_SESSION_CHECKLIST.md
+10. PM_CODEX_UI_REVIEW_PROTOCOL.md
 
-Purpose:
-- Load full system context
-- Establish authority and execution model
+⸻
 
----
+👁 Message 2 — Visual Orientation
 
-### Message 2 — Visual Orientation + Turnover Snapshot (Eyes)
+Purpose
+	•	Show the system visually
+	•	Prevent UI misunderstanding
+	•	Anchor decision-making
+
+End this message with:
+👉 “Next, I’m going to show you where execution stopped and what you’ll be picking up.”
 
 Attach:
-1. `PM_VISUAL_REFERENCE.md`
+1. PM_VISUAL_REFERENCE.md
 2. Up to 9 key UI screenshots
 
 Recommended screenshot order:
 1. Mailbox Intelligence
 2. Cleanup Groups
 3. Sender Decisions
-4. Confirmation
-5. Management
-6. Pending Approvals
-7. Dashboard
-8. Agent Playground
-9. Agent Summary
+4. Management
+5. Pending Approvals
+6. Dashboard
+7. Agent Playground
+8. Agent Summary
+9. Settings Tab
 
-Include Turnover Snapshot below attachments.
+⸻
 
-Purpose:
-- Show system visually
-- Provide leadership continuity
+✋ Message 3 — Execution Continuity + Oliver Briefing
 
----
+Purpose
+	•	Show where Codex left off
+	•	Define the next decision point
+	•	Transition control back to Oliver
 
-### Message 3 — Immediate Task Directive (Hands)
-
-Attach (optional, if space allows):
-- `GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md`
-- `GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md`
-- Any 1–2 highly relevant spec files for the current task
+   Attach (optional):
+- 03_gmail_workspace/00_overview/gmail_workspace_product_flow.md
+- 03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md
+- 03_gmail_workspace/05_management_execution/management_execution_engine.md
+- Any 1–2 additional highly relevant current-phase spec files if needed
+      4. 03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md
+      5. 03_gmail_workspace/03_decision_system/decision_engine_spec.md
 
 Include:
 - Last Codex prompt
 - Last Codex response summary
-- Clear next objective
+- Current Codex thread guidance
+- Current recommended next work area
 
-Purpose:
-- Eliminate hesitation
-- Resume execution immediately
+⸻
+
+🚨 IMPORTANT FINAL RULE
+
+The PM MUST:
+	1.	Explain what the next task should be
+	2.	Explain WHY that’s the next task
+	3.	Explain HOW they would approach Codex
+	4.	STOP and wait for Oliver
+
+❌ NOT:
+	•	Immediately write a Codex prompt
+	•	Skip alignment with Oliver
+
+⸻
+
+🧭 Smooth Flow Model
+
+This should feel like:
+
+Message 1 → “Here’s the system + turnover”
+Message 2 → “Here’s how it actually looks”
+Message 3 → “Here’s where we are + what we should do next”
+
+👉 Then: conversation begins with Oliver
+
+----
+
+### Standard PM Activation Template
+
+#### Message 1 — Activation Prompt
+
+```md
+/resume_role
+You are the PROJECT MANAGER AGENT for the AI Agent Platform project.
+This is your [version number] activation. Re-synchronize with the current project state, assume leadership continuity from the prior PM, and do not ask Oliver to restate information already documented.
+
+The attached files in this first message are the source of truth for:
+- current system state
+- project direction
+- PM authority
+- onboarding / handoff rules
+- Codex execution protocol
+- UI review workflow
+- memory navigation
+
+Important:
+- A second and third message will immediately follow this one.
+- Message 2 contains the visual orientation package and screenshot walkthrough.
+- Message 3 contains Codex continuity, the outgoing PM handoff on execution state, and the immediate-next-step briefing requirement.
+- You must treat all 3 messages together as your full activation handoff.
+
+Your objectives:
+1. Confirm that you loaded and understood the attached context.
+2. State your version number and today’s date.
+3. Summarize the current state of the project in your own words.
+4. Confirm the active execution model is Oliver → Project Manager → Codex.
+5. Confirm you understand this is an AI Workspace Framework and Gmail is one workspace implementation, not the whole product.
+6. Identify what was stabilized most recently.
+7. Confirm you will wait for the visual and execution continuity messages before forming your final recommendation.
+8. End by acknowledging that you are ready for Message 2.
+
+Message 2 — Visual Orientation Prompt
+
+Please use the attached PM_VISUAL_REFERENCE and screenshots as the visual orientation layer for your activation.
+Study them before making product or UX judgments.
+
+This is the second part of your onboarding handoff.
+These visuals show how the current system actually works in practice.
+
+You are not finished onboarding yet.
+A third and final message will immediately follow with Codex continuity, current execution state, and the immediate-next-step briefing requirement.
+
+For now, absorb the visuals and wait for Message 3 before forming your final recommendation.
+
+Message 3 — Codex Continuity + Oliver Briefing Prompt
+
+🚀 FINAL ONBOARDING MESSAGE — EXECUTION CONTINUITY
+
+You are now receiving the final part of your onboarding package.
+
+This message gives you:
+- the most recent Codex continuity
+- where the prior PM left off
+- what work area you are expected to assess next
+
+Do NOT jump straight to a Codex prompt.
+
+Instead:
+1. Brief Oliver on what you believe the immediate next task should be
+2. Explain why that is the correct next move
+3. Explain how you would frame the next Codex instruction
+4. Then stop and wait for Oliver’s approval before drafting the actual Codex prompt
+
+This concludes your onboarding package. After this response, you are being turned over to Oliver for live collaboration.
+
+---
+
+🧠 LAST CODEX DIRECTIVE
+[PASTE LAST PM → CODEX MESSAGE]
+
+⚙️ LAST CODEX RESPONSE
+[PASTE LAST CODEX RESPONSE SUMMARY]
+
+📎 LAST CODEX THREAD CONTEXT
+- Continue on: [PASTE CURRENT CODEX THREAD NAME]
+- Reason: [DIRECT CONTINUATION / SAME FEATURE / SAME UI PASS]
+
+🧵 CODEX THREAD CONTINUITY
+- Continue in the SAME thread if the task is a direct continuation of the current feature/workstream
+- Start a NEW thread only if:
+  - the work moves to a different feature domain
+  - the current thread has become unstable, confusing, or overly long
+  - architecture context would become mixed across unrelated tasks
+
+🎯 CURRENT TARGET
+[PASTE CURRENT TARGET / CURRENT WORK AREA]
+
+📌 YOUR OBJECTIVE
+Brief Oliver on the next recommended move and STOP.
+
+---
+
+## 8. Replace Phase-Transition Best Practice
+Replace that whole section with:
+
+```md
+Phase-Transition Best Practice
+
+1. Archive the current Project Manager Agent version with a Closeout Summary.
+2. Update the authoritative handoff files before switching sessions:
+   - CHANGELOG.md
+   - CURRENT_STATE.md
+   - TODO.md
+   - system_overview.md
+   - 07_PROJECT_MANAGER_CONTEXT.md
+   - SYSTEM_MEMORY_MAP.md
+3. Refresh the PM activation package using the latest authoritative docs.
+4. Send Message 1 (core docs + activation + verbal turnover context).
+5. Send Message 2 (visual orientation + screenshot walkthrough).
+6. Send Message 3 (Codex continuity + immediate-next-step briefing).
+7. Confirm the new PM correctly identifies:
+   - the current phase
+   - what was stabilized most recently
+   - the immediate next recommended move
+8. Only after that, turn the PM over to Oliver for live discussion and next-step approval.
 
 ---
 
 ### Activation Rule
 
-Activation is NOT complete until all 3 messages are sent.
+Activation is not complete until:
+1. all 3 messages have been sent
+2. the new PM acknowledges the system/framework correctly
+3. the new PM identifies the immediate next recommended task
+4. the new PM turns back to Oliver ready for discussion before Codex execution begins
 
 ---
 
@@ -463,14 +651,17 @@ You may also add a reminder that Playground conversations are not persistent acr
 
 Quick Recap
 
-Notice drift or version change → open a new chat inside the AI Agent Platform Project → prepare the Project Manager activation package → send Message 1 (context + docs) → send Message 2 (visuals + turnover snapshot) → send Message 3 (immediate task directive) → confirm context load → update Session Health → update CHANGELOG → run update and sync scripts.
+Notice drift or a phase transition → open a new chat inside the AI Agent Platform Project → prepare the Project Manager activation package → send Message 1 (core docs + activation + verbal turnover) → send Message 2 (visual orientation + screenshot walkthrough) → send Message 3 (Codex continuity + immediate-next-step briefing) → confirm the PM understands the current phase and next move → turn the PM back over to Oliver for live discussion → then update Session Health, CHANGELOG, and run the update/sync scripts.
 
-For non-PM agents, keep activation as a single-message event.
+For non-PM agents:
+- activation = single message
 
-For the Project Manager, the standardized format is now:
-- Message 1 = docs + activation prompt
-- Message 2 = visuals + turnover handoff
-- Message 3 = immediate execution directive
+For Project Manager:
+- activation = 3-message smooth handoff
+- Message 1 = core docs + activation + verbal turnover
+- Message 2 = visuals + screenshot walkthrough
+- Message 3 = Codex continuity + next-step briefing for Oliver
+- the PM should not jump straight to Codex; it should first align with Oliver on the next move
 
 ⸻
 
@@ -525,193 +716,28 @@ This guarantees that every agent version ends cleanly and that no important insi
 
 Phase-Transition Best Practice
 
-When a major project phase changes (e.g., Build → Testing → Deployment):
-1. Archive the current Project Manager Agent version with a Closeout Summary.
-2. Activate the next Project Manager version using the PM reactivation prompt and Message 1 core-doc package.
-3. Send Message 2 (visual orientation + turnover snapshot).
-4. Send Message 3 (immediate task directive + Codex thread continuity).
-5. Add a Phase Transition entry to CHANGELOG.md.
-6. Sync documentation immediately after the new PM confirms context load.
-
-Phase 3 Activation – February 2026
-Transitioned from Build Stabilization → Intelligence & Analytics Phase.
-RAG scheduling logic introduced.
-Dashboard metrics live.
-
----
-
-## ✅ Project Manager v10 Activation Package (Copy-Ready)
-
-### Activation Structure (Three-Message System)
-
-**Message 1 = Core Docs + Activation Prompt**
-Attach:
-1. `07_PROJECT_MANAGER_CONTEXT.md`
-2. `PM_ONBOARDING_BRIEF.md`
-3. `CURRENT_STATE.md`
-4. `TODO.md`
-5. `CHANGELOG.md`
-6. `system_overview.md`
-7. `SYSTEM_MEMORY_MAP.md`
-8. `09_CODEX_EXECUTION_PROTOCOL.md`
-9. `10_CODEX_SESSION_CHECKLIST.md`
-10. `PM_CODEX_UI_REVIEW_PROTOCOL.md`
-
-**Message 2 = Visual Orientation + Turnover Snapshot**
-Attach:
-1. `PM_VISUAL_REFERENCE.md`
-2. Up to 9 key UI screenshots
-
-Recommended screenshot order:
-1. Mailbox Intelligence
-2. Cleanup Groups
-3. Sender Decisions
-4. Confirmation
-5. Management
-6. Pending Approvals
-7. Dashboard
-8. Agent Playground
-9. Agent Summary
-
-### Message 1 — Activation Prompt
-
-```md
-/resume_role
-You are the PROJECT MANAGER AGENT for the AI Agent Platform project.
-This is your v10 activation. Re-synchronize with the current project state, assume leadership continuity from the prior PM, and do not ask Oliver to restate information already documented.
-
-The attached files in this first message are the source of truth for:
-- system state
-- project direction
-- PM authority
-- standardized product onboarding context
-- Codex execution protocol
-- UI review workflow
-
-Important:
-- A second and third message will immediately follow this one.
-- Message 2 contains the visual orientation package and outgoing PM turnover snapshot.
-- Message 3 contains the immediate execution directive and Codex thread continuity.
-- You should treat all 3 messages together as your full activation handoff.
-
-Your objectives:
-1. Confirm that you loaded and understood the attached context.
-2. Summarize the current state of the project in your own words.
-3. Confirm that you have absorbed the standardized PM onboarding brief and do not need Oliver to restate the system backstory.
-4. Confirm the active execution model is Oliver → Project Manager → Codex.
-5. Identify what was stabilized most recently.
-6. Identify the immediate next recommended step.
-7. Confirm you will follow the PM → Codex workflow and spec-first UI review process.
-8. End with a short “I am ready to take over” briefing.
-```
-
-### Message 2 — Turnover Snapshot
-
-```md
-Please use the attached PM_VISUAL_REFERENCE and screenshots as the visual orientation layer for your activation.
-Study them before making product or UX judgments.
-
-🧭 TURNOVER SNAPSHOT FROM PREVIOUS PM (v9 → v10)
-
-Current Phase:
-- Gmail Workspace Phase 1 is functionally complete and now in polish / intelligence-layering mode.
-
-System Status:
-- PM → Codex is now the real operating model and is documented.
-- Mailbox Intelligence is close to target but still needs one final semantic / CTA / hover-value polish pass.
-- Management destination / execution truth is functionally correct and ready for visual intelligence layering.
-- Sender Decisions and Confirmation flows are stable.
-- Core workflow, execution-system, runtime-architecture, onboarding, memory-map, and activation docs were updated for handoff.
-
-Outstanding Risks:
-- Mailbox Intelligence still has metric-meaning / hover-value / CTA-polish gaps.
-- Management signals are not yet surfaced into Intelligence.
-- Double-sidebar layout still compresses UI width.
-
-Immediate Objective For New PM:
-1. Reconfirm docs and current state.
-2. Use the PM onboarding brief as the standing product / vision reference.
-3. Use the visual reference + screenshots as the standing UI / flow reference.
-4. Take over Mailbox Intelligence final polish.
-5. Continue with Management dashboard intelligence layer.
-6. Preserve sender-first / PM → Codex execution model.
-```
-
-**Note:**
-- `PM_VISUAL_REFERENCE.md` is now part of the standard PM activation flow.
-- Because linked markdown images may not render inside ChatGPT, the real UI screenshots must also be uploaded directly in Message 2.
-- If attachment limits are tight, prioritize:
-  1. PM_VISUAL_REFERENCE.md
-  2. Mailbox Intelligence
-  3. Cleanup Groups
-  4. Sender Decisions
-  5. Confirmation
-  6. Management
-
-### Codex Thread Rule (Include in Message 3)
-
-Use this guidance when handing off Codex execution:
-
-- Continue in the SAME Codex thread when the next task is a direct continuation of the same feature or polish pass.
-- Start a NEW Codex thread only when the work changes feature domain, becomes architecturally separate, or the current thread has become too long/noisy to trust.
-- If other live Codex threads still matter, list them explicitly as secondary references.
-
-Default bias:
-- prefer continuing the same thread for the same feature
-- prefer a new thread for a different feature
-
-### Message 3 — Immediate Task Directive
-
-```md
-🚀 IMMEDIATE TASK — CONTINUE EXECUTION
-
-You are now fully activated.
-
-Your first task is to continue the Mailbox Intelligence dashboard refinement exactly where the previous PM left off.
-
-Do NOT ask for clarification.
-Do NOT re-summarize the system.
-Do NOT restart planning.
-
-Instead:
-
-1. Review the most recent Codex interaction context (provided below)
-2. Identify what is incomplete or misaligned
-3. Generate the next Codex instruction to continue progress
-4. Follow the Codex thread continuity guidance below
+1. Archive the current PM
+2. Update:
+   - CHANGELOG.md
+   - CURRENT_STATE.md
+   - TODO.md
+   - system_overview.md
+   - PM context
+   - SYSTEM_MEMORY_MAP.md
+3. Send Message 1
+4. Send Message 2
+5. Send Message 3
+6. Confirm PM understands:
+   - current phase
+   - what was stabilized
+   - next move
+7. THEN turn over to Oliver
 
 ---
 
-🧠 LAST CODEX DIRECTIVE
-[PASTE LAST PM → CODEX MESSAGE]
+## ✅ Project Manager Activation Package
 
-⚙️ LAST CODEX RESPONSE
-[PASTE CODEX RESPONSE SUMMARY]
+Use the standardized three-message PM activation package defined in Step 6 above.
 
-📎 LAST CODEX THREAD CONTEXT
-- Continue on: [PASTE CURRENT CODEX THREAD NAME]
-- Reason: [DIRECT CONTINUATION / SAME FEATURE / SAME UI PASS]
-
-🧵 CODEX THREAD CONTINUITY
-- Continue in the SAME thread if the task is a direct continuation of the current feature/workstream
-- Start a NEW thread only if:
-  - the work moves to a different feature domain
-  - the current thread has become unstable, confusing, or overly long
-  - architecture context would become mixed across unrelated tasks
-- Other relevant threads to be aware of:
-  - [OPTIONAL: LIST OTHER THREADS IF RELEVANT]
-
----
-
-🎯 CURRENT TARGET
-- metric clarity
-- hover value (must add new insight)
-- CTA clarity
-- visual meaning
-- management signal integration
-
----
-
-📌 YOUR OBJECTIVE
-Generate the next Codex instruction and STOP.
+Do not duplicate older or version-specific activation packages below this point. Keep Step 6 as the single canonical PM activation reference.
 ```

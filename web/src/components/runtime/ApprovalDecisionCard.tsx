@@ -1,4 +1,6 @@
 import type { ApprovalDecisionSummary } from '@/lib/runtime/approvalSummary'
+import { statusBadgeClassName } from '@/components/ui/status-badge'
+import { surfaceCardClassName } from '@/components/ui/surface-card'
 
 type Props = {
   summary: ApprovalDecisionSummary
@@ -7,10 +9,10 @@ type Props = {
 }
 
 function riskBadgeClass(riskLevel: ApprovalDecisionSummary['riskLevel']) {
-  if (riskLevel === 'Low') return 'border-emerald-900/70 bg-emerald-950/35 text-emerald-200'
-  if (riskLevel === 'Medium') return 'border-amber-900/70 bg-amber-950/35 text-amber-200'
-  if (riskLevel === 'High') return 'border-rose-900/70 bg-rose-950/35 text-rose-200'
-  return 'border-gray-700 bg-gray-900/60 text-gray-200'
+  if (riskLevel === 'Low') return statusBadgeClassName('success')
+  if (riskLevel === 'Medium') return statusBadgeClassName('warning')
+  if (riskLevel === 'High') return statusBadgeClassName('danger')
+  return statusBadgeClassName('neutral')
 }
 
 function renderExampleRow(
@@ -48,7 +50,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
 
   if (compact) {
     return (
-      <div className={className || 'rounded border border-cyan-900/35 bg-cyan-950/10 p-2'}>
+      <div className={className || surfaceCardClassName({ tone: 'accent', className: 'rounded-xl p-2' })}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-0.5">
             <p className="text-[11px] uppercase tracking-wide text-cyan-300">Decision</p>
@@ -70,7 +72,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
                 {summary.affectedCountIsEstimate ? ' est.' : ''}
               </span>
             ) : null}
-            <span className={`rounded-full border px-2 py-0.5 text-[11px] ${riskBadgeClass(summary.riskLevel)}`}>
+            <span className={riskBadgeClass(summary.riskLevel)}>
               {summary.riskLevel} risk
             </span>
             <span className="rounded-full border border-blue-900/70 bg-blue-950/35 px-2 py-0.5 text-[11px] text-blue-200">
@@ -120,7 +122,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
   return (
     <div
       className={
-        className || 'rounded-lg border border-cyan-800/60 bg-gradient-to-b from-cyan-950/25 to-gray-950/40 p-3'
+        className || surfaceCardClassName({ tone: 'accent', className: 'rounded-2xl p-3' })
       }
     >
       <div className="flex flex-wrap items-start justify-between gap-2.5">
@@ -144,7 +146,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
               </p>
             </div>
           ) : null}
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${riskBadgeClass(summary.riskLevel)}`}>
+          <span className={riskBadgeClass(summary.riskLevel)}>
             {summary.riskLevel} risk
           </span>
           <span className="rounded-full border border-blue-900/70 bg-blue-950/35 px-2 py-0.5 text-[11px] text-blue-200">

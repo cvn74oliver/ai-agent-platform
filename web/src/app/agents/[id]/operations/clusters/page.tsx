@@ -135,7 +135,7 @@ export default function OperationsClustersPage() {
         hiddenKeys={['loaded_preview_rows']}
       />
 
-      <section className="rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
+      <section className="app-page-header app-page-header-hero rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
         <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Cleanup Groups</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">Choose the sender group to review next</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-300">

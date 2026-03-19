@@ -2,6 +2,10 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/app/components/DashboardLayout'
+import { appButtonClassName } from '@/components/ui/app-button'
+import PageHeader from '@/components/ui/page-header'
+import StatePanel from '@/components/ui/state-panel'
+import SurfaceCard from '@/components/ui/surface-card'
 import { createClient } from '@/lib/supabase'
 import { Zap, Brain, Send } from 'lucide-react'
 import { Dialog } from '@headlessui/react'
@@ -121,56 +125,74 @@ async function createAutomation() {
     else setAutomations(automations.filter((a) => a.id !== id))
   }
 
-  const icons = [<Zap size={28} />, <Brain size={28} />, <Send size={28} />]
+  const icons = [Zap, Brain, Send]
 
   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto">
-        {/* Header with New Workflow button */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Your AI Workflows</h2>
-          <button
-            onClick={() => setIsPromptOpen(true)}
-            className="bg-green-600 hover:bg-green-700 px-5 py-2 rounded text-white text-sm"
-          >
-            + New Workflow
-          </button>
-        </div>
+      <div className="app-page-stack">
+        <PageHeader
+          eyebrow="Automations"
+          title="Your AI workflows"
+          description="Track every automation built for this workspace and open the details without leaving the shared app system."
+          tone="hero"
+          actions={
+            <button
+              onClick={() => setIsPromptOpen(true)}
+              className={appButtonClassName({ variant: 'primary', size: 'md' })}
+            >
+              New Workflow
+            </button>
+          }
+        />
 
-        {/* Card list */}
         {automations.length === 0 ? (
-          <p className="text-gray-400">
-            You don’t have any automations yet. They’ll appear here once your AI
-            creates them.
-          </p>
+          <StatePanel
+            tone="warning"
+            title="No automations yet"
+            description="Your automations will appear here once the AI has created them for this workspace or a specific agent."
+          >
+            <button
+              onClick={() => setIsPromptOpen(true)}
+              className={appButtonClassName({ variant: 'secondary', size: 'md' })}
+            >
+              Create Workflow
+            </button>
+          </StatePanel>
         ) : (
-          <div className="flex flex-wrap gap-6 justify-center">
-            {automations.map((flow, index) => (
-              <div
-                key={flow.id}
-                className="bg-gray-800 p-6 rounded-xl shadow-xl w-80 text-center relative"
-              >
-                <div className="flex justify-center mb-4 text-blue-400">
-                  {icons[index % icons.length]}
-                </div>
-                <h3 className="text-xl font-semibold mb-2">{flow.name}</h3>
-                <p className="text-gray-300 mb-4">{flow.description}</p>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {automations.map((flow, index) => {
+              const Icon = icons[index % icons.length]
 
-                <button
-                  onClick={() => setSelected(flow)}
-                  className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded text-white text-sm"
-                >
-                  View Details
-                </button>
+              return (
+                <SurfaceCard key={flow.id} className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-900/45 bg-cyan-950/10 text-cyan-100">
+                      <Icon size={20} />
+                    </div>
+                  </div>
+                  <h3 className="mt-5 text-xl font-semibold text-white">{flow.name}</h3>
+                  <p className="mt-3 min-h-[4.5rem] text-sm leading-6 text-gray-300">
+                    {flow.description || 'Automation built by AI'}
+                  </p>
 
-                <button
-                  onClick={() => deleteAutomation(flow.id)}
-                  className="bg-red-600 hover:bg-red-700 px-5 py-2 rounded text-white text-sm mt-2"
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
+                  <div className="mt-6 grid gap-2">
+                    <button
+                      onClick={() => setSelected(flow)}
+                      className={appButtonClassName({ variant: 'secondary', size: 'md', block: true })}
+                    >
+                      View Details
+                    </button>
+
+                    <button
+                      onClick={() => deleteAutomation(flow.id)}
+                      className={appButtonClassName({ variant: 'destructive', size: 'md', block: true })}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </SurfaceCard>
+              )
+            })}
           </div>
         )}
       </div>
@@ -183,7 +205,7 @@ async function createAutomation() {
       >
         <div className="fixed inset-0 bg-black/70" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="bg-gray-900 text-white rounded-xl max-w-lg w-full p-8 shadow-2xl">
+          <Dialog.Panel className="app-surface-card app-surface-card-accent w-full max-w-lg rounded-3xl p-8 text-white shadow-2xl">
             <Dialog.Title className="text-2xl font-bold mb-4">
               What should this workflow do?
             </Dialog.Title>
@@ -192,21 +214,21 @@ async function createAutomation() {
               value={workflowGoal}
               onChange={(e) => setWorkflowGoal(e.target.value)}
               placeholder="e.g., Summarize new emails and post to Slack"
-              className="w-full p-3 rounded bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
+              className="mb-6 w-full"
               rows={4}
             />
 
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setIsPromptOpen(false)}
-                className="bg-gray-600 hover:bg-gray-700 px-5 py-2 rounded text-white"
+                className={appButtonClassName({ variant: 'secondary', size: 'md' })}
               >
                 Cancel
               </button>
               <button
                 onClick={createAutomation}
                 disabled={!workflowGoal.trim()}
-                className="bg-green-600 hover:bg-green-700 px-5 py-2 rounded text-white disabled:opacity-50"
+                className={appButtonClassName({ variant: 'primary', size: 'md' })}
               >
                 Generate with AI
               </button>
@@ -223,7 +245,7 @@ async function createAutomation() {
       >
         <div className="fixed inset-0 bg-black/70" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="bg-gray-900 text-white rounded-xl max-w-lg w-full p-8 shadow-2xl">
+          <Dialog.Panel className="app-surface-card w-full max-w-lg rounded-3xl p-8 text-white shadow-2xl">
             <Dialog.Title className="text-2xl font-bold mb-4">
               {selected?.name}
             </Dialog.Title>
@@ -231,14 +253,14 @@ async function createAutomation() {
               {selected?.description || 'No description provided.'}
             </p>
 
-            <div className="bg-gray-800 p-4 rounded-lg max-h-80 overflow-y-auto mb-6">
+            <div className="max-h-80 overflow-y-auto rounded-2xl border border-gray-800 bg-gray-950/55 p-4 mb-6">
               <h4 className="text-lg font-semibold mb-2">Steps</h4>
               {selected?.steps && Array.isArray(selected.steps) ? (
                 <ul className="space-y-2 text-sm text-gray-300">
                   {selected.steps.map((s: any, i: number) => (
                     <li
                     key={i}
-                    className="bg-gray-700 p-2 rounded-lg border border-gray-600 text-left"
+                    className="rounded-2xl border border-gray-800 bg-gray-950/65 p-3 text-left"
                     >
                     <p className="font-semibold">
                         Step {i + 1}: {s.step}
@@ -255,7 +277,7 @@ async function createAutomation() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setSelected(null)}
-                className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded text-white"
+                className={appButtonClassName({ variant: 'secondary', size: 'md' })}
               >
                 Close
               </button>

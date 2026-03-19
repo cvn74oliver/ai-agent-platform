@@ -1,16 +1,20 @@
 'use client'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/app/components/DashboardLayout'
+import { appButtonClassName } from '@/components/ui/app-button'
+import PageHeader from '@/components/ui/page-header'
+import StatePanel from '@/components/ui/state-panel'
+import SurfaceCard from '@/components/ui/surface-card'
 import { createClient } from '@/lib/supabase'
 import ScenarioRecorder from '@/components/ScenarioRecorder'
-import { Bot, Trash, Pencil, Check, X } from 'lucide-react'
+import { Bot, Pencil, Check, X } from 'lucide-react'
 
 export default function AgentsPage() {
   const supabase = createClient()
   const [agents, setAgents] = useState<any[]>([])
   const [monitorVoice, setMonitorVoice] = useState(false)
   const [voiceTraits, setVoiceTraits] = useState<any>(null)
-  const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftTagline, setDraftTagline] = useState('')
@@ -35,53 +39,6 @@ export default function AgentsPage() {
 
     loadAgents()
   }, [supabase])
-
-// Create new agent
-async function createAgent() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
-
-  setCreating(true)
-
-  // Trainer mode: twin (default) or role (if monitoring voice)
-  const trainerMode = monitorVoice ? 'role' : 'twin'
-
-  // log traits being saved
-  console.log('saving to Supabase →', voiceTraits)
-
-  try {
-    const { data, error } = await supabase
-      .from('agents')
-      .insert([
-        {
-          user_id: user.id,
-          name: 'New Agent',
-          description: monitorVoice
-            ? 'Created with monitored voice traits.'
-            : 'Created with AI personality questions.',
-          personality: { tone: 'neutral', expertise: 'general' },
-          trainer_mode: trainerMode,
-          // ⚡️ convert traits to a JSON-safe format
-          voice_traits: voiceTraits ? JSON.stringify(voiceTraits) : null,
-        },
-      ])
-      .select()
-
-    if (error) {
-      console.error('Error creating agent:', error)
-    } else {
-      setAgents([data[0], ...agents])
-    }
-  } catch (err) {
-    console.error('Insert failed:', err)
-  }
-
-  setCreating(false)
-  setVoiceTraits(null)
-  setMonitorVoice(false)
-}
 
   function startEdit(agent: any) {
     setEditingId(agent.id)
@@ -230,179 +187,191 @@ async function createAgent() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Your AI Agents</h2>
-        </div>
+      <div className="app-page-stack">
+        <PageHeader
+          eyebrow="Agents"
+          title="Your AI agents"
+          description="Manage every active agent, edit its profile, and open its operations workspace from one consistent surface."
+          tone="hero"
+          actions={
+            <Link href="/agents/new" className={appButtonClassName({ variant: 'primary', size: 'md' })}>
+              New Agent
+            </Link>
+          }
+        />
 
-        {/* Agent creation box */}
-        <div className="bg-gray-900 p-6 rounded-lg mb-8">
-          <h3 className="text-lg font-semibold mb-3">Create a New Agent</h3>
+        <SurfaceCard className="p-6">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-2xl">
+              <p className="app-eyebrow">Creation Setup</p>
+              <h2 className="mt-2 text-xl font-semibold text-white">Create a new agent</h2>
+              <p className="mt-3 text-sm text-gray-300">
+                Guided setup remains the fastest way to create a new agent. Voice capture is optional and keeps the current staged creation flow intact.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/agents/new" className={appButtonClassName({ variant: 'secondary', size: 'md' })}>
+                Start Guided Setup
+              </Link>
+            </div>
+          </div>
 
-          <label className="flex items-center gap-2 mb-4 text-gray-300">
+          <label className="mt-6 flex items-center gap-3 text-sm text-gray-300">
             <input
               type="checkbox"
               checked={monitorVoice}
               onChange={(e) => setMonitorVoice(e.target.checked)}
+              className="h-4 w-4 rounded-md p-0"
             />
-            <span>Monitor my voice to capture tone & personality</span>
+            <span>Monitor my voice to capture tone and personality</span>
           </label>
 
-          {monitorVoice ? (
-            <ScenarioRecorder
-              scenario="Imagine you’re helping a customer decide which grow kit to buy. 
+          <div className="mt-4">
+            {monitorVoice ? (
+              <ScenarioRecorder
+                scenario="Imagine you’re helping a customer decide which grow kit to buy.
               Speak in the tone and energy level you want your agent to have."
-              onTraitsCaptured={(traits) => setVoiceTraits(traits)}
-            />
-          ) : (
-            <p className="text-gray-400 mb-4">
-              Voice monitoring is off. The AI will instead ask a few questions to understand the
-              agent’s personality.
+                onTraitsCaptured={(traits) => setVoiceTraits(traits)}
+              />
+            ) : (
+              <StatePanel
+                title="Voice monitoring is off"
+                description="The guided setup will ask a few questions instead so the agent can learn your personality and operating style."
+              />
+            )}
+          </div>
+
+          {voiceTraits ? (
+            <p className="mt-4 text-xs text-cyan-100">
+              Voice traits captured for this session. Guided setup will continue from the new-agent flow.
             </p>
-          )}
+          ) : null}
+        </SurfaceCard>
 
-            <button
-            onClick={() => (window.location.href = '/agents/new')}
-            disabled={creating}
-            className="bg-green-600 hover:bg-green-700 px-5 py-2 rounded text-white text-sm mt-4"
-            >
-            + New Agent
-            </button>
-        </div>
-
-        {/* Existing agents */}
         {agents.length === 0 ? (
-          <p className="text-gray-400">
-            You don’t have any agents yet. Create one above.
-          </p>
+          <StatePanel
+            tone="warning"
+            title="No agents yet"
+            description="Create your first agent to start building workspace behaviors, operations, and automations."
+          >
+            <Link href="/agents/new" className={appButtonClassName({ variant: 'secondary', size: 'md' })}>
+              Create Your First Agent
+            </Link>
+          </StatePanel>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {agents.map((agent) => (
-              <div
-                key={agent.id}
-                className="bg-gray-800 p-6 rounded-xl shadow-xl text-center relative"
-              >
-                <div className="flex justify-center mb-4 text-blue-400">
-                  <Bot size={28} />
-                </div>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  {editingId === agent.id ? (
-                    <input
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      className="w-full max-w-[220px] bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-white"
-                      placeholder="Agent name"
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {agents.map((agent) => {
+              const isEditing = editingId === agent.id
+              const actionDisabled = isEditing || savingEdit
+
+              return (
+                <SurfaceCard key={agent.id} className="p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-900/45 bg-cyan-950/10 text-cyan-100">
+                        <Bot size={20} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Agent</p>
+                        {isEditing ? (
+                          <input
+                            value={draftName}
+                            onChange={(e) => setDraftName(e.target.value)}
+                            className="mt-2 w-full min-w-0"
+                            placeholder="Agent name"
+                          />
+                        ) : (
+                          <h3 className="mt-2 text-lg font-semibold leading-snug text-white">
+                            {agentDisplayTitle(agent)}
+                          </h3>
+                        )}
+                      </div>
+                    </div>
+                    {!isEditing ? (
+                      <button
+                        onClick={() => startEdit(agent)}
+                        className="rounded-full border border-gray-700 bg-gray-950/55 p-2 text-gray-400 hover:border-cyan-700/60 hover:text-white"
+                        title="Edit name and tagline"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {isEditing ? (
+                    <textarea
+                      value={draftTagline}
+                      onChange={(e) => setDraftTagline(e.target.value)}
+                      rows={3}
+                      className="mt-4 w-full"
+                      placeholder="Short tagline (what this agent does)"
                     />
                   ) : (
-                    <h3 className="text-lg font-semibold leading-snug line-clamp-2">{agentDisplayTitle(agent)}</h3>
+                    <p className="mt-4 text-sm leading-6 text-gray-300">
+                      {shortText(agent.description, 140) ||
+                        'No tagline yet. Use the edit control to add a short description.'}
+                    </p>
                   )}
 
-                  {editingId !== agent.id && (
-                    <button
-                      onClick={() => startEdit(agent)}
-                      className="text-gray-400 hover:text-white"
-                      title="Edit name & tagline"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                  )}
-                </div>
-
-                {editingId === agent.id ? (
-                  <textarea
-                    value={draftTagline}
-                    onChange={(e) => setDraftTagline(e.target.value)}
-                    rows={3}
-                    className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-2 text-xs text-white mb-4"
-                    placeholder="Short tagline (what this agent does)"
-                  />
-                ) : (
-                  <p className="text-gray-300 mb-4 text-sm line-clamp-3">
-                    {shortText(agent.description, 140) || 'No tagline yet. Click the pencil to add a short description.'}
-                  </p>
-                )}
-
-                {editingId === agent.id && (
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <button
-                      onClick={saveEdit}
-                      disabled={savingEdit}
-                      className={`px-3 py-1.5 rounded text-white text-xs font-medium ${
-                        savingEdit ? 'bg-gray-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
-                      }`}
-                      title="Save"
-                    >
-                      <span className="inline-flex items-center gap-1">
+                  {isEditing ? (
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <button
+                        onClick={saveEdit}
+                        disabled={savingEdit}
+                        className={appButtonClassName({ variant: 'primary', size: 'sm' })}
+                        title="Save"
+                      >
                         <Check size={14} /> Save
-                      </span>
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        disabled={savingEdit}
+                        className={appButtonClassName({ variant: 'secondary', size: 'sm' })}
+                        title="Cancel"
+                      >
+                        <X size={14} /> Cancel
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-6 grid gap-2">
+                    <button
+                      onClick={() => (window.location.href = `/agents/${agent.id}`)}
+                      disabled={actionDisabled}
+                      className={appButtonClassName({ variant: 'primary', size: 'md', block: true })}
+                    >
+                      Edit Agent
+                    </button>
+
+                    {agent.id ? (
+                      <button
+                        onClick={() => (window.location.href = `/agents/${agent.id}/operations/intelligence`)}
+                        disabled={actionDisabled}
+                        className={appButtonClassName({ variant: 'secondary', size: 'md', block: true })}
+                      >
+                        Open Operations
+                      </button>
+                    ) : null}
+
+                    <button
+                      onClick={() => (window.location.href = `/automations?agent_id=${agent.id}`)}
+                      disabled={actionDisabled}
+                      className={appButtonClassName({ variant: 'ghost', size: 'md', block: true })}
+                    >
+                      Manage Automations
                     </button>
 
                     <button
-                      onClick={cancelEdit}
-                      disabled={savingEdit}
-                      className={`px-3 py-1.5 rounded text-white text-xs font-medium ${
-                        savingEdit ? 'bg-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600'
-                      }`}
-                      title="Cancel"
+                      onClick={() => deleteAgent(agent.id)}
+                      disabled={actionDisabled}
+                      className={appButtonClassName({ variant: 'destructive', size: 'md', block: true })}
                     >
-                      <span className="inline-flex items-center gap-1">
-                        <X size={14} /> Cancel
-                      </span>
+                      Delete
                     </button>
                   </div>
-                )}
-
-                <button
-                  onClick={() => (window.location.href = `/agents/${agent.id}`)}
-                  disabled={editingId === agent.id || savingEdit}
-                  className={`px-5 py-2 rounded text-white text-sm mb-2 ${
-                    editingId === agent.id || savingEdit
-                      ? 'bg-gray-600 cursor-not-allowed'
-                      : 'bg-yellow-500 hover:bg-yellow-600'
-                  }`}
-                >
-                  Edit Agent
-                </button>
-
-                {agent.id ? (
-                  <button
-                    onClick={() => (window.location.href = `/agents/${agent.id}/operations/intelligence`)}
-                    disabled={editingId === agent.id || savingEdit}
-                    className={`px-5 py-2 rounded text-white text-sm mb-2 ${
-                      editingId === agent.id || savingEdit
-                        ? 'bg-gray-600 cursor-not-allowed'
-                        : 'bg-cyan-600 hover:bg-cyan-700'
-                    }`}
-                  >
-                    Open Operations
-                  </button>
-                ) : null}
-
-                <button
-                  onClick={() => (window.location.href = `/automations?agent_id=${agent.id}`)}
-                  disabled={editingId === agent.id || savingEdit}
-                  className={`px-5 py-2 rounded text-white text-sm mb-2 ${
-                    editingId === agent.id || savingEdit
-                      ? 'bg-gray-600 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
-                >
-                  Manage Automations
-                </button>
-
-                <button
-                  onClick={() => deleteAgent(agent.id)}
-                  disabled={editingId === agent.id || savingEdit}
-                  className={`px-5 py-2 rounded text-white text-sm ${
-                    editingId === agent.id || savingEdit
-                      ? 'bg-gray-600 cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
+                </SurfaceCard>
+              )
+            })}
           </div>
         )}
       </div>

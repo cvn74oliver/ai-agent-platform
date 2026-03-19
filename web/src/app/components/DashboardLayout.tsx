@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { appButtonClassName } from '@/components/ui/app-button'
 import AutomataLogo from '@/components/ui/automata-logo'
 import { createClient } from '@/lib/supabase'
 
@@ -62,6 +63,10 @@ function shellTitle(pathname: string): string | null {
 export default function DashboardLayout({ children }: Props) {
   const router = useRouter()
   const pathname = usePathname()
+  const isOperationsRoute = /^\/agents\/[^/]+\/operations(?:\/|$)/.test(pathname)
+  const shellMainClassName = isOperationsRoute
+    ? 'app-shell-main app-shell-main-operations'
+    : 'app-shell-main'
   const [supabase] = useState(() => createClient())
   const [email, setEmail] = useState<string | null>(null)
 
@@ -82,13 +87,13 @@ export default function DashboardLayout({ children }: Props) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-950 text-white">
+    <div className="flex min-h-screen flex-col bg-[var(--app-bg)] text-white">
       <header className="automata-topbar sticky top-0 z-40 border-b border-white/5">
         <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
-          <div className="flex flex-wrap items-center gap-3 py-3 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-6">
-            <Link href="/dashboard" className="flex items-center gap-3 text-white">
-              <span className="automata-brand-mark flex h-10 w-10 items-center justify-center rounded-xl text-white">
-                <AutomataLogo className="h-5 w-5" />
+          <div className="flex flex-wrap items-center gap-3 py-3.5 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-6">
+            <Link href="/dashboard" className="flex items-center gap-2.5 text-white">
+              <span className="automata-brand-mark flex h-10 w-10 items-center justify-center text-white">
+                <AutomataLogo className="h-6 w-6" />
               </span>
               <span className="text-base font-semibold tracking-[0.01em] text-white">Automata</span>
             </Link>
@@ -99,7 +104,7 @@ export default function DashboardLayout({ children }: Props) {
               </p>
               <button
                 onClick={handleLogout}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:border-white/20 hover:bg-white/10"
+                className={appButtonClassName({ variant: 'ghost', size: 'md' })}
               >
                 Logout
               </button>
@@ -127,7 +132,7 @@ export default function DashboardLayout({ children }: Props) {
               </p>
               <button
                 onClick={handleLogout}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:border-white/20 hover:bg-white/10"
+                className={appButtonClassName({ variant: 'ghost', size: 'md' })}
               >
                 Logout
               </button>
@@ -136,7 +141,9 @@ export default function DashboardLayout({ children }: Props) {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">{children}</main>
+      <main className="flex-1 overflow-y-auto">
+        <div className={shellMainClassName}>{children}</div>
+      </main>
     </div>
   )
 }

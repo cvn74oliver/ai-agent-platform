@@ -3,9 +3,12 @@ import {
   GMAIL_MAILBOX_INDEX_HEARTBEAT_INTERVAL_MS,
   GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
   GMAIL_MAILBOX_INDEX_STALL_THRESHOLD_MS,
+  GMAIL_OPERATOR_BACKFILL_DEFAULT_WINDOW_MONTHS,
   clampGmailMailboxIndexMaxMessages,
+  normalizeGmailOperatorBackfillWindowMonths,
   normalizeGmailMailboxIndexTrigger,
   type GmailMailboxIndexTrigger,
+  type GmailOperatorBackfillWindowMonths,
 } from '@/lib/integrations/gmail/gmailMailboxIndexConfig'
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
@@ -18,13 +21,20 @@ const INDEX_QUERY_PAGE_SIZE = 1_000
 const LIST_PAGE_SIZE = 500
 const METADATA_CONCURRENCY_DEFAULT = 20
 const METADATA_CONCURRENCY_DEGRADED = 10
+const FULL_SCAN_METADATA_CONCURRENCY_DEFAULT = 10
+const FULL_SCAN_METADATA_CONCURRENCY_DEGRADED = 5
 const METADATA_BATCH_SLOW_MS = 1_500
+const FULL_SCAN_METADATA_BATCH_DELAY_MS = 125
+const FULL_SCAN_METADATA_PRESSURE_DELAY_MS = 250
 const UPSERT_BATCH_SIZE = 500
 const RETRY_MAX_ATTEMPTS = 4
 const RETRY_BASE_DELAY_MS = 250
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504])
+const METADATA_RATE_LIMIT_MAX_ATTEMPTS = 5
+const METADATA_RATE_LIMIT_BASE_DELAY_MS = 1_000
 const HISTORY_RECOVERY_FULL_SCAN_COOLDOWN_MS = 30 * 60 * 1000
 const HISTORY_RECOVERY_PARTIAL_SCAN_COOLDOWN_MS = 10 * 60 * 1000
+const SMART_SYNC_BOUNDED_SCAN_MAX_MESSAGES = 2_500
 const INDEXED_ROWS_CACHE_TTL_MS = 1000 * 60 * 3
 const INDEX_QUERY_CONCURRENCY = 8
 
@@ -102,8 +112,15 @@ export type GmailMailboxIndexRow = {
 }
 
 type GmailMailboxIndexFailureDetail = {
-  stage: 'metadata_fetch'
-  classification: 'auth' | 'insufficient_scope' | 'not_found' | 'retryable_api' | 'non_retryable_api'
+  stage: 'metadata_fetch' | 'history_list'
+  classification:
+    | 'auth'
+    | 'insufficient_scope'
+    | 'not_found'
+    | 'retryable_api'
+    | 'non_retryable_api'
+    | 'history_out_of_date'
+    | 'invalid_history_request'
   status: number | null
   provider_reason: string | null
   provider_message: string | null
@@ -113,6 +130,7 @@ type GmailMailboxIndexFailureDetail = {
   metadata_batch_size: number | null
   failed_message_ids_sample: string[]
   retry_attempts: number | null
+  start_history_id?: string | null
 }
 
 type GmailMailboxIndexYieldDetail = {
@@ -147,6 +165,9 @@ export type GmailMailboxIndexState = {
   active_rows_before: number | null
   active_processed_messages: number | null
   active_list_pages_fetched: number | null
+  active_next_page_token: string | null
+  active_last_page_index: number | null
+  active_last_processed_at: string | null
   active_yield_detail: GmailMailboxIndexYieldDetail | null
   last_run_id: string | null
   last_run_trigger: GmailMailboxIndexTrigger | null
@@ -165,6 +186,20 @@ export type GmailMailboxIndexState = {
   last_terminal_reason: string | null
   last_gmail_result_size_estimate: number | null
   last_list_pages_fetched: number | null
+  last_resume_page_token: string | null
+  last_resume_page_index: number | null
+  last_resume_processed_at: string | null
+  backfill_resume_page_token: string | null
+  backfill_resume_page_index: number | null
+  backfill_resume_processed_messages: number | null
+  backfill_resume_processed_at: string | null
+  active_backfill_window_months: GmailOperatorBackfillWindowMonths | null
+  active_backfill_cutoff_at: string | null
+  backfill_completed_window_months: GmailOperatorBackfillWindowMonths | null
+  backfill_completed_cutoff_at: string | null
+  backfill_completed_at: string | null
+  active_started_from_checkpoint: boolean | null
+  last_started_from_checkpoint: boolean | null
   last_yield_detail: GmailMailboxIndexYieldDetail | null
   updated_at: string
 }
@@ -197,6 +232,7 @@ type GmailMailboxIndexRunContext = {
   trigger: GmailMailboxIndexTrigger
   rowsBefore: number
   requestedMode: 'full' | 'incremental'
+  backfillWindowMonths?: GmailOperatorBackfillWindowMonths | null
 }
 
 type GmailMailboxIndexComparableRow = Pick<
@@ -218,6 +254,7 @@ type GmailMailboxIndexComparableRow = Pick<
 type GmailMailboxIndexTerminalReason =
   | 'missing_tenant'
   | 'requested_limit_reached'
+  | 'historical_window_reached'
   | 'gmail_pagination_exhausted'
   | 'empty_page'
   | 'auth_failed'
@@ -254,9 +291,54 @@ type GmailMetadataFailureClassification =
   | 'retryable_api'
   | 'non_retryable_api'
 
+type GmailHistoryFailureClassification =
+  | 'auth'
+  | 'insufficient_scope'
+  | 'history_out_of_date'
+  | 'invalid_history_request'
+  | 'retryable_api'
+  | 'non_retryable_api'
+
 type GmailApiErrorDetails = {
   providerReason: string | null
   providerMessage: string | null
+}
+
+type GmailMailboxIndexResumeCheckpoint = {
+  source:
+    | 'stale_active'
+    | 'last_failed'
+    | 'backfill_saved'
+    | 'backfill_legacy_adopted'
+  nextPageToken: string | null
+  pageIndex: number
+  processedMessages: number
+  processedAt: string | null
+}
+
+type GmailMailboxIndexResumeCheckpointSummary = {
+  usable: boolean
+  next_page_token_present: boolean
+  page_index: number | null
+  processed_messages: number | null
+  processed_at: string | null
+}
+
+export type GmailAcceptedMailboxIndexRun = {
+  run_id: string
+  requested_mode: 'full' | 'incremental'
+  effective_mode: 'full' | 'incremental'
+  trigger: 'smart_sync' | 'operator_backfill'
+  rows_before: number
+  resume_checkpoint: GmailMailboxIndexResumeCheckpointSummary | null
+  started_from_checkpoint: boolean
+  backfill_window_months?: GmailOperatorBackfillWindowMonths | null
+  backfill_cutoff_at?: string | null
+}
+
+type GmailHistoryMessageChange = {
+  added: boolean
+  labelsChanged: boolean
 }
 
 type GmailMessageMetadataSuccess = {
@@ -279,6 +361,19 @@ type GmailMessageMetadataFailure = {
 
 type GmailMessageMetadataResult = GmailMessageMetadataSuccess | GmailMessageMetadataFailure
 
+type GmailHistoryListFailure = {
+  ok: false
+  reason: GmailMailboxIndexFailureReason
+  error: string
+  status: number
+  providerReason: string | null
+  providerMessage: string | null
+  retryable: boolean
+  attempts: number | null
+  classification: GmailHistoryFailureClassification
+  failureDetail: GmailMailboxIndexFailureDetail
+}
+
 export type GmailMailboxIndexSyncResult =
   | {
       ok: true
@@ -299,6 +394,29 @@ export type GmailMailboxIndexSyncResult =
       growth_delta: number
       last_history_id: string | null
       used_fallback_full_scan: boolean
+    }
+  | {
+      ok: true
+      deferred: true
+      reason: 'manual_full_run_active'
+      mode: 'full' | 'incremental'
+      requested_mode: 'full' | 'incremental'
+      effective_mode: 'full' | 'incremental'
+      run_id: string
+      active_run_id: string | null
+      trigger: GmailMailboxIndexTrigger
+      terminal_reason: GmailMailboxIndexTerminalReason
+      gmail_result_size_estimate: number | null
+      list_pages_fetched: number | null
+      processed_messages: number
+      upserted_messages: number
+      deleted_messages: number
+      indexed_message_count: number
+      rows_before: number
+      rows_after: number
+      growth_delta: number
+      last_history_id: string | null
+      used_fallback_full_scan: false
     }
   | {
       ok: false
@@ -461,6 +579,59 @@ function classifyMetadataFailure(params: {
   return 'non_retryable_api'
 }
 
+function isInvalidHistoryRequestError(params: {
+  status: number
+  providerReason: string | null
+  providerMessage: string | null
+}): boolean {
+  if (params.status !== 400) return false
+  const providerReason = params.providerReason?.toLowerCase() ?? ''
+  const providerMessage = params.providerMessage?.toLowerCase() ?? ''
+  return (
+    providerReason === 'invalid' ||
+    providerMessage.includes('invalid argument') ||
+    providerMessage.includes("invalid value at 'history_types'") ||
+    providerMessage.includes('history_types')
+  )
+}
+
+function classifyHistoryFailure(params: {
+  status: number
+  payload: unknown
+  providerReason: string | null
+  providerMessage: string | null
+  hadRetryableSignal: boolean
+}): GmailHistoryFailureClassification {
+  if (hasHistoryOutOfDateError(params.status, params.payload)) return 'history_out_of_date'
+  if (hasInsufficientScopeError(params.status, params.payload)) return 'insufficient_scope'
+  if (
+    isAuthLikeGmailApiError({
+      status: params.status,
+      providerReason: params.providerReason,
+      providerMessage: params.providerMessage,
+    })
+  ) {
+    return 'auth'
+  }
+  if (
+    isInvalidHistoryRequestError({
+      status: params.status,
+      providerReason: params.providerReason,
+      providerMessage: params.providerMessage,
+    })
+  ) {
+    return 'invalid_history_request'
+  }
+  if (
+    isRetryableStatus(params.status) ||
+    isRetryableGmailProviderReason(params.providerReason) ||
+    params.hadRetryableSignal
+  ) {
+    return 'retryable_api'
+  }
+  return 'non_retryable_api'
+}
+
 function hasHistoryOutOfDateError(status: number, payload: unknown): boolean {
   if (status === 404) return true
   if (status !== 400 || !isRecord(payload)) return false
@@ -593,6 +764,12 @@ function isNetworkRetryableError(error: unknown): boolean {
 function retryDelayMs(attempt: number): number {
   const base = RETRY_BASE_DELAY_MS * 2 ** Math.max(0, attempt - 1)
   const jitter = Math.floor(Math.random() * 125)
+  return base + jitter
+}
+
+function metadataRateLimitDelayMs(attempt: number): number {
+  const base = METADATA_RATE_LIMIT_BASE_DELAY_MS * 2 ** Math.max(0, attempt - 1)
+  const jitter = Math.floor(Math.random() * 250)
   return base + jitter
 }
 
@@ -896,104 +1073,151 @@ async function fetchMessageMetadata(params: {
   url.searchParams.append('metadataHeaders', 'Date')
 
   const startedAt = Date.now()
-  let response: Response
   let hadRetryableSignal = false
-  let attempts = 1
-  try {
-    const fetched = await fetchWithRetry(url.toString(), {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${params.accessToken}` },
-      cache: 'no-store',
+  let attempts = 0
+
+  for (let rateLimitAttempt = 1; rateLimitAttempt <= METADATA_RATE_LIMIT_MAX_ATTEMPTS; rateLimitAttempt += 1) {
+    let response: Response
+    try {
+      const fetched = await fetchWithRetry(url.toString(), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${params.accessToken}` },
+        cache: 'no-store',
+      })
+      response = fetched.response
+      hadRetryableSignal = hadRetryableSignal || fetched.hadRetryableSignal
+      attempts += fetched.attempts
+    } catch (error) {
+      const providerMessage = error instanceof Error ? error.message : 'Failed to fetch Gmail message metadata.'
+      const retryAttempts =
+        error instanceof FetchWithRetryError && Number.isFinite(error.attempts) ? error.attempts : 1
+      return {
+        ok: false,
+        status: 502,
+        reason: 'gmail_api_failed',
+        error: 'Failed to fetch Gmail message metadata.',
+        providerReason: null,
+        providerMessage,
+        retryable: true,
+        attempts: attempts + retryAttempts,
+        classification: 'retryable_api',
+      }
+    }
+
+    const payload = (await response
+      .json()
+      .catch(() => null)) as GmailMessageMetadataResponse | null
+    const { providerReason, providerMessage } = extractGmailApiErrorDetails(payload)
+    const classification = classifyMetadataFailure({
+      status: response.status,
+      payload,
+      providerReason,
+      providerMessage,
+      hadRetryableSignal,
     })
-    response = fetched.response
-    hadRetryableSignal = fetched.hadRetryableSignal
-    attempts = fetched.attempts
-  } catch (error) {
-    const providerMessage = error instanceof Error ? error.message : 'Failed to fetch Gmail message metadata.'
-    const retryAttempts =
-      error instanceof FetchWithRetryError && Number.isFinite(error.attempts) ? error.attempts : 1
-    return {
-      ok: false,
-      status: 502,
-      reason: 'gmail_api_failed',
-      error: 'Failed to fetch Gmail message metadata.',
-      providerReason: null,
-      providerMessage,
-      retryable: true,
-      attempts: retryAttempts,
-      classification: 'retryable_api',
-    }
-  }
-  const durationMs = Date.now() - startedAt
+    const shouldRetryRateLimit =
+      !response.ok &&
+      classification === 'retryable_api' &&
+      isMetadataRateLimitFailure({
+        status: response.status,
+        providerReason,
+        providerMessage,
+      }) &&
+      rateLimitAttempt < METADATA_RATE_LIMIT_MAX_ATTEMPTS
 
-  const payload = (await response
-    .json()
-    .catch(() => null)) as GmailMessageMetadataResponse | null
-  const { providerReason, providerMessage } = extractGmailApiErrorDetails(payload)
-  const classification = classifyMetadataFailure({
-    status: response.status,
-    payload,
-    providerReason,
-    providerMessage,
-    hadRetryableSignal,
-  })
+    if (shouldRetryRateLimit) {
+      hadRetryableSignal = true
+      await sleep(metadataRateLimitDelayMs(rateLimitAttempt))
+      continue
+    }
 
-  if (response.status === 404) {
-    return {
-      ok: false,
-      status: 404,
-      reason: 'gmail_api_failed',
-      error: 'Message not found.',
-      providerReason,
-      providerMessage,
-      retryable: false,
-      attempts,
-      classification,
+    const durationMs = Date.now() - startedAt
+
+    if (response.status === 404) {
+      return {
+        ok: false,
+        status: 404,
+        reason: 'gmail_api_failed',
+        error: 'Message not found.',
+        providerReason,
+        providerMessage,
+        retryable: false,
+        attempts,
+        classification,
+      }
     }
-  }
-  if (hasInsufficientScopeError(response.status, payload)) {
-    return {
-      ok: false,
-      status: response.status,
-      reason: 'insufficient_scope',
-      error: 'Connected Gmail token is missing inbox-read scope.',
-      providerReason,
-      providerMessage,
-      retryable: false,
-      attempts,
-      classification,
+    if (hasInsufficientScopeError(response.status, payload)) {
+      return {
+        ok: false,
+        status: response.status,
+        reason: 'insufficient_scope',
+        error: 'Connected Gmail token is missing inbox-read scope.',
+        providerReason,
+        providerMessage,
+        retryable: false,
+        attempts,
+        classification,
+      }
     }
-  }
-  if (!response.ok || !payload) {
+    if (!response.ok || !payload) {
+      return {
+        ok: false,
+        status: response.status,
+        reason: 'gmail_api_failed',
+        error:
+          classification === 'auth'
+            ? 'Gmail access token is invalid or expired. Reconnect Gmail to continue indexing.'
+            : 'Failed to fetch Gmail message metadata.',
+        providerReason,
+        providerMessage,
+        retryable: classification === 'retryable_api',
+        attempts,
+        classification,
+      }
+    }
+
     return {
-      ok: false,
-      status: response.status,
-      reason: 'gmail_api_failed',
-      error:
-        classification === 'auth'
-          ? 'Gmail access token is invalid or expired. Reconnect Gmail to continue indexing.'
-          : 'Failed to fetch Gmail message metadata.',
-      providerReason,
-      providerMessage,
-      retryable: classification === 'retryable_api',
-      attempts,
-      classification,
+      ok: true,
+      metadata: payload,
+      metrics: {
+        duration_ms: durationMs,
+        had_retryable_signal: hadRetryableSignal,
+        attempts,
+      },
     }
   }
 
   return {
-    ok: true,
-    metadata: payload,
-    metrics: {
-      duration_ms: durationMs,
-      had_retryable_signal: hadRetryableSignal,
-      attempts,
-    },
+    ok: false,
+    status: 502,
+    reason: 'gmail_api_failed',
+    error: 'Failed to fetch Gmail message metadata.',
+    providerReason: null,
+    providerMessage: 'Failed to fetch Gmail message metadata after rate-limit retries.',
+    retryable: true,
+    attempts,
+    classification: 'retryable_api',
   }
 }
 
 function isMetadataAuthOrScopeFailure(metadata: GmailMessageMetadataFailure): boolean {
   return metadata.classification === 'auth' || metadata.classification === 'insufficient_scope'
+}
+
+function isMetadataRateLimitFailure(params: {
+  status: number
+  providerReason: string | null
+  providerMessage: string | null
+}): boolean {
+  const providerReason = params.providerReason?.toLowerCase() ?? ''
+  const providerMessage = params.providerMessage?.toLowerCase() ?? ''
+  return (
+    params.status === 429 ||
+    providerReason === 'ratelimitexceeded' ||
+    providerReason === 'userratelimitexceeded' ||
+    providerMessage.includes('queries per minute per user') ||
+    providerMessage.includes('rate limit')
+  )
 }
 
 async function recoverFullScanMetadataFailures(params: {
@@ -1114,7 +1338,15 @@ async function recoverFullScanMetadataFailures(params: {
         }
       }
 
-      await sleep(retryDelayMs(retryAttempt))
+      await sleep(
+        isMetadataRateLimitFailure({
+          status: recovered.status,
+          providerReason: recovered.providerReason,
+          providerMessage: recovered.providerMessage,
+        })
+          ? metadataRateLimitDelayMs(retryAttempt)
+          : retryDelayMs(retryAttempt)
+      )
     }
   }
 
@@ -1614,6 +1846,31 @@ function buildMetadataFailureDetail(params: {
   }
 }
 
+function buildHistoryFailureDetail(params: {
+  classification: GmailHistoryFailureClassification
+  status: number | null
+  providerReason: string | null
+  providerMessage: string | null
+  startHistoryId: string | null
+  pageToken: string | null
+  retryAttempts: number | null
+}): GmailMailboxIndexFailureDetail {
+  return {
+    stage: 'history_list',
+    classification: params.classification,
+    status: params.status,
+    provider_reason: params.providerReason,
+    provider_message: params.providerMessage,
+    list_pages_fetched: null,
+    processed_messages: null,
+    page_token: params.pageToken,
+    metadata_batch_size: null,
+    failed_message_ids_sample: [],
+    retry_attempts: params.retryAttempts,
+    start_history_id: params.startHistoryId,
+  }
+}
+
 function logManualFullMetadataEvent(params: {
   event: 'metadata_recovery_start' | 'metadata_recovery_attempt' | 'metadata_recovery_recovered' | 'metadata_recovery_failed'
   run: GmailMailboxIndexRunContext
@@ -1627,9 +1884,9 @@ function logManualFullMetadataEvent(params: {
   providerMessage: string | null
   retryAttempt: number | null
 }): void {
-  if (params.run.trigger !== 'manual_full_reindex') return
+  if (!isResumeCapableFullTrigger(params.run.trigger)) return
   console.info(
-    `[integrations/gmail/mailbox-index/manual-full] ${JSON.stringify({
+    `${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify({
       event: params.event,
       run_id: params.run.runId,
       trigger: params.run.trigger,
@@ -1678,8 +1935,8 @@ function logFullScanYieldPage(params: {
     growth_delta: params.cumulativeYieldDetail.inserted_rows,
   }
   console.info(`[integrations/gmail/mailbox-index] ${JSON.stringify(payload)}`)
-  if (params.run.trigger === 'manual_full_reindex') {
-    console.info(`[integrations/gmail/mailbox-index/manual-full] ${JSON.stringify(payload)}`)
+  if (isResumeCapableFullTrigger(params.run.trigger)) {
+    console.info(`${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify(payload)}`)
   }
 }
 
@@ -1704,6 +1961,361 @@ export function isMailboxIndexRunActive(
   const latestMs = Number.isFinite(heartbeatMs) ? heartbeatMs : startedMs
   if (!Number.isFinite(latestMs)) return false
   return nowMs - latestMs <= GMAIL_MAILBOX_INDEX_STALL_THRESHOLD_MS
+}
+
+export function isManualFullRunActive(
+  state: GmailMailboxIndexState | null | undefined,
+  nowMs = Date.now()
+): boolean {
+  return Boolean(
+    state &&
+      state.active_run_trigger === 'manual_full_reindex' &&
+      state.active_effective_mode === 'full' &&
+      isMailboxIndexRunActive(state, nowMs)
+  )
+}
+
+function isResumeCapableFullTrigger(trigger: GmailMailboxIndexTrigger): boolean {
+  return trigger === 'manual_full_reindex' || trigger === 'operator_backfill'
+}
+
+function usesSharedResumeCheckpointTrigger(trigger: GmailMailboxIndexTrigger): boolean {
+  return trigger === 'manual_full_reindex'
+}
+
+function operatorFullLogPrefix(trigger: GmailMailboxIndexTrigger): string {
+  return trigger === 'smart_sync'
+    ? '[integrations/gmail/mailbox-index/smart-sync]'
+    : trigger === 'operator_backfill'
+      ? '[integrations/gmail/mailbox-index/operator-backfill]'
+      : '[integrations/gmail/mailbox-index/manual-full]'
+}
+
+function hasCheckpointProgress(params: {
+  pageToken: string | null | undefined
+  pageIndex: number | null | undefined
+  processedMessages: number | null | undefined
+}): boolean {
+  return Boolean(
+    (typeof params.pageToken === 'string' && params.pageToken.trim()) ||
+      (typeof params.pageIndex === 'number' && params.pageIndex > 0) ||
+      (typeof params.processedMessages === 'number' && params.processedMessages > 0)
+  )
+}
+
+function hasResumableCheckpointToken(params: {
+  pageToken: string | null | undefined
+  pageIndex: number | null | undefined
+  processedMessages: number | null | undefined
+}): boolean {
+  const nextPageTokenPresent = typeof params.pageToken === 'string' && params.pageToken.trim().length > 0
+  if (!nextPageTokenPresent) return false
+  return Boolean(
+    (typeof params.pageIndex === 'number' && params.pageIndex > 0) ||
+      (typeof params.processedMessages === 'number' && params.processedMessages > 0)
+  )
+}
+
+function buildManualFullResumeCheckpoint(
+  state: GmailMailboxIndexState | null | undefined,
+  nowMs = Date.now()
+): GmailMailboxIndexResumeCheckpoint | null {
+  if (!state) return null
+  const staleManualRun =
+    state.active_run_trigger != null &&
+    usesSharedResumeCheckpointTrigger(state.active_run_trigger) &&
+    state.active_effective_mode === 'full' &&
+    !isMailboxIndexRunActive(state, nowMs) &&
+    hasCheckpointProgress({
+      pageToken: state.active_next_page_token,
+      pageIndex: state.active_last_page_index,
+      processedMessages: state.active_processed_messages,
+    })
+  if (staleManualRun) {
+    return {
+      source: 'stale_active',
+      nextPageToken: state.active_next_page_token ?? null,
+      pageIndex: state.active_last_page_index ?? 0,
+      processedMessages: state.active_processed_messages ?? 0,
+      processedAt: state.active_last_processed_at ?? null,
+    }
+  }
+  const failedManualRun =
+    hasCheckpointProgress({
+      pageToken: state.last_resume_page_token,
+      pageIndex: state.last_resume_page_index,
+      processedMessages: state.last_processed_messages,
+    })
+  if (failedManualRun) {
+    return {
+      source: 'last_failed',
+      nextPageToken: state.last_resume_page_token ?? null,
+      pageIndex: state.last_resume_page_index ?? 0,
+      processedMessages: state.last_processed_messages ?? 0,
+      processedAt: state.last_resume_processed_at ?? null,
+    }
+  }
+  return null
+}
+
+function buildOperatorBackfillResumeCheckpoint(
+  state: GmailMailboxIndexState | null | undefined,
+  nowMs = Date.now()
+): GmailMailboxIndexResumeCheckpoint | null {
+  if (!state) return null
+  const dedicatedCheckpointHasProgress = hasCheckpointProgress({
+    pageToken: state.backfill_resume_page_token,
+    pageIndex: state.backfill_resume_page_index,
+    processedMessages: state.backfill_resume_processed_messages,
+  })
+  if (
+    hasResumableCheckpointToken({
+      pageToken: state.backfill_resume_page_token,
+      pageIndex: state.backfill_resume_page_index,
+      processedMessages: state.backfill_resume_processed_messages,
+    })
+  ) {
+    return {
+      source: 'backfill_saved',
+      nextPageToken: state.backfill_resume_page_token ?? null,
+      pageIndex: state.backfill_resume_page_index ?? 0,
+      processedMessages: state.backfill_resume_processed_messages ?? 0,
+      processedAt: state.backfill_resume_processed_at ?? null,
+    }
+  }
+  if (dedicatedCheckpointHasProgress) return null
+
+  const legacyCheckpoint = buildManualFullResumeCheckpoint(state, nowMs)
+  if (!legacyCheckpoint) return null
+  return hasResumableCheckpointToken({
+    pageToken: legacyCheckpoint.nextPageToken,
+    pageIndex: legacyCheckpoint.pageIndex,
+    processedMessages: legacyCheckpoint.processedMessages,
+  })
+    ? {
+        ...legacyCheckpoint,
+        source: 'backfill_legacy_adopted',
+      }
+    : null
+}
+
+function buildResumeCheckpointSummary(params: {
+  pageToken: string | null | undefined
+  pageIndex: number | null | undefined
+  processedMessages: number | null | undefined
+  processedAt: string | null | undefined
+}): GmailMailboxIndexResumeCheckpointSummary | null {
+  const nextPageTokenPresent = Boolean(
+    typeof params.pageToken === 'string' && params.pageToken.trim()
+  )
+  const pageIndex =
+    typeof params.pageIndex === 'number' && Number.isFinite(params.pageIndex)
+      ? params.pageIndex
+      : null
+  const processedMessages =
+    typeof params.processedMessages === 'number' && Number.isFinite(params.processedMessages)
+      ? params.processedMessages
+      : null
+  const processedAt =
+    typeof params.processedAt === 'string' && params.processedAt.trim()
+      ? params.processedAt
+      : null
+  const usable = hasResumableCheckpointToken({
+    pageToken: params.pageToken,
+    pageIndex,
+    processedMessages,
+  })
+  if (!usable) return null
+  return {
+    usable,
+    next_page_token_present: nextPageTokenPresent,
+    page_index: pageIndex,
+    processed_messages: processedMessages,
+    processed_at: processedAt,
+  }
+}
+
+function summarizeResumeCheckpoint(params: {
+  pageToken: string | null | undefined
+  pageIndex: number | null | undefined
+  processedMessages: number | null | undefined
+  processedAt: string | null | undefined
+}): GmailMailboxIndexResumeCheckpointSummary {
+  const usable = hasCheckpointProgress({
+    pageToken: params.pageToken,
+    pageIndex: params.pageIndex,
+    processedMessages: params.processedMessages,
+  })
+  return {
+    usable,
+    next_page_token_present: Boolean(typeof params.pageToken === 'string' && params.pageToken.trim()),
+    page_index: typeof params.pageIndex === 'number' ? params.pageIndex : null,
+    processed_messages: typeof params.processedMessages === 'number' ? params.processedMessages : null,
+    processed_at:
+      typeof params.processedAt === 'string' && params.processedAt.trim() ? params.processedAt : null,
+  }
+}
+
+function normalizeBackfillWindowMonths(
+  value: number | null | undefined
+): GmailOperatorBackfillWindowMonths | null {
+  if (value === 24 || value === 36) return value
+  return null
+}
+
+function parseBackfillCutoffAt(value: string | null | undefined): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null
+}
+
+export function isHistoricalBackfillWindowComplete(params: {
+  state: GmailMailboxIndexState | null | undefined
+  requestedWindowMonths: GmailOperatorBackfillWindowMonths
+}): boolean {
+  const completedWindowMonths = normalizeBackfillWindowMonths(
+    params.state?.backfill_completed_window_months ?? null
+  )
+  return completedWindowMonths != null && completedWindowMonths >= params.requestedWindowMonths
+}
+
+function computeHistoricalBackfillCutoffAt(params: {
+  campaignStartedAtIso: string
+  windowMonths: GmailOperatorBackfillWindowMonths
+}): string {
+  const startedAtMs = Date.parse(params.campaignStartedAtIso)
+  const baseDate = Number.isFinite(startedAtMs) ? new Date(startedAtMs) : new Date()
+  const cutoffDate = new Date(baseDate.getTime())
+  cutoffDate.setUTCMonth(cutoffDate.getUTCMonth() - params.windowMonths)
+  return cutoffDate.toISOString()
+}
+
+function resolveOperatorBackfillCampaignTarget(params: {
+  state: GmailMailboxIndexState | null | undefined
+  requestedWindowMonths: GmailOperatorBackfillWindowMonths
+  nowIso?: string
+}): {
+  windowMonths: GmailOperatorBackfillWindowMonths
+  cutoffAt: string
+  reusedPersistedCutoff: boolean
+} {
+  const persistedWindowMonths = normalizeBackfillWindowMonths(
+    params.state?.active_backfill_window_months ?? null
+  )
+  const persistedCutoffAt = parseBackfillCutoffAt(params.state?.active_backfill_cutoff_at ?? null)
+  if (
+    persistedWindowMonths === params.requestedWindowMonths &&
+    typeof persistedCutoffAt === 'string' &&
+    persistedCutoffAt
+  ) {
+    return {
+      windowMonths: params.requestedWindowMonths,
+      cutoffAt: persistedCutoffAt,
+      reusedPersistedCutoff: true,
+    }
+  }
+  const nowIso = params.nowIso ?? new Date().toISOString()
+  return {
+    windowMonths: params.requestedWindowMonths,
+    cutoffAt: computeHistoricalBackfillCutoffAt({
+      campaignStartedAtIso: nowIso,
+      windowMonths: params.requestedWindowMonths,
+    }),
+    reusedPersistedCutoff: false,
+  }
+}
+
+function findOldestInternalDateIso(rows: Array<Pick<GmailMailboxIndexRow, 'internal_date_ms'>>): string | null {
+  let oldestMs: number | null = null
+  for (const row of rows) {
+    if (typeof row.internal_date_ms !== 'number' || !Number.isFinite(row.internal_date_ms)) continue
+    oldestMs = oldestMs == null ? row.internal_date_ms : Math.min(oldestMs, row.internal_date_ms)
+  }
+  return oldestMs == null ? null : new Date(oldestMs).toISOString()
+}
+
+function isSameRegisteredMailboxIndexRun(params: {
+  state: GmailMailboxIndexState | null | undefined
+  runId: string
+  trigger: GmailMailboxIndexTrigger
+}): boolean {
+  return Boolean(
+    params.state &&
+      params.state.active_run_id === params.runId &&
+      params.state.active_run_trigger === params.trigger &&
+      isMailboxIndexRunInProgressStatus(params.state.last_sync_status)
+  )
+}
+
+function logManualFullCheckpointEvent(params: {
+  event:
+    | 'resume_checkpoint_selected'
+    | 'resume_checkpoint_missing'
+    | 'checkpoint_persisted'
+    | 'checkpoint_copied_to_last_resume'
+    | 'checkpoint_cleared'
+  run: GmailMailboxIndexRunContext
+  checkpoint?: GmailMailboxIndexResumeCheckpoint | null
+  activeCheckpoint: GmailMailboxIndexResumeCheckpointSummary
+  lastResumeCheckpoint: GmailMailboxIndexResumeCheckpointSummary
+  reason?: string | null
+}): void {
+  if (!isResumeCapableFullTrigger(params.run.trigger)) return
+  console.info(
+    `${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify({
+      event: params.event,
+      run_id: params.run.runId,
+      trigger: params.run.trigger,
+      requested_mode: params.run.requestedMode,
+      effective_mode: 'full',
+      checkpoint_source: params.checkpoint?.source ?? null,
+      selected_checkpoint: params.checkpoint
+        ? {
+            next_page_token_present: Boolean(params.checkpoint.nextPageToken),
+            page_index: params.checkpoint.pageIndex,
+            processed_messages: params.checkpoint.processedMessages,
+            processed_at: params.checkpoint.processedAt,
+          }
+        : null,
+      active_checkpoint: params.activeCheckpoint,
+      last_resume_checkpoint: params.lastResumeCheckpoint,
+      reason: params.reason ?? null,
+    })}`
+  )
+}
+
+function mailboxIndexDeferredResult(params: {
+  run: GmailMailboxIndexRunContext
+  currentState: GmailMailboxIndexState | null | undefined
+}): GmailMailboxIndexSyncResult {
+  const indexedCount =
+    params.currentState?.indexed_message_count != null &&
+    Number.isFinite(params.currentState.indexed_message_count)
+      ? Math.max(0, Math.round(params.currentState.indexed_message_count))
+      : params.run.rowsBefore
+  return {
+    ok: true,
+    deferred: true,
+    reason: 'manual_full_run_active',
+    mode: params.run.requestedMode,
+    requested_mode: params.run.requestedMode,
+    effective_mode: params.currentState?.active_effective_mode ?? 'full',
+    run_id: params.currentState?.active_run_id ?? params.run.runId,
+    active_run_id: params.currentState?.active_run_id ?? null,
+    trigger: params.run.trigger,
+    terminal_reason: 'already_running',
+    gmail_result_size_estimate: params.currentState?.last_gmail_result_size_estimate ?? null,
+    list_pages_fetched: params.currentState?.active_list_pages_fetched ?? null,
+    processed_messages: params.currentState?.active_processed_messages ?? 0,
+    upserted_messages: 0,
+    deleted_messages: 0,
+    indexed_message_count: indexedCount,
+    rows_before: params.run.rowsBefore,
+    rows_after: indexedCount,
+    growth_delta: mailboxIndexGrowthDelta(params.run.rowsBefore, indexedCount),
+    last_history_id: params.currentState?.last_history_id ?? null,
+    used_fallback_full_scan: false,
+  }
 }
 
 function mailboxIndexSuccessResult(params: {
@@ -1756,9 +2368,9 @@ function mailboxIndexFailureResult(params: {
   rowsAfter?: number
 }): GmailMailboxIndexSyncResult {
   const rowsAfter = params.rowsAfter ?? params.run.rowsBefore
-  if (params.run.trigger === 'manual_full_reindex' && params.effectiveMode === 'full') {
+  if (isResumeCapableFullTrigger(params.run.trigger) && params.effectiveMode === 'full') {
     console.info(
-      `[integrations/gmail/mailbox-index/manual-full] ${JSON.stringify({
+      `${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify({
         event: 'failed',
         run_id: params.run.runId,
         trigger: params.run.trigger,
@@ -1817,9 +2429,13 @@ async function upsertMailboxIndexState(params: {
   activeRequestedMaxMessages?: number | null
   activeStartedAt?: string | null
   activeHeartbeatAt?: string | null
+  activeStartedFromCheckpoint?: boolean | null
   activeRowsBefore?: number | null
   activeProcessedMessages?: number | null
   activeListPagesFetched?: number | null
+  activeNextPageToken?: string | null
+  activeLastPageIndex?: number | null
+  activeLastProcessedAt?: string | null
   activeYieldDetail?: GmailMailboxIndexYieldDetail | null
   lastRunId?: string | null
   lastRunTrigger?: GmailMailboxIndexTrigger | null
@@ -1838,9 +2454,22 @@ async function upsertMailboxIndexState(params: {
   lastTerminalReason?: GmailMailboxIndexTerminalReason | null
   lastGmailResultSizeEstimate?: number | null
   lastListPagesFetched?: number | null
+  lastResumePageToken?: string | null
+  lastResumePageIndex?: number | null
+  lastResumeProcessedAt?: string | null
+  backfillResumePageToken?: string | null
+  backfillResumePageIndex?: number | null
+  backfillResumeProcessedMessages?: number | null
+  backfillResumeProcessedAt?: string | null
+  activeBackfillWindowMonths?: GmailOperatorBackfillWindowMonths | null
+  activeBackfillCutoffAt?: string | null
+  backfillCompletedWindowMonths?: GmailOperatorBackfillWindowMonths | null
+  backfillCompletedCutoffAt?: string | null
+  backfillCompletedAt?: string | null
+  lastStartedFromCheckpoint?: boolean | null
   lastYieldDetail?: GmailMailboxIndexYieldDetail | null
 }): Promise<void> {
-  await params.supabase.from('gmail_mailbox_index_state').upsert(
+  const { error } = await params.supabase.from('gmail_mailbox_index_state').upsert(
     [
       {
         tenant_id: params.tenantId,
@@ -1875,12 +2504,24 @@ async function upsertMailboxIndexState(params: {
         ...(params.activeHeartbeatAt !== undefined
           ? { active_heartbeat_at: params.activeHeartbeatAt }
           : {}),
+        ...(params.activeStartedFromCheckpoint !== undefined
+          ? { active_started_from_checkpoint: params.activeStartedFromCheckpoint }
+          : {}),
         ...(params.activeRowsBefore !== undefined ? { active_rows_before: params.activeRowsBefore } : {}),
         ...(params.activeProcessedMessages !== undefined
           ? { active_processed_messages: params.activeProcessedMessages }
           : {}),
         ...(params.activeListPagesFetched !== undefined
           ? { active_list_pages_fetched: params.activeListPagesFetched }
+          : {}),
+        ...(params.activeNextPageToken !== undefined
+          ? { active_next_page_token: params.activeNextPageToken }
+          : {}),
+        ...(params.activeLastPageIndex !== undefined
+          ? { active_last_page_index: params.activeLastPageIndex }
+          : {}),
+        ...(params.activeLastProcessedAt !== undefined
+          ? { active_last_processed_at: params.activeLastProcessedAt }
           : {}),
         ...(params.activeYieldDetail !== undefined ? { active_yield_detail: params.activeYieldDetail } : {}),
         ...(params.lastRunId !== undefined ? { last_run_id: params.lastRunId } : {}),
@@ -1922,6 +2563,45 @@ async function upsertMailboxIndexState(params: {
         ...(params.lastListPagesFetched !== undefined
           ? { last_list_pages_fetched: params.lastListPagesFetched }
           : {}),
+        ...(params.lastResumePageToken !== undefined
+          ? { last_resume_page_token: params.lastResumePageToken }
+          : {}),
+        ...(params.lastResumePageIndex !== undefined
+          ? { last_resume_page_index: params.lastResumePageIndex }
+          : {}),
+        ...(params.lastResumeProcessedAt !== undefined
+          ? { last_resume_processed_at: params.lastResumeProcessedAt }
+          : {}),
+        ...(params.backfillResumePageToken !== undefined
+          ? { backfill_resume_page_token: params.backfillResumePageToken }
+          : {}),
+        ...(params.backfillResumePageIndex !== undefined
+          ? { backfill_resume_page_index: params.backfillResumePageIndex }
+          : {}),
+        ...(params.backfillResumeProcessedMessages !== undefined
+          ? { backfill_resume_processed_messages: params.backfillResumeProcessedMessages }
+          : {}),
+        ...(params.backfillResumeProcessedAt !== undefined
+          ? { backfill_resume_processed_at: params.backfillResumeProcessedAt }
+          : {}),
+        ...(params.activeBackfillWindowMonths !== undefined
+          ? { active_backfill_window_months: params.activeBackfillWindowMonths }
+          : {}),
+        ...(params.activeBackfillCutoffAt !== undefined
+          ? { active_backfill_cutoff_at: params.activeBackfillCutoffAt }
+          : {}),
+        ...(params.backfillCompletedWindowMonths !== undefined
+          ? { backfill_completed_window_months: params.backfillCompletedWindowMonths }
+          : {}),
+        ...(params.backfillCompletedCutoffAt !== undefined
+          ? { backfill_completed_cutoff_at: params.backfillCompletedCutoffAt }
+          : {}),
+        ...(params.backfillCompletedAt !== undefined
+          ? { backfill_completed_at: params.backfillCompletedAt }
+          : {}),
+        ...(params.lastStartedFromCheckpoint !== undefined
+          ? { last_started_from_checkpoint: params.lastStartedFromCheckpoint }
+          : {}),
         ...(params.lastYieldDetail !== undefined ? { last_yield_detail: params.lastYieldDetail } : {}),
         ...(params.lastFullScanAt !== undefined
           ? { last_full_scan_at: params.lastFullScanAt }
@@ -1934,6 +2614,16 @@ async function upsertMailboxIndexState(params: {
     ],
     { onConflict: 'tenant_id' }
   )
+  if (error) {
+    console.error('[integrations/gmail/mailbox-index] state upsert failed:', {
+      tenantId: params.tenantId,
+      lastSyncStatus: params.lastSyncStatus,
+      activeRunId: params.activeRunId ?? null,
+      activeRunTrigger: params.activeRunTrigger ?? null,
+      error,
+    })
+    throw new Error(`Failed to persist Gmail mailbox index state: ${error.message}`)
+  }
 }
 
 async function markMailboxIndexRunStarted(params: {
@@ -1947,9 +2637,50 @@ async function markMailboxIndexRunStarted(params: {
   lastHistoryId: string | null
   mailboxEstimatedTotal: number | null
   indexCompletionPct: number | null
+  activeProcessedMessages?: number | null
+  activeListPagesFetched?: number | null
+  activeNextPageToken?: string | null
+  activeLastPageIndex?: number | null
+  activeLastProcessedAt?: string | null
+  backfillResumeProcessedMessages?: number | null
+  activeBackfillWindowMonths?: GmailOperatorBackfillWindowMonths | null
+  activeBackfillCutoffAt?: string | null
+  startedFromCheckpoint?: boolean | null
   yieldDetail?: GmailMailboxIndexYieldDetail | null
 }): Promise<void> {
   const nowIso = new Date().toISOString()
+  const activeProcessedMessages = params.activeProcessedMessages ?? 0
+  const backfillResumeProcessedMessages =
+    typeof params.backfillResumeProcessedMessages === 'number'
+      ? params.backfillResumeProcessedMessages
+      : activeProcessedMessages
+  const activeListPagesFetched =
+    params.activeListPagesFetched ?? (params.effectiveMode === 'full' ? 0 : null)
+  const startedFromCheckpoint =
+    params.startedFromCheckpoint ??
+    (isResumeCapableFullTrigger(params.trigger) &&
+      params.effectiveMode === 'full' &&
+      hasResumableCheckpointToken({
+        pageToken: params.activeNextPageToken,
+        pageIndex: params.activeLastPageIndex,
+        processedMessages: activeProcessedMessages,
+      }))
+  const shouldPersistSharedResumeCheckpoint =
+    usesSharedResumeCheckpointTrigger(params.trigger) &&
+    params.effectiveMode === 'full' &&
+    hasCheckpointProgress({
+      pageToken: params.activeNextPageToken,
+      pageIndex: params.activeLastPageIndex,
+      processedMessages: activeProcessedMessages,
+    })
+  const shouldPersistDedicatedBackfillCheckpoint =
+    params.trigger === 'operator_backfill' &&
+    params.effectiveMode === 'full' &&
+    hasCheckpointProgress({
+      pageToken: params.activeNextPageToken,
+      pageIndex: params.activeLastPageIndex,
+      processedMessages: activeProcessedMessages,
+    })
   await upsertMailboxIndexState({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -1967,25 +2698,76 @@ async function markMailboxIndexRunStarted(params: {
     activeRequestedMaxMessages: params.requestedMaxMessages,
     activeStartedAt: nowIso,
     activeHeartbeatAt: nowIso,
+    activeStartedFromCheckpoint: startedFromCheckpoint,
     activeRowsBefore: params.run.rowsBefore,
-    activeProcessedMessages: 0,
-    activeListPagesFetched: params.effectiveMode === 'full' ? 0 : null,
+    activeProcessedMessages,
+    activeListPagesFetched,
+    activeNextPageToken: params.activeNextPageToken ?? null,
+    activeLastPageIndex: params.activeLastPageIndex ?? (params.effectiveMode === 'full' ? 0 : null),
+    activeLastProcessedAt: params.activeLastProcessedAt ?? null,
     activeYieldDetail: params.yieldDetail ?? null,
+    ...(shouldPersistSharedResumeCheckpoint
+      ? {
+          lastResumePageToken: params.activeNextPageToken ?? null,
+          lastResumePageIndex: params.activeLastPageIndex ?? 0,
+          lastResumeProcessedAt: params.activeLastProcessedAt ?? null,
+        }
+      : {}),
+    ...(params.trigger === 'operator_backfill' && params.effectiveMode === 'full'
+      ? {
+          backfillResumePageToken: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeNextPageToken ?? null
+            : null,
+          backfillResumePageIndex: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeLastPageIndex ?? 0
+            : null,
+          backfillResumeProcessedMessages: shouldPersistDedicatedBackfillCheckpoint
+            ? backfillResumeProcessedMessages
+            : null,
+          backfillResumeProcessedAt: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeLastProcessedAt ?? null
+            : null,
+          activeBackfillWindowMonths: params.activeBackfillWindowMonths ?? null,
+          activeBackfillCutoffAt: params.activeBackfillCutoffAt ?? null,
+        }
+      : {}),
   })
-  if (params.trigger === 'manual_full_reindex' && params.effectiveMode === 'full') {
+  if (isResumeCapableFullTrigger(params.trigger) && params.effectiveMode === 'full') {
     console.info(
-      `[integrations/gmail/mailbox-index/manual-full] ${JSON.stringify({
-        event: 'started',
+      `${operatorFullLogPrefix(params.trigger)} ${JSON.stringify({
+        event: startedFromCheckpoint ? 'resumed_from_checkpoint' : 'started',
         run_id: params.runId,
         trigger: params.trigger,
         requested_mode: params.run.requestedMode,
         effective_mode: params.effectiveMode,
+        message:
+          params.trigger === 'operator_backfill'
+            ? startedFromCheckpoint
+              ? 'Resumed historical backfill from saved checkpoint'
+              : 'Fresh historical backfill started'
+            : null,
+        backfill_window_months:
+          params.trigger === 'operator_backfill' ? params.activeBackfillWindowMonths ?? null : null,
+        backfill_cutoff_at:
+          params.trigger === 'operator_backfill' ? params.activeBackfillCutoffAt ?? null : null,
         rows_before: params.run.rowsBefore,
         rows_after: params.run.rowsBefore,
         growth_delta: 0,
-        list_pages_fetched: 0,
-        processed_messages: 0,
+        list_pages_fetched: activeListPagesFetched,
+        processed_messages: activeProcessedMessages,
+        resume_next_page_token_present:
+          startedFromCheckpoint
+            ? params.activeNextPageToken != null
+            : null,
+        resume_page_index:
+          startedFromCheckpoint
+            ? params.activeLastPageIndex ?? null
+            : null,
         indexed_message_count: params.run.rowsBefore,
+        resume_checkpoint_processed_messages:
+          params.trigger === 'operator_backfill' && startedFromCheckpoint
+            ? backfillResumeProcessedMessages
+            : null,
       })}`
     )
   }
@@ -2004,8 +2786,35 @@ async function markMailboxIndexRunHeartbeat(params: {
   upsertedMessages: number
   deletedMessages: number
   listPagesFetched?: number | null
+  activeNextPageToken?: string | null
+  activeLastPageIndex?: number | null
+  activeLastProcessedAt?: string | null
+  backfillResumeProcessedMessages?: number | null
+  activeBackfillWindowMonths?: GmailOperatorBackfillWindowMonths | null
+  activeBackfillCutoffAt?: string | null
   yieldDetail?: GmailMailboxIndexYieldDetail | null
+  emitManualFullLog?: boolean
 }): Promise<void> {
+  const backfillResumeProcessedMessages =
+    typeof params.backfillResumeProcessedMessages === 'number'
+      ? params.backfillResumeProcessedMessages
+      : params.processedMessages
+  const shouldPersistSharedResumeCheckpoint =
+    usesSharedResumeCheckpointTrigger(params.run.trigger) &&
+    params.effectiveMode === 'full' &&
+    hasCheckpointProgress({
+      pageToken: params.activeNextPageToken,
+      pageIndex: params.activeLastPageIndex,
+      processedMessages: params.processedMessages,
+    })
+  const shouldPersistDedicatedBackfillCheckpoint =
+    params.run.trigger === 'operator_backfill' &&
+    params.effectiveMode === 'full' &&
+    hasCheckpointProgress({
+      pageToken: params.activeNextPageToken,
+      pageIndex: params.activeLastPageIndex,
+      processedMessages: params.processedMessages,
+    })
   await upsertMailboxIndexState({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -2024,11 +2833,70 @@ async function markMailboxIndexRunHeartbeat(params: {
     activeRowsBefore: params.run.rowsBefore,
     activeProcessedMessages: params.processedMessages,
     activeListPagesFetched: params.listPagesFetched ?? null,
+    activeNextPageToken: params.activeNextPageToken ?? null,
+    activeLastPageIndex: params.activeLastPageIndex ?? null,
+    activeLastProcessedAt: params.activeLastProcessedAt ?? null,
+    ...(shouldPersistSharedResumeCheckpoint
+      ? {
+          lastResumePageToken: params.activeNextPageToken ?? null,
+          lastResumePageIndex: params.activeLastPageIndex ?? null,
+          lastResumeProcessedAt: params.activeLastProcessedAt ?? null,
+        }
+      : {}),
+    ...(params.run.trigger === 'operator_backfill' && params.effectiveMode === 'full'
+      ? {
+          backfillResumePageToken: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeNextPageToken ?? null
+            : null,
+          backfillResumePageIndex: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeLastPageIndex ?? null
+            : null,
+          backfillResumeProcessedMessages: shouldPersistDedicatedBackfillCheckpoint
+            ? backfillResumeProcessedMessages
+            : null,
+          backfillResumeProcessedAt: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeLastProcessedAt ?? null
+            : null,
+          activeBackfillWindowMonths: params.activeBackfillWindowMonths ?? null,
+          activeBackfillCutoffAt: params.activeBackfillCutoffAt ?? null,
+        }
+      : {}),
     activeYieldDetail: params.yieldDetail ?? null,
   })
-  if (params.run.trigger === 'manual_full_reindex' && params.effectiveMode === 'full') {
+  if (shouldPersistSharedResumeCheckpoint || shouldPersistDedicatedBackfillCheckpoint) {
+    logManualFullCheckpointEvent({
+      event: 'checkpoint_persisted',
+      run: params.run,
+      activeCheckpoint: summarizeResumeCheckpoint({
+        pageToken: params.activeNextPageToken,
+        pageIndex: params.activeLastPageIndex,
+        processedMessages:
+          params.run.trigger === 'operator_backfill'
+            ? backfillResumeProcessedMessages
+            : params.processedMessages,
+        processedAt: params.activeLastProcessedAt,
+      }),
+      lastResumeCheckpoint: summarizeResumeCheckpoint({
+        pageToken:
+          params.run.trigger === 'operator_backfill'
+            ? params.activeNextPageToken
+            : params.activeNextPageToken,
+        pageIndex: params.activeLastPageIndex,
+        processedMessages:
+          params.run.trigger === 'operator_backfill'
+            ? backfillResumeProcessedMessages
+            : params.processedMessages,
+        processedAt: params.activeLastProcessedAt,
+      }),
+    })
+  }
+  if (
+    params.emitManualFullLog !== false &&
+    isResumeCapableFullTrigger(params.run.trigger) &&
+    params.effectiveMode === 'full'
+  ) {
     console.info(
-      `[integrations/gmail/mailbox-index/manual-full] ${JSON.stringify({
+      `${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify({
         event: 'heartbeat',
         run_id: params.run.runId,
         trigger: params.run.trigger,
@@ -2067,8 +2935,29 @@ async function markMailboxIndexRunFailed(params: {
   deletedMessages: number
   lastFailureReasonDetail?: GmailMailboxIndexFailureDetail | null
   yieldDetail?: GmailMailboxIndexYieldDetail | null
+  activeNextPageToken?: string | null
+  activeLastPageIndex?: number | null
+  activeLastProcessedAt?: string | null
+  backfillResumeProcessedMessages?: number | null
+  activeBackfillWindowMonths?: GmailOperatorBackfillWindowMonths | null
+  activeBackfillCutoffAt?: string | null
+  startedFromCheckpoint?: boolean | null
 }): Promise<void> {
   const growthDelta = mailboxIndexGrowthDelta(params.run.rowsBefore, params.indexedMessageCount)
+  const backfillResumeProcessedMessages =
+    typeof params.backfillResumeProcessedMessages === 'number'
+      ? params.backfillResumeProcessedMessages
+      : params.processedMessages
+  const shouldPersistSharedResumeCheckpoint =
+    usesSharedResumeCheckpointTrigger(params.run.trigger) && params.effectiveMode === 'full'
+  const shouldPersistDedicatedBackfillCheckpoint =
+    params.run.trigger === 'operator_backfill' &&
+    params.effectiveMode === 'full' &&
+    hasCheckpointProgress({
+      pageToken: params.activeNextPageToken,
+      pageIndex: params.activeLastPageIndex,
+      processedMessages: params.processedMessages,
+    })
   await upsertMailboxIndexState({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -2090,9 +2979,13 @@ async function markMailboxIndexRunFailed(params: {
     activeRequestedMaxMessages: null,
     activeStartedAt: null,
     activeHeartbeatAt: null,
+    activeStartedFromCheckpoint: null,
     activeRowsBefore: null,
     activeProcessedMessages: null,
     activeListPagesFetched: null,
+    activeNextPageToken: null,
+    activeLastPageIndex: null,
+    activeLastProcessedAt: null,
     activeYieldDetail: null,
     lastRunId: params.run.runId,
     lastRunTrigger: params.run.trigger,
@@ -2111,12 +3004,63 @@ async function markMailboxIndexRunFailed(params: {
     lastTerminalReason: params.terminalReason,
     lastGmailResultSizeEstimate: params.gmailResultSizeEstimate,
     lastListPagesFetched: params.listPagesFetched,
+    ...(shouldPersistSharedResumeCheckpoint
+      ? {
+          lastResumePageToken: params.activeNextPageToken ?? null,
+          lastResumePageIndex: params.activeLastPageIndex ?? null,
+          lastResumeProcessedAt: params.activeLastProcessedAt ?? null,
+        }
+      : {}),
+    ...(params.run.trigger === 'operator_backfill' && params.effectiveMode === 'full'
+      ? {
+          backfillResumePageToken: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeNextPageToken ?? null
+            : null,
+          backfillResumePageIndex: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeLastPageIndex ?? null
+            : null,
+          backfillResumeProcessedMessages: shouldPersistDedicatedBackfillCheckpoint
+            ? backfillResumeProcessedMessages
+            : null,
+          backfillResumeProcessedAt: shouldPersistDedicatedBackfillCheckpoint
+            ? params.activeLastProcessedAt ?? null
+            : null,
+          activeBackfillWindowMonths: params.activeBackfillWindowMonths ?? null,
+          activeBackfillCutoffAt: params.activeBackfillCutoffAt ?? null,
+        }
+      : {}),
+    lastStartedFromCheckpoint: params.startedFromCheckpoint ?? null,
     lastYieldDetail: params.yieldDetail ?? null,
     ...(params.lastFullScanAt !== undefined ? { lastFullScanAt: params.lastFullScanAt } : {}),
     ...(params.lastIncrementalSyncAt !== undefined
       ? { lastIncrementalSyncAt: params.lastIncrementalSyncAt }
       : {}),
   })
+  if (shouldPersistSharedResumeCheckpoint || shouldPersistDedicatedBackfillCheckpoint) {
+    logManualFullCheckpointEvent({
+      event: 'checkpoint_copied_to_last_resume',
+      run: params.run,
+      activeCheckpoint: summarizeResumeCheckpoint({
+        pageToken: params.activeNextPageToken,
+        pageIndex: params.activeLastPageIndex,
+        processedMessages:
+          params.run.trigger === 'operator_backfill'
+            ? backfillResumeProcessedMessages
+            : params.processedMessages,
+        processedAt: params.activeLastProcessedAt,
+      }),
+      lastResumeCheckpoint: summarizeResumeCheckpoint({
+        pageToken: params.activeNextPageToken,
+        pageIndex: params.activeLastPageIndex,
+        processedMessages:
+          params.run.trigger === 'operator_backfill'
+            ? backfillResumeProcessedMessages
+            : params.processedMessages,
+        processedAt: params.activeLastProcessedAt,
+      }),
+      reason: params.lastFailureReason,
+    })
+  }
 }
 
 async function markMailboxIndexRunCompleted(params: {
@@ -2135,9 +3079,22 @@ async function markMailboxIndexRunCompleted(params: {
   upsertedMessages: number
   deletedMessages: number
   yieldDetail?: GmailMailboxIndexYieldDetail | null
+  clearResumeCheckpoint?: boolean
+  clearActiveBackfillCampaign?: boolean
+  activeBackfillWindowMonths?: GmailOperatorBackfillWindowMonths | null
+  activeBackfillCutoffAt?: string | null
+  backfillCompletedWindowMonths?: GmailOperatorBackfillWindowMonths | null
+  backfillCompletedCutoffAt?: string | null
+  backfillCompletedAt?: string | null
+  startedFromCheckpoint?: boolean | null
 }): Promise<void> {
   const nowIso = new Date().toISOString()
   const growthDelta = mailboxIndexGrowthDelta(params.run.rowsBefore, params.indexedMessageCount)
+  const shouldClearSharedResumeCheckpoint =
+    params.clearResumeCheckpoint ??
+    (usesSharedResumeCheckpointTrigger(params.run.trigger) && params.effectiveMode === 'full')
+  const shouldClearDedicatedBackfillCheckpoint =
+    false
   await upsertMailboxIndexState({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -2162,9 +3119,13 @@ async function markMailboxIndexRunCompleted(params: {
     activeRequestedMaxMessages: null,
     activeStartedAt: null,
     activeHeartbeatAt: null,
+    activeStartedFromCheckpoint: null,
     activeRowsBefore: null,
     activeProcessedMessages: null,
     activeListPagesFetched: null,
+    activeNextPageToken: null,
+    activeLastPageIndex: null,
+    activeLastProcessedAt: null,
     activeYieldDetail: null,
     lastRunId: params.run.runId,
     lastRunTrigger: params.run.trigger,
@@ -2183,6 +3144,46 @@ async function markMailboxIndexRunCompleted(params: {
     lastTerminalReason: params.terminalReason,
     lastGmailResultSizeEstimate: params.gmailResultSizeEstimate,
     lastListPagesFetched: params.listPagesFetched,
+    ...(shouldClearSharedResumeCheckpoint
+      ? {
+          lastResumePageToken: null,
+          lastResumePageIndex: null,
+          lastResumeProcessedAt: null,
+        }
+      : {}),
+    ...(shouldClearDedicatedBackfillCheckpoint
+      ? {
+          backfillResumePageToken: null,
+          backfillResumePageIndex: null,
+          backfillResumeProcessedMessages: null,
+          backfillResumeProcessedAt: null,
+        }
+      : {}),
+    ...(params.clearActiveBackfillCampaign && params.run.trigger === 'operator_backfill'
+      ? {
+          activeBackfillWindowMonths: null,
+          activeBackfillCutoffAt: null,
+        }
+      : params.run.trigger === 'operator_backfill'
+        ? {
+            ...(params.activeBackfillWindowMonths !== undefined
+              ? { activeBackfillWindowMonths: params.activeBackfillWindowMonths }
+              : {}),
+            ...(params.activeBackfillCutoffAt !== undefined
+              ? { activeBackfillCutoffAt: params.activeBackfillCutoffAt }
+              : {}),
+          }
+        : {}),
+    ...(params.backfillCompletedWindowMonths !== undefined
+      ? { backfillCompletedWindowMonths: params.backfillCompletedWindowMonths }
+      : {}),
+    ...(params.backfillCompletedCutoffAt !== undefined
+      ? { backfillCompletedCutoffAt: params.backfillCompletedCutoffAt }
+      : {}),
+    ...(params.backfillCompletedAt !== undefined
+      ? { backfillCompletedAt: params.backfillCompletedAt }
+      : {}),
+    lastStartedFromCheckpoint: params.startedFromCheckpoint ?? null,
     lastYieldDetail: params.yieldDetail ?? null,
     ...(params.effectiveMode === 'full'
       ? {
@@ -2193,6 +3194,25 @@ async function markMailboxIndexRunCompleted(params: {
           lastIncrementalSyncAt: nowIso,
         }),
   })
+  if (shouldClearSharedResumeCheckpoint || shouldClearDedicatedBackfillCheckpoint) {
+    logManualFullCheckpointEvent({
+      event: 'checkpoint_cleared',
+      run: params.run,
+      activeCheckpoint: summarizeResumeCheckpoint({
+        pageToken: null,
+        pageIndex: null,
+        processedMessages: null,
+        processedAt: null,
+      }),
+      lastResumeCheckpoint: summarizeResumeCheckpoint({
+        pageToken: null,
+        pageIndex: null,
+        processedMessages: null,
+        processedAt: null,
+      }),
+      reason: 'full_run_completed',
+    })
+  }
 }
 
 export async function loadGmailMailboxIndexState(params: {
@@ -2202,12 +3222,206 @@ export async function loadGmailMailboxIndexState(params: {
   const { data, error } = await params.supabase
     .from('gmail_mailbox_index_state')
     .select(
-      'tenant_id,last_history_id,last_full_scan_at,last_incremental_sync_at,indexed_message_count,mailbox_estimated_total,index_completion_pct,last_index_duration_ms,last_sync_status,last_sync_error,active_run_id,active_run_mode,active_requested_mode,active_effective_mode,active_run_trigger,active_requested_max_messages,active_started_at,active_heartbeat_at,active_rows_before,active_processed_messages,active_list_pages_fetched,active_yield_detail,last_run_id,last_run_trigger,last_completed_at,last_completed_mode,last_requested_mode,last_effective_mode,last_rows_before,last_rows_after,last_growth_delta,last_processed_messages,last_upserted_messages,last_deleted_messages,last_failure_reason,last_failure_reason_detail,last_terminal_reason,last_gmail_result_size_estimate,last_list_pages_fetched,last_yield_detail,updated_at'
+      'tenant_id,last_history_id,last_full_scan_at,last_incremental_sync_at,indexed_message_count,mailbox_estimated_total,index_completion_pct,last_index_duration_ms,last_sync_status,last_sync_error,active_run_id,active_run_mode,active_requested_mode,active_effective_mode,active_run_trigger,active_requested_max_messages,active_started_at,active_heartbeat_at,active_started_from_checkpoint,active_rows_before,active_processed_messages,active_list_pages_fetched,active_next_page_token,active_last_page_index,active_last_processed_at,active_yield_detail,last_run_id,last_run_trigger,last_completed_at,last_completed_mode,last_requested_mode,last_effective_mode,last_rows_before,last_rows_after,last_growth_delta,last_processed_messages,last_upserted_messages,last_deleted_messages,last_failure_reason,last_failure_reason_detail,last_terminal_reason,last_gmail_result_size_estimate,last_list_pages_fetched,last_resume_page_token,last_resume_page_index,last_resume_processed_at,backfill_resume_page_token,backfill_resume_page_index,backfill_resume_processed_messages,backfill_resume_processed_at,active_backfill_window_months,active_backfill_cutoff_at,backfill_completed_window_months,backfill_completed_cutoff_at,backfill_completed_at,last_started_from_checkpoint,last_yield_detail,updated_at'
     )
     .eq('tenant_id', params.tenantId)
     .maybeSingle()
-  if (error || !data) return null
+  if (error) {
+    console.error('[integrations/gmail/mailbox-index] state load failed:', {
+      tenantId: params.tenantId,
+      error,
+    })
+    throw new Error(`Failed to load Gmail mailbox index state: ${error.message}`)
+  }
+  if (!data) return null
   return data as GmailMailboxIndexState
+}
+
+export async function primeAcceptedSmartSyncRunForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  runId: string
+  maxMessages: number
+  currentState?: GmailMailboxIndexState | null
+}): Promise<GmailAcceptedMailboxIndexRun> {
+  const tenantId = params.tenantId.trim()
+  const currentState =
+    params.currentState ??
+    (await loadGmailMailboxIndexState({
+      supabase: params.supabase,
+      tenantId,
+    }))
+  const rowsBefore = await countIndexedMessagesForTenant({
+    supabase: params.supabase,
+    tenantId,
+  })
+  const requestedMode = 'incremental' as const
+  const effectiveMode = 'incremental' as const
+  const mailboxEstimatedTotal =
+    currentState?.mailbox_estimated_total != null &&
+    Number.isFinite(currentState.mailbox_estimated_total)
+      ? Math.max(0, Math.round(currentState.mailbox_estimated_total))
+      : null
+  const run: GmailMailboxIndexRunContext = {
+    runId: params.runId,
+    trigger: 'smart_sync',
+    rowsBefore,
+    requestedMode,
+  }
+
+  await markMailboxIndexRunStarted({
+    supabase: params.supabase,
+    tenantId,
+    effectiveMode,
+    trigger: 'smart_sync',
+    runId: params.runId,
+    requestedMaxMessages: params.maxMessages,
+    run,
+    lastHistoryId: currentState?.last_history_id ?? null,
+    mailboxEstimatedTotal,
+    indexCompletionPct:
+      currentState?.index_completion_pct != null &&
+      Number.isFinite(currentState.index_completion_pct)
+        ? currentState.index_completion_pct
+        : null,
+    activeProcessedMessages: null,
+    activeListPagesFetched: null,
+    activeNextPageToken: null,
+    activeLastPageIndex: null,
+    activeLastProcessedAt: null,
+    startedFromCheckpoint: false,
+    yieldDetail: null,
+  })
+
+  console.info(
+    `[integrations/gmail/mailbox-index/smart-sync] ${JSON.stringify({
+      event: 'accepted_run_primed',
+      run_id: params.runId,
+      trigger: 'smart_sync',
+      requested_mode: requestedMode,
+      effective_mode: effectiveMode,
+      rows_before: rowsBefore,
+      resume_checkpoint_present: false,
+    })}`
+  )
+
+  return {
+    run_id: params.runId,
+    requested_mode: requestedMode,
+    effective_mode: effectiveMode,
+    trigger: 'smart_sync',
+    rows_before: rowsBefore,
+    resume_checkpoint: null,
+    started_from_checkpoint: false,
+  }
+}
+
+export async function primeAcceptedOperatorBackfillRunForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  runId: string
+  maxMessages: number
+  backfillWindowMonths?: GmailOperatorBackfillWindowMonths
+  currentState?: GmailMailboxIndexState | null
+}): Promise<GmailAcceptedMailboxIndexRun> {
+  const tenantId = params.tenantId.trim()
+  const currentState =
+    params.currentState ??
+    (await loadGmailMailboxIndexState({
+      supabase: params.supabase,
+      tenantId,
+    }))
+  const rowsBefore = await countIndexedMessagesForTenant({
+    supabase: params.supabase,
+    tenantId,
+  })
+  const resumeCheckpoint = buildOperatorBackfillResumeCheckpoint(currentState)
+  const backfillWindowMonths = normalizeGmailOperatorBackfillWindowMonths(
+    params.backfillWindowMonths
+  )
+  const campaignTarget = resolveOperatorBackfillCampaignTarget({
+    state: currentState,
+    requestedWindowMonths: backfillWindowMonths,
+  })
+  const requestedMode = 'full' as const
+  const effectiveMode = 'full' as const
+  const mailboxEstimatedTotal =
+    currentState?.mailbox_estimated_total != null &&
+    Number.isFinite(currentState.mailbox_estimated_total)
+      ? Math.max(0, Math.round(currentState.mailbox_estimated_total))
+      : null
+  const run: GmailMailboxIndexRunContext = {
+    runId: params.runId,
+    trigger: 'operator_backfill',
+    rowsBefore,
+    requestedMode,
+    backfillWindowMonths,
+  }
+
+  await markMailboxIndexRunStarted({
+    supabase: params.supabase,
+    tenantId,
+    effectiveMode,
+    trigger: 'operator_backfill',
+    runId: params.runId,
+    requestedMaxMessages: params.maxMessages,
+    run,
+    lastHistoryId: currentState?.last_history_id ?? null,
+    mailboxEstimatedTotal,
+    indexCompletionPct:
+      currentState?.index_completion_pct != null &&
+      Number.isFinite(currentState.index_completion_pct)
+        ? currentState.index_completion_pct
+        : null,
+    activeProcessedMessages: 0,
+    activeListPagesFetched: resumeCheckpoint?.pageIndex ?? 0,
+    activeNextPageToken: resumeCheckpoint?.nextPageToken ?? null,
+    activeLastPageIndex: resumeCheckpoint?.pageIndex ?? 0,
+    activeLastProcessedAt: resumeCheckpoint?.processedAt ?? null,
+    backfillResumeProcessedMessages: resumeCheckpoint?.processedMessages ?? 0,
+    activeBackfillWindowMonths: campaignTarget.windowMonths,
+    activeBackfillCutoffAt: campaignTarget.cutoffAt,
+    startedFromCheckpoint: Boolean(resumeCheckpoint),
+    yieldDetail:
+      currentState?.active_yield_detail ??
+      currentState?.last_yield_detail ??
+      emptyMailboxIndexYieldDetail(),
+  })
+
+  console.info(
+    `[integrations/gmail/mailbox-index/operator-backfill] ${JSON.stringify({
+      event: 'accepted_run_primed',
+      run_id: params.runId,
+      trigger: 'operator_backfill',
+      requested_mode: requestedMode,
+      effective_mode: effectiveMode,
+      message: resumeCheckpoint
+        ? 'Resumed historical backfill from saved checkpoint'
+        : 'Fresh historical backfill started',
+      backfill_window_months: campaignTarget.windowMonths,
+      backfill_cutoff_at: campaignTarget.cutoffAt,
+      reused_persisted_cutoff: campaignTarget.reusedPersistedCutoff,
+      rows_before: rowsBefore,
+      resume_checkpoint_present: Boolean(resumeCheckpoint),
+    })}`
+  )
+
+  return {
+    run_id: params.runId,
+    requested_mode: requestedMode,
+    effective_mode: effectiveMode,
+    trigger: 'operator_backfill',
+    rows_before: rowsBefore,
+    resume_checkpoint: buildResumeCheckpointSummary({
+      pageToken: resumeCheckpoint?.nextPageToken ?? null,
+      pageIndex: resumeCheckpoint?.pageIndex ?? null,
+      processedMessages: resumeCheckpoint?.processedMessages ?? null,
+      processedAt: resumeCheckpoint?.processedAt ?? null,
+    }),
+    started_from_checkpoint: Boolean(resumeCheckpoint),
+    backfill_window_months: campaignTarget.windowMonths,
+    backfill_cutoff_at: campaignTarget.cutoffAt,
+  }
 }
 
 async function runFullMailboxIndexForTenant(params: {
@@ -2238,7 +3452,83 @@ async function runFullMailboxIndexForTenant(params: {
     priorState?.mailbox_estimated_total != null && Number.isFinite(priorState.mailbox_estimated_total)
       ? Math.max(0, Math.round(priorState.mailbox_estimated_total))
       : null
-  let yieldDetail = emptyMailboxIndexYieldDetail()
+  const activeFullRunOwnedByAnotherContext = Boolean(
+    priorState &&
+      priorState.active_effective_mode === 'full' &&
+      isMailboxIndexRunActive(priorState) &&
+      priorState.active_run_id &&
+      priorState.active_run_id !== params.run.runId
+  )
+  if (activeFullRunOwnedByAnotherContext) {
+    if (isManualFullRunActive(priorState) && params.run.trigger !== 'manual_full_reindex') {
+      return mailboxIndexDeferredResult({
+        run: params.run,
+        currentState: priorState,
+      })
+    }
+    return mailboxIndexFailureResult({
+      effectiveMode: priorState?.active_effective_mode ?? 'full',
+      run: params.run,
+      reason: 'already_running',
+      error: 'A mailbox index full scan is already in progress for this tenant.',
+      terminalReason: 'already_running',
+      gmailResultSizeEstimate: priorState?.last_gmail_result_size_estimate ?? null,
+      listPagesFetched: priorState?.active_list_pages_fetched ?? priorState?.last_list_pages_fetched ?? null,
+      processedMessages: priorState?.active_processed_messages ?? null,
+      lastHistoryId: priorState?.last_history_id ?? null,
+      usedFallbackFullScan: false,
+      rowsAfter:
+        priorState?.indexed_message_count != null && Number.isFinite(priorState.indexed_message_count)
+          ? Math.max(0, Math.round(priorState.indexed_message_count))
+          : params.run.rowsBefore,
+    })
+  }
+  const resumeCheckpoint =
+    params.run.trigger === 'operator_backfill'
+      ? buildOperatorBackfillResumeCheckpoint(priorState)
+      : isResumeCapableFullTrigger(params.run.trigger)
+        ? buildManualFullResumeCheckpoint(priorState)
+        : null
+  const operatorBackfillWindowMonths =
+    params.run.trigger === 'operator_backfill'
+      ? normalizeGmailOperatorBackfillWindowMonths(
+          params.run.backfillWindowMonths ?? GMAIL_OPERATOR_BACKFILL_DEFAULT_WINDOW_MONTHS
+        )
+      : null
+  const operatorBackfillCampaignTarget =
+    params.run.trigger === 'operator_backfill' && operatorBackfillWindowMonths != null
+      ? resolveOperatorBackfillCampaignTarget({
+          state: priorState,
+          requestedWindowMonths: operatorBackfillWindowMonths,
+        })
+      : null
+  if (isResumeCapableFullTrigger(params.run.trigger)) {
+    logManualFullCheckpointEvent({
+      event: resumeCheckpoint ? 'resume_checkpoint_selected' : 'resume_checkpoint_missing',
+      run: params.run,
+      checkpoint: resumeCheckpoint,
+      activeCheckpoint: summarizeResumeCheckpoint({
+        pageToken: priorState?.active_next_page_token,
+        pageIndex: priorState?.active_last_page_index,
+        processedMessages: priorState?.active_processed_messages,
+        processedAt: priorState?.active_last_processed_at,
+      }),
+      lastResumeCheckpoint: summarizeResumeCheckpoint({
+        pageToken: priorState?.last_resume_page_token,
+        pageIndex: priorState?.last_resume_page_index,
+        processedMessages: priorState?.last_processed_messages,
+        processedAt: priorState?.last_resume_processed_at,
+      }),
+      reason: resumeCheckpoint ? null : 'no_usable_checkpoint_in_state',
+    })
+  }
+  const startedFromCheckpoint = Boolean(resumeCheckpoint)
+  let yieldDetail =
+    resumeCheckpoint?.source === 'stale_active'
+      ? priorState?.active_yield_detail ?? emptyMailboxIndexYieldDetail()
+      : resumeCheckpoint?.source === 'last_failed'
+        ? priorState?.last_yield_detail ?? emptyMailboxIndexYieldDetail()
+        : emptyMailboxIndexYieldDetail()
   await markMailboxIndexRunStarted({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -2253,7 +3543,28 @@ async function runFullMailboxIndexForTenant(params: {
       priorState?.index_completion_pct != null && Number.isFinite(priorState.index_completion_pct)
         ? priorState.index_completion_pct
         : null,
+    activeProcessedMessages:
+      params.run.trigger === 'operator_backfill' ? 0 : resumeCheckpoint?.processedMessages ?? 0,
+    activeListPagesFetched: resumeCheckpoint?.pageIndex ?? 0,
+    activeNextPageToken: resumeCheckpoint?.nextPageToken ?? null,
+    activeLastPageIndex: resumeCheckpoint?.pageIndex ?? 0,
+    activeLastProcessedAt: resumeCheckpoint?.processedAt ?? null,
+    backfillResumeProcessedMessages:
+      params.run.trigger === 'operator_backfill' ? resumeCheckpoint?.processedMessages ?? 0 : null,
+    activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+    activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
+    startedFromCheckpoint,
+    yieldDetail,
   })
+  const maxMessages = clampGmailMailboxIndexMaxMessages(params.maxMessages)
+  const historicalProcessedBaseline =
+    params.run.trigger === 'operator_backfill' ? resumeCheckpoint?.processedMessages ?? 0 : 0
+  const operatorBackfillCutoffAtMs =
+    operatorBackfillCampaignTarget != null
+      ? Date.parse(operatorBackfillCampaignTarget.cutoffAt)
+      : Number.NaN
+  let processed =
+    params.run.trigger === 'operator_backfill' ? 0 : resumeCheckpoint?.processedMessages ?? 0
   const resolveTokenStartedAt = Date.now()
   const token = await resolveGmailAccessTokenForTenant({
     supabase: params.supabase,
@@ -2277,10 +3588,17 @@ async function runFullMailboxIndexForTenant(params: {
       lastFailureReason: token.failureDetail || token.reason,
       terminalReason: 'auth_failed',
       gmailResultSizeEstimate: null,
-      listPagesFetched: 0,
-      processedMessages: 0,
+      listPagesFetched: resumeCheckpoint?.pageIndex ?? 0,
+      processedMessages: processed,
+      backfillResumeProcessedMessages: historicalProcessedBaseline + processed,
+      activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+      activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
       upsertedMessages: 0,
       deletedMessages: 0,
+      activeNextPageToken: resumeCheckpoint?.nextPageToken ?? null,
+      activeLastPageIndex: resumeCheckpoint?.pageIndex ?? 0,
+      activeLastProcessedAt: resumeCheckpoint?.processedAt ?? null,
+      startedFromCheckpoint,
       yieldDetail,
     })
     return mailboxIndexFailureResult({
@@ -2290,25 +3608,31 @@ async function runFullMailboxIndexForTenant(params: {
       error: token.error,
       terminalReason: 'auth_failed',
       gmailResultSizeEstimate: null,
-      listPagesFetched: 0,
-      processedMessages: 0,
+      listPagesFetched: resumeCheckpoint?.pageIndex ?? 0,
+      processedMessages: processed,
       usedFallbackFullScan: false,
     })
   }
 
-  const maxMessages = clampGmailMailboxIndexMaxMessages(params.maxMessages)
-  let processed = 0
   let upserted = 0
-  let pageToken: string | null = null
-  let highestHistoryId: string | null = null
-  let metadataConcurrency = METADATA_CONCURRENCY_DEFAULT
+  let pageToken: string | null = resumeCheckpoint?.nextPageToken ?? null
+  let highestHistoryId: string | null = priorState?.last_history_id ?? null
+  let metadataConcurrency = FULL_SCAN_METADATA_CONCURRENCY_DEFAULT
   let lastHeartbeatAtMs = Date.now()
   let lastGmailResultSizeEstimate: number | null = null
-  let listPagesFetched = 0
+  let listPagesFetched = resumeCheckpoint?.pageIndex ?? 0
+  let committedPageIndex = resumeCheckpoint?.pageIndex ?? 0
+  let lastCommittedProcessedAt = resumeCheckpoint?.processedAt ?? null
   let stoppedOnEmptyPage = false
+  let historicalWindowReached = false
+  let boundaryPageIndex: number | null = null
+  let boundaryOldestInternalDate: string | null = null
+  let shouldFetchNextPage =
+    processed < maxMessages && (resumeCheckpoint ? resumeCheckpoint.nextPageToken !== null : true)
 
-  do {
+  while (shouldFetchNextPage) {
     const currentPageToken = pageToken
+    const fetchedPageIndex = listPagesFetched + 1
     const listPageStartedAt = Date.now()
     const page = await listMailboxMessagesPage({
       accessToken: token.accessToken,
@@ -2338,10 +3662,17 @@ async function runFullMailboxIndexForTenant(params: {
         lastFailureReason: page.reason,
         terminalReason: isMailboxIndexAuthFailureReason(page.reason) ? 'auth_failed' : 'gmail_list_failed',
         gmailResultSizeEstimate: lastGmailResultSizeEstimate,
-        listPagesFetched,
+        listPagesFetched: fetchedPageIndex,
         processedMessages: processed,
+        backfillResumeProcessedMessages: historicalProcessedBaseline + processed,
+        activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+        activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
         upsertedMessages: upserted,
         deletedMessages: 0,
+        activeNextPageToken: currentPageToken,
+        activeLastPageIndex: committedPageIndex,
+        activeLastProcessedAt: lastCommittedProcessedAt,
+        startedFromCheckpoint,
         yieldDetail,
       })
       return mailboxIndexFailureResult({
@@ -2351,20 +3682,21 @@ async function runFullMailboxIndexForTenant(params: {
         error: page.error,
         terminalReason: isMailboxIndexAuthFailureReason(page.reason) ? 'auth_failed' : 'gmail_list_failed',
         gmailResultSizeEstimate: lastGmailResultSizeEstimate,
-        listPagesFetched,
+        listPagesFetched: fetchedPageIndex,
         processedMessages: processed,
         lastHistoryId: highestHistoryId,
         usedFallbackFullScan: false,
         rowsAfter: indexedCount,
       })
     }
-    listPagesFetched += 1
+    listPagesFetched = fetchedPageIndex
 
     if (typeof page.resultSizeEstimate === 'number') {
       lastGmailResultSizeEstimate = Math.max(0, Math.round(page.resultSizeEstimate))
-    }
-    if (mailboxEstimatedTotal == null && lastGmailResultSizeEstimate != null) {
-      mailboxEstimatedTotal = lastGmailResultSizeEstimate
+      mailboxEstimatedTotal =
+        mailboxEstimatedTotal == null
+          ? lastGmailResultSizeEstimate
+          : Math.max(mailboxEstimatedTotal, lastGmailResultSizeEstimate)
     }
 
     const remaining = maxMessages - processed
@@ -2376,6 +3708,7 @@ async function runFullMailboxIndexForTenant(params: {
       }
       stoppedOnEmptyPage = true
       pageToken = null
+      shouldFetchNextPage = false
       break
     }
 
@@ -2404,10 +3737,10 @@ async function runFullMailboxIndexForTenant(params: {
           (!item.metadata.ok && isRetryableStatus(item.metadata.status))
       )
       if (
-        metadataConcurrency > METADATA_CONCURRENCY_DEGRADED &&
+        metadataConcurrency > FULL_SCAN_METADATA_CONCURRENCY_DEGRADED &&
         (chunkDurationMs >= METADATA_BATCH_SLOW_MS || hasRetryablePressure)
       ) {
-        metadataConcurrency = METADATA_CONCURRENCY_DEGRADED
+        metadataConcurrency = FULL_SCAN_METADATA_CONCURRENCY_DEGRADED
       }
       const failedItems = responses.filter(
         (item): item is { messageId: string; metadata: GmailMessageMetadataFailure } => !item.metadata.ok
@@ -2503,8 +3836,15 @@ async function runFullMailboxIndexForTenant(params: {
           gmailResultSizeEstimate: lastGmailResultSizeEstimate,
           listPagesFetched,
           processedMessages: processed,
+          backfillResumeProcessedMessages: historicalProcessedBaseline + processed,
+          activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+          activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
           upsertedMessages: upserted,
           deletedMessages: 0,
+          activeNextPageToken: currentPageToken,
+          activeLastPageIndex: committedPageIndex,
+          activeLastProcessedAt: lastCommittedProcessedAt,
+          startedFromCheckpoint,
           yieldDetail,
         })
         return mailboxIndexFailureResult({
@@ -2536,6 +3876,14 @@ async function runFullMailboxIndexForTenant(params: {
         highestHistoryId = maxHistoryId(highestHistoryId, parseHistoryId(item.metadata.metadata.historyId))
         metadataRows.push(row)
       }
+
+      if (metadataCursor < messageIds.length) {
+        await sleep(
+          hasRetryablePressure || chunkDurationMs >= METADATA_BATCH_SLOW_MS
+            ? FULL_SCAN_METADATA_PRESSURE_DELAY_MS
+            : FULL_SCAN_METADATA_BATCH_DELAY_MS
+        )
+      }
     }
 
     const existingRowsResult = await loadExistingMailboxIndexRowsByMessageId({
@@ -2565,8 +3913,15 @@ async function runFullMailboxIndexForTenant(params: {
         gmailResultSizeEstimate: lastGmailResultSizeEstimate,
         listPagesFetched,
         processedMessages: processed,
+        backfillResumeProcessedMessages: historicalProcessedBaseline + processed,
+        activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+        activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
         upsertedMessages: upserted,
         deletedMessages: 0,
+        activeNextPageToken: currentPageToken,
+        activeLastPageIndex: committedPageIndex,
+        activeLastProcessedAt: lastCommittedProcessedAt,
+        startedFromCheckpoint,
         yieldDetail,
       })
       return mailboxIndexFailureResult({
@@ -2627,8 +3982,12 @@ async function runFullMailboxIndexForTenant(params: {
         gmailResultSizeEstimate: lastGmailResultSizeEstimate,
         listPagesFetched,
         processedMessages: processed,
+        backfillResumeProcessedMessages: historicalProcessedBaseline + processed,
         upsertedMessages: upserted,
         deletedMessages: 0,
+        activeNextPageToken: currentPageToken,
+        activeLastPageIndex: committedPageIndex,
+        activeLastProcessedAt: lastCommittedProcessedAt,
         yieldDetail,
       })
       return mailboxIndexFailureResult({
@@ -2648,33 +4007,67 @@ async function runFullMailboxIndexForTenant(params: {
 
     processed += messageIds.length
     upserted += metadataRows.length
-    if (Date.now() - lastHeartbeatAtMs >= GMAIL_MAILBOX_INDEX_HEARTBEAT_INTERVAL_MS) {
-      const heartbeatIndexedCount = await countIndexedMessagesForTenant({
-        supabase: params.supabase,
-        tenantId: params.tenantId,
-      })
-      await markMailboxIndexRunHeartbeat({
-        supabase: params.supabase,
-        tenantId: params.tenantId,
-        effectiveMode: 'full',
-        run: params.run,
-        lastHistoryId: highestHistoryId,
+    committedPageIndex += 1
+    const nextPageToken = page.nextPageToken ?? null
+    pageToken = nextPageToken
+    lastCommittedProcessedAt = new Date().toISOString()
+    const committedIndexedCount = params.run.rowsBefore + yieldDetail.inserted_rows
+    const shouldEmitHeartbeatLog = Date.now() - lastHeartbeatAtMs >= GMAIL_MAILBOX_INDEX_HEARTBEAT_INTERVAL_MS
+    await markMailboxIndexRunHeartbeat({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      effectiveMode: 'full',
+      run: params.run,
+      lastHistoryId: highestHistoryId,
+      mailboxEstimatedTotal,
+      indexCompletionPct: computeIndexCompletionPct({
+        indexedMessageCount: committedIndexedCount,
         mailboxEstimatedTotal,
-        indexCompletionPct: computeIndexCompletionPct({
-          indexedMessageCount: heartbeatIndexedCount,
-          mailboxEstimatedTotal,
-        }),
-        indexedMessageCount: heartbeatIndexedCount,
-        processedMessages: processed,
-        upsertedMessages: upserted,
-        deletedMessages: 0,
-        listPagesFetched,
-        yieldDetail,
-      })
+      }),
+      indexedMessageCount: committedIndexedCount,
+      processedMessages: processed,
+      backfillResumeProcessedMessages: historicalProcessedBaseline + processed,
+      activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+      activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
+      upsertedMessages: upserted,
+      deletedMessages: 0,
+      listPagesFetched,
+      activeNextPageToken: pageToken,
+      activeLastPageIndex: committedPageIndex,
+      activeLastProcessedAt: lastCommittedProcessedAt,
+      yieldDetail,
+      emitManualFullLog: shouldEmitHeartbeatLog,
+    })
+    const oldestPageInternalDate = findOldestInternalDateIso(metadataRows)
+    if (
+      params.run.trigger === 'operator_backfill' &&
+      operatorBackfillCampaignTarget != null &&
+      Number.isFinite(operatorBackfillCutoffAtMs) &&
+      oldestPageInternalDate
+    ) {
+      const oldestPageInternalDateMs = Date.parse(oldestPageInternalDate)
+      if (Number.isFinite(oldestPageInternalDateMs) && oldestPageInternalDateMs <= operatorBackfillCutoffAtMs) {
+        historicalWindowReached = true
+        boundaryPageIndex = committedPageIndex
+        boundaryOldestInternalDate = oldestPageInternalDate
+        console.info(
+          `${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify({
+            event: 'historical_boundary_reached',
+            run_id: params.run.runId,
+            trigger: params.run.trigger,
+            backfill_window_months: operatorBackfillCampaignTarget.windowMonths,
+            cutoff_at: operatorBackfillCampaignTarget.cutoffAt,
+            boundary_page_index: boundaryPageIndex,
+            boundary_oldest_internal_date: boundaryOldestInternalDate,
+          })}`
+        )
+      }
+    }
+    if (shouldEmitHeartbeatLog) {
       lastHeartbeatAtMs = Date.now()
     }
-    pageToken = processed >= maxMessages ? null : page.nextPageToken
-  } while (pageToken)
+    shouldFetchNextPage = !historicalWindowReached && pageToken !== null && processed < maxMessages
+  }
 
   const countIndexedStartedAt = Date.now()
   const indexedCount = await countIndexedMessagesForTenant({
@@ -2706,8 +4099,15 @@ async function runFullMailboxIndexForTenant(params: {
       gmailResultSizeEstimate: lastGmailResultSizeEstimate,
       listPagesFetched,
       processedMessages: processed,
+      backfillResumeProcessedMessages: historicalProcessedBaseline + processed,
+      activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+      activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
       upsertedMessages: upserted,
       deletedMessages: 0,
+      activeNextPageToken: pageToken,
+      activeLastPageIndex: committedPageIndex,
+      activeLastProcessedAt: lastCommittedProcessedAt,
+      startedFromCheckpoint,
       yieldDetail,
     })
     return mailboxIndexFailureResult({
@@ -2726,11 +4126,18 @@ async function runFullMailboxIndexForTenant(params: {
   }
 
   const durationMs = Math.max(0, Math.round(Date.now() - runStartedAt))
-  const terminalReason: GmailMailboxIndexTerminalReason = stoppedOnEmptyPage
-    ? 'empty_page'
-    : processed >= maxMessages
-      ? 'requested_limit_reached'
-      : 'gmail_pagination_exhausted'
+  const terminalReason: GmailMailboxIndexTerminalReason = historicalWindowReached
+    ? 'historical_window_reached'
+    : stoppedOnEmptyPage
+      ? 'empty_page'
+      : processed >= maxMessages && pageToken !== null
+        ? 'requested_limit_reached'
+        : 'gmail_pagination_exhausted'
+  const backfillCampaignCompleted =
+    params.run.trigger === 'operator_backfill' &&
+    (terminalReason === 'historical_window_reached' ||
+      terminalReason === 'gmail_pagination_exhausted' ||
+      terminalReason === 'empty_page')
   const upsertStateStartedAt = Date.now()
   await markMailboxIndexRunCompleted({
     supabase: params.supabase,
@@ -2748,6 +4155,19 @@ async function runFullMailboxIndexForTenant(params: {
     upsertedMessages: upserted,
     deletedMessages: 0,
     yieldDetail,
+    startedFromCheckpoint,
+    clearResumeCheckpoint:
+      params.run.trigger === 'operator_backfill' ? false : terminalReason !== 'requested_limit_reached',
+    clearActiveBackfillCampaign: backfillCampaignCompleted,
+    activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
+    activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
+    backfillCompletedWindowMonths: backfillCampaignCompleted
+      ? operatorBackfillCampaignTarget?.windowMonths ?? null
+      : undefined,
+    backfillCompletedCutoffAt: backfillCampaignCompleted
+      ? operatorBackfillCampaignTarget?.cutoffAt ?? null
+      : undefined,
+    backfillCompletedAt: backfillCampaignCompleted ? new Date().toISOString() : undefined,
   })
   phaseMs.upsert_state_ms = Math.max(0, Date.now() - upsertStateStartedAt)
   clearIndexedRowsCacheForTenant(params.tenantId)
@@ -2761,6 +4181,10 @@ async function runFullMailboxIndexForTenant(params: {
       run_id: params.run.runId,
       trigger: params.run.trigger,
       terminal_reason: terminalReason,
+      backfill_window_months: operatorBackfillCampaignTarget?.windowMonths ?? null,
+      backfill_cutoff_at: operatorBackfillCampaignTarget?.cutoffAt ?? null,
+      boundary_page_index: boundaryPageIndex,
+      boundary_oldest_internal_date: boundaryOldestInternalDate,
       gmail_result_size_estimate: lastGmailResultSizeEstimate,
       list_pages_fetched: listPagesFetched,
       rows_before: params.run.rowsBefore,
@@ -2774,14 +4198,16 @@ async function runFullMailboxIndexForTenant(params: {
       duration_ms: durationMs,
     })}`
   )
-  if (params.run.trigger === 'manual_full_reindex') {
+  if (isResumeCapableFullTrigger(params.run.trigger)) {
     console.info(
-      `[integrations/gmail/mailbox-index/manual-full] ${JSON.stringify({
+      `${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify({
         event: 'completed',
         run_id: params.run.runId,
         trigger: params.run.trigger,
         requested_mode: params.run.requestedMode,
         effective_mode: 'full',
+        backfill_window_months: operatorBackfillCampaignTarget?.windowMonths ?? null,
+        backfill_cutoff_at: operatorBackfillCampaignTarget?.cutoffAt ?? null,
         rows_before: params.run.rowsBefore,
         rows_after: indexedCount,
         growth_delta: mailboxIndexGrowthDelta(params.run.rowsBefore, indexedCount),
@@ -2790,6 +4216,8 @@ async function runFullMailboxIndexForTenant(params: {
         indexed_message_count: indexedCount,
         yield_detail: yieldDetail,
         terminal_reason: terminalReason,
+        boundary_page_index: boundaryPageIndex,
+        boundary_oldest_internal_date: boundaryOldestInternalDate,
       })}`
     )
   }
@@ -2812,9 +4240,27 @@ async function runFullMailboxIndexForTenant(params: {
 function collectHistoryMessageIds(
   historyItem: NonNullable<GmailHistoryListResponse['history']>[number],
   changed: Set<string>,
-  deleted: Set<string>
+  deleted: Set<string>,
+  changeMap?: Map<string, GmailHistoryMessageChange>
 ) {
-  const collect = (list: unknown, out: Set<string>) => {
+  const recordChange = (
+    messageId: string,
+    mutate?: (change: GmailHistoryMessageChange) => void
+  ) => {
+    if (!changeMap) return
+    const current = changeMap.get(messageId) ?? {
+      added: false,
+      labelsChanged: false,
+    }
+    if (mutate) mutate(current)
+    changeMap.set(messageId, current)
+  }
+
+  const collect = (
+    list: unknown,
+    out: Set<string>,
+    mutate?: (change: GmailHistoryMessageChange) => void
+  ) => {
     if (!Array.isArray(list)) return
     for (const entry of list) {
       if (!isRecord(entry)) continue
@@ -2822,13 +4268,22 @@ function collectHistoryMessageIds(
       const id = typeof message.id === 'string' ? message.id.trim() : ''
       if (!id) continue
       out.add(id)
+      if (out === changed) {
+        recordChange(id, mutate)
+      }
     }
   }
 
   collect(historyItem.messages, changed)
-  collect(historyItem.messagesAdded, changed)
-  collect(historyItem.labelsAdded, changed)
-  collect(historyItem.labelsRemoved, changed)
+  collect(historyItem.messagesAdded, changed, (change) => {
+    change.added = true
+  })
+  collect(historyItem.labelsAdded, changed, (change) => {
+    change.labelsChanged = true
+  })
+  collect(historyItem.labelsRemoved, changed, (change) => {
+    change.labelsChanged = true
+  })
   collect(historyItem.messagesDeleted, deleted)
 }
 
@@ -2838,69 +4293,160 @@ async function listHistoryPage(params: {
   pageToken?: string | null
 }): Promise<
   | { ok: true; payload: GmailHistoryListResponse }
-  | { ok: false; reason: GmailMailboxIndexFailureReason; error: string; status: number }
+  | GmailHistoryListFailure
 > {
   const url = new URL(GMAIL_HISTORY_ENDPOINT)
   url.searchParams.set('startHistoryId', params.startHistoryId)
   url.searchParams.set('maxResults', String(LIST_PAGE_SIZE))
   url.searchParams.append('historyTypes', 'messageAdded')
   url.searchParams.append('historyTypes', 'messageDeleted')
-  url.searchParams.append('historyTypes', 'labelsAdded')
-  url.searchParams.append('historyTypes', 'labelsRemoved')
+  url.searchParams.append('historyTypes', 'labelAdded')
+  url.searchParams.append('historyTypes', 'labelRemoved')
   if (params.pageToken) url.searchParams.set('pageToken', params.pageToken)
 
   let response: Response
+  let attempts: number | null = null
+  let hadRetryableSignal = false
   try {
-    response = (
-      await fetchWithRetry(url.toString(), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${params.accessToken}` },
-        cache: 'no-store',
-      })
-    ).response
-  } catch {
+    const fetchResult = await fetchWithRetry(url.toString(), {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${params.accessToken}` },
+      cache: 'no-store',
+    })
+    response = fetchResult.response
+    attempts = fetchResult.attempts
+    hadRetryableSignal = fetchResult.hadRetryableSignal
+  } catch (error) {
+    attempts = error instanceof FetchWithRetryError ? error.attempts : null
+    hadRetryableSignal = error instanceof FetchWithRetryError ? error.hadRetryableSignal : false
+    const failureDetail = buildHistoryFailureDetail({
+      classification: 'retryable_api',
+      status: 502,
+      providerReason: null,
+      providerMessage: null,
+      startHistoryId: params.startHistoryId,
+      pageToken: params.pageToken ?? null,
+      retryAttempts: attempts,
+    })
     return {
       ok: false,
       status: 502,
       reason: 'gmail_api_failed',
       error: 'Failed to list Gmail history changes.',
+      providerReason: null,
+      providerMessage: null,
+      retryable: true,
+      attempts,
+      classification: 'retryable_api',
+      failureDetail,
     }
   }
   const payload = (await response
     .json()
     .catch(() => null)) as GmailHistoryListResponse | null
+  const { providerReason, providerMessage } = extractGmailApiErrorDetails(payload)
+  const classification = classifyHistoryFailure({
+    status: response.status,
+    payload,
+    providerReason,
+    providerMessage,
+    hadRetryableSignal,
+  })
 
-  if (hasHistoryOutOfDateError(response.status, payload)) {
-    return {
-      ok: false,
-      status: response.status,
-      reason: 'history_out_of_date',
-      error: 'Gmail historyId is too old and requires full re-index.',
-    }
-  }
-  if (hasInsufficientScopeError(response.status, payload)) {
-    return {
-      ok: false,
-      status: response.status,
-      reason: 'insufficient_scope',
-      error: 'Connected Gmail token is missing inbox-read scope.',
-    }
-  }
   if (!response.ok || !payload) {
+    let reason: GmailMailboxIndexFailureReason = 'gmail_api_failed'
+    let error = 'Failed to list Gmail history changes.'
+    if (classification === 'history_out_of_date') {
+      reason = 'history_out_of_date'
+      error = 'Gmail historyId is too old and requires full re-index.'
+    } else if (classification === 'insufficient_scope') {
+      reason = 'insufficient_scope'
+      error = 'Connected Gmail token is missing inbox-read scope.'
+    } else if (classification === 'auth') {
+      error = providerMessage
+        ? `Reconnect Gmail to continue syncing mailbox history. ${providerMessage}`
+        : 'Reconnect Gmail to continue syncing mailbox history.'
+    } else if (classification === 'invalid_history_request') {
+      error = providerMessage
+        ? `Gmail rejected the mailbox history request. ${providerMessage}`
+        : 'Gmail rejected the mailbox history request.'
+    }
+    const failureDetail = buildHistoryFailureDetail({
+      classification,
+      status: response.status,
+      providerReason,
+      providerMessage,
+      startHistoryId: params.startHistoryId,
+      pageToken: params.pageToken ?? null,
+      retryAttempts: attempts,
+    })
     return {
       ok: false,
       status: response.status,
-      reason: 'gmail_api_failed',
-      error: 'Failed to list Gmail history changes.',
+      reason,
+      error,
+      providerReason,
+      providerMessage,
+      retryable: classification === 'retryable_api',
+      attempts,
+      classification,
+      failureDetail,
     }
   }
   return { ok: true, payload }
+}
+
+function shouldFetchIncrementalMetadata(params: {
+  messageId: string
+  existingRowsByMessageId: Map<string, GmailMailboxIndexComparableRow>
+  changeMap: Map<string, GmailHistoryMessageChange>
+}): boolean {
+  const existingRow = params.existingRowsByMessageId.get(params.messageId)
+  if (!existingRow) return true
+  const change = params.changeMap.get(params.messageId)
+  return Boolean(change?.added || change?.labelsChanged)
+}
+
+async function runSmartSyncBoundedScanForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  maxMessages: number
+  logPrefix: string
+  run: GmailMailboxIndexRunContext
+  reason:
+    | 'missing_history_state'
+    | 'incremental_history_out_of_date'
+    | 'incremental_history_listing_failed'
+}): Promise<GmailMailboxIndexSyncResult> {
+  const boundedMaxMessages = Math.min(
+    clampGmailMailboxIndexMaxMessages(params.maxMessages),
+    SMART_SYNC_BOUNDED_SCAN_MAX_MESSAGES
+  )
+  console.info(
+    `${params.logPrefix} ${JSON.stringify({
+      event: 'smart_sync_bounded_scan_selected',
+      run_id: params.run.runId,
+      trigger: params.run.trigger,
+      requested_mode: params.run.requestedMode,
+      effective_mode: 'full',
+      reason: params.reason,
+      max_messages: boundedMaxMessages,
+    })}`
+  )
+  return runFullMailboxIndexForTenant({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    maxMessages: boundedMaxMessages,
+    logPrefix: `${params.logPrefix}:smart-sync-bounded`,
+    run: params.run,
+  })
 }
 
 async function runIncrementalMailboxIndexForTenant(params: {
   supabase: SupabaseClient
   tenantId: string
   allowFullRescanOnHistoryGap: boolean
+  boundedHistoryGapMaxMessages?: number | null
   maxMessages: number
   logPrefix: string
   run: GmailMailboxIndexRunContext
@@ -2945,8 +4491,25 @@ async function runIncrementalMailboxIndexForTenant(params: {
   })
   const startHistoryId =
     state?.last_history_id && state.last_history_id.trim() ? state.last_history_id.trim() : ''
+  const boundedHistoryGapMaxMessages =
+    typeof params.boundedHistoryGapMaxMessages === 'number' && params.boundedHistoryGapMaxMessages > 0
+      ? Math.min(
+          clampGmailMailboxIndexMaxMessages(params.boundedHistoryGapMaxMessages),
+          SMART_SYNC_BOUNDED_SCAN_MAX_MESSAGES
+        )
+      : null
 
   if (!startHistoryId) {
+    if (boundedHistoryGapMaxMessages != null) {
+      return runSmartSyncBoundedScanForTenant({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        maxMessages: boundedHistoryGapMaxMessages,
+        logPrefix: params.logPrefix,
+        run: params.run,
+        reason: 'missing_history_state',
+      })
+    }
     if (!params.allowFullRescanOnHistoryGap) {
       const durationMs = Math.max(0, Math.round(Date.now() - runStartedAt))
       await markMailboxIndexRunFailed({
@@ -2977,6 +4540,16 @@ async function runIncrementalMailboxIndexForTenant(params: {
         gmailResultSizeEstimate: null,
         listPagesFetched: null,
         usedFallbackFullScan: false,
+      })
+    }
+    const recoveryState = await loadGmailMailboxIndexState({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+    })
+    if (isManualFullRunActive(recoveryState)) {
+      return mailboxIndexDeferredResult({
+        run: params.run,
+        currentState: recoveryState,
       })
     }
     const full = await runFullMailboxIndexForTenant({
@@ -3031,6 +4604,7 @@ async function runIncrementalMailboxIndexForTenant(params: {
   }
 
   const changedIds = new Set<string>()
+  const changedMessageMap = new Map<string, GmailHistoryMessageChange>()
   const deletedIds = new Set<string>()
   let pageToken: string | null = null
   let latestHistoryId: string | null = startHistoryId
@@ -3046,9 +4620,12 @@ async function runIncrementalMailboxIndexForTenant(params: {
     })
     phaseMs.history_list_ms += Math.max(0, Date.now() - historyPageStartedAt)
     if (!page.ok) {
+      const authLikeHistoryFailure =
+        page.classification === 'auth' || page.reason === 'insufficient_scope'
       const failedToListHistory = page.reason === 'gmail_api_failed' && page.error.toLowerCase().includes('history')
       const canRunHistoryRecoveryScan = (() => {
         if (!params.allowFullRescanOnHistoryGap) return false
+        if (authLikeHistoryFailure) return false
         if (page.reason !== 'history_out_of_date' && !failedToListHistory) return false
         const lastFullScanMs =
           typeof state?.last_full_scan_at === 'string' && state.last_full_scan_at.trim()
@@ -3059,6 +4636,7 @@ async function runIncrementalMailboxIndexForTenant(params: {
       })()
       const canRunBoundedRecoveryScan = (() => {
         if (!params.allowFullRescanOnHistoryGap || !failedToListHistory) return false
+        if (authLikeHistoryFailure) return false
         const lastIncrementalMs =
           typeof state?.last_incremental_sync_at === 'string' && state.last_incremental_sync_at.trim()
             ? Date.parse(state.last_incremental_sync_at)
@@ -3067,7 +4645,52 @@ async function runIncrementalMailboxIndexForTenant(params: {
         return Date.now() - lastIncrementalMs > HISTORY_RECOVERY_PARTIAL_SCAN_COOLDOWN_MS
       })()
 
+      console.warn(
+        `${params.logPrefix} ${JSON.stringify({
+          event: 'history_list_failed',
+          run_id: params.run.runId,
+          trigger: params.run.trigger,
+          requested_mode: params.run.requestedMode,
+          effective_mode: 'incremental',
+          reason: page.reason,
+          classification: page.classification,
+          status: page.status,
+          provider_reason: page.providerReason,
+          provider_message: page.providerMessage,
+          retryable: page.retryable,
+          attempts: page.attempts,
+          start_history_id: startHistoryId,
+          page_token: pageToken,
+          bounded_recovery_candidate:
+            boundedHistoryGapMaxMessages != null && !authLikeHistoryFailure,
+        })}`
+      )
+
+      if (boundedHistoryGapMaxMessages != null && !authLikeHistoryFailure) {
+        return runSmartSyncBoundedScanForTenant({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          maxMessages: boundedHistoryGapMaxMessages,
+          logPrefix: params.logPrefix,
+          run: params.run,
+          reason:
+            page.reason === 'history_out_of_date'
+              ? 'incremental_history_out_of_date'
+              : 'incremental_history_listing_failed',
+        })
+      }
+
       if (canRunHistoryRecoveryScan) {
+        const recoveryState = await loadGmailMailboxIndexState({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+        })
+        if (isManualFullRunActive(recoveryState)) {
+          return mailboxIndexDeferredResult({
+            run: params.run,
+            currentState: recoveryState,
+          })
+        }
         const recoveryStartedAt = Date.now()
         const full = await runFullMailboxIndexForTenant({
           supabase: params.supabase,
@@ -3080,6 +4703,16 @@ async function runIncrementalMailboxIndexForTenant(params: {
         return full
       }
       if (canRunBoundedRecoveryScan) {
+        const recoveryState = await loadGmailMailboxIndexState({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+        })
+        if (isManualFullRunActive(recoveryState)) {
+          return mailboxIndexDeferredResult({
+            run: params.run,
+            currentState: recoveryState,
+          })
+        }
         const recoveryStartedAt = Date.now()
         const partialRecovery = await runFullMailboxIndexForTenant({
           supabase: params.supabase,
@@ -3095,6 +4728,8 @@ async function runIncrementalMailboxIndexForTenant(params: {
       }
       const failedHistoryMessage = failedToListHistory
         ? 'Failed to list Gmail history changes. Cached indexed rows remain usable, but no explicit full mailbox reindex completed.'
+        : authLikeHistoryFailure
+          ? page.error
         : page.error
       const indexedCount = await countIndexedMessagesForTenant({
         supabase: params.supabase,
@@ -3111,7 +4746,7 @@ async function runIncrementalMailboxIndexForTenant(params: {
         indexedMessageCount: indexedCount,
         lastIndexDurationMs: durationMs,
         lastSyncStatus:
-          isMailboxIndexAuthFailureReason(page.reason)
+          authLikeHistoryFailure || isMailboxIndexAuthFailureReason(page.reason)
             ? mailboxIndexAuthFailureStatus('incremental')
             : page.reason === 'history_out_of_date'
             ? 'incremental_history_out_of_date'
@@ -3120,7 +4755,9 @@ async function runIncrementalMailboxIndexForTenant(params: {
               : mailboxIndexFailureStatus('incremental'),
         lastSyncError: failedHistoryMessage,
         lastFailureReason: page.reason,
+        lastFailureReasonDetail: page.failureDetail,
         terminalReason: isMailboxIndexAuthFailureReason(page.reason)
+          || authLikeHistoryFailure
           ? 'auth_failed'
           : page.reason === 'history_out_of_date'
             ? 'incremental_history_out_of_date'
@@ -3150,8 +4787,8 @@ async function runIncrementalMailboxIndexForTenant(params: {
         effectiveMode: 'incremental',
         run: params.run,
         reason: page.reason,
-        error: page.error,
-        terminalReason: isMailboxIndexAuthFailureReason(page.reason)
+        error: failedHistoryMessage,
+        terminalReason: isMailboxIndexAuthFailureReason(page.reason) || authLikeHistoryFailure
           ? 'auth_failed'
           : page.reason === 'history_out_of_date'
             ? 'incremental_history_out_of_date'
@@ -3167,7 +4804,7 @@ async function runIncrementalMailboxIndexForTenant(params: {
     const payload = page.payload
     latestHistoryId = maxHistoryId(latestHistoryId, parseHistoryId(payload.historyId))
     for (const historyItem of payload.history || []) {
-      collectHistoryMessageIds(historyItem, changedIds, deletedIds)
+      collectHistoryMessageIds(historyItem, changedIds, deletedIds, changedMessageMap)
       latestHistoryId = maxHistoryId(latestHistoryId, parseHistoryId(historyItem.id))
     }
 
@@ -3199,18 +4836,69 @@ async function runIncrementalMailboxIndexForTenant(params: {
 
   for (const deletedId of deletedIds) {
     changedIds.delete(deletedId)
+    changedMessageMap.delete(deletedId)
   }
 
   const changedList = Array.from(changedIds)
+  const existingRowsResult = await loadExistingMailboxIndexRowsByMessageId({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    messageIds: changedList,
+  })
+  if (!existingRowsResult.ok) {
+    const indexedCount = await countIndexedMessagesForTenant({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+    })
+    await markMailboxIndexRunFailed({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      effectiveMode: 'incremental',
+      run: params.run,
+      lastHistoryId: latestHistoryId || startHistoryId,
+      mailboxEstimatedTotal,
+      lastIndexDurationMs: Math.max(0, Math.round(Date.now() - runStartedAt)),
+      indexedMessageCount: indexedCount,
+      lastSyncStatus: mailboxIndexFailureStatus('incremental'),
+      lastSyncError: existingRowsResult.error,
+      lastFailureReason: 'database_failed',
+      terminalReason: 'database_failed',
+      gmailResultSizeEstimate: null,
+      listPagesFetched: null,
+      processedMessages: changedList.length,
+      upsertedMessages: 0,
+      deletedMessages: deletedIds.size,
+    })
+    return mailboxIndexFailureResult({
+      effectiveMode: 'incremental',
+      run: params.run,
+      reason: 'database_failed',
+      error: existingRowsResult.error,
+      terminalReason: 'database_failed',
+      gmailResultSizeEstimate: null,
+      listPagesFetched: null,
+      lastHistoryId: latestHistoryId || startHistoryId,
+      usedFallbackFullScan: false,
+      rowsAfter: indexedCount,
+    })
+  }
+  const metadataFetchList = changedList.filter((messageId) =>
+    shouldFetchIncrementalMetadata({
+      messageId,
+      existingRowsByMessageId: existingRowsResult.rowsByMessageId,
+      changeMap: changedMessageMap,
+    })
+  )
   const nowIso = new Date().toISOString()
   const metadataRows: GmailMailboxIndexRow[] = []
   let upserted = 0
   let metadataFailureCount = 0
   const metadataFailureSamples: string[] = []
+  const skippedMetadataFetches = Math.max(0, changedList.length - metadataFetchList.length)
 
   let metadataCursor = 0
-  while (metadataCursor < changedList.length) {
-    const chunk = changedList.slice(metadataCursor, metadataCursor + metadataConcurrency)
+  while (metadataCursor < metadataFetchList.length) {
+    const chunk = metadataFetchList.slice(metadataCursor, metadataCursor + metadataConcurrency)
     metadataCursor += chunk.length
     const chunkStartedAt = Date.now()
     const responses = await Promise.all(
@@ -3456,6 +5144,8 @@ async function runIncrementalMailboxIndexForTenant(params: {
       rows_after: indexedCount,
       growth_delta: mailboxIndexGrowthDelta(params.run.rowsBefore, indexedCount),
       processed_messages: changedList.length,
+      metadata_fetch_requested_messages: metadataFetchList.length,
+      metadata_fetch_skipped_messages: skippedMetadataFetches,
       upserted_messages: upserted,
       deleted_messages: deletedIds.size,
       indexed_message_count: indexedCount,
@@ -3485,6 +5175,7 @@ export async function syncGmailMailboxIndexForTenant(params: {
   tenantId: string
   mode?: 'full' | 'incremental'
   maxMessages?: number
+  backfillWindowMonths?: GmailOperatorBackfillWindowMonths
   allowFullRescanOnHistoryGap?: boolean
   logPrefix?: string
   runId?: string
@@ -3525,16 +5216,76 @@ export async function syncGmailMailboxIndexForTenant(params: {
     supabase: params.supabase,
     tenantId,
   })
+  const resumeCheckpoint =
+    trigger === 'operator_backfill'
+        ? buildOperatorBackfillResumeCheckpoint(currentState)
+        : null
+  const requestedMode =
+    trigger === 'smart_sync'
+      ? 'incremental'
+      : trigger === 'operator_backfill'
+        ? 'full'
+        : mode
   const run: GmailMailboxIndexRunContext = {
     runId,
     trigger,
     rowsBefore,
-    requestedMode: mode,
+    requestedMode,
+    backfillWindowMonths:
+      trigger === 'operator_backfill'
+        ? normalizeGmailOperatorBackfillWindowMonths(params.backfillWindowMonths)
+        : null,
   }
 
-  if (isMailboxIndexRunActive(currentState)) {
+  if (trigger === 'smart_sync') {
+    console.info(
+      `${logPrefix} ${JSON.stringify({
+        event: 'smart_sync_strategy_selected',
+        run_id: runId,
+        trigger,
+        rows_before: rowsBefore,
+        strategy: 'incremental_history_sync',
+        requested_mode: requestedMode,
+        checkpoint_present: false,
+      })}`
+    )
+  }
+
+  if (trigger === 'operator_backfill') {
+    console.info(
+      `${logPrefix} ${JSON.stringify({
+        event: 'operator_backfill_strategy_selected',
+        run_id: runId,
+        trigger,
+        rows_before: rowsBefore,
+        strategy: resumeCheckpoint ? 'resume_full_from_checkpoint' : 'fresh_full_backfill',
+        message: resumeCheckpoint
+          ? 'Resumed historical backfill from saved checkpoint'
+          : 'Fresh historical backfill started',
+        requested_mode: requestedMode,
+        backfill_window_months: run.backfillWindowMonths ?? null,
+        checkpoint_present: Boolean(resumeCheckpoint),
+      })}`
+    )
+  }
+
+  if (trigger !== 'manual_full_reindex' && isManualFullRunActive(currentState)) {
+    return mailboxIndexDeferredResult({
+      run,
+      currentState,
+    })
+  }
+
+  if (
+    isMailboxIndexRunActive(currentState) &&
+    !isSameRegisteredMailboxIndexRun({
+      state: currentState,
+      runId,
+      trigger,
+    })
+  ) {
     return mailboxIndexFailureResult({
-      effectiveMode: currentState?.active_effective_mode ?? mode,
+      effectiveMode: currentState?.active_effective_mode ?? requestedMode,
       run,
       reason: 'already_running',
       error: 'A mailbox index run is already in progress for this tenant.',
@@ -3547,7 +5298,7 @@ export async function syncGmailMailboxIndexForTenant(params: {
     })
   }
 
-  if (mode === 'full') {
+  if (requestedMode === 'full') {
     return runFullMailboxIndexForTenant({
       supabase: params.supabase,
       tenantId,
@@ -3560,7 +5311,9 @@ export async function syncGmailMailboxIndexForTenant(params: {
   return runIncrementalMailboxIndexForTenant({
     supabase: params.supabase,
     tenantId,
-    allowFullRescanOnHistoryGap: params.allowFullRescanOnHistoryGap ?? false,
+    allowFullRescanOnHistoryGap:
+      trigger === 'smart_sync' ? false : params.allowFullRescanOnHistoryGap ?? false,
+    boundedHistoryGapMaxMessages: trigger === 'smart_sync' ? maxMessages : null,
     maxMessages,
     logPrefix,
     run,

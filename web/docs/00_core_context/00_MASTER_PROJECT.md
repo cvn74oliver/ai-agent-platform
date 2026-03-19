@@ -1274,7 +1274,6 @@ Dry Run Safety
 - “Dry run” means: run evaluation/rewrite logic and show the result, but do NOT persist changes to Supabase.
 - Use dry runs for risky prompt rewrites or schema-adjacent changes.
 
-Current Checkpoint (March 2026)
 - Google Drive PDF ingestion is working end-to-end:
   - `rag_documents` contains substantial Drive chunks with embeddings.
   - `title` is set to the Drive filename and `source_url` is the Drive file view URL.
@@ -1327,6 +1326,143 @@ Current Focus
 		•	Favor repeated narrow Codex passes over broad Gmail UI rewrites so product review and regression detection stay controllable.
 	•	Define the real inbox-cleanup progress model before shipping any percentage-based “overall cleanup” claim.
 	•	Prepare clean handoffs between PM versions at stable checkpoints.
+
+---
+
+### 🧠 Product Phase Transition (March 2026 – CRITICAL)
+
+The project has officially transitioned from **Infrastructure Phase → Product Phase**.
+
+#### What is DONE (Do NOT revisit unless critical bug)
+- Gmail ingestion pipeline (Smart Sync + Backfill)
+- Checkpoint-based historical traversal
+- Mailbox Intelligence dashboard (mission-control baseline)
+- Runtime execution + approval system
+
+These systems are now considered **stable foundations**, not active build areas.
+
+---
+
+#### What is NOW PRIMARY FOCUS
+The system is now building the **Sender Decision System (Core Product Loop)**:
+
+- Tinder-style sender decision flow
+- 4-action decision model:
+  - Keep All
+  - Keep Some
+  - Archive All
+  - Not Sure
+- Rapid progression UX (one sender at a time)
+- Direct mapping to Management Execution system
+
+This is the **core user value engine** and must take priority over all infrastructure improvements.
+
+---
+
+#### Non-Negotiable Product Rules (Sender Decision Phase)
+
+- The system must optimize for **speed of decision-making**, not analysis depth.
+- UI must feel:
+  - fast
+  - focused
+  - low-friction
+- One sender at a time (no list overwhelm)
+- Decisions must immediately map into execution buckets
+
+---
+
+#### What is DEPRIORITIZED (for now)
+- Advanced analytics refinements
+- Performance optimizations (e.g., recency weighting system)
+- Deep AI learning loops
+- Additional ingestion improvements
+
+These are **Phase 2 optimization layers**, not blocking product delivery.
+
+---
+
+#### PM Directive
+
+The Project Manager must now:
+
+- Treat Sender Decision System as the **primary product surface**
+- Reject Codex passes that drift back into:
+  - dashboard redesign
+  - ingestion changes
+  - unnecessary backend optimization
+- Enforce **Sniper Method execution** for decision UI build
+- Drive Codex strictly from:
+  - decision UI specs
+  - decision engine specs
+  - management execution specs
+
+---
+
+#### Strategic Framing
+
+We are no longer:
+
+> “building a system that understands inboxes”
+
+We are now:
+
+> “building a system that helps users make fast, confident decisions about their inbox”
+
+---
+
+### 📬 Gmail Mailbox Indexing System – March 2026 (CRITICAL STATE UPDATE)
+
+Status:
+- Smart Sync (incremental) is now stable and fully separated from historical traversal.
+- Historical Backfill (operator_backfill) is now the ONLY path for full mailbox coverage.
+- Checkpoint-based resume is functioning and confirmed in live runs (resuming >100k+ pages without page-1 restart).
+
+Key Architectural Truths:
+- Smart Sync MUST remain incremental-only.
+- Continue Backfill is the ONLY trigger allowed to:
+  - resume historical traversal
+  - use page tokens
+  - progress deeper into inbox history
+- Full traversal is intentionally sliced (100k per run) to avoid:
+  - Gmail API timeouts
+  - token invalidation
+  - quota spikes
+
+Checkpoint System:
+- Dedicated backfill checkpoint fields are now canonical:
+  - backfill_resume_page_token
+  - backfill_resume_page_index
+  - backfill_resume_processed_messages
+- These MUST NOT be overwritten by:
+  - Smart Sync
+  - manual full reindex
+  - runtime recovery
+
+Operator Model (FINALIZED):
+- Smart Sync → daily incremental updates (fast, safe)
+- Continue Backfill → historical completion (multi-run, resumable)
+- Run Full Mailbox Reindex → destructive reset/admin only
+
+Non-Negotiable Rules:
+- NEVER allow Smart Sync to enter full mode
+- NEVER allow shared resume checkpoint reuse for backfill
+- NEVER clear backfill checkpoint unless:
+  - gmail_pagination_exhausted
+  - empty_page
+
+Known Constraints:
+- Gmail API pagination + quotas require chunked traversal
+- Backfill may take multiple runs to reach full coverage (~195k messages)
+- Auth expiration can interrupt runs; system must resume cleanly
+
+Next Focus:
+- Remove or raise 100k slice limit (now safe after checkpoint fix)
+- Add auto-daily Smart Sync scheduling (cron or background trigger)
+- Add visible % completion for full mailbox coverage
+- Add progress feedback for long-running backfill jobs
+
+Summary:
+The mailbox indexing system has transitioned from unstable full-scan behavior to a controlled, resumable, production-safe ingestion pipeline.
 Project Sources & Memory Discipline
 - The project Sources set is the preferred long-lived reference layer for PM review work. It should contain the most decision-critical docs rather than every file in the repo.
 - `SYSTEM_MEMORY_MAP.md` should be treated as the navigation layer for the uploaded Sources set.

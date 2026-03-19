@@ -1,13 +1,20 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import {
   clampGmailMailboxIndexMaxMessages,
+  GMAIL_OPERATOR_BACKFILL_INTENT,
+  normalizeGmailOperatorBackfillWindowMonths,
   normalizeGmailMailboxIndexTrigger,
+  type GmailOperatorBackfillWindowMonths,
 } from '@/lib/integrations/gmail/gmailMailboxIndexConfig'
 import {
+  isHistoricalBackfillWindowComplete,
+  isManualFullRunActive,
   isMailboxIndexRunActive,
   loadGmailMailboxIndexCoverageForTenant,
   loadGmailMailboxIndexState,
+  primeAcceptedOperatorBackfillRunForTenant,
+  primeAcceptedSmartSyncRunForTenant,
   syncGmailMailboxIndexForTenant,
 } from '@/lib/integrations/gmail/gmailMailboxIndexer'
 
@@ -75,8 +82,76 @@ function buildRequiresReconnect(params: {
   return error.toLowerCase().includes('reconnect gmail')
 }
 
+function buildResumeCheckpointSummary(params: {
+  pageToken: string | null | undefined
+  pageIndex: number | null | undefined
+  processedMessages: number | null | undefined
+  processedAt: string | null | undefined
+}) {
+  const nextPageTokenPresent = Boolean(
+    typeof params.pageToken === 'string' && params.pageToken.trim()
+  )
+  const pageIndex = typeof params.pageIndex === 'number' ? params.pageIndex : null
+  const processedMessages =
+    typeof params.processedMessages === 'number' ? params.processedMessages : null
+  const processedAt =
+    typeof params.processedAt === 'string' && params.processedAt.trim() ? params.processedAt : null
+  const usable =
+    nextPageTokenPresent &&
+    ((pageIndex != null && pageIndex > 0) || (processedMessages != null && processedMessages > 0))
+  return {
+    usable,
+    next_page_token_present: nextPageTokenPresent,
+    page_index: pageIndex,
+    processed_messages: processedMessages,
+    processed_at: processedAt,
+  }
+}
+
+function normalizeBackfillWindowMonths(
+  value: number | null | undefined
+): GmailOperatorBackfillWindowMonths | null {
+  if (value === 24 || value === 36) return value
+  return null
+}
+
+function normalizeBackfillCutoffAt(value: string | null | undefined): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null
+}
+
+function buildHistoricalBackfillSummary(state: Awaited<ReturnType<typeof loadGmailMailboxIndexState>>) {
+  return {
+    active_window_months: normalizeBackfillWindowMonths(state?.active_backfill_window_months ?? null),
+    active_cutoff_at: normalizeBackfillCutoffAt(state?.active_backfill_cutoff_at ?? null),
+    completed_window_months: normalizeBackfillWindowMonths(
+      state?.backfill_completed_window_months ?? null
+    ),
+    completed_cutoff_at: normalizeBackfillCutoffAt(state?.backfill_completed_cutoff_at ?? null),
+    completed_at:
+      typeof state?.backfill_completed_at === 'string' && state.backfill_completed_at.trim()
+        ? state.backfill_completed_at
+        : null,
+  }
+}
+
 function buildActiveRunSummary(state: Awaited<ReturnType<typeof loadGmailMailboxIndexState>>) {
   if (!state?.active_run_id) return null
+  const resumeCheckpoint =
+    state.active_run_trigger === 'operator_backfill'
+      ? buildResumeCheckpointSummary({
+          pageToken: state.backfill_resume_page_token,
+          pageIndex: state.backfill_resume_page_index,
+          processedMessages: state.backfill_resume_processed_messages,
+          processedAt: state.backfill_resume_processed_at,
+        })
+      : buildResumeCheckpointSummary({
+          pageToken: state.active_next_page_token,
+          pageIndex: state.active_last_page_index,
+          processedMessages: state.active_processed_messages,
+          processedAt: state.active_last_processed_at,
+        })
   return {
     run_id: state.active_run_id,
     mode: state.active_effective_mode ?? state.active_run_mode,
@@ -86,9 +161,19 @@ function buildActiveRunSummary(state: Awaited<ReturnType<typeof loadGmailMailbox
     requested_max_messages: state.active_requested_max_messages,
     started_at: state.active_started_at,
     heartbeat_at: state.active_heartbeat_at,
+    started_from_checkpoint: state.active_started_from_checkpoint ?? null,
     rows_before: state.active_rows_before ?? null,
     processed_messages: state.active_processed_messages ?? null,
     list_pages_fetched: state.active_list_pages_fetched ?? null,
+    backfill_window_months:
+      state.active_run_trigger === 'operator_backfill'
+        ? normalizeBackfillWindowMonths(state.active_backfill_window_months ?? null)
+        : null,
+    backfill_cutoff_at:
+      state.active_run_trigger === 'operator_backfill'
+        ? normalizeBackfillCutoffAt(state.active_backfill_cutoff_at ?? null)
+        : null,
+    resume_checkpoint: resumeCheckpoint,
     yield_detail: state.active_yield_detail ?? null,
   }
 }
@@ -113,6 +198,21 @@ function buildLastResultSummary(state: Awaited<ReturnType<typeof loadGmailMailbo
     state?.last_terminal_reason != null
   if (!hasResult) return null
   const status = state?.last_sync_status ?? null
+  const resumeCheckpoint =
+    state?.last_run_trigger === 'operator_backfill'
+      ? buildResumeCheckpointSummary({
+          pageToken: state?.backfill_resume_page_token,
+          pageIndex: state?.backfill_resume_page_index,
+          processedMessages: state?.backfill_resume_processed_messages,
+          processedAt: state?.backfill_resume_processed_at,
+        })
+      : buildResumeCheckpointSummary({
+          pageToken: state?.last_resume_page_token,
+          pageIndex: state?.last_resume_page_index,
+          processedMessages: state?.last_processed_messages,
+        processedAt: state?.last_resume_processed_at,
+      })
+  const historicalBackfillSummary = buildHistoricalBackfillSummary(state)
   return {
     status,
     mode: state?.last_effective_mode ?? buildRunModeFromStatus(status) ?? state?.last_completed_mode ?? null,
@@ -122,6 +222,7 @@ function buildLastResultSummary(state: Awaited<ReturnType<typeof loadGmailMailbo
     effective_mode:
       state?.last_effective_mode ?? buildRunModeFromStatus(status) ?? state?.last_completed_mode ?? null,
     completed_at: state?.last_completed_at ?? null,
+    started_from_checkpoint: state?.last_started_from_checkpoint ?? null,
     rows_before: state?.last_rows_before ?? null,
     rows_after: state?.last_rows_after ?? null,
     growth_delta: state?.last_growth_delta ?? null,
@@ -133,6 +234,16 @@ function buildLastResultSummary(state: Awaited<ReturnType<typeof loadGmailMailbo
     terminal_reason: state?.last_terminal_reason ?? null,
     gmail_result_size_estimate: state?.last_gmail_result_size_estimate ?? null,
     list_pages_fetched: state?.last_list_pages_fetched ?? null,
+    backfill_window_months:
+      state?.last_run_trigger === 'operator_backfill'
+        ? historicalBackfillSummary.active_window_months ??
+          historicalBackfillSummary.completed_window_months
+        : null,
+    backfill_cutoff_at:
+      state?.last_run_trigger === 'operator_backfill'
+        ? historicalBackfillSummary.active_cutoff_at ?? historicalBackfillSummary.completed_cutoff_at
+        : null,
+    resume_checkpoint: resumeCheckpoint,
     yield_detail: state?.last_yield_detail ?? null,
   }
 }
@@ -210,6 +321,7 @@ export async function GET() {
       hasGmailConnection,
       state,
     })
+    const historicalBackfill = buildHistoricalBackfillSummary(state)
     const syncHealth =
       executionState === 'failed' || executionState === 'stalled'
         ? indexedCount > 0
@@ -240,6 +352,7 @@ export async function GET() {
         execution_state: executionState,
         active_run: buildActiveRunSummary(state),
         last_result: buildLastResultSummary(state),
+        historical_backfill: historicalBackfill,
         requires_reconnect: requiresReconnect,
         coverage_increased:
           executionState === 'running' || executionState === 'stalled'
@@ -268,18 +381,73 @@ export async function POST(req: Request) {
     if (!auth.ok) return auth.response
 
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
-    const mode = body?.mode === 'full' ? 'full' : 'incremental'
+    const requestedMode = body?.mode === 'full' ? 'full' : 'incremental'
     const requestedBackground = body?.background !== false
+    const rawBackfillWindowMonths =
+      typeof body?.backfill_window_months === 'number' ? body.backfill_window_months : null
+    const requestedBackfillWindowMonths = normalizeGmailOperatorBackfillWindowMonths(
+      rawBackfillWindowMonths
+    )
+    const operatorIntent =
+      typeof body?.operator_intent === 'string' ? body.operator_intent.trim() : ''
     const maxMessages = clampGmailMailboxIndexMaxMessages(
       typeof body?.max_messages === 'number' ? body.max_messages : null
     )
-    const trigger = normalizeGmailMailboxIndexTrigger(body?.trigger, mode)
-    const background = !(trigger === 'manual_full_reindex' && mode === 'full') && requestedBackground
+    const trigger = normalizeGmailMailboxIndexTrigger(body?.trigger, requestedMode)
+    if (trigger === 'operator_backfill' && operatorIntent !== GMAIL_OPERATOR_BACKFILL_INTENT) {
+      console.warn(
+        '[integrations/gmail/mailbox-index] operator_backfill_rejected_missing_explicit_intent',
+        {
+          tenantId: auth.tenantId,
+          provided_operator_intent: operatorIntent || null,
+        }
+      )
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Continue Backfill must be started from the explicit operator action.',
+          reason: 'operator_backfill_requires_explicit_intent',
+        },
+        { status: 400 }
+      )
+    }
+    if (
+      trigger === 'operator_backfill' &&
+      rawBackfillWindowMonths != null &&
+      rawBackfillWindowMonths !== 24 &&
+      rawBackfillWindowMonths !== 36
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Continue Backfill supports only 24-month or 36-month historical windows.',
+          reason: 'invalid_backfill_window',
+        },
+        { status: 400 }
+      )
+    }
+    const mode =
+      trigger === 'smart_sync' ? 'incremental' : trigger === 'operator_backfill' ? 'full' : requestedMode
+    const background =
+      trigger === 'smart_sync' || trigger === 'operator_backfill'
+        ? true
+        : !(trigger === 'manual_full_reindex' && mode === 'full') && requestedBackground
     const runId = crypto.randomUUID()
     const currentState = await loadGmailMailboxIndexState({
       supabase: auth.supabase,
       tenantId: auth.tenantId,
     })
+    if (trigger !== 'manual_full_reindex' && isManualFullRunActive(currentState)) {
+      return NextResponse.json({
+        ok: true,
+        deferred: true,
+        reason: 'manual_full_run_active',
+        data: {
+          execution_state: 'running',
+          active_run: buildActiveRunSummary(currentState),
+        },
+      })
+    }
     if (isMailboxIndexRunActive(currentState)) {
       return NextResponse.json(
         {
@@ -294,26 +462,118 @@ export async function POST(req: Request) {
         { status: 409 }
       )
     }
+    if (
+      trigger === 'operator_backfill' &&
+      isHistoricalBackfillWindowComplete({
+        state: currentState,
+        requestedWindowMonths: requestedBackfillWindowMonths,
+      })
+    ) {
+      return NextResponse.json({
+        ok: true,
+        complete: true,
+        reason: 'historical_window_complete',
+        data: {
+          trigger,
+          requested_mode: mode,
+          effective_mode: mode,
+          execution_state: buildExecutionState(currentState),
+          historical_backfill: buildHistoricalBackfillSummary(currentState),
+          requested_backfill_window_months: requestedBackfillWindowMonths,
+        },
+      })
+    }
 
     if (background) {
-      void syncGmailMailboxIndexForTenant({
-        supabase: auth.supabase,
-        tenantId: auth.tenantId,
-        mode,
-        maxMessages,
-        allowFullRescanOnHistoryGap: true,
-        logPrefix: '[integrations/gmail/mailbox-index/background]',
-        runId,
-        trigger,
-      }).catch((error) => {
-        console.error('[integrations/gmail/mailbox-index] background sync failed:', error)
+      let acceptedRunData:
+        | {
+            run_id: string
+            mode: 'full' | 'incremental'
+            requested_mode: 'full' | 'incremental'
+            effective_mode: 'full' | 'incremental'
+            trigger: typeof trigger
+            background: true
+            max_messages: number
+            execution_state: 'running'
+            rows_before?: number
+            resume_checkpoint?: unknown
+            started_from_checkpoint?: boolean
+            backfill_window_months?: GmailOperatorBackfillWindowMonths | null
+            backfill_cutoff_at?: string | null
+          }
+        | null = null
+
+      if (trigger === 'smart_sync') {
+        const acceptedRun = await primeAcceptedSmartSyncRunForTenant({
+          supabase: auth.supabase,
+          tenantId: auth.tenantId,
+          runId,
+          maxMessages,
+          currentState,
+        })
+        acceptedRunData = {
+          run_id: acceptedRun.run_id,
+          mode: acceptedRun.effective_mode,
+          requested_mode: acceptedRun.requested_mode,
+          effective_mode: acceptedRun.effective_mode,
+          trigger,
+          background: true,
+          max_messages: maxMessages,
+          execution_state: 'running',
+          rows_before: acceptedRun.rows_before,
+          resume_checkpoint: acceptedRun.resume_checkpoint,
+          started_from_checkpoint: acceptedRun.started_from_checkpoint,
+        }
+      } else if (trigger === 'operator_backfill') {
+        const acceptedRun = await primeAcceptedOperatorBackfillRunForTenant({
+          supabase: auth.supabase,
+          tenantId: auth.tenantId,
+          runId,
+          maxMessages,
+          backfillWindowMonths: requestedBackfillWindowMonths,
+          currentState,
+        })
+        acceptedRunData = {
+          run_id: acceptedRun.run_id,
+          mode: acceptedRun.effective_mode,
+          requested_mode: acceptedRun.requested_mode,
+          effective_mode: acceptedRun.effective_mode,
+          trigger,
+          background: true,
+          max_messages: maxMessages,
+          execution_state: 'running',
+          rows_before: acceptedRun.rows_before,
+          resume_checkpoint: acceptedRun.resume_checkpoint,
+          started_from_checkpoint: acceptedRun.started_from_checkpoint,
+          backfill_window_months: acceptedRun.backfill_window_months ?? null,
+          backfill_cutoff_at: acceptedRun.backfill_cutoff_at ?? null,
+        }
+      }
+
+      after(async () => {
+        try {
+          await syncGmailMailboxIndexForTenant({
+            supabase: auth.supabase,
+            tenantId: auth.tenantId,
+            mode,
+            maxMessages,
+            allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
+            backfillWindowMonths:
+              trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
+            logPrefix: '[integrations/gmail/mailbox-index/background]',
+            runId,
+            trigger,
+          })
+        } catch (error) {
+          console.error('[integrations/gmail/mailbox-index] background sync failed:', error)
+        }
       })
 
       return NextResponse.json(
         {
           ok: true,
           accepted: true,
-          data: {
+          data: acceptedRunData ?? {
             run_id: runId,
             mode,
             requested_mode: mode,
@@ -333,7 +593,9 @@ export async function POST(req: Request) {
       tenantId: auth.tenantId,
       mode,
       maxMessages,
-      allowFullRescanOnHistoryGap: true,
+      allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
+      backfillWindowMonths:
+        trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
       logPrefix: '[integrations/gmail/mailbox-index]',
       runId,
       trigger,

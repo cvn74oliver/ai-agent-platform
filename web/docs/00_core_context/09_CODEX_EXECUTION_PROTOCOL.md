@@ -322,6 +322,41 @@ If validation fails:
 
 ---
 
+### 7B. RUNTIME SAFETY + LONG-RUN TASK PROTECTION (MANDATORY)
+
+Purpose:
+Prevent long-running processes (like mailbox indexing, backfill, or ingestion) from being accidentally interrupted, restarted, or corrupted during development.
+
+Rules:
+
+1. **Never restart the dev server during an active long-running job** unless explicitly instructed.
+   - This includes `npm run dev`, killing the terminal, or hot reload resets.
+
+2. **Do not introduce changes that reset execution state** during active runs:
+   - mailbox-index
+   - backfill
+   - ingestion
+   - external sync processes
+
+3. Any task that may affect runtime execution must include a **Runtime Safety Declaration**:
+   - "This change will not interrupt active background processes"
+   - OR explicitly state if it will
+
+4. If a task *could* interfere with a running job:
+   - STOP
+   - ask for confirmation
+   - do not proceed automatically
+
+5. Codex must treat execution state as **persistent and critical**, not disposable.
+
+6. UI-only changes are allowed during long runs, but must:
+   - not restart server
+   - not reload runtime state
+   - not re-trigger backend processes
+
+7. If a long-running job is accidentally interrupted:
+   - Codex must prioritize **resume / recovery paths**, not restart-from-zero behavior
+
 Every Codex task must include:
 
 1) Reasoning Level
@@ -422,6 +457,8 @@ Codex must:
 
 Avoid long manual back-and-forth debug cycles unless something is ambiguous.
 
+-
+- Must preserve in-progress execution state for long-running systems (mailbox index, backfill, ingestion) and avoid any action that causes restart-from-zero unless explicitly required.
 ---
 
 ## 13. Codex → Project Manager Handoff Standard (PM REVIEW PACKET)
@@ -527,6 +564,8 @@ Before closing any major Codex session:
 
 If documentation synchronization has not been completed, session close is blocked.
 
+- Confirm no active long-running jobs (mailbox index, backfill, ingestion) will be disrupted by any pending changes or instructions.
+
 ---
 
 ## 15. CODEX SESSION HEADER (PASTE AT TOP OF EVERY NEW CODEX THREAD)
@@ -607,7 +646,38 @@ This protocol overrides convenience shortcuts.
 
 ---
 
-## 19. PROJECT MANAGER VERSION HANDOFF
+## 19. PRODUCT PHASE LOCK (CRITICAL)
+
+Current phase:
+- Gmail Workspace → Sender Decision System
+
+Rules:
+
+1. Primary focus is now **user decision flow**, not ingestion or indexing.
+
+2. Codex must prioritize:
+   - decision UI
+   - sender evaluation flow
+   - management execution
+
+3. Codex must NOT introduce:
+   - new ingestion logic
+   - indexing redesign
+   - analytics expansion
+   - system refactors unrelated to decision flow
+
+4. If a task is outside this phase:
+   - flag it
+   - do not proceed without PM approval
+
+5. All work should move the system toward:
+   → fast user decisions
+   → minimal friction UI
+   → high completion rate flows
+
+---
+
+## 20. PROJECT MANAGER VERSION HANDOFF
 
 Project Managers operate in versions (PM‑V1, PM‑V2 … PM‑V8) to avoid context drift.
 

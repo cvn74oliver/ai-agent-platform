@@ -271,7 +271,7 @@ export default function OperationsDecisionManagementPage() {
   if (state.status === 'loading') {
     return (
       <div className="space-y-4">
-        <section className="rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5 space-y-4">
+        <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5 space-y-4">
           <div className="space-y-2">
             <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
               Decision Management Dashboard
@@ -481,7 +481,7 @@ export default function OperationsDecisionManagementPage() {
 
   return (
     <div className="space-y-4">
-      <header className="rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/30 to-gray-950/45 p-5 space-y-5">
+      <header className="app-page-header app-page-header-hero rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/30 to-gray-950/45 p-5 space-y-5">
         <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
             <div className="max-w-3xl space-y-2">

@@ -1,9 +1,14 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { appButtonClassName } from '@/components/ui/app-button'
+import MetricCard from '@/components/ui/metric-card'
+import PageHeader from '@/components/ui/page-header'
+import StatePanel from '@/components/ui/state-panel'
+import SurfaceCard from '@/components/ui/surface-card'
 import { createClient } from '@/lib/supabase'
 import DashboardLayout from '@/app/components/DashboardLayout'
-
 
 type Metrics = {
   totalAgents: number
@@ -259,178 +264,202 @@ export default function Dashboard() {
 
   if (!email)
     return (
-      <div className="p-10 text-center text-white bg-gray-900 h-screen">
-        Loading or not signed in… <a href="/login">Login</a>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <StatePanel
+          tone="warning"
+          title="Loading or not signed in"
+          description="Open login if your workspace session does not restore automatically."
+          className="max-w-md"
+        >
+          <Link href="/login" className={appButtonClassName({ variant: 'secondary', size: 'md' })}>
+            Login
+          </Link>
+        </StatePanel>
       </div>
     )
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-bold">Welcome back, {email}</h2>
-        <p className="text-xs text-gray-400">
-          Snapshot analytics across your agents, training data, and recent usage.
-        </p>
-      </div>
+      <div className="app-page-stack">
+        <PageHeader
+          eyebrow="Dashboard"
+          title={`Welcome back, ${email}`}
+          description="Snapshot analytics across your agents, training data, and recent usage."
+          tone="hero"
+          actions={
+            !onboarding ? (
+              <Link href="/onboarding" className={appButtonClassName({ variant: 'primary', size: 'md' })}>
+                Start Onboarding
+              </Link>
+            ) : undefined
+          }
+        />
 
-      {metricsLoading && (
-        <p className="mt-4 text-xs text-gray-400">Loading dashboard metrics…</p>
-      )}
+        {metricsLoading ? (
+          <StatePanel
+            tone="accent"
+            title="Loading dashboard metrics"
+            description="Refreshing agent, training, and session summaries for this workspace."
+          />
+        ) : null}
 
-      {metricsError && (
-        <div className="mt-4 rounded-lg border border-red-500/30 bg-red-950/20 p-3">
-          <p className="text-xs text-red-200">{metricsError}</p>
-        </div>
-      )}
+        {metricsError ? (
+          <StatePanel tone="danger" title="Dashboard metrics could not load" description={metricsError} />
+        ) : null}
 
-      {metrics && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-            <div className="bg-gray-800 p-4 rounded-xl shadow-xl">
-              <p className="text-xs text-gray-400">Total Agents</p>
-              <p className="text-2xl font-bold text-white">{Number(metrics.totalAgents ?? 0)}</p>
-              <p className="text-[11px] text-gray-500 mt-1">All agents in your workspace.</p>
-            </div>
-
-            <div className="bg-gray-800 p-4 rounded-xl shadow-xl">
-              <p className="text-xs text-gray-400">Avg Quality Score</p>
-              <p className="text-2xl font-bold text-white">
-                {typeof metrics.avgQuality === 'number' ? metrics.avgQuality.toFixed(1) : '—'}
-              </p>
-              <p className="text-[11px] text-gray-500 mt-1">
-                Based on agents with a 0–10 stored quality score.
-              </p>
-            </div>
-
-            <div className="bg-gray-800 p-4 rounded-xl shadow-xl">
-              <p className="text-xs text-gray-400">Training Examples</p>
-              <p className="text-2xl font-bold text-white">
-                {Number(metrics.totalTrainingExamples ?? 0)}
-              </p>
-              <p className="text-[11px] text-gray-500 mt-1">All fine-tune examples logged.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-            <div className="bg-gray-800 p-4 rounded-xl shadow-xl">
-              <p className="text-xs text-gray-400">Last 7 Days Sessions</p>
-              <p className="text-2xl font-bold text-white">{Number(metrics.last7Sessions ?? 0)}</p>
-              <p className="text-[11px] text-gray-500 mt-1">Since {last7Label}.</p>
-            </div>
-
-            <div className="bg-gray-800 p-4 rounded-xl shadow-xl">
-              <p className="text-xs text-gray-400">Last 7 Days Tokens</p>
-              <p className="text-2xl font-bold text-white">
-                {Number.isFinite(Number(metrics.last7Tokens))
-                  ? Number(metrics.last7Tokens).toLocaleString()
-                  : '0'}
-              </p>
-              <p className="text-[11px] text-gray-500 mt-1">
-                Est. cost: ${
+        {metrics ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <MetricCard
+                title="Total Agents"
+                value={Number(metrics.totalAgents ?? 0).toLocaleString()}
+                description="All agents currently available in your workspace."
+                tone="accent"
+              />
+              <MetricCard
+                title="Avg Quality Score"
+                value={typeof metrics.avgQuality === 'number' ? metrics.avgQuality.toFixed(1) : '—'}
+                description="Based on agents with a stored 0-10 quality score."
+              />
+              <MetricCard
+                title="Training Examples"
+                value={Number(metrics.totalTrainingExamples ?? 0).toLocaleString()}
+                description="All fine-tune examples currently logged."
+              />
+              <MetricCard
+                title="Last 7 Day Sessions"
+                value={Number(metrics.last7Sessions ?? 0).toLocaleString()}
+                description={`Active sessions recorded since ${last7Label}.`}
+              />
+              <MetricCard
+                title="Last 7 Day Tokens"
+                value={
+                  Number.isFinite(Number(metrics.last7Tokens))
+                    ? Number(metrics.last7Tokens).toLocaleString()
+                    : '0'
+                }
+                description={`Estimated cost: $${
                   Number.isFinite(Number(metrics.last7CostUsd))
                     ? Number(metrics.last7CostUsd).toFixed(5)
                     : '0.00000'
-                }
-              </p>
+                }`}
+              />
+              <MetricCard
+                title="Needs Quality Work"
+                value={Number(metrics.lowQualityAgents ?? 0).toLocaleString()}
+                description="Agents currently below the 8/10 quality threshold."
+              />
             </div>
 
-            <div className="bg-gray-800 p-4 rounded-xl shadow-xl">
-              <p className="text-xs text-gray-400">Needs Quality Work</p>
-              <p className="text-2xl font-bold text-white">{Number(metrics.lowQualityAgents ?? 0)}</p>
-              <p className="text-[11px] text-gray-500 mt-1">Agents below 8/10 quality.</p>
-            </div>
-          </div>
-
-          <div className="mt-4 bg-gray-800 p-4 rounded-xl shadow-xl">
-            <p className="text-xs text-gray-400">Most Active Agent (Last 7 Days)</p>
-            <p className="text-lg font-semibold text-white mt-1">
-              {prettyAgentTitle(metrics.topAgentName)}
-            </p>
-            {metrics.topAgentName && metrics.topAgentName !== prettyAgentTitle(metrics.topAgentName) && (
-              <p className="text-[11px] text-gray-500 mt-1">
-                Raw: <span className="font-mono">{metrics.topAgentName}</span>
+            <SurfaceCard className="p-5">
+              <p className="app-eyebrow">Recent Momentum</p>
+              <h2 className="mt-2 text-xl font-semibold text-white">Most Active Agent</h2>
+              <p className="mt-3 text-lg font-semibold text-cyan-100">
+                {prettyAgentTitle(metrics.topAgentName)}
               </p>
-            )}
-            <p className="text-[11px] text-gray-500 mt-1">
-              We’ll expand this into per-agent charts + drilldowns next.
-            </p>
-          </div>
-        </>
-      )}
+              {metrics.topAgentName && metrics.topAgentName !== prettyAgentTitle(metrics.topAgentName) ? (
+                <p className="mt-2 text-[11px] text-gray-500">
+                  Raw: <span className="font-mono">{metrics.topAgentName}</span>
+                </p>
+              ) : null}
+              <p className="mt-3 text-sm text-gray-300">
+                We&apos;ll expand this into per-agent charts and drilldowns next.
+              </p>
+            </SurfaceCard>
+          </>
+        ) : null}
 
-      {!onboarding && (
-        <p className="text-gray-400 mt-6">
-          You haven’t completed onboarding yet.{' '}
-          <a href="/onboarding" className="text-blue-400 underline">
-            Click here
-          </a>{' '}
-          to begin.
-        </p>
-      )}
-
-      {onboarding && !editing && (
-        <div className="bg-gray-800 p-6 rounded-xl shadow-xl mt-6 max-w-lg">
-          <h3 className="text-xl font-semibold mb-4">Your Onboarding Data</h3>
-          <p>
-            <b>Company:</b> {onboarding.company}
-          </p>
-          <p>
-            <b>Tone:</b> {onboarding.tone}
-          </p>
-          <p>
-            <b>Goal:</b> {onboarding.goal}
-          </p>
-
-          <button
-            onClick={() => setEditing(true)}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded text-white"
+        {!onboarding ? (
+          <StatePanel
+            tone="warning"
+            title="Workspace onboarding is still incomplete"
+            description="Add the core company, tone, and goal context so the rest of the platform has a better operating baseline."
           >
-            Edit
-          </button>
-        </div>
-      )}
+            <Link href="/onboarding" className={appButtonClassName({ variant: 'secondary', size: 'md' })}>
+              Continue Onboarding
+            </Link>
+          </StatePanel>
+        ) : null}
 
-      {editing && (
-        <div className="bg-gray-800 p-6 rounded-xl shadow-xl mt-6 max-w-lg">
-          <h3 className="text-xl font-semibold mb-4">Edit Onboarding Data</h3>
+        {onboarding && !editing ? (
+          <SurfaceCard className="max-w-2xl p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="app-eyebrow">Workspace Profile</p>
+                <h2 className="mt-2 text-xl font-semibold text-white">Your onboarding data</h2>
+                <p className="mt-3 text-sm text-gray-300">
+                  This profile powers the default workspace context used throughout Automata.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditing(true)}
+                className={appButtonClassName({ variant: 'primary', size: 'md' })}
+              >
+                Edit Profile
+              </button>
+            </div>
 
-          <label className="block mb-2">Company</label>
-          <input
-            value={formData.company}
-            onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-            className="w-full p-3 rounded text-black mb-4"
-          />
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Company</p>
+                <p className="mt-2 text-sm text-white">{onboarding.company || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Tone</p>
+                <p className="mt-2 text-sm text-white">{onboarding.tone || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Goal</p>
+                <p className="mt-2 text-sm text-white">{onboarding.goal || '—'}</p>
+              </div>
+            </div>
+          </SurfaceCard>
+        ) : null}
 
-          <label className="block mb-2">Tone</label>
-          <input
-            value={formData.tone}
-            onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
-            className="w-full p-3 rounded text-black mb-4"
-          />
-
-          <label className="block mb-2">Goal</label>
-          <input
-            value={formData.goal}
-            onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
-            className="w-full p-3 rounded text-black mb-4"
-          />
-
-          <div className="flex gap-3">
-            <button
-              onClick={saveChanges}
-              className="bg-green-600 hover:bg-green-700 px-5 py-2 rounded text-white"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="bg-gray-600 hover:bg-gray-700 px-5 py-2 rounded text-white"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+        {editing ? (
+          <SurfaceCard className="max-w-2xl p-6">
+            <p className="app-eyebrow">Workspace Profile</p>
+            <h2 className="mt-2 text-xl font-semibold text-white">Edit onboarding data</h2>
+            <div className="mt-6 grid gap-4">
+              <label className="space-y-2">
+                <span className="text-xs uppercase tracking-[0.18em] text-gray-500">Company</span>
+                <input
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  className="w-full"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs uppercase tracking-[0.18em] text-gray-500">Tone</span>
+                <input
+                  value={formData.tone}
+                  onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
+                  className="w-full"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs uppercase tracking-[0.18em] text-gray-500">Goal</span>
+                <input
+                  value={formData.goal}
+                  onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
+                  className="w-full"
+                />
+              </label>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button onClick={saveChanges} className={appButtonClassName({ variant: 'primary', size: 'md' })}>
+                Save Changes
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className={appButtonClassName({ variant: 'secondary', size: 'md' })}
+              >
+                Cancel
+              </button>
+            </div>
+          </SurfaceCard>
+        ) : null}
+      </div>
     </DashboardLayout>
   )
 }

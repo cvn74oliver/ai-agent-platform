@@ -242,7 +242,7 @@ export function MailboxContextMetrics(props: {
   const decisionRatio = props.decidedSenderCount / senderUniverse
 
   return (
-    <section className="grid gap-3 xl:grid-cols-4">
+    <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
       {metricMeterCard({
         title: 'Indexed senders',
         value: props.totalSenderCount.toLocaleString(),
@@ -1483,9 +1483,9 @@ export function GmailScopeLadder(props: {
   const visibleSteps = SCOPE_STEPS.filter((step) => !hiddenKeys.has(step.key))
 
   return (
-    <section className="rounded-2xl border border-gray-800 bg-gray-950/35 p-4 space-y-3">
+    <section className="app-surface-card rounded-2xl p-4 space-y-3">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">{props.title}</p>
+        <p className="app-eyebrow">{props.title}</p>
         <p className="mt-1 text-sm text-gray-300">{props.subtitle}</p>
       </div>
       <div className="grid gap-3 xl:grid-cols-5">
@@ -1632,7 +1632,7 @@ export function InboxHealthGauge(props: {
       </div>
 
       <div className="rounded-3xl border border-gray-800 bg-gray-950/55 p-5 space-y-5">
-        <div className="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
+        <div className="grid gap-5 2xl:grid-cols-[0.72fr_1.28fr]">
           <div className="space-y-4">
             <div>
               <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Inbox health</p>
@@ -1687,7 +1687,7 @@ export function InboxHealthGauge(props: {
               </div>
             </button>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
               <button
                 type="button"
                 onMouseEnter={() => setHoveredSection('driver')}
@@ -1811,10 +1811,10 @@ export function MailboxMissionPanel(props: {
           Read the bottleneck, the next action, the payoff, and the work already in motion without dropping into sender drill-down yet.
         </p>
       </div>
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-4 2xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Mission briefing</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {diagnosticRow(
               'Current status',
               props.healthIntelligence.currentStatus,
@@ -1869,7 +1869,7 @@ export function MailboxMissionPanel(props: {
           </div>
         </div>
       </div>
-      <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+      <div className="grid gap-4 2xl:grid-cols-[1.12fr_0.88fr]">
         <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -2012,7 +2012,7 @@ export function MailboxIntelligenceLoadingState(props: {
             Using the latest stable runtime snapshot while cached intelligence hydrates.
           </p>
         </div>
-        <section className="grid gap-3 xl:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
           {[
             'Indexed senders',
             'Supporting messages',
@@ -2054,7 +2054,7 @@ export function MailboxIntelligenceLoadingState(props: {
               ))}
             </div>
           </div>
-          <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="grid gap-4 2xl:grid-cols-[0.9fr_1.1fr]">
             <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Mission briefing</p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
