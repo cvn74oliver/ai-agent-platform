@@ -1292,17 +1292,103 @@ Profiling basis update (March 10, 2026):
   - id scan basis: 240 ids
 - This improves profile representativeness while preserving bounded/cached behavior (still no full-mailbox scan).
 
-## 🔄 Current Handoff State (March 8, 2026)
+## 🔄 Current Handoff State (March 19, 2026)
+
 At handoff to the next Project Manager version, the system should be understood as follows:
 
-- Gmail runtime pilot proves the plan -> approve -> execute pattern with a real archive action.
-- Generic runtime scaffolding has been introduced and should now become the default pattern for all future tool domains.
-- The next major system step is not more Gmail-only specialization; it is hardening persistence, continuity, and generalized runtime contracts so other tools can inherit the same framework cleanly.
-- PM turnover discipline is now part of the operating model: versioned PM threads, explicit execution-path selection, and documentation-first handoff updates.
+### ✅ System Status (CRITICAL)
+- Gmail ingestion pipeline is now **stable and production-grade**.
+- Historical backfill is now:
+  - resumable
+  - checkpoint-safe
+  - isolated from other sync paths
+- Smart Sync is now:
+  - strictly incremental
+  - safe for daily maintenance
+  - completely separated from historical traversal
 
-This document should now be read as describing both the original AI dev-team architecture and the emerging runtime operations architecture that will power real agent actions across the platform.
+### 🧠 Historical Backfill Model (NEW)
+The system now uses a **bounded historical backfill architecture**:
+
+- Default backfill target: **24 months (recent behavior focus)**
+- Optional extended backfill: **36 months (admin-triggered only)**
+- Backfill uses:
+  - Gmail `internalDate` as the canonical boundary
+  - post-page commit stop rule (never mid-page)
+- Checkpoints:
+  - persist across slices (`requested_limit_reached`)
+  - only cleared on true completion (`historical_window_reached` or exhaustion)
+
+This ensures:
+- no more full re-index loops
+- no wasted reprocessing
+- controlled data scope aligned with product value
+
+### 🎯 Product Direction Shift
+The platform is now transitioning from:
+
+**Infrastructure + ingestion + stability phase → COMPLETE**
+
+Into:
+
+**Core product experience phase → STARTING NOW**
+
+Next primary focus:
+
+### 👉 Sender Decision System (NEXT MAJOR BUILD)
+
+This includes:
+- Tinder-style decision UI
+- Sender-level classification workflow
+- Decision buckets:
+  - Keep
+  - Mixed (custom rules)
+  - Archive
+  - Quarantine
+- High-speed operator interaction model
+- Decision-to-execution pipeline into Management layer
+
+### ⚙️ Runtime Maturity State
+- Plan → Approve → Execute loop is working
+- Gmail archive execution is live
+- Approval queue system is functioning
+- Runtime state + evidence model is stable
+
+### 🚀 What Comes Next
+The next Project Manager (v11) must:
+
+1. Treat ingestion + indexing as **solved infrastructure**
+2. Focus ONLY on:
+   - Decision Mode UI
+   - Sender classification UX
+   - Management execution flow
+3. Enforce strict adherence to:
+   - UI specs
+   - decision system specs
+   - product flow specs
+
+### ❌ What NOT to Do
+- Do NOT revisit indexing unless a regression is proven
+- Do NOT expand ingestion scope
+- Do NOT mix Smart Sync with backfill logic
+- Do NOT redesign dashboard again
+
+### 🧭 Mental Model for PM v11
+
+System is now:
+
+- Stable
+- Indexed
+- Structured
+- Ready for productization
+
+Your job is no longer to "fix the engine"
+
+👉 Your job is to **build the user experience on top of it**
 
 ---
+
+This marks the end of PM v10 responsibility.
 
 ## Gmail Operations Review Architecture - March 13, 2026
 

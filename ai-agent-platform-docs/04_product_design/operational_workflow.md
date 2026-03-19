@@ -44,7 +44,7 @@ After major milestones or architecture changes, the Project Manager Agent must i
 
 ## 1️⃣ Agent Role Overview (Simplified Execution Model)
 
-The platform now operates on a **two-agent system** for execution efficiency and reliability.
+The platform operates on a **two-agent execution loop (PM → Codex)** designed for speed, clarity, and zero ambiguity in implementation.
 
 ### Project Manager Agent (PM Agent)
 - Central coordinator of the system
@@ -56,6 +56,7 @@ The platform now operates on a **two-agent system** for execution efficiency and
   - CHANGELOG.md
   - CURRENT_STATE.md
   - system_overview.md
+- Owns product decision authority (UX, flow, prioritization, and system behavior)
 - Interprets results and determines next steps
 
 ### Codex Execution Agent
@@ -66,6 +67,7 @@ The platform now operates on a **two-agent system** for execution efficiency and
   - Backend/API updates
   - Refactors and fixes
 - Returns results via `PM REVIEW PACKET`
+- Must never make product decisions or deviate from PM instructions
 
 ---
 
@@ -127,8 +129,7 @@ You ⇄ Project Manager Agent ⇄ Codex
 - PM Agent interprets, plans, and writes execution instructions.
 - Codex executes.
 - Results return as a PM REVIEW PACKET.
-
-There is **no multi-agent coordination layer anymore**.
+- No direct user → Codex architectural decisions (all strategy flows through PM)
 
 ---
 
@@ -176,6 +177,11 @@ Example workflow:
    - identifies remaining gaps
    - issues next iteration
 
+7. PM Agent (if complete):
+    - Confirms feature meets spec
+    - Triggers documentation updates
+    - Marks task complete in TODO.md
+
 Repeat until the feature is complete.
 
 ---
@@ -184,6 +190,7 @@ Repeat until the feature is complete.
 
 - All session summaries get pasted into the appropriate context file.
 - PM Agent merges updates into master documentation.
+- All major features must result in explicit CHANGELOG entries (no silent updates)
 - Automations preserve backups automatically.
 
 End of day requirements:
@@ -208,9 +215,7 @@ PM Agent is responsible for:
 - comparing against specs
 - deciding what needs to change
 
-Oliver should NOT:
-- redesign the system
-- explain what feels wrong repeatedly
+Oliver should NOT act as product designer or debugger during UI review. His role is purely observational and validation-based.
 
 PM owns product judgment.
 
@@ -231,6 +236,9 @@ This dramatically speeds up iteration.
 - PM must proactively compare UI against specs before issuing feedback.
 - Every Codex UI task must include the "READ BEFORE UI" spec block.
 - Avoid broad tasks; prefer tight, single-purpose passes.
+- Never restart the dev server during long-running jobs (indexing, backfill, ingestion)
+- Resume operations instead of restarting whenever possible
+- Long-running processes are stateful and must be protected
 
 ---
 
@@ -241,7 +249,7 @@ This dramatically speeds up iteration.
 - Get PM daily plan
 
 ### During the Day
-- Work with assigned specialist agents
+- Execute PM → Codex iteration loop
 - Test changes
 - Return summaries to PM
 
@@ -254,10 +262,10 @@ This dramatically speeds up iteration.
 
 ## 8️⃣ System Philosophy
 
-- You decide what gets built.
-- PM Agent ensures alignment and documentation.
-- Specialist Agents implement solutions.
-- Automations maintain consistency and backups.
+- You define direction and priorities
+- PM Agent enforces product truth and system alignment
+- Codex executes with precision
+- The system prioritizes speed, clarity, and correctness over complexity
 
 ---
 
@@ -285,5 +293,30 @@ Before retiring a PM Agent:
 - Ensure workflow model (PM + Codex loop) is documented
 - Ensure UI Review Protocol is included
 - Ensure all major product specs are up to date
+- Ensure no long-running processes are active before agent rotation
 
 This prevents regression when a new PM takes over.
+
+---
+
+## 🚨 Critical Execution Safeguard (NEW)
+
+The system must protect long-running operations at all times.
+
+These include:
+- Gmail full reindex
+- Historical backfill
+- Smart Sync ingestion
+
+Rules:
+- Never restart the dev server during these operations
+- Never trigger competing jobs while one is active
+- Always prefer resume over restart
+- Treat these processes as stateful and non-recoverable if interrupted
+
+Failure to follow these rules results in:
+- lost progress
+- corrupted state
+- significant time loss
+
+This rule overrides all convenience-based decisions during development.

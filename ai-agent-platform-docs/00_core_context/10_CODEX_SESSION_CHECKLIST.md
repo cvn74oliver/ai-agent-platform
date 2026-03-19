@@ -119,6 +119,7 @@ Codex must:
 - Fix errors internally
 - Confirm working state
 - Stop if ambiguity is detected
+- Do NOT restart the dev server or trigger processes that would reset long-running state unless explicitly instructed
 
 If Codex fails twice on the same issue:
 → Stop
@@ -171,6 +172,7 @@ This guarantees that Oliver can copy/paste Codex responses directly into the Pro
 
 ## 🛑 HARD STOP CONDITIONS
 
+- A long-running job (mailbox index, backfill, ingestion) is active and any change could interrupt or restart it
 Immediately halt execution if:
 
 - A schema migration is implied unexpectedly
@@ -201,6 +203,9 @@ This ensures the next PM inherits the correct architectural state and prevents C
 
 Codex sessions must not begin until documentation handoff is complete.
 
+Additional safety rule:
+- Never begin a new Codex execution phase if a long-running system process is still active unless explicitly approved
+
 ---
 
 ## 🔐 Architectural Protection Rules
@@ -227,6 +232,7 @@ Before closing a Codex session:
 - Confirm feature domain remained contained
 - Confirm compile passes
 - Confirm no schema changes occurred (unless explicitly approved and logged)
+- Confirm no active long-running processes were interrupted or reset (mailbox index, backfill, ingestion)
 - Confirm authoritative documentation synchronization is complete (`ai-agent-platform-docs/` first)
 - Confirm `/web/docs` was not edited as source of truth
 - Confirm final response includes a complete `PM REVIEW PACKET`
@@ -316,3 +322,33 @@ If a change touches only a single file and is clearly scoped:
 → The Project Manager may edit via the VS Code Builder integration.
 
 This rule prevents partial edits and architecture drift.
+
+---
+
+## ⚡ Long-Running Process Protection (CRITICAL)
+
+The system may run processes that take minutes to hours:
+- Gmail mailbox indexing
+- Historical backfill
+- Data ingestion pipelines
+- Large batch execution jobs
+
+These must be treated as **stateful operations that cannot be interrupted safely**.
+
+Codex must:
+- Detect when a long-running process is active
+- Avoid any action that could restart, reset, or invalidate progress
+- Prefer resume/continuation over restart
+- Explicitly warn before any action that risks resetting progress
+
+Project Manager must:
+- Avoid making unrelated changes during active runs
+- Avoid restarting the server unless absolutely necessary
+- Confirm system is idle before initiating new major operations
+
+Violating this rule leads to:
+- Lost progress
+- Wasted compute time
+- Inconsistent system state
+
+This is one of the highest priority protection rules in the system.

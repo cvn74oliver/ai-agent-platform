@@ -6,13 +6,18 @@ Version: 1.0.1
 ---
 
 ## 🧠 Overview
-This specification defines the architecture, schema, and API contract for implementing the “Ask for Clarification” feature within the Guided Setup flow of the AI Agent Platform.
+This specification defines the architecture, schema, API contract, and behavioral guarantees for implementing the “Ask for Clarification” feature within the Guided Setup flow of the AI Agent Platform. It serves as the single source of truth for how clarification prompts are stored, retrieved, versioned, and persisted across user sessions.
 
 ---
 
 ## 🧩 Objective
 Enable users to request clarifications during Guided Setup and persist their responses across sessions.  
 This forms the foundation for Guided Setup reliability, ensuring answers are stored, retrieved, and versioned correctly.
+
+Additionally, this feature ensures:
+- deterministic retrieval of prompt versions
+- persistent session continuity across reloads and devices
+- safe extensibility for future AI-assisted clarification flows
 
 ---
 
@@ -46,6 +51,8 @@ CREATE POLICY modify_prompts_service
 ```
 
 ### Related Table: `guided_setup_sessions`
+
+-- Stores user-specific clarification state tied to a prompt version
 
 Stores per-session clarification responses.
 
@@ -81,10 +88,18 @@ ALTER TABLE public.guided_setup_sessions ENABLE ROW LEVEL SECURITY;
 
 ## 🧩 API Contract
 
+### Contract Guarantees
+- Idempotent clarification submission
+- Append-only response behavior (no destructive updates)
+- Version-safe prompt retrieval
+- Session-state consistency across requests
+
 ### Endpoint
 `POST /api/guided-setup/clarify`
 
 ### Request Types
+
+All requests must include both session and prompt identifiers to ensure deterministic state resolution.
 
 **1. Fetch Prompt + Existing Session State**
 ```json
@@ -135,10 +150,17 @@ ALTER TABLE public.guided_setup_sessions ENABLE ROW LEVEL SECURITY;
 }
 ```
 
+### Response Guarantees
+- `prompt` always reflects the resolved active version
+- `clarifications` always reflect the canonical prompt definition
+- `session_state` always reflects the latest persisted user state
+
 ### Error Codes
 - `PROMPT_NOT_FOUND` — invalid or missing prompt/version
 - `INVALID_REQUEST` — missing required parameters
 - `SESSION_NOT_FOUND` — invalid session reference
+- `STATE_PERSIST_FAILED` — database write failure when saving clarification
+
 ```
 
 🔍 Test Plan
@@ -152,6 +174,7 @@ ALTER TABLE public.guided_setup_sessions ENABLE ROW LEVEL SECURITY;
 | 5 | Version bump (1.0.0 → 1.1.0)              | Latest active version returned if version omitted                     |
 | 6 | Multiple clarification submissions        | Responses append correctly without overwriting prior answers          |
 | 7 | Session reload after browser refresh      | `state_json` restored accurately from Supabase                        |
+| 8 | Duplicate submission (same question)      | System appends or merges safely without data corruption               |
 
 🧱 Implementation Status
 
@@ -165,7 +188,7 @@ ALTER TABLE public.guided_setup_sessions ENABLE ROW LEVEL SECURITY;
 
 🧭 Notes
 
-This spec is the canonical reference for all agents when developing or debugging the Guided Setup Clarify feature.
+This spec is the canonical reference for all agents when developing, debugging, or extending the Guided Setup Clarify feature.
 
 Change Management Rules:
 - Any schema changes must be reflected in both this document and the Supabase migration history.
@@ -196,3 +219,10 @@ Change Management Rules:
 - **Performance Note**
   - Prompt fetch should be cacheable
   - Session state must always be fresh (no caching layer)
+
+### Future Extension Hooks
+- Clarifications may later be auto-suggested or auto-filled by LLMs
+- Responses may be scored for completeness or clarity
+- Session state may feed downstream agent configuration or training pipelines
+
+These extensions must not break current append-only and version-safe guarantees.

@@ -392,6 +392,89 @@ Current Focus
 	•	Define the real inbox-cleanup progress model before shipping any percentage-based “overall cleanup” claim.
 	•	Prepare clean handoffs between PM versions at stable checkpoints.
 
+---
+
+### 🧠 Product Phase Transition (March 2026 – CRITICAL)
+
+The project has officially transitioned from **Infrastructure Phase → Product Phase**.
+
+#### What is DONE (Do NOT revisit unless critical bug)
+- Gmail ingestion pipeline (Smart Sync + Backfill)
+- Checkpoint-based historical traversal
+- Mailbox Intelligence dashboard (mission-control baseline)
+- Runtime execution + approval system
+
+These systems are now considered **stable foundations**, not active build areas.
+
+---
+
+#### What is NOW PRIMARY FOCUS
+The system is now building the **Sender Decision System (Core Product Loop)**:
+
+- Tinder-style sender decision flow
+- 4-action decision model:
+  - Keep All
+  - Keep Some
+  - Archive All
+  - Not Sure
+- Rapid progression UX (one sender at a time)
+- Direct mapping to Management Execution system
+
+This is the **core user value engine** and must take priority over all infrastructure improvements.
+
+---
+
+#### Non-Negotiable Product Rules (Sender Decision Phase)
+
+- The system must optimize for **speed of decision-making**, not analysis depth.
+- UI must feel:
+  - fast
+  - focused
+  - low-friction
+- One sender at a time (no list overwhelm)
+- Decisions must immediately map into execution buckets
+
+---
+
+#### What is DEPRIORITIZED (for now)
+- Advanced analytics refinements
+- Performance optimizations (e.g., recency weighting system)
+- Deep AI learning loops
+- Additional ingestion improvements
+
+These are **Phase 2 optimization layers**, not blocking product delivery.
+
+---
+
+#### PM Directive
+
+The Project Manager must now:
+
+- Treat Sender Decision System as the **primary product surface**
+- Reject Codex passes that drift back into:
+  - dashboard redesign
+  - ingestion changes
+  - unnecessary backend optimization
+- Enforce **Sniper Method execution** for decision UI build
+- Drive Codex strictly from:
+  - decision UI specs
+  - decision engine specs
+  - management execution specs
+
+---
+
+#### Strategic Framing
+
+We are no longer:
+
+> “building a system that understands inboxes”
+
+We are now:
+
+> “building a system that helps users make fast, confident decisions about their inbox”
+
+---
+
 ### 📬 Gmail Mailbox Indexing System – March 2026 (CRITICAL STATE UPDATE)
 
 Status:

@@ -93,11 +93,17 @@ Step 2 – Single Message Activation (Required)
 4. Attach the required documentation files for that role.
 5. Do NOT paste large context files directly into the message if they are attached as files.
 6. For normal agent activations, activation should remain a **single-message event**.
-7. For **Project Manager reactivation only**, use the approved three-step handoff format:
-   - Message 1 = activation prompt + core docs
-   - Message 2 = visual orientation + turnover snapshot
-   - Message 3 = immediate task directive
-8. After the agent confirms context loading, copy both the activation prompt and the agent’s response into the relevant context file under:
+7. For **Project Manager reactivation only**, activation MUST follow the enforced **three-message atomic activation system**:
+   - Message 1 = Core docs + activation prompt (BRAIN)
+   - Message 2 = Visual orientation + turnover snapshot (EYES)
+   - Message 3 = Immediate execution directive (HANDS)
+   - These three messages must be sent back-to-back with no pause.
+   - The agent MUST NOT respond until all three messages are received.
+
+8. The activation is NOT complete until all three messages are delivered. The Project Manager must treat them as a single unified system, not separate instructions.
+
+9. After activation completes, log the activation in the context file under:
+   ## Session Log – Activation (DATE – v#)
 
    `## Session Log – Activation (DATE – v#)`
 ```
@@ -343,6 +349,21 @@ This ensures your new session’s context and status are captured in the master 
 
 ### Step 6 – Project Manager Sync (Preferred Three-Message PM Activation)
 
+🚨 CRITICAL ACTIVATION RULE (v11 UPGRADE)
+
+This activation must behave like a real leadership handoff.
+
+The new Project Manager MUST NOT:
+• ask clarifying questions
+• re-summarize the entire system
+• restart planning
+• request missing context that already exists in attached docs
+
+The new Project Manager MUST:
+• immediately assume continuity from the previous PM
+• continue the active Codex thread without interruption
+• operate under the execution model: Oliver → PM → Codex
+
 When activating or refreshing the Project Manager Agent, use the following **three-message activation package**.
 
 ---
@@ -465,12 +486,16 @@ Quick Recap
 
 Notice drift or version change → open a new chat inside the AI Agent Platform Project → prepare the Project Manager activation package → send Message 1 (context + docs) → send Message 2 (visuals + turnover snapshot) → send Message 3 (immediate task directive) → confirm context load → update Session Health → update CHANGELOG → run update and sync scripts.
 
-For non-PM agents, keep activation as a single-message event.
+For non-PM agents:
+- activation = single message
 
-For the Project Manager, the standardized format is now:
-- Message 1 = docs + activation prompt
-- Message 2 = visuals + turnover handoff
-- Message 3 = immediate execution directive
+For Project Manager:
+- activation = 3-message atomic system
+- must be sent back-to-back
+- must not allow early response
+- must transition immediately into execution (not planning)
+
+This ensures zero gap between PM versions and maintains full system momentum.
 
 ⸻
 
@@ -675,10 +700,13 @@ Do NOT restart planning.
 
 Instead:
 
-1. Review the most recent Codex interaction context (provided below)
-2. Identify what is incomplete or misaligned
-3. Generate the next Codex instruction to continue progress
-4. Follow the Codex thread continuity guidance below
+1. Continue directly from the prior PM state (no reset, no reorientation phase)
+2. Analyze the last Codex interaction
+3. Identify what is incomplete or incorrect
+4. Generate the NEXT Codex instruction only
+5. Do NOT explain the system
+6. Do NOT ask for clarification
+7. Do NOT expand scope
 
 ---
 
@@ -709,6 +737,19 @@ Instead:
 - CTA clarity
 - visual meaning
 - management signal integration
+
+---
+
+⚠️ EXECUTION RULE
+
+You are not entering planning mode.
+
+You are entering execution continuation mode.
+
+There is no discovery phase.
+There is no re-analysis phase.
+
+You are continuing a live system.
 
 ---
 

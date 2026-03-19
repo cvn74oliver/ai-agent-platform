@@ -150,3 +150,317 @@ Together these automations ensure:
 • Your PM Agent orchestrates priorities and changelogs automatically.
 • You only intervene for approvals and lightweight UI validation; system thinking, planning, and iteration are handled by the PM Agent + Codex loop.
 • The Operations workspace provides a structured “AI operations console” where humans supervise cluster reviews, approve actions, and execute inbox changes with full evidence visibility.
+⚙️ Automation Map – AI Agent Platform (v2)
+
+Last updated: March 2026
+
+This document defines every automated system in the AI Agent Platform, what triggers it, what it updates, and who owns it.
+
+It is the **authoritative map of system automation behavior** and must remain aligned with:
+- CURRENT_STATE.md
+- SYSTEM_MEMORY_MAP.md
+- CODEX_EXECUTION_PROTOCOL.md
+
+⸻
+
+🧠 Purpose
+
+The Automation Map answers one question:
+
+👉 **“What is happening automatically vs what requires human action?”**
+
+It ensures:
+- No hidden automation
+- No unintended system behavior
+- Clear separation of:
+  - Execution
+  - Orchestration
+  - Operator control
+
+⸻
+
+🔁 Core Automation Loop (SYSTEM BACKBONE)
+
+These systems must remain stable and predictable.
+
+1. update_memory.sh
+• Trigger: manual (daily) or macOS Shortcut
+• Function:
+  - Merges all context files into 00_MASTER_PROJECT.md
+  - Creates backup snapshot in /web/backups
+• Ownership: Operator (you)
+• Risk: LOW (non-destructive)
+
+---
+
+2. sync_docs_to_github.sh
+• Trigger: after update_memory.sh
+• Function:
+  - Syncs ai-agent-platform-docs → /web/docs (mirror only)
+  - Pushes to GitHub public docs repo
+• Guardrails:
+  - Aborts if required files missing
+  - Never overwrites source-of-truth docs
+• Ownership: Operator
+• Risk: LOW
+
+---
+
+3. macOS Shortcut – “Sync Docs”
+• Trigger: manual / Siri
+• Function:
+  - Runs both scripts above
+• Purpose:
+  - One-click system sync
+• Risk: NONE
+
+---
+
+4. Project Manager Agent (PM Agent)
+• Trigger: session start (daily)
+• Function:
+  - Reads SYSTEM_MEMORY_MAP.md + CURRENT_STATE.md
+  - Generates execution direction
+  - Creates Codex prompts
+  - Updates TODO.md and CHANGELOG.md
+• Authority:
+  - FINAL decision-maker for product direction
+• Risk: MEDIUM (must stay aligned with system docs)
+
+---
+
+5. Codex Execution Layer (PRIMARY BUILDER)
+• Trigger: PM Agent prompts
+• Function:
+  - Implements all system changes
+  - Returns PM Review Packets
+• Constraints:
+  - Must follow:
+    - CODEX_EXECUTION_PROTOCOL.md
+    - CODEX_SESSION_CHECKLIST.md
+    - SYSTEM_MEMORY_MAP.md
+• Risk: HIGH if uncontrolled
+
+---
+
+5a. UI Execution Enforcement (CRITICAL)
+• Trigger: any UI-related Codex task
+• Requirement:
+  MUST read:
+  - GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
+  - GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
+• Purpose:
+  - Prevent UI regression
+• Risk: HIGH if bypassed
+
+---
+
+5b. Playground Session Logging
+• Trigger: every Playground interaction
+• Writes:
+  - agent_sessions
+  - agent_events
+• Tracks:
+  - tokens
+  - cost
+  - usage
+• Purpose:
+  - analytics + cost tracking
+
+---
+
+5c. Gmail Runtime Execution Layer
+• Trigger: user approval in UI
+• Actions:
+  - analyze_inbox
+  - review_sender_cluster
+  - archive_messages
+• Writes:
+  - agent_events
+• Constraint:
+  - NEVER runs without approval
+
+---
+
+5d. Operations Workspace Runtime (CONTROL LAYER)
+• Trigger: page load
+• Function:
+  - Loads state via `/api/agents/playground`
+  - Displays intelligence + evidence
+• Constraint:
+  - READ-ONLY (no mutation)
+
+---
+
+6. Deployment Layer (External Automation)
+• Systems:
+  - Supabase (DB/Auth)
+  - Vercel (Frontend)
+  - Render (Jobs)
+• Trigger:
+  - GitHub push → auto deploy
+• Risk: MEDIUM
+
+---
+
+7. GitHub Public Docs Repo
+• Trigger: sync_docs_to_github.sh
+• Purpose:
+  - AI-readable docs
+  - permanent links
+• Risk: LOW
+
+---
+
+8. Backup System
+• Trigger: update_memory.sh
+• Function:
+  - Creates .tgz snapshots
+• Recovery:
+  - see troubleshooting_recovery.md
+• Risk: NONE
+
+⸻
+
+🧩 Gmail Workspace Automation Model (CRITICAL)
+
+This is the **most important system layer currently**.
+
+### A. Smart Sync (Incremental Engine)
+• Trigger: button OR future automation
+• Mode: incremental ONLY
+• Behavior:
+  - uses Gmail history API
+  - fetches only new/changed messages
+• NEVER:
+  - runs full scan
+  - resumes historical traversal
+• Purpose:
+  - daily maintenance
+
+---
+
+### B. Continue Backfill (Historical Engine)
+• Trigger: operator ONLY
+• Mode: full scan
+• Behavior:
+  - resumes from checkpoint OR starts fresh
+  - newest → oldest traversal
+• Uses:
+  - dedicated backfill checkpoint (NOT shared state)
+
+---
+
+### C. Bounded Backfill (NEW SYSTEM)
+• Applies ONLY to operator_backfill
+
+• Default window: 24 months  
+• Extended window: 36 months  
+
+• Stop Rule:
+  AFTER page commit:
+  - if oldest internalDate <= cutoff
+  → STOP
+
+• Terminal states:
+  - historical_window_reached
+  - historical_window_complete
+  - requested_limit_reached
+
+• Critical Guarantees:
+  - no infinite backfill
+  - no 10+ year pulls
+  - consistent dataset
+
+---
+
+### D. Checkpoint System (CRITICAL FIX)
+
+Two separate checkpoint systems now exist:
+
+1. Historical Backfill Checkpoint
+   - backfill_resume_*
+   - used ONLY by Continue Backfill
+
+2. Generic Full Resume Checkpoint
+   - last_resume_*
+   - used by manual full reindex ONLY
+
+👉 Smart Sync uses NEITHER
+
+---
+
+⸻
+
+🚨 Automation Guardrails (DO NOT BREAK)
+
+These are system invariants:
+
+1. Only ONE mailbox-index run at a time
+2. Smart Sync NEVER triggers full scan
+3. Continue Backfill is operator-only
+4. No auto backfill on page load
+5. No shared checkpoint corruption
+6. UI must reflect backend truth (no stale locks)
+7. Gmail actions must be approval-gated
+8. Docs in /web/docs are NEVER edited directly
+
+⸻
+
+🧍 Manual Oversight Points
+
+You are responsible for:
+
+1. Running checklists (daily/weekly/monthly)
+2. Approving system actions
+3. Providing UI feedback (screenshots + notes)
+4. Managing API keys
+5. Verifying sync/backup health
+
+You are NOT responsible for:
+- system design
+- architecture decisions
+- execution planning
+
+👉 That is the PM Agent’s role
+
+⸻
+
+🧾 Automation Classification
+
+Fully Automated
+– Doc merge + backup
+– GitHub sync
+– RAG ingestion trigger
+– Logging systems
+– PM Agent orchestration
+– Codex execution loop
+
+Semi-Automated
+– Drift detection
+– Evidence expansion
+– Key reminders
+– Planning drafts
+
+Manual (Operator)
+– Approvals
+– UI feedback
+– Session resets
+– Key updates
+
+⸻
+
+🎯 End Result
+
+This automation system guarantees:
+
+• No hidden behavior  
+• No runaway processes  
+• Clear operator control  
+• Fast execution cycles  
+• Scalable AI-driven product development  
+
+And most importantly:
+
+👉 **You are no longer building manually.  
+You are directing a system that builds itself.**

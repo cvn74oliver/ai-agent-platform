@@ -1,5 +1,3 @@
-
-
 # CODEX SOURCE OF TRUTH
 
 ## Purpose
@@ -21,6 +19,8 @@ These define the **current active work** and override everything else.
 Location:
 
 `ai-agent-platform-docs/03_gmail_workspace/`
+
+Note: Only files explicitly labeled as Phase Implementation or Phase Plan are considered Level 1. All other files in this directory fall into lower levels unless explicitly stated.
 
 Primary documents:
 
@@ -60,6 +60,10 @@ These define:
 - performance requirements
 
 However, they **must not expand scope beyond the current phase**.
+
+Additionally:
+- Product Specs define *target state*, not *current build state*
+- If implementation conflicts with Product Spec but aligns with Phase Implementation, the Phase Implementation must be followed
 
 If a Product Spec requires functionality outside the active phase:
 
@@ -123,13 +127,12 @@ Codex may read them for context but **must not treat them as requirements**.
 
 When Codex encounters conflicting instructions:
 
-1. Check the **Phase Implementation document**.
-2. If the phase document defines the behavior, follow it.
-3. If the phase document is silent, consult Product Specs.
-4. If Product Specs conflict, prefer the newest file version.
-5. If ambiguity remains, Codex must **ask for clarification before implementing**.
-
-Codex must **never invent behavior** to resolve document conflicts.
+1. Identify the active Phase Implementation document.
+2. Treat it as the **single execution authority**.
+3. Use Product Specs only to clarify intent—not to expand scope.
+4. Ignore any requirement not explicitly aligned with the current phase.
+5. If two documents conflict and neither is clearly dominant, STOP and escalate via PM Review Packet.
+6. Codex must never “blend” multiple documents into a hybrid behavior.
 
 ---
 
@@ -173,6 +176,11 @@ Phase 1 excludes:
 
 If code touches Phase 2+ features, Codex must **leave them unchanged or replace them with placeholders**.
 
+Critical clarification:
+- Codex must NOT partially implement Phase 2 logic
+- Codex must NOT 'prepare' Phase 2 systems unless explicitly instructed
+- Codex must NOT infer future architecture from Product Specs
+
 ---
 
 # CACHING & PERFORMANCE RULE
@@ -185,6 +193,9 @@ The Gmail workspace must follow these performance rules:
 - Review stage changes must not trigger refetches.
 
 These rules override earlier experimental implementations.
+
+Enforcement rule:
+- Any implementation that violates these rules must be treated as a bug, even if it appears to function correctly
 
 ---
 
@@ -233,11 +244,18 @@ Codex must **never create new top-level documentation directories without explic
 
 If Codex encounters uncertainty:
 
-Stop.
+Stop immediately.
 
-Produce a PM Review Packet explaining the ambiguity.
+Do NOT proceed with implementation.
+
+Produce a PM Review Packet explaining:
+- what is unclear
+- which documents conflict
+- what decision is required
 
 Do not guess.
+Do not assume.
+Do not proceed until clarified.
 
 ---
 

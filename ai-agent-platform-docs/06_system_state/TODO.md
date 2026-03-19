@@ -15,24 +15,43 @@ _Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification
 ---
 
 ```
-- 🚀 Mailbox Intelligence Finalization (NEW — CRITICAL HANDOFF PRIORITY)
-  - [ ] Finalize Mailbox Intelligence as the AI Intelligent Decision Dashboard (command center layer)
-  - [ ] Ensure dashboard clearly communicates the goal:
-        "A clean inbox = every sender has a decision"
-  - [ ] Align all health metrics to sender-decision coverage (NOT message count)
-  - [ ] Fix all hero metrics so denominators are clear and non-misleading
-  - [ ] Add strong visual meaning to all bars/meters (no decorative-only visuals)
-  - [ ] Add actionable CTAs for every Mission Control directive (no dead instructions)
-  - [ ] Improve hover intelligence so it adds NEW insight (not repeated data)
-  - [ ] Refine Pressure Trend to show:
-        - sender-level drivers
-        - period-over-period change explanation
-        - actionable intervention insight
-  - [ ] Ensure page tells a clear story:
-        Health → Bottleneck → Action → Impact → Progress
-  - [ ] Remove any remaining ambiguity around "index", "universe", and "scope"
-  - [ ] Add management-layer signal awareness (archive/quarantine/rules presence indicators)
+- 🚀 Sender Decision System Build (NEW — PRIMARY PRIORITY)
+  - [ ] Build Sender Decision Mode (Tinder-style flow)
+  - [ ] Implement single-sender review card system
+  - [ ] Add 4 core decision actions:
+        - Keep All
+        - Keep Some
+        - Archive All
+        - Not Sure (Quarantine)
+  - [ ] Implement instant decision progression (no page reload, next sender loads immediately)
+  - [ ] Add sender profile intelligence panel:
+        - sender identity (human vs machine)
+        - email category breakdown
+        - behavior patterns
+        - example emails per category
+  - [ ] Build "Keep Some" deep review mode:
+        - category-level decision controls
+        - expandable email previews
+        - like / don’t like per category
+  - [ ] Connect decisions to Management buckets:
+        - Keep → no action
+        - Archive → archive bucket
+        - Keep Some → custom rules bucket
+        - Not Sure → quarantine bucket
+  - [ ] Add decision progress system:
+        - % complete for sender review
+        - remaining senders count
+  - [ ] Add fast-flow UX:
+        - keyboard shortcuts (later)
+        - minimal friction decision flow
+  - [ ] Ensure zero ambiguity in decision outcomes
+  - [ ] Validate full flow from Sender Decisions → Management
 ```
+
+- 🧠 Mailbox Intelligence (MAINTENANCE MODE)
+  - [ ] Minor polish only if needed
+  - [ ] No major rework (system considered complete)
+  - [ ] Ensure compatibility with Sender Decision System
 0) Gmail Cleanup Sender-First Follow-up (NEW)
    - [x] Replace post-confirmation approval-queue handoff with direct sender destination-state commits
    - [x] Add durable sender destination profiles to Gmail cleanup memory
@@ -775,7 +794,9 @@ Handoff Criteria:
 - System feels guided, not analytical
 
 Next Phase (PM v9):
-- Visual system standardization across ALL pages
-- Management drill-down pages (Keep / Archive / Rules / etc.)
-- AI rule recommendation engine integration
-- Cross-page visual intelligence consistency
+- Sender Decision System (PRIMARY BUILD)
+- Management execution UX refinement
+- Decision → Execution → Feedback loop stabilization
+- Gamification + reward system integration
+- AI learning layer (post-decision intelligence)
+- Cross-page UX consistency pass
