@@ -404,6 +404,7 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── 09_reference
 │   │   │   ├── codex_safeguards.md
 │   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_spec.md
 │   │   │   ├── gmail_workspace_system_index.md
 │   │   │   ├── implementation_phase_1.md
 │   │   │   └── performance_spec.md
