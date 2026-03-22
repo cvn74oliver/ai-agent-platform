@@ -78,6 +78,7 @@
 │   │   ├── 09_reference
 │   │   │   ├── codex_safeguards.md
 │   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_spec.md
 │   │   │   ├── gmail_workspace_system_index.md
 │   │   │   ├── implementation_phase_1.md
 │   │   │   └── performance_spec.md
@@ -240,6 +241,7 @@
     │   │   │   ├── decision_ui_flow.md
     │   │   │   ├── sender_decision_mode_spec.md
     │   │   │   ├── sender_decision_ui_spec.md
+    │   │   │   ├── sender_overview_card_target_spec.md
     │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
     │   │   │   ├── start_building_decision_mode_components.md
     │   │   │   ├── workspace_ui_structure.md
@@ -575,4 +577,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-138 directories, 438 files
+138 directories, 440 files
