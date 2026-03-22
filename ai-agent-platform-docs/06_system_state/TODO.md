@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification pass)_
+_Last updated: 2026-03-22 (First-open recovery documented • Sender Overview product/data work resumed)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,39 @@ _Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification
 ## 🔥 Current Focus (This Week)
 
 ---
+
+## 🚨 Phase: Runtime Stabilization (Completed)
+
+- [x] Disable passive discovery rebuilds
+- [x] Disable passive mailbox-index sync
+- [x] Block initial-paint heavy inbox-analysis routes
+- [x] Add heavy-action safety layer
+- [x] Optimize manual regeneration (skip sync)
+- [x] Add discovery row cache
+- [x] Move snapshot save off critical path
+- [x] Optimize runtime wrapper (skip preload)
+- [x] Restore Cleanup Groups safe initial render without reopening blocked initial-paint heavy fetches
+- [x] Restore Decision Mode first-click reliability
+- [x] Restore Sender Overview first-open recovery under containment
+- [x] Restore Mailbox Intelligence first-open recovery under containment
+
+Runtime-loading note:
+- Cold first-open on Sender Overview and some Mailbox Intelligence seed-miss cases is still slower because recovery resolves through deferred safe fetches.
+- Warm loads are fast again once runtime/cached state exists.
+- Keep the current loading containment intact; treat any future cold-open optimization as a separate performance pass.
+
+## 🎯 Next Phase: Product Work (Sender Overview Data Truth)
+
+- [ ] Improve usefulness of sender-global category mix
+- [ ] Improve dominant-pattern usefulness
+- [ ] Create more actionable sender breakdowns beyond broad labels like `Updates` / `Promotions`
+- [ ] Keep the current loading containment intact while iterating on Sender Overview truth/presentation
+
+- [ ] Resume Sender Decision UI work
+- [ ] Improve sender category clarity
+- [ ] Add category provenance UI
+- [ ] Add exclusion reason visibility
+- [ ] Improve decision confidence UX
 
 ```
 - 🚀 Sender Decision System Build (NEW — PRIMARY PRIORITY)

@@ -56,6 +56,7 @@
 │   │   │   ├── decision_mode_ui_final_build_spec.md
 │   │   │   ├── decision_ui_flow.md
 │   │   │   ├── sender_decision_mode_spec.md
+│   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
 │   │   │   ├── workspace_ui_structure.md
 │   │   │   └── workspace_ux_spec.md
 │   │   ├── 05_management_execution
@@ -150,6 +151,7 @@
 │       └── Settings Tab.png
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
+├── mailbox-intelligence-first-load.png
 ├── package.json
 ├── project_structure.txt
 ├── supabase
@@ -164,7 +166,9 @@
 │   │   ├── 20260318013000_gmail_mailbox_index_yield_detail.sql
 │   │   ├── 20260318020000_gmail_mailbox_index_resume_checkpoint.sql
 │   │   ├── 20260318120000_gmail_mailbox_index_operator_backfill_checkpoint.sql
-│   │   └── 20260319113000_gmail_mailbox_index_backfill_window.sql
+│   │   ├── 20260319113000_gmail_mailbox_index_backfill_window.sql
+│   │   ├── 20260322110000_gmail_sender_stats_canonical_profile.sql
+│   │   └── 20260322133000_gmail_sender_stats_operator_profile.sql
 │   └── supabase
 └── web
     ├── automation
@@ -505,12 +509,14 @@
     │   │   │       ├── gmailCleanupWorkspace.ts
     │   │   │       ├── gmailMailboxIndexConfig.ts
     │   │   │       ├── gmailMailboxIndexer.ts
+    │   │   │       ├── gmailSenderProfile.ts
     │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
     │   │   │   ├── approvalSummary.ts
     │   │   │   ├── gmailCleanupMemory.ts
     │   │   │   ├── gmailCleanupWorkspace.ts
     │   │   │   ├── gmailRuntimeAssembler.ts
+    │   │   │   ├── heavyActionSafety.ts
     │   │   │   ├── operationsAnalytics.ts
     │   │   │   ├── operationsWorkspace.ts
     │   │   │   ├── playgroundAgentConfigService.ts
@@ -567,4 +573,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-138 directories, 430 files
+138 directories, 436 files

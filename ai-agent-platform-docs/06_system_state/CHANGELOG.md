@@ -1,3 +1,109 @@
+### March 2026 — Runtime Containment & Supabase Stabilization
+
+Root-cause addressed:
+- Passive runtime flows were still able to trigger expensive mailbox-wide operations during normal browsing.
+- Cached/stale runtime paths could fall through into:
+  - cleanup discovery rebuilds
+  - mailbox-index sync / sender-stats recompute
+  - inbox-analysis fallbacks that loaded up to 100,000 indexed rows
+- The result was a Supabase resource blow-up:
+  - repeated 100k-row scans
+  - CPU spike
+  - disk I/O saturation
+  - statement timeout failures
+
+Containment layer introduced:
+- Disabled passive cleanup discovery refresh during normal page-load rehydrate.
+- Disabled passive mailbox-index bootstrap / recovery / sync triggers from runtime behavior.
+- Blocked heavy initial-paint inbox-analysis routes from page loads:
+  - `sender_workspace`
+  - `mailbox_intelligence`
+  - `mailbox_pressure_trend`
+  - `cleanup_group_intelligence`
+  - `confirmation_preview`
+- Default runtime behavior is now:
+  - passive browsing = cache / runtime snapshot only
+  - heavy recompute = explicit manual action only
+
+Heavy-action safety system added:
+- Introduced server-side single-flight protection for manual heavy actions.
+- Added cooldown protection to prevent repeated back-to-back launches.
+- Added structured heavy-action logging so duplicate / blocked / completed runs are easy to trace.
+
+Performance improvements:
+- Manual cleanup regeneration no longer runs inline mailbox sync.
+- Manual cleanup regeneration no longer runs sender-stats recompute inline.
+- Added bounded in-memory discovery row cache for manual regeneration.
+- Moved cleanup snapshot persistence off the manual-regeneration critical path.
+- Optimized runtime wrapper path by skipping forced manual-regeneration preload work.
+- Passive cached rehydrate now short-circuits to the saved runtime snapshot instead of doing unnecessary wrapper work.
+
+Measured outcomes:
+- Manual regeneration improved from roughly `~60s` to roughly `~4s` on cache-hit runs.
+- Discovery row cache eliminates the second 100k indexed-row reread on repeated manual regeneration.
+- Passive cached rehydrate improved from roughly `~9s` to roughly `~3.7s`.
+- Normal page navigation no longer triggers passive full-mailbox scans or passive mailbox sync.
+
+Operator impact:
+- Mailbox Intelligence and Sender Overview are now safe to open during normal browsing.
+- Manual heavy operations are explicit, guarded, and observable.
+- Supabase resource behavior is now stable under ordinary navigation and controlled regeneration.
+
+Next state after this milestone:
+- Runtime containment is considered successful.
+- Product work can resume on top of a safer runtime foundation, with further optimization now optional rather than urgent.
+
+### March 2026 — Operations First-Open Recovery Under Containment
+
+Root-cause addressed:
+- The loading-containment pass correctly blocked unsafe initial-paint heavy routes, but two operator pages lost a deterministic first-open recovery path:
+  - `Sender Overview` could stop at the warming shell if no runtime/cached sender workspace seed was present
+  - `Mailbox Intelligence` could remain in loading or surface transient guard contention instead of resolving safely
+- The regression came from over-suppressing live first-open fetches without always promoting to a safe deferred replacement path.
+
+Exact files changed:
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- `web/src/lib/runtime/operationsWorkspace.ts`
+- `web/src/app/agents/[id]/operations/clusters/page.tsx`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/app/agents/[id]/operations/intelligence/page.tsx`
+
+Before:
+- `Cleanup Groups` could fall into a blocked initial-paint `mailbox_intelligence` path and render blank.
+- `Decision Mode` could require repeated clicking because first-open sender workspace state was not resolving deterministically.
+- `Sender Overview` could stall in warming/fallback state.
+- `Mailbox Intelligence` could still hang or surface transient heavy-action contention on first open.
+- Some cold first-opens depended too much on runtime/cached seeds being present already.
+
+After:
+- `Cleanup Groups` opens again from safe runtime/cached state.
+- `Decision Mode` opens on first click.
+- `Sender Overview` first-open no longer stalls indefinitely:
+  - safe shell first
+  - deferred `sender_workspace` recovery path
+  - transient heavy-action guard contention is retried instead of treated as terminal
+- `Mailbox Intelligence` first-open no longer hangs:
+  - renderable safe content appears immediately
+  - deferred `mailbox_intelligence` recovery path completes in the background
+- No unsafe passive initial-paint heavy route was reintroduced.
+
+Containment still intact:
+- Heavy inbox-analysis routes remain blocked on unsafe initial paint.
+- Recovery now happens through:
+  - runtime snapshot
+  - cached snapshot
+  - safe fallback content
+  - deferred post-mount fetch only when needed
+
+Known remaining limitation:
+- Cold first-open on `Sender Overview` and some `Mailbox Intelligence` seed-miss cases is still noticeably slower than warm navigation because recovery occurs through deferred safe fetches.
+- Warm loads are fast again once snapshot/cache state is available.
+
+Next step:
+- Resume `Sender Overview` product/data usefulness work.
+- Treat cold-open performance optimization as a separate later pass, not part of the current containment/loading milestone.
+
+---
 ### March 19, 2026 - Historical Backfill System Stabilization + Bounded Window Implementation
 
 Root-cause addressed:

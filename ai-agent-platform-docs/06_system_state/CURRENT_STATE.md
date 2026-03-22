@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-19  
+Last updated: 2026-03-22  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
@@ -44,6 +44,81 @@ Project Manager: v10 (finalized — preparing transition to v11)
 - Strategic state:
   - Gmail ingestion system is now considered **stable and production-ready (Phase 1 complete)**
   - Platform is transitioning from **infrastructure stabilization → product experience build phase**
+
+## 🔥 System Stability
+
+- Supabase resource usage is now stabilized under normal browsing.
+- Passive runtime no longer triggers heavy mailbox work on page load.
+- Normal page navigation no longer launches:
+  - cleanup discovery rebuilds
+  - mailbox-index sync
+  - inbox-analysis 100k-row fallback scans
+- CPU spike behavior observed during the March runtime incident is now contained for ordinary browsing paths.
+- Cleanup Groups and Decision Mode route reliability are restored under the current containment model.
+- Sender Overview and Mailbox Intelligence now recover on first open without reintroducing unsafe passive initial-paint heavy requests.
+
+## ⚙️ Runtime Behavior
+
+- Passive browsing now behaves as cache/runtime only:
+  - cached runtime snapshot first
+  - no passive heavy refresh escalation
+  - no passive mailbox-index POST triggers
+- Manual regeneration is now controlled and optimized:
+  - explicit user action required
+  - no inline mailbox sync
+  - no inline sender-stats recompute
+  - bounded discovery-row reuse on repeated runs
+- Heavy actions are now:
+  - guarded by single-flight protection
+  - rate-limited by cooldowns
+  - observable through structured logs
+- Cold first-open on Review and Intelligence now resolves through safe deferred recovery when no usable runtime/cached seed exists:
+  - runtime snapshot if available
+  - cached snapshot if available
+  - safe fallback content otherwise
+  - deferred post-mount fetch only when needed
+- Warm loads are fast again once runtime/cached state is present.
+
+## 🛠️ First-Open Recovery Status
+
+- Regression root cause:
+  - initial-paint containment was correct, but some operations pages lost a deterministic recovery path after blocked live first-open requests were removed
+  - the affected pages were depending too heavily on runtime/cached seeds already being present
+- Exact files changed for the recovery fix:
+  - `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+  - `web/src/lib/runtime/operationsWorkspace.ts`
+  - `web/src/app/agents/[id]/operations/clusters/page.tsx`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/app/agents/[id]/operations/intelligence/page.tsx`
+- Behavior before:
+  - Cleanup Groups could render blank
+  - Decision Mode could require repeated clicking
+  - Sender Overview could stall in warming state
+  - Mailbox Intelligence could hang on first open
+- Behavior after:
+  - Cleanup Groups opens from safe runtime/cached state
+  - Decision Mode opens on first click
+  - Sender Overview first-open no longer stalls indefinitely
+  - Mailbox Intelligence first-open no longer hangs
+- Safety constraint preserved:
+  - no unsafe passive initial-paint heavy path was reintroduced
+
+## 🚧 Known Limitations
+
+- Manual cleanup regeneration still costs roughly `~4s` on a cache-hit run, which is now acceptable but not free.
+- Passive cached rehydrate is improved, but snapshot lookup/load is still the main remaining passive cost (`~2–3s` inside the request).
+- Cross-tab duplicate requests are still possible because client-side TTL/single-flight protection is strongest within a tab/session rather than across every open browser process.
+- Cold first-open on Sender Overview and some Mailbox Intelligence seed-miss cases is still noticeably slower than warm navigation because recovery now happens through deferred safe fetches.
+
+## ✅ Golden Path Status
+
+- Mailbox Intelligence now loads safely on normal navigation.
+- Sender Overview now loads safely on normal navigation.
+- Cleanup Groups now opens safely again on first navigation.
+- Decision Mode now opens on first click again.
+- No runaway Supabase / DB load is expected during ordinary browsing.
+- Manual heavy operations remain available, but now require explicit action and stay inside guarded execution paths.
+- Current strategic focus should return to Sender Overview data usefulness and truth, not more loading-behavior rewrites.
 
 ---
 

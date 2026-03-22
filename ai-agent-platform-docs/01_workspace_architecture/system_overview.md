@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 16, 2026_
+_Last Updated: March 22, 2026_
 
 ---
 
@@ -49,6 +49,67 @@ This separation ensures:
 - Reduced hallucination risk
 - Controlled rate-limit usage
 - Clear feature-domain isolation
+
+### ⚙️ Runtime Containment Layer (March 2026)
+
+Current runtime architecture now enforces a strict separation between:
+- passive browsing
+- manual heavy operations
+
+Passive browsing:
+- uses cached runtime / saved snapshot state only
+- does not automatically trigger:
+  - full-mailbox scans
+  - cleanup discovery rebuilds
+  - mailbox-index sync
+
+Manual heavy operations:
+- require explicit user action
+- run behind server-side guards
+- use single-flight + cooldown protection to prevent duplicate starts
+
+Architectural additions introduced during stabilization:
+- `heavyActionSafety` guard layer for manual runtime refresh / sync flows
+- bounded discovery row cache for repeated manual cleanup regeneration
+- regeneration optimization pipeline that:
+  - skips inline sync
+  - skips inline sender-stats recompute
+  - moves snapshot persistence off the critical path
+  - skips unnecessary wrapper preload work on forced regeneration
+
+Result:
+- normal navigation is no longer allowed to escalate into automatic full-mailbox work
+- heavy runtime operations remain available, but only as explicit, guarded operator actions
+
+First-open recovery under containment now follows this order:
+- runtime snapshot
+- cached snapshot
+- safe fallback content
+- deferred post-mount fetch only when needed
+
+This recovered route reliability without reopening unsafe passive heavy paths:
+- `Cleanup Groups` opens again from safe runtime/cached state
+- `Decision Mode` opens on first click again
+- `Sender Overview` no longer stalls indefinitely on first open
+- `Mailbox Intelligence` no longer hangs on first open
+
+Exact files changed for the recovery fix:
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- `web/src/lib/runtime/operationsWorkspace.ts`
+- `web/src/app/agents/[id]/operations/clusters/page.tsx`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/app/agents/[id]/operations/intelligence/page.tsx`
+
+Important architectural constraint preserved:
+- no unsafe passive initial-paint heavy inbox-analysis path was reintroduced
+
+Known remaining limitation:
+- cold first-open on `Sender Overview` and some `Mailbox Intelligence` seed-miss cases is still slower than warm navigation because recovery resolves through deferred safe fetches
+- warm loads are fast again once runtime/cached state is present
+
+Next product-phase direction:
+- resume Sender Overview data usefulness / truth work
+- queue cold-open performance optimization as a separate later pass
 
 ### Gmail Cleanup Runtime Note (March 15, 2026)
 
