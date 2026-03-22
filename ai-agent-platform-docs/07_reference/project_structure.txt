@@ -56,6 +56,7 @@
 │   │   │   ├── decision_mode_ui_final_build_spec.md
 │   │   │   ├── decision_ui_flow.md
 │   │   │   ├── sender_decision_mode_spec.md
+│   │   │   ├── sender_overview_card_target_spec.md
 │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
 │   │   │   ├── workspace_ui_structure.md
 │   │   │   └── workspace_ux_spec.md
@@ -239,6 +240,7 @@
     │   │   │   ├── decision_ui_flow.md
     │   │   │   ├── sender_decision_mode_spec.md
     │   │   │   ├── sender_decision_ui_spec.md
+    │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
     │   │   │   ├── start_building_decision_mode_components.md
     │   │   │   ├── workspace_ui_structure.md
     │   │   │   └── workspace_ux_spec.md
@@ -573,4 +575,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-138 directories, 436 files
+138 directories, 438 files
