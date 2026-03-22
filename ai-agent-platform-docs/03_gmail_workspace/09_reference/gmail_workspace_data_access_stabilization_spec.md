@@ -318,29 +318,142 @@ The system is considered fixed when:
 
 ## 13. Phased Implementation Plan
 
-### Phase A: Eliminate 100k Fallback
-- fix sender workspace fast path
-- enforce artifact-only first open
+### Phase A: Artifact Foundation (Completed)
+- create artifact schema
+- create publication/version model
+- create artifact projector/store scaffolding
+- no request-path changes
 
-### Phase B: Complete Artifact Coverage
-- ensure all pages have required artifacts
-- fill gaps
+### Phase B: Sender Overview Stabilization (Completed)
+- eliminate 100k fallback from Sender Overview
+- enforce artifact-only reads for `sender_workspace`
+- introduce safe partial behavior (no mailbox scan fallback)
 
-### Phase C: Background Recompute Stability
-- optimize recompute jobs
-- ensure full dataset coverage
+### Phase C: Intelligence + Cluster Stabilization (Completed)
+- convert Mailbox Intelligence to snapshot reads
+- convert Cleanup Groups to cluster summary artifact
+- convert pressure trend to bucket reads
+- remove request-time derived workspace rebuilds
 
-### Phase D: Performance Validation
-- test with full dataset
-- confirm Supabase stability
+### Phase D: Decision + Execution Stabilization (Completed)
+- convert confirmation preview to preview index
+- convert archive-scope resolution to artifact-backed logic
+- preserve exact message-id behavior without mailbox scans
+
+### Phase E: Runtime Stabilization (Completed)
+- remove synchronous runtime discovery rebuilds
+- enforce artifact-only runtime assembly
+- background refresh becomes enqueue-only and non-blocking
+
+---
+
+### Phase F: Validation, Observability, and Lockdown (In Progress)
+- add repeatable acceptance scripts
+- formalize rollout documentation
+- define log-based success signals
+- confirm no request-time mailbox scans across all pages
+- lock architecture rules to prevent regressions
+
+---
+
+### Phase G: Full-Mailbox Artifact Coverage (Critical Next Phase)
+
+**Goal:** Move from partial (100k-window) artifact coverage to full mailbox coverage (~300k+ messages).
+
+#### Requirements
+- process entire indexed mailbox, not capped subsets
+- eliminate dependence on 100k build window
+- guarantee artifact completeness for all senders and clusters
+
+#### Implementation
+- extend artifact projector to stream full mailbox by sender
+- implement checkpointed/resumable processing
+- ensure full coverage for:
+  - sender stats
+  - sender workspace seeds
+  - cluster summaries
+  - preview index
+  - intelligence snapshots
+
+#### Constraints
+- must run as background job only
+- must not block UI
+- must not introduce request-time scans
+
+---
+
+### Phase H: Incremental Artifact Update System
+
+**Goal:** Ensure all new incoming data is automatically reflected in artifacts.
+
+#### Behavior
+- new emails trigger:
+  - sender-level updates
+  - preview index updates
+  - cluster summary adjustments
+- system computes only affected deltas
+- publishes new artifact version without full rebuild
+
+#### Requirements
+- change detection per sender
+- partial recompute pipeline
+- safe publish (versioned)
+
+---
+
+### Phase I: Artifact Freshness + Sync Integration
+
+**Goal:** Integrate artifact updates into Smart Sync and ingestion pipeline.
+
+#### Behavior
+- after sync completes:
+  - compute affected senders
+  - update artifacts incrementally
+- fallback to full rebuild if:
+  - data drift is too large
+  - integrity is uncertain
+
+---
+
+### Phase J: Performance Hardening + Scaling
+
+**Goal:** Ensure system stability at scale (300k+ and beyond).
+
+#### Requirements
+- artifact reads < 2s for all major pages
+- bounded Supabase queries only
+- no request-time scan regressions
+- load-test full dataset
+
+---
+
+### Phase K: Final Architecture Lock
+
+**Goal:** Make this the permanent engine pattern.
+
+#### Enforce:
+- no new feature may introduce request-time full dataset scans
+- all new workspaces must follow:
+  - ingest → derive → persist → serve
+- document as platform standard
 
 ---
 
 ## Final Note
 
-This is not a patch.
+This system must support:
 
-This is a permanent shift to:
-- snapshot-first architecture
-- artifact-driven UI
-- full-dataset intelligence without runtime cost
+- full mailbox data (300k+ messages)
+- continuous updates from new incoming data
+- zero request-time dependency on raw mailbox scans
+
+This is the foundational engine for all future workspaces:
+- email
+- ads
+- finance
+- crypto
+- social
+
+We are not solving Gmail.
+
+We are building the platform.
