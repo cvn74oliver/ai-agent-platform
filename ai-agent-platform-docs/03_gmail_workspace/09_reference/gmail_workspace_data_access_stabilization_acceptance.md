@@ -36,6 +36,31 @@ npm run accept:gmail-workspace-data-access
 
 This harness is intentionally locked to `analysis_scope=all_indexed`.
 
+## Phase G Full-Mailbox Coverage Proof
+
+Run the full-mailbox build proof from [web](/Users/olivercarlin/Documents/ai-agent-platform/web):
+
+```bash
+npm run build:gmail-full-mailbox-artifacts
+```
+
+To write the current machine-readable full-mailbox proof bundle:
+
+```bash
+PROOF_OUTPUT=../ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_full_mailbox_coverage_proof.json npm run build:gmail-full-mailbox-artifacts
+```
+
+The current validated proof bundle is:
+
+- [gmail_workspace_full_mailbox_coverage_proof.json](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_full_mailbox_coverage_proof.json)
+
+Phase G is considered successful only when that proof shows:
+
+- `processed_message_count = indexed_corpus_size`
+- a newly published `published_version`
+- non-zero row counts for sender workspace seeds, cluster summaries, mailbox intelligence snapshot/buckets, and preview index
+- no `loadIndexedGmailMessagesForTenant(limit=100000)` in build logs
+
 ## Expected Success Signatures
 
 Required request-path/runtime-path log fragments:

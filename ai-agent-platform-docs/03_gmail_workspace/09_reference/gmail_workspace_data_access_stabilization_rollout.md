@@ -54,6 +54,14 @@ This rollout does not change cleanup truth semantics. It changes when and how ma
 - document rollout, acceptance, and proof expectations
 - produce a final proof bundle for the stabilized sequence
 
+8. Phase G
+
+- run `npm run build:gmail-full-mailbox-artifacts` from [web](/Users/olivercarlin/Documents/ai-agent-platform/web)
+- allow the background projector to stream the full indexed mailbox by sender into an isolated `building_version`
+- if a long-running build is interrupted, resume with `GMAIL_FULL_BUILD_RESUME_JOB_ID=<job_id> npm run build:gmail-full-mailbox-artifacts`
+- publish only after full-corpus projection, finalize, and row-count proof succeed
+- keep request-time readers on the previous `published_version` until the new full-mailbox version is published
+
 ## Required Preconditions
 
 - no active long-running mailbox indexing, backfill, or manual regeneration run when schema or artifact writer contracts are being changed
@@ -71,7 +79,8 @@ This rollout does not change cleanup truth semantics. It changes when and how ma
 - tenant: `085c8ef7-2fd7-4842-8499-cd605e894a77`
 - scope: `all_indexed`
 - agent: `d256b48e-5acf-4b3d-af22-003d52e7e582`
-- published execution-capable artifact version: `shadow-rollout-preview-exec-20260322123030100`
+- published full-mailbox artifact version: `full-mailbox-20260322143618516`
+- full-mailbox proof bundle: [gmail_workspace_full_mailbox_coverage_proof.json](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_full_mailbox_coverage_proof.json)
 
 ## Rollback Guidance
 

@@ -347,7 +347,7 @@ The system is considered fixed when:
 
 ---
 
-### Phase F: Validation, Observability, and Lockdown (In Progress)
+### Phase F: Validation, Observability, and Lockdown (Completed)
 - add repeatable acceptance scripts
 - formalize rollout documentation
 - define log-based success signals
@@ -356,7 +356,7 @@ The system is considered fixed when:
 
 ---
 
-### Phase G: Full-Mailbox Artifact Coverage (Critical Next Phase)
+### Phase G: Full-Mailbox Artifact Coverage (Completed)
 
 **Goal:** Move from partial (100k-window) artifact coverage to full mailbox coverage (~300k+ messages).
 
@@ -382,7 +382,81 @@ The system is considered fixed when:
 
 ---
 
-### Phase H: Incremental Artifact Update System
+### Phase G.5: Artifact Integrity Verification (New – Immediate Follow-Up)
+
+**Goal:** Ensure the newly built full-mailbox artifacts are correct, complete, and trustworthy before moving forward.
+
+#### Requirements
+- validate artifact counts against source mailbox:
+  - sender counts
+  - message counts
+  - preview index coverage
+- verify no silent data loss:
+  - missing senders
+  - missing clusters
+  - missing preview messages
+- verify cross-artifact consistency:
+  - sender stats vs seed rows
+  - cluster summaries vs seed headers
+  - preview index vs cluster membership
+- verify UI-visible correctness:
+  - sender overview accuracy
+  - pressure trend correctness
+  - category distributions
+
+#### Constraints
+- no request-path changes
+- no UI redesign
+- read-only validation + diagnostics only
+- must not trigger full rebuild unless explicitly requested
+
+---
+
+### Phase G.6: Pressure Trend Bucket Expansion + Window Correctness (New – Immediate Follow-Up)
+
+**Goal:** Ensure Mailbox Intelligence pressure trend is correct and fully artifact-backed for all supported time windows.
+
+#### Problem
+- Current artifact model stores a single all-history pressure series.
+- Alternate windows (`last_year`, `last_quarter`, `last_month`, `last_week`, `last_day`) are derived by filtering this series.
+- This produces incorrect grouping and bar counts and can leave the chart in a perpetual loading/empty state.
+
+#### Requirements
+- Publish window-specific bucket families with correct aggregation grain:
+  - `all_indexed` → quarterly/year-scale (as currently defined)
+  - `last_year` → monthly buckets (~12–13)
+  - `last_quarter` → weekly buckets (~12–13)
+  - `last_month` → daily buckets (~28–31)
+  - `last_week` → daily buckets (7)
+  - `last_day` → hourly buckets (24)
+- Each bucket family must be precomputed and persisted in `gmail_mailbox_intelligence_buckets`.
+- Bucket rows must include:
+  - `bucket_kind` (e.g., year/month/week/day/hour)
+  - `bucket_start_at`, `bucket_end_at`
+  - `bucket_value` and payload needed for UI rendering
+
+#### Read Path
+- The request path must select the correct bucket family per window.
+- Do NOT filter a single all-history series to emulate other windows.
+- Maintain artifact-only reads and bounded queries.
+
+#### Constraints
+- no request-time mailbox scans
+- no changes to Sender Overview, Cleanup Groups, or Decision Mode
+- no UI redesign (data correctness only)
+- preserve A–G request-time guarantees
+
+#### Acceptance Criteria
+- Each window returns the correct number of bars and correct aggregation grain
+- Switching windows updates data immediately (no stuck loading state)
+- No `loadIndexedGmailMessagesForTenant(...)` appears in logs
+- No `loadDerivedWorkspaceState(...)` or `loadMailboxContext(...)` calls are introduced
+- Existing Phase F acceptance harness continues to pass unchanged
+
+---
+---
+
+### Phase H: Incremental Artifact Update System (Next Active Phase)
 
 **Goal:** Ensure all new incoming data is automatically reflected in artifacts.
 
