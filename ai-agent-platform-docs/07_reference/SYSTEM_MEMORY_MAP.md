@@ -382,6 +382,7 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── decision_mode_ui_final_build_spec.md
 │   │   │   ├── decision_ui_flow.md
 │   │   │   ├── sender_decision_mode_spec.md
+│   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
 │   │   │   ├── workspace_ui_structure.md
 │   │   │   └── workspace_ux_spec.md
 │   │   ├── 05_management_execution
