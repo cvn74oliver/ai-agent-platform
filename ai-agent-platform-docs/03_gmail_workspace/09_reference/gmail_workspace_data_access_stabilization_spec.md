@@ -412,7 +412,7 @@ The system is considered fixed when:
 
 ---
 
-### Phase G.6: Pressure Trend Bucket Expansion + Window Correctness (New – Immediate Follow-Up)
+### Phase G.6: Pressure Trend Bucket Expansion + Window Correctness (Completed)
 
 **Goal:** Ensure Mailbox Intelligence pressure trend is correct and fully artifact-backed for all supported time windows.
 
@@ -454,9 +454,54 @@ The system is considered fixed when:
 - Existing Phase F acceptance harness continues to pass unchanged
 
 ---
+
+### Phase G.7: Pressure Trend Render / Consumption Verification (New – Immediate Follow-Up)
+
+**Goal:** Prove that the pressure-trend UI is actually rendering the correct published bucket families end-to-end, not merely that the backend stores them correctly.
+
+#### Problem
+- G.6 fixed artifact bucket production and request-path selection.
+- However, if the UI still shows an empty/loading chart while request logs are healthy, then the remaining issue is likely in chart consumption, response mapping, hydration, or render-state handling.
+- This must be verified and fixed before moving on to incremental artifact updates.
+
+#### Requirements
+- verify end-to-end behavior for all supported windows:
+  - `all_indexed`
+  - `last_year`
+  - `last_quarter`
+  - `last_month`
+  - `last_week`
+  - `last_day`
+- prove that the browser-visible chart receives non-empty series for each window
+- verify chart rendering path for:
+  - initial Mailbox Intelligence load
+  - subsequent window switching
+  - route/query-param changes
+  - client hydration and chart-state transitions
+- identify whether the remaining defect is in:
+  - backend response shape
+  - page-to-component mapping
+  - client-side state updates
+  - chart component rendering logic
+  - loading/empty-state guards
+
+#### Constraints
+- keep A–G request-time guarantees intact
+- no reintroduction of request-time mailbox scans
+- no broad UI redesign
+- fix only the pressure-trend consumption/render path and any minimal supporting plumbing required
+
+#### Acceptance Criteria
+- each supported window visibly renders bars in the UI
+- no perpetual loading state remains for valid published bucket families
+- browser-visible bar counts match the selected bucket family
+- request logs remain artifact-only
+- existing acceptance harness continues to pass unchanged
+
+---
 ---
 
-### Phase H: Incremental Artifact Update System (Next Active Phase)
+### Phase H: Incremental Artifact Update System
 
 **Goal:** Ensure all new incoming data is automatically reflected in artifacts.
 
