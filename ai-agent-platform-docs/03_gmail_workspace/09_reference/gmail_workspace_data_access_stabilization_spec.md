@@ -43,7 +43,7 @@
 
 ---
 
-### Phase G.8: Sender Overview First-Paint Bounded Read Correction (New – Immediate Follow-Up)
+### Phase G.8: Sender Overview First-Paint Bounded Read Correction (Completed)
 
 **Goal:** Ensure Sender Overview first paint uses a truly bounded artifact read and no longer requests an oversized sender page on initial load.
 
@@ -74,6 +74,43 @@
 - Sender Overview first paint no longer requests 1000 sender rows by default
 - first-paint page size is explicitly bounded and documented
 - cold-open duration materially improves from the prior ~22s oversized artifact read
+- request logs remain artifact-only
+- existing acceptance harness continues to pass unchanged
+
+---
+
+### Phase G.9: Sender Overview Cluster Consistency + Total Truth Correction (New – Immediate Follow-Up)
+
+**Goal:** Ensure Sender Overview and Decision Mode use consistent cluster selection and correct total sender counts across all surfaces.
+
+#### Problem
+- Sender Overview and Cleanup Groups can show inconsistent sender counts for the same cluster.
+- Default selected cluster (e.g., Subscription senders) may resolve to an empty or incorrect state.
+- Decision Mode can inherit incorrect or zeroed data when entered from a misresolved cluster.
+- Logs indicate bounded artifact reads are correct, but total-count sources and cluster resolution paths are not aligned.
+
+#### Requirements
+- fix default selected-cluster resolution so Sender Overview lands on a valid populated cluster state
+- ensure Sender Overview uses the correct source of truth for total sender counts (cluster summary/header, not bounded seed-row count)
+- ensure Cleanup Groups → Sender Overview → Decision Mode all agree on:
+  - selected cluster
+  - sender counts
+  - cluster identity
+- preserve bounded first-paint reads and artifact-only request paths
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no broad UI redesign
+- no changes to Mailbox Intelligence or Pressure Trend in this phase
+
+#### Acceptance Criteria
+- default Sender Overview load shows a valid populated cluster (no zeroed Subscription group)
+- Sender Overview sender totals match Cleanup Groups totals for the same cluster
+- Decision Mode entered from a cluster shows consistent sender counts and data
+- no mismatch like `1,238 vs 1,000` remains
 - request logs remain artifact-only
 - existing acceptance harness continues to pass unchanged
 
