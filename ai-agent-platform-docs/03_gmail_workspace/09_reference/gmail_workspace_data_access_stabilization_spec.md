@@ -356,6 +356,108 @@
 
 ---
 
+### Phase G.15.1: Decision Queue Contract Parity Fix (New – Sniper Pass)
+
+**Goal:** Fix the Decision Mode `Failed to prepare the full decision queue for this cleanup group.` regression by restoring end-to-end contract parity for the decision queue request and returned workspace payload.
+
+#### Problem
+- Browser/terminal evidence now shows the queue request is accepted at `page_size=5000`, but the returned artifact-backed sender workspace still comes back with `pagination.page_size=1000`.
+- The client then rejects that response as not satisfying Decision Mode readiness and promotes it to the visible `Failed to prepare...` error.
+- This is a narrow contract mismatch, not a mailbox-scan or artifact-production failure.
+
+#### Requirements
+- trace and fix the exact contract mismatch between:
+  - accepted queue request size
+  - backend sender-workspace clamp
+  - returned workspace pagination shape
+  - Decision Mode readiness predicate
+- ensure the returned decision queue payload satisfies the Decision Mode queue contract for the known Subscription and Dormant flows
+- keep the fix narrow and do not mix it with overview-header hydration work
+- add request/log proof that the returned queue payload now matches the intended queue contract
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no broad UI redesign
+- no unrelated Sender Overview header work in this pass
+
+#### Acceptance Criteria
+- Decision Mode no longer lands in `Failed to prepare the full decision queue for this cleanup group.` for Subscription and Dormant
+- request logs show queue request and returned payload are contract-consistent
+- counts remain correct for Subscription and Dormant
+- no render-loop regression returns
+- request logs remain artifact-only
+- browser clickthrough proof is required
+
+---
+
+### Phase G.15.2: Sender Overview Header Hydration Source Split (New – Sniper Pass)
+
+**Goal:** Restore Sender Overview top-summary hydration so known cluster totals render immediately from valid overview/header truth even while coverage-specific fields continue loading.
+
+#### Problem
+- Browser truth now shows the lower Sender Overview surfaces can render correct totals while the top summary cards remain blank / `—`.
+- This indicates the top header is still reading from an overly strict or wrong snapshot source, while lower sections already accept valid overview/header truth.
+- This is separate from the Decision Mode queue contract failure and should be fixed independently.
+
+#### Requirements
+- trace the exact source used by each top-summary field:
+  - sender count
+  - message/supporting-message count
+  - covered count
+  - still-to-review count
+- split header hydration so:
+  - sender/message totals can render from valid overview/header truth immediately
+  - covered / remaining stay gated on cluster-global sender-key truth only where truly required
+- keep lower workflow sections unchanged unless a minimal alignment fix is needed
+- add browser proof showing top header and lower page now agree for the same cluster
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no broad UI redesign
+- no Decision Mode contract work in this pass except compile-only adjustments if required
+
+#### Acceptance Criteria
+- Sender Overview top summary cards no longer stay blank when lower sections already show valid totals
+- top summary sender/message totals match lower sections for Subscription and Dormant
+- covered / still-to-review remain correct and do not regress to bounded-row math
+- request logs remain artifact-only
+- browser clickthrough proof is required
+
+---
+
+### Phase G.15.3: Browser Reconciliation Proof Pass (New – Sniper Pass)
+
+**Goal:** Verify that G.15.1 and G.15.2 together restore stable browser-visible behavior across Cleanup Groups → Sender Overview → Decision Mode.
+
+#### Requirements
+- run browser clickthrough proof for:
+  - Subscription
+  - Dormant
+- verify:
+  - Cleanup Groups totals
+  - Sender Overview top summary totals
+  - Sender Overview lower workflow totals
+  - Decision Mode queue completion
+  - Decision Mode visible totals
+- confirm no re-render loop and no queue-failure regression
+- confirm request paths remain artifact-only
+
+#### Acceptance Criteria
+- browser-visible counts are consistent across all three surfaces for Subscription and Dormant
+- Decision Mode queue completes for the tested clusters
+- top summary and lower workflow totals agree in Sender Overview
+- no `Maximum update depth exceeded`
+- no `Failed to prepare the full decision queue for this cleanup group.`
+- unchanged acceptance harness still passes
+
+---
+
 ### Phase H: Incremental Artifact Update System
 
 **Goal:** Ensure all new incoming data is automatically reflected in artifacts.
