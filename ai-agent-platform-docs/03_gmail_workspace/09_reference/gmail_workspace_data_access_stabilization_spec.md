@@ -314,6 +314,48 @@
 
 ---
 
+### Phase G.15: Decision Queue Completion Failure + Overview Header Seed Regression (New – Immediate Follow-Up)
+
+**Goal:** Restore usable Decision Mode queue completion and restore Sender Overview top-summary hydration while preserving the G.14 render-loop fix, corrected counts, and artifact-only request guarantees.
+
+#### Problem
+- G.14 stopped the browser render loop, but introduced two new browser-visible regressions:
+  - Decision Mode can end in `Failed to prepare the full decision queue for this cleanup group.`
+  - Sender Overview top summary cards can stay blank / `—` while lower page sections already show correct full-group totals.
+- Terminal logs show the decision-mode `sender_workspace` request still completes successfully with artifact-backed data, which strongly suggests the failure is in client-side queue completion / snapshot acceptance logic rather than backend artifact production.
+- This means G.14 likely over-tightened the readiness path or rejected valid queue responses after the request completes.
+
+#### Requirements
+- trace why the artifact-backed Decision Mode queue request can return `200` while the page still lands in the `failed to prepare` error state
+- identify whether the failure is caused by:
+  - client-side snapshot rejection after fetch success
+  - overly strict readiness predicates
+  - queue result shape mismatch
+  - stale async response ordering
+  - incorrect error promotion in Review page state
+- restore Sender Overview top summary hydration so the header uses valid seed/header totals while the lower workflow surface is already populated
+- preserve the G.14 loop fix: no re-render oscillation and no `Maximum update depth exceeded`
+- preserve corrected cluster totals for Subscription and Dormant
+- preserve artifact-only request behavior
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no backend or artifact-production redesign in this phase unless the trace proves the returned queue payload itself is wrong
+- no broad UI redesign
+
+#### Acceptance Criteria
+- Decision Mode no longer lands in `Failed to prepare the full decision queue for this cleanup group.` for the known Subscription and Dormant flows
+- Sender Overview top summary header hydrates with the same cluster totals already visible lower on the page
+- Cleanup Groups → Sender Overview → Decision Mode retains correct counts for Subscription and Dormant
+- no render-loop regression returns
+- request logs remain artifact-only
+- browser clickthrough proof is required
+
+---
+
 ### Phase H: Incremental Artifact Update System
 
 **Goal:** Ensure all new incoming data is automatically reflected in artifacts.
