@@ -238,6 +238,7 @@
 
 ---
 
+
 ### Phase G.13: Live Browser Decision Mode Stability Fix (New – Immediate Follow-Up)
 
 **Goal:** Fix the remaining real-browser Decision Mode instability so the page stops vibrating/flashing under live use while preserving the corrected counts and artifact-only guarantees.
@@ -271,6 +272,45 @@
 - counts remain correct for Subscription and Dormant clusters
 - request logs remain artifact-only
 - browser clickthrough proof required
+
+---
+
+### Phase G.14: Decision Mode Effect Split + Stable Queue Readiness Fix (New – Immediate Follow-Up)
+
+**Goal:** Eliminate the remaining Decision Mode render/update loop by separating snapshot reconciliation from queue readiness and stabilizing the request key and state updates.
+
+#### Problem
+- The current implementation conflates “snapshot matches request identity” with “Decision Mode queue is ready”.
+- A snapshot can match the request yet fail Decision Mode readiness (e.g., not `page_size=5000` or missing `sender_keys_complete`).
+- The same effect both reconciles snapshots and orchestrates fetches, allowing cycles between `loading` and `ready`.
+- Runtime silent refreshes rebuild dependencies and can restart the loop.
+- Fallback to overview-shaped snapshots can satisfy render while failing readiness, producing oscillation.
+
+#### Requirements
+- split passive snapshot reconciliation from active queue-fetch orchestration
+- drive Decision Mode fetches from a stable request key:
+  - `clusterId + analysisScope + mode + cacheVersion`
+- do not write non-satisfying snapshots into `workspaceState` as if they are valid Decision Mode queue snapshots
+- add equality guards so `setWorkspaceState(...)` is a no-op when there is no material change
+- prevent overview-shaped runtime fallback snapshots from restarting or satisfying the Decision Mode queue path unless explicitly marked as seed-only
+- preserve bounded first paint for Sender Overview
+- preserve artifact-only request paths
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no backend or artifact-production changes in this phase
+- no broad UI redesign
+
+#### Acceptance Criteria
+- live browser Decision Mode no longer flashes/vibrates
+- no `Maximum update depth exceeded` error
+- Subscription and Dormant clusters retain correct counts across Cleanup Groups → Sender Overview → Decision Mode
+- request logs remain artifact-only
+- existing acceptance harness continues to pass unchanged
+- browser clickthrough proof confirms stability during queue preparation
 
 ---
 
