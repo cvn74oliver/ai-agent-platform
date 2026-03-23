@@ -197,7 +197,7 @@
 
 ---
 
-### Phase G.12: Decision Mode Re-render Loop Hotfix (New – Immediate Follow-Up)
+### Phase G.12: Decision Mode Re-render Loop Hotfix (Attempted — Browser Verification Failed)
 
 **Goal:** Remove the new browser-side re-render loop introduced after G.11 while preserving the corrected cluster-global counts, artifact freshness behavior, and artifact-only request guarantees.
 
@@ -232,8 +232,45 @@
 - Decision Mode no longer throws `Maximum update depth exceeded`
 - Decision Mode no longer flashes between loading states in a render loop
 - Cleanup Groups → Sender Overview → Decision Mode still shows the corrected browser-visible counts for Subscription and Dormant clusters
+- browser-visible Decision Mode must remain stable under real interaction; harness-only proof is not sufficient
 - request logs remain artifact-only
 - existing acceptance harness continues to pass unchanged
+
+---
+
+### Phase G.13: Live Browser Decision Mode Stability Fix (New – Immediate Follow-Up)
+
+**Goal:** Fix the remaining real-browser Decision Mode instability so the page stops vibrating/flashing under live use while preserving the corrected counts and artifact-only guarantees.
+
+#### Problem
+- G.12 did not fix the real browser issue.
+- Decision Mode still visibly flashes/vibrates in live usage.
+- Browser shows `Maximum update depth exceeded` in `review/page.tsx`.
+- This indicates an unresolved client-side state/effect loop or async race condition not captured by harness tests.
+
+#### Requirements
+- reproduce the instability in live browser conditions
+- trace ALL state updates affecting Decision Mode:
+  - workspaceState
+  - runtime snapshot
+  - sender workspace fetch
+  - decision queue fetch
+- identify exact loop trigger (effect + dependency + state write)
+- implement minimal fix to stop re-render loop
+
+#### Constraints
+- no backend changes
+- no artifact system changes
+- no request-path changes
+- no UI redesign
+- preserve all G.11 data correctness
+
+#### Acceptance Criteria
+- no `Maximum update depth exceeded` error
+- no flashing or oscillation in Decision Mode
+- counts remain correct for Subscription and Dormant clusters
+- request logs remain artifact-only
+- browser clickthrough proof required
 
 ---
 
