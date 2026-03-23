@@ -197,6 +197,46 @@
 
 ---
 
+### Phase G.12: Decision Mode Re-render Loop Hotfix (New – Immediate Follow-Up)
+
+**Goal:** Remove the new browser-side re-render loop introduced after G.11 while preserving the corrected cluster-global counts, artifact freshness behavior, and artifact-only request guarantees.
+
+#### Problem
+- After G.11, browser-visible counts are finally correct across Cleanup Groups, Sender Overview, and Decision Mode.
+- But Decision Mode can now enter an infinite render/update loop and freeze the screen.
+- Observed browser symptom:
+  - flashing between messages like `Refreshing scoped sender evidence in the background` and `Preparing the full decision queue for this cleanup group`
+  - `Maximum update depth exceeded` error in `review/page.tsx`
+- The error points to a client-side `setWorkspaceState(...)` path in the Review page effect chain, which suggests the new freshness/snapshot reconciliation logic is repeatedly re-writing state on every render.
+
+#### Requirements
+- identify and fix the exact re-render loop in Review / Decision Mode
+- preserve the G.11 correctness fixes:
+  - fresh artifact-compatible snapshot handling
+  - cluster-global sender counts
+  - correct covered / still-to-review totals
+- preserve bounded first paint for Sender Overview
+- preserve artifact-only request paths
+- do not regress Subscription / Dormant browser-truth counts
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no broad UI redesign
+- no changes to Mailbox Intelligence or Pressure Trend in this phase
+- keep this as a hotfix pass, not a new architecture pass
+
+#### Acceptance Criteria
+- Decision Mode no longer throws `Maximum update depth exceeded`
+- Decision Mode no longer flashes between loading states in a render loop
+- Cleanup Groups → Sender Overview → Decision Mode still shows the corrected browser-visible counts for Subscription and Dormant clusters
+- request logs remain artifact-only
+- existing acceptance harness continues to pass unchanged
+
+---
+
 ### Phase H: Incremental Artifact Update System
 
 **Goal:** Ensure all new incoming data is automatically reflected in artifacts.
