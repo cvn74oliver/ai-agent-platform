@@ -158,6 +158,45 @@
 
 ---
 
+### Phase G.11: Runtime Snapshot Invalidation + Cluster-Global Review Metrics (New – Immediate Follow-Up)
+
+**Goal:** Eliminate browser-visible metric drift by ensuring Review and Decision Mode use fresh artifact-compatible snapshot data and cluster-global aggregates instead of bounded loaded-row math.
+
+#### Problem
+- Browser-visible mismatches are now traced to stale browser/runtime snapshot selection and page-local arithmetic.
+- Known confirmed issues:
+  - Review can keep an old `workspaceState.snapshot` for the same `clusterId` without checking artifact freshness/version.
+  - runtime/session cache is keyed too loosely and can survive artifact publication changes.
+  - `covered` and `still to review` are computed from `workspace.senders`, which may only contain the bounded preload, not the full cluster.
+  - Decision Mode can treat the 12-row runtime preseed as final instead of forcing the correct full queue / aggregate path.
+
+#### Requirements
+- invalidate or bypass stale runtime/browser snapshots when artifact version changes
+- stop preferring same-cluster stale snapshots without freshness/version compatibility
+- make Review cluster metrics use cluster-global truth, not loaded sender rows
+- make Decision Mode cluster metrics use cluster-global truth, not loaded sender rows
+- ensure Cleanup Groups → Sender Overview → Decision Mode all stay consistent after artifact publication and browser navigation
+- preserve bounded first paint and artifact-only request paths
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no broad UI redesign
+- no changes to Mailbox Intelligence or Pressure Trend in this phase
+
+#### Acceptance Criteria
+- browser-visible Subscription and Dormant cluster metrics are correct across all three surfaces
+- artifact publication changes cannot leave stale cluster totals pinned in browser/runtime snapshot state
+- `covered` and `still to review` are no longer derived from bounded loaded sender rows
+- Decision Mode does not treat the 12-row runtime preseed as final cluster truth
+- browser clickthrough proof matches reported counts
+- request logs remain artifact-only
+- existing acceptance harness continues to pass unchanged
+
+---
+
 ### Phase H: Incremental Artifact Update System
 
 **Goal:** Ensure all new incoming data is automatically reflected in artifacts.
