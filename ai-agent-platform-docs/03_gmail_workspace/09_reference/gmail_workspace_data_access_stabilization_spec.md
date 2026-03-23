@@ -79,7 +79,7 @@
 
 ---
 
-### Phase G.9: Sender Overview Cluster Consistency + Total Truth Correction (New – Immediate Follow-Up)
+### Phase G.9: Sender Overview Cluster Consistency + Total Truth Correction (Attempted — Browser Verification Failed)
 
 **Goal:** Ensure Sender Overview and Decision Mode use consistent cluster selection and correct total sender counts across all surfaces.
 
@@ -111,6 +111,48 @@
 - Sender Overview sender totals match Cleanup Groups totals for the same cluster
 - Decision Mode entered from a cluster shows consistent sender counts and data
 - no mismatch like `1,238 vs 1,000` remains
+- request logs remain artifact-only
+- existing acceptance harness continues to pass unchanged
+- browser-visible Review and Decision metrics must match the same cluster totals shown in Cleanup Groups; harness-only proof is not sufficient
+
+---
+
+### Phase G.10: Browser-Truth Cluster Metrics Correction (New – Immediate Follow-Up)
+
+**Goal:** Fix the remaining browser-visible cluster metric mismatches so Cleanup Groups, Sender Overview, and Decision Mode display the same sender/message truth for the same selected cluster.
+
+#### Problem
+- Browser verification still shows cluster metrics drifting across surfaces even after G.9.
+- Known observed failures:
+  - `Subscription senders` can show `134,978` in Sender Overview where the cluster’s sender count should be about `1,061`.
+  - `Dormant low-attention senders` can still show `1,000` in Sender Overview while Cleanup Groups shows `1,238`.
+- This means the request path is still mixing cluster message totals, sender totals, queue-size ceilings, or bounded loaded-row counts in the wrong UI fields.
+- Harness-only acceptance was not enough; this phase must be browser-truth verified.
+
+#### Requirements
+- identify the exact field/source mix-up causing Sender Overview to show message totals in sender-count slots
+- identify the exact field/source mix-up causing large clusters to show `1000` instead of their real sender total
+- ensure Cleanup Groups, Sender Overview, and Decision Mode all use the same artifact-backed cluster truth for:
+  - sender count
+  - message count
+  - covered / still-to-review totals
+  - selected cluster identity
+- preserve bounded first-paint reads and artifact-only request paths
+- add browser-truth acceptance so this cannot pass again on harness-only evidence
+
+#### Constraints
+- no reintroduction of request-time mailbox scans
+- no `loadIndexedGmailMessagesForTenant(...)`
+- no `loadDerivedWorkspaceState(...)`
+- no `loadMailboxContext(...)`
+- no broad UI redesign
+- no changes to Mailbox Intelligence or Pressure Trend in this phase
+
+#### Acceptance Criteria
+- `Subscription senders` shows the correct sender total in Sender Overview (sender count, not message count)
+- `Dormant low-attention senders` shows the same sender total in Cleanup Groups and Sender Overview
+- Decision Mode entered from those same clusters shows matching totals
+- browser-visible screenshots / clickthrough proof match the reported counts
 - request logs remain artifact-only
 - existing acceptance harness continues to pass unchanged
 
