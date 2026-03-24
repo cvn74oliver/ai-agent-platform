@@ -7,6 +7,7 @@ Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
+
 ## 🚀 March 24 — Gmail Workspace Final Architecture Lock
 
 - Gmail Workspace data access is now locked as the platform’s canonical engine pattern.
@@ -28,6 +29,29 @@ Project Manager: v10 (finalized — preparing transition to v11)
   - persist
   - publish
   - serve
+
+## 🚀 March 24 — Sender Surface Unification (Phase L)
+
+- Sender Overview and Decision Mode are now defined as TWO MODES of a single sender card system:
+  - Overview Mode = exploration (many senders, scrollable)
+  - Decision Mode = execution (one sender, focused)
+- Decision Mode is entered in-place (overlay/focus), not via navigation to a separate screen.
+- Context is preserved across transitions:
+  - same cleanup group
+  - same scroll position on exit
+- Entry paths:
+  - Guided: "Start Guided Review" begins sequential decisions
+  - Direct: clicking a sender opens Decision Mode for that sender
+- Single card system:
+  - same data, layout, and truth layers in both modes
+  - Decision Mode adds actions, progress, and auto-advance only
+- Protected/Trusted senders are now modeled as a first-class cleanup group (no separate explanation page required).
+- UX rule locked:
+  - "If a sender is in focus, a decision must be available."
+
+Strategic state update:
+- Platform has transitioned from **data stabilization → unified product surface design**.
+- Next focus: implement unified sender card + overlay Decision Mode across Sender Overview.
 
 ## 🚀 March 19 — Gmail Backfill + System Stabilization Milestone
 
@@ -78,6 +102,7 @@ Project Manager: v10 (finalized — preparing transition to v11)
 - CPU spike behavior observed during the March runtime incident is now contained for ordinary browsing paths.
 - Cleanup Groups and Decision Mode route reliability are restored under the current containment model.
 - Sender Overview and Mailbox Intelligence now recover on first open without reintroducing unsafe passive initial-paint heavy requests.
+- Sender Overview → Decision Mode now uses a unified interaction model (no context switching).
 
 ## ⚙️ Runtime Behavior
 
@@ -100,6 +125,7 @@ Project Manager: v10 (finalized — preparing transition to v11)
   - safe fallback content otherwise
   - deferred post-mount fetch only when needed
 - Warm loads are fast again once runtime/cached state is present.
+- Decision Mode entry no longer requires navigation; it is triggered from Sender Overview via overlay/focus transition.
 
 ## 🛠️ First-Open Recovery Status
 

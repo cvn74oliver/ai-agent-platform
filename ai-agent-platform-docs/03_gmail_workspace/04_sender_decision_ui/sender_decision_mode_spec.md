@@ -1,7 +1,19 @@
-
-
-
 # GMAIL WORKSPACE — SENDER DECISION MODE SPEC
+
+## ⚠️ ARCHITECTURE UPDATE (Phase L)
+
+Decision Mode is no longer a separate surface.
+
+It is now a MODE of the unified sender card system.
+
+- Sender Overview = Overview Mode (exploration)
+- Decision Mode = Decision Mode (execution)
+
+Both use the SAME sender card, data, and truth layers.
+Only interaction state changes.
+
+The user must never lose context when entering Decision Mode.
+Decision Mode is entered via overlay or focus transition, not navigation to a separate screen.
 
 ## 1. Purpose
 
@@ -30,22 +42,64 @@ This continues until the entire Cleanup Group is processed.
 
 ---
 
-## 3. Entry Point
+## 3. Entry Points (Updated)
 
-User flow:
+Users can enter Decision Mode in two ways:
 
-1. User selects a **Cleanup Group**
-2. System shows:
-   - high-level group summary
-   - sender breakdown
-3. User clicks:
+### A. Guided Entry
+1. User selects a Cleanup Group
+2. Lands on Sender Overview
+3. Clicks:
    **"Start Reviewing Senders"**
+4. Decision Mode begins from the first sender
 
-This triggers **Sender Decision Mode**.
+### B. Direct Entry (Drill-down)
+1. User is in Sender Overview
+2. Clicks a specific sender
+3. Decision Mode opens for that sender (overlay)
+
+IMPORTANT:
+- The user remains in the same cleanup group context
+- No navigation reset
+- Scroll position is preserved
+
+---
+
+## 4. Modes (Updated)
+
+### 4.1 Overview Mode
+- multiple senders visible
+- exploration and analysis
+- expandable rows
+- comparison across senders
+
+---
+
+### 4.2 Decision Mode
+- single sender focus
+- same data as Overview Mode
+- decisions enabled
+- auto progression
+
+---
+
+### Key Rule
+
+Decision Mode is NOT a different screen.
+It is a focused state of the same sender card system.
 
 ---
 
 ## 4. Sender Card Structure
+
+NOTE:
+This card is shared with Sender Overview.
+This is NOT a separate card design.
+
+Decision Mode adds:
+- action buttons
+- progress tracking
+- auto-advance behavior
 
 Each sender is presented as a **single full-focus card**.
 
@@ -104,20 +158,36 @@ The user has exactly **four actions** per sender:
 
 ---
 
-## 6. Interaction Flow
+## 6. Interaction Flow (Updated)
 
 ### 6.1 Primary Loop
 
 For each sender:
 
-1. Card is displayed
+1. Decision card is displayed (overlay or focus mode)
 2. User selects one of the four actions
-3. Decision is stored
-4. Next sender appears immediately
+3. Decision is stored instantly
+4. Next sender loads automatically
 
-No confirmation step in this mode.
+---
 
-### 6.2 Progress Feedback
+### 6.2 Entry Context Preservation
+
+If user enters from Sender Overview:
+- return brings them back to the same scroll position
+- group context is preserved
+
+---
+
+### 6.3 Exit Behavior
+
+User can:
+- exit Decision Mode at any time
+- return to Sender Overview
+
+---
+
+### 6.4 Progress Feedback
 
 Display:
 - total senders in group
@@ -530,3 +600,22 @@ into
 👉 Fast binary decisions
 
 This is the core engine of the product.
+
+---
+
+## 18. Unified System Rule (Final)
+
+There is only ONE sender decision system.
+
+- Sender Overview = context layer
+- Decision Mode = execution layer
+
+Both use the same sender card.
+
+Users must be able to:
+- explore senders
+- click any sender
+- immediately enter decision mode
+- act without losing context
+
+This creates a continuous "slippery slide" from understanding → decision → completion.

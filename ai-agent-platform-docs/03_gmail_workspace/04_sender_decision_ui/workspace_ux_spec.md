@@ -1,37 +1,62 @@
-# 3. Sender Decision Workspace (Swipe Mode)
+# 3. Sender Exploration & Decision Workspace (Unified Modes)
 
-This is the **most important UX surface in the entire product**.
+This is the most important UX surface in the product.
 
-This page is no longer a table-first analytical interface.
+It supports TWO modes on the SAME sender card:
+- Overview Mode (map/explore)
+- Decision Mode (drive/execute)
 
-It is a **high-speed decision engine inspired by swipe-based systems (e.g., Tinder)**.
+## ⚠️ ARCHITECTURE UPDATE (Phase L — Unified Sender Surface)
 
-The goal is:
+This page is no longer a standalone screen.
 
-- Maximum speed
-- Zero cognitive overload
-- Continuous forward momentum
-- Clear, confident decisions
+It is a MODE of the unified sender card system used across Sender Overview and Decision Mode.
 
-Users should be able to process **dozens or hundreds of senders quickly** without fatigue.
+- Overview Mode = exploration (many senders, scrollable)
+- Decision Mode = execution (one sender, focused)
+
+Decision Mode must open in-place (overlay/focus), not via navigation.
+Users must never lose context (same cleanup group, same scroll position on exit).
 
 ---
 
-## Core Interaction Model
+## Core Interaction Model (Updated)
 
-Users see **one sender at a time**.
+### Overview Mode (Explore)
+- Multiple senders visible
+- Scrollable list
+- Expand rows for quick context
+- Compare and scan patterns
 
-Each sender appears as a **profile card**.
+Primary action:
+- Click a sender to enter Decision Mode (overlay)
 
-The rest of the UI fades into the background.
+---
 
-After each decision, the next sender appears immediately.
+### Decision Mode (Execute)
+- One sender in focus
+- Same data as overview
+- Decisions enabled
+- Auto-advance progression
 
-No scrolling. No tables. No clutter.
+Primary loop:
+Show 1 sender → decide → next → repeat
+
+---
+
+### Transition (Critical)
+- Clicking a sender opens Decision Mode as an overlay
+- No navigation or context reset
+- Exiting returns to the same scroll position
 
 ---
 
 ## Sender Profile Card (Primary UI)
+
+NOTE:
+This is the SAME card used in Sender Overview.
+Decision Mode does not introduce a new card.
+It promotes this card into a focused execution state.
 
 Each sender is presented like a **profile**.
 
@@ -108,15 +133,13 @@ They choose one of four:
 
 ---
 
-## Flow Behavior
+## Flow Behavior (Updated)
 
-- User clicks a decision
-- Card animates out
-- Next sender appears instantly
-
-No confirmation step here.
-
-No friction.
+- Decision Mode opens in-place (overlay/focus)
+- User remains in the same cleanup group context
+- After each decision → next sender loads instantly
+- No confirmation step in Decision Mode
+- User can exit Decision Mode and return to the same scroll position
 
 ---
 
@@ -130,6 +153,8 @@ Display minimal but motivating progress:
 
 Example:
 "32 of 120 senders reviewed"
+
+Progress must remain consistent regardless of entry path (guided or direct click).
 
 ---
 
@@ -191,6 +216,10 @@ Provide just enough data to decide.
 ### Momentum
 Every action moves the user forward.
 
+### Context Preservation
+The user must never lose context when moving from exploration to execution.
+Decision Mode must feel like a continuation, not a separate screen.
+
 ---
 
 ## Critical Constraint
@@ -219,3 +248,18 @@ Users should experience:
 And most importantly:
 
 They should **want to keep going**.
+
+---
+
+## Unified Interaction Model (Final)
+
+Cleanup Group → Sender Overview → Click Sender → Decision Mode (overlay) → Next → Next → Next → Management
+
+Key rules:
+- one card system
+- two modes
+- no context loss
+- no navigation reset
+- decision always available when sender is in focus
+
+This creates a continuous "slippery slide" from understanding → decision → completion.

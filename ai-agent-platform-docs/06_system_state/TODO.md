@@ -12,7 +12,42 @@ _Last updated: 2026-03-22 (First-open recovery documented • Sender Overview pr
 
 ## 🔥 Current Focus (This Week)
 
----
+----
+
+## 🚀 Phase L — Sender Surface Unification (PRIMARY)
+
+Goal:
+- Implement ONE unified sender card system with TWO modes (Overview + Decision)
+- Ensure in-place transition (overlay) with zero context loss
+
+### L1 — Unified Sender Card Foundation
+- [ ] Define shared data contract for sender card (identity, signals, categories, proof, impact)
+- [ ] Ensure same card renders in both Overview and Decision modes (no duplicate components)
+
+### L2 — Sender Overview (Overview Mode)
+- [ ] Clean top section hierarchy (counts, mix, activity, explanation)
+- [ ] Improve sender list rows (key signals + quick context)
+- [ ] Add clear group explanation (what/why/expected action)
+
+### L3 — Decision Mode (Overlay)
+- [ ] Implement overlay/focus state for Decision Mode (no navigation)
+- [ ] Add 4 decision actions on card (Keep All / Keep Some / Archive All / Not Sure)
+- [ ] Add progress + auto-advance (Show 1 → decide → next)
+
+### L4 — Transitions & Flow
+- [ ] Click sender → open Decision Mode on that sender
+- [ ] “Start Guided Review” → start from first sender
+- [ ] Exit Decision Mode → return to same scroll position
+
+### L5 — Protected / Trusted Senders Group
+- [ ] Add Protected/Trusted cluster in Cleanup Groups
+- [ ] Surface why senders are protected (signals)
+- [ ] Allow override decisions within this group
+
+### L6 — UX Polish
+- [ ] Reduce clutter / competing sections on Sender Overview
+- [ ] Ensure no context switching anywhere in flow
+- [ ] Validate “slippery slide” from explore → decide → complete
 
 ## 🚨 Phase: Runtime Stabilization (Completed)
 
@@ -36,6 +71,9 @@ Runtime-loading note:
 
 ## 🎯 Next Phase: Product Work (Sender Overview Data Truth)
 
+NOTE:
+This work is now superseded by Phase L (Sender Surface Unification). Keep items below only if directly supporting Phase L.
+
 - [ ] Improve usefulness of sender-global category mix
 - [ ] Improve dominant-pattern usefulness
 - [ ] Create more actionable sender breakdowns beyond broad labels like `Updates` / `Promotions`
@@ -48,6 +86,7 @@ Runtime-loading note:
 - [ ] Improve decision confidence UX
 
 ```
+- [ ] Unify Sender Overview and Decision Mode into one card system (see Phase L)
 - 🚀 Sender Decision System Build (NEW — PRIMARY PRIORITY)
   - [ ] Build Sender Decision Mode (Tinder-style flow)
   - [ ] Implement single-sender review card system

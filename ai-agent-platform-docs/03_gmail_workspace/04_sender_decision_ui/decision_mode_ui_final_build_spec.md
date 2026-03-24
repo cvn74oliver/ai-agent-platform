@@ -1,3 +1,18 @@
+## ⚠️ STATUS NOTE — Partially Superseded by Unified Sender Surface
+
+This document may still contain useful implementation detail, but it predates the unified sender-surface architecture.
+
+Current canonical source:
+- `03_gmail_workspace/03_decision_system/sender_surface_unification_spec.md`
+
+If this document conflicts with the unified sender-surface model, the unified model wins.
+
+Key architecture update:
+- Sender Overview and Decision Mode are no longer separate systems
+- They are now two modes of one shared sender card system
+- Decision Mode is entered in-place (overlay/focus), not through a disconnected screen transition
+
+
 # Decision Mode UI Spec (Final Build Version)
 
 ## Overview

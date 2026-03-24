@@ -2,6 +2,18 @@
 
 # Gmail Workspace Decision UI Flow
 
+## ⚠️ ARCHITECTURE UPDATE (Phase L — Unified Sender Surface)
+
+The decision system is no longer a separate screen.
+
+It is now a MODE of the unified sender card system.
+
+- Sender Overview = Overview Mode (exploration)
+- Decision Mode = Decision Mode (execution)
+
+Users must never leave context when entering Decision Mode.
+Decision Mode is entered in-place (overlay or focus transition), not via navigation to a different page.
+
 ## Purpose
 This document defines the **user-facing flow for making, reviewing, approving, storing, and later managing sender decisions** inside the Gmail Workspace.
 
@@ -45,12 +57,13 @@ Understand mailbox
 
 Phase 1 supports only the minimum safe decision loop.
 
-## Phase 1 Flow
+## Phase 1 Flow (Updated)
 
 ```text
 Mailbox Intelligence
 → Cleanup Groups
-→ Sender Decisions
+→ Sender Overview (Explore)
+→ Decision Mode (overlay)
 → Confirmation
 → Approval Created
 ```
@@ -141,35 +154,59 @@ Choose the sender cluster to work next
 
 ---
 
-# 3. Sender Decisions (Card Mode)
+# 3. Sender Exploration & Decision (Unified Surface)
 
-## Purpose
-Sender Decisions is the **high-speed decision engine** of the product.
+This surface supports TWO modes:
 
-This page is designed for **rapid forward momentum**, not deep analysis.
+## Mode A — Overview Mode (Explore)
+- multiple senders visible
+- scrollable list
+- expandable sender rows
+- comparison and inspection
 
-Instead of scanning lists, users process one sender at a time using a focused card interface.
+## Mode B — Decision Mode (Execute)
+- one sender in focus
+- same data as overview
+- decision actions enabled
+- auto-advance progression
+
+IMPORTANT:
+This is ONE system, not two separate pages.
+
+---
+
+## Core Interaction Model (Updated)
+
+Two entry paths:
+
+### Guided Mode
+User clicks:
+"Start Reviewing Senders"
+
+Flow:
+Show 1 sender → decision → next → repeat
+
+### Direct Mode (Drill-down)
+User clicks a sender from Overview Mode
+
+Behavior:
+- Decision Mode opens as overlay
+- Same sender, same context
+- No navigation reset
 
 ---
 
-## Core Interaction Model
+The system always behaves like:
 
-The interface behaves like a **single-card decision flow**:
-
-```text
-Show 1 sender → make decision → next sender → repeat
-```
-
-There is **no scrolling list as the primary interaction**.
-
-The goal is:
-- speed
-- clarity
-- low cognitive load
-
----
+Understand → click → decide → next
 
 ## Sender Card Structure
+
+NOTE:
+This is the SAME card used in Sender Overview.
+
+Decision Mode does not introduce a new card.
+It promotes this card into a focused decision state.
 
 Each sender appears as a full focus card with:
 
@@ -233,17 +270,12 @@ Each action routes the sender into a system bucket:
 
 ---
 
-## Flow Behavior
+## Flow Behavior (Updated)
 
-- After each decision → next sender appears instantly
-- No confirmation step between decisions
-- No interruption of flow
-
-The system should feel like:
-
-```text
-Decision → next → decision → next → decision → done
-```
+- After each decision → next sender loads instantly
+- Decision Mode remains in the same cleanup group context
+- User can exit Decision Mode and return to the same scroll position in Overview
+- No context reset at any point
 
 ---
 
@@ -274,6 +306,10 @@ Details are hidden by default and expanded on demand.
 
 ### E. No Backtracking Friction
 Users can revisit decisions later in Management.
+
+### F. No Context Switching
+The user must never lose context when transitioning between exploration and decision.
+Decision Mode must feel like a continuation, not a separate system.
 
 ---
 
@@ -507,3 +543,19 @@ Together they create a Gmail cleanup system that is:
 - reversible
 - scalable
 - policy-driven
+
+
+# Unified System Rule (Final)
+
+There is only ONE sender decision system.
+
+- Sender Overview = context layer
+- Decision Mode = execution layer
+
+Users must be able to:
+- explore senders
+- click any sender
+- immediately enter decision mode
+- act without losing context
+
+This creates a continuous "slippery slide" from understanding → decision → completion.

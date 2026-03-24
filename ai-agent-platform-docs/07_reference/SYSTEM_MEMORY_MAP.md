@@ -404,7 +404,13 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── 09_reference
 │   │   │   ├── codex_safeguards.md
 │   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_workspace_canonical_engine_pattern.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_acceptance.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.json
+│   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_rollout.md
 │   │   │   ├── gmail_workspace_data_access_stabilization_spec.md
+│   │   │   ├── gmail_workspace_full_mailbox_coverage_proof.json
 │   │   │   ├── gmail_workspace_system_index.md
 │   │   │   ├── implementation_phase_1.md
 │   │   │   └── performance_spec.md

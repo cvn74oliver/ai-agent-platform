@@ -2,6 +2,23 @@
 
 # Sender Overview Card Target Spec
 
+## ⚠️ ARCHITECTURE UPDATE (Phase L — Unified Sender Surface)
+
+This document now defines a **single sender card system used in two modes**:
+
+- Overview Mode (exploration, comparison, context)
+- Decision Mode (focused execution, one sender at a time)
+
+The card structure, data, and truth layers are identical in both modes.
+Only interaction state changes.
+
+Decision Mode is NOT a separate UI or separate card.
+It is a promoted / focused state of the same sender card.
+
+Transition into Decision Mode happens in-place (overlay or focus shift), not by navigating to a different screen.
+
+This document must be interpreted with that constraint.
+
 ## Purpose
 
 This document defines the exact target layout and visual hierarchy for Sender Overview sender cards inside the Gmail workspace. It is the UI and structure source of truth for Codex when working on the sender workflow surface. Codex should not invent alternative card structures when implementing this area; it should build toward this target in narrow phases.
@@ -54,6 +71,15 @@ A small number of meaningful labels is better than a cloud of bubbles. Badges sh
 ### 6. The card is a workflow surface, not a debugging console
 The sender row should guide action. It should not feel like an internal classifier dump.
 
+### 7. Same card, different mode
+The sender card must not diverge between Overview Mode and Decision Mode.
+
+- Overview Mode = multi-card, exploratory surface
+- Decision Mode = single-card, focused surface
+
+The data and layout remain the same.
+Decision Mode only adds interaction (actions, progress, flow).
+
 ---
 
 ## Truth Layers We Must Preserve
@@ -99,6 +125,10 @@ These layers may disagree. That is acceptable. The layout must make disagreement
 ---
 
 ## Collapsed Sender Row Spec
+
+NOTE:
+This is the Overview Mode representation of the sender card.
+Clicking a sender must promote this into Decision Mode (overlay), not expand into a different card system.
 
 The collapsed row should have only four visual layers.
 
@@ -162,9 +192,17 @@ Do not show a large extra caution row when nothing meaningful is present.
 
 ## Expanded Sender Card Spec
 
+NOTE:
+This expanded card is the SAME component used in Decision Mode.
+
+Decision Mode uses this exact layout, but:
+- locks focus to a single sender
+- enables decision actions
+- adds progress context
+
 The expanded sender card should have only three stacked zones.
 
-### Section A. Sender takeaway hero
+A. Sender takeaway hero
 A single strong, full-width hero card.
 
 This section must answer:
@@ -190,7 +228,11 @@ Rules:
 - no dense chip wall
 - no duplicated restatements of the same idea
 
-### Section B. Visible proof
+In Decision Mode:
+- this section becomes the primary decision context
+- must remain concise and immediately actionable
+
+B. Visible proof
 This must come directly under the hero.
 
 This is the main inspection surface.
@@ -205,7 +247,11 @@ If the sender has both Updates and Promotions, the operator must be able to insp
 
 The visible proof section should feel more important than the supporting truth footer.
 
-### Section C. Supporting context footer
+In Decision Mode:
+- this section becomes the primary evidence surface for decision-making
+- must support fast scanning without scrolling when possible
+
+C. Supporting context footer
 This must be compact and secondary.
 
 It should contain only three compact items:
@@ -223,6 +269,9 @@ Rules:
 - no separate boxed diagnostic cards competing with proof
 - no giant machine/human score badge text
 - this is supporting context, not the main story
+
+In Decision Mode:
+- this section remains secondary and must never compete with proof or primary takeaway
 
 ---
 
@@ -398,6 +447,17 @@ These should not reappear in Sender Overview:
 
 ## Phase Breakdown
 
+## Phase 0. Mode Unification (NEW)
+Goal:
+- unify Sender Overview and Decision Mode into a single card system
+
+Scope:
+- define Overview vs Decision Mode behavior
+- define overlay / focus transition
+- ensure no duplicate card systems exist
+
+This phase must be completed before any layout or data work.
+
 ## Phase 1. Layout only
 Goal:
 - build the sender card in the correct visual structure
@@ -471,3 +531,17 @@ Use this document alongside:
 
 This document is the most specific card-level UI target.
 The other docs provide workflow, system, and product context.
+
+## Unified Interaction Model (Final)
+
+User flow:
+
+Cleanup Group → Sender Overview → Click Sender → Decision Mode (overlay) → Next → Next → Next → Management
+
+Key rules:
+- user must never lose context
+- sender identity must persist across modes
+- no navigation reset between overview and decision
+- decision must always be available when a sender is in focus
+
+This creates a continuous "slippery slide" from exploration → decision → completion.
