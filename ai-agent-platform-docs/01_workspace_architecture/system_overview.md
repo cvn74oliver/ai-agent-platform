@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 22, 2026_
+_Last Updated: March 24, 2026_
 
 ---
 
@@ -1208,6 +1208,34 @@ Implemented in the current system:
   - suggestion sets
 
 This means the platform is no longer only proving approval creation — it is now proving end-to-end approval + execute for at least one real Gmail write action.
+
+### 6A) Gmail Workspace Canonical Engine Pattern (March 24, 2026)
+
+Gmail Workspace data access is now architecture-locked as the reference engine pattern for future workspaces.
+
+Permanent Gmail Workspace rules:
+
+- request-time Gmail Workspace routes read published artifacts only
+- request-time page loads never repair stale/missing truth by scanning the mailbox
+- Smart Sync / ingestion completion records freshness and triggers async artifact refresh
+- incremental refresh is preferred when eligible
+- full rebuild is fallback-only and must preserve parity with the proven incremental baseline
+- browser/runtime surfaces must reconcile to artifact-backed cluster truth, not partial client math or ad hoc mailbox-derived state
+
+Operational consequences:
+
+- Cleanup Groups, Sender Overview, Decision Mode, Mailbox Intelligence, and runtime rehydrate are all artifact-only request paths
+- the last safe `published_version` remains live while refresh is pending, running, failed, skipped, or marked full-rebuild-required
+- future workspaces should copy the same engine shape:
+  - ingest
+  - derive
+  - persist
+  - publish
+  - serve
+
+Canonical reference:
+
+- [gmail_workspace_canonical_engine_pattern.md](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_canonical_engine_pattern.md)
 
 ### 7) Generic Runtime Scaffolding Standard
 The Gmail pilot now doubles as the reference implementation for a platform-wide runtime pattern.

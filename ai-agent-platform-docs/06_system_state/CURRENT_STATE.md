@@ -1,11 +1,33 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-22  
+Last updated: 2026-03-24  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
 ---
+
+## 🚀 March 24 — Gmail Workspace Final Architecture Lock
+
+- Gmail Workspace data access is now locked as the platform’s canonical engine pattern.
+- Permanent rules now documented in [gmail_workspace_canonical_engine_pattern.md](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_canonical_engine_pattern.md):
+  - request-time flows read published artifacts only
+  - no request-time mailbox scans or request-time repair scans
+  - sync completion drives async artifact refresh
+  - incremental refresh is preferred when eligible
+  - full rebuild is fallback-only and must preserve parity
+  - browser/runtime surfaces reconcile to artifact-backed truth
+- Final proof anchors:
+  - proven incremental baseline: `incremental-20260324032902895`
+  - published full-build artifact: `full-mailbox-20260324073149125`
+  - direct parity proof: `cluster_diff_count: 0`, `sender_diff_count: 0`
+  - unchanged acceptance harness: `ok: true`
+- Gmail Workspace is now the reference implementation future workspaces must reuse via:
+  - ingest
+  - derive
+  - persist
+  - publish
+  - serve
 
 ## 🚀 March 19 — Gmail Backfill + System Stabilization Milestone
 

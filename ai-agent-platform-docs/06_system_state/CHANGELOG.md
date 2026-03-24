@@ -1,3 +1,35 @@
+### March 2026 — Gmail Workspace Final Architecture Lock
+
+Root-cause addressed:
+- The stabilized Gmail Workspace architecture was working, but the final permanent rules were still too easy to erode in future threads or feature work.
+- Read/write/update/freshness behavior needed one canonical reference so future engineers would not reintroduce request-time scans, ad hoc runtime truth, or divergent full-build behavior.
+
+What changed:
+- Added [gmail_workspace_canonical_engine_pattern.md](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_canonical_engine_pattern.md) as the permanent Gmail Workspace rule set.
+- Standardized the final model across the stabilization spec, rollout doc, proof bundle, system overview, and system-state summaries.
+- Locked the permanent architectural rules:
+  - request-time Gmail Workspace flows read published artifacts only
+  - sync/ingestion drives async artifact refresh
+  - incremental refresh is preferred when eligible
+  - full rebuild is fallback-only and parity-preserving
+  - browser/runtime surfaces consume artifact-backed truth
+- Documented explicit allowed patterns, forbidden patterns, common regression patterns, and reuse guidance for future workspaces.
+
+Final proof anchors captured:
+- proven incremental baseline: `incremental-20260324032902895`
+- published full-build artifact: `full-mailbox-20260324073149125`
+- direct parity proof: `cluster_diff_count: 0`, `sender_diff_count: 0`
+- unchanged acceptance harness: `ok: true` on `full-mailbox-20260324073149125`
+
+Operational consequence:
+- Gmail Workspace is now the platform reference implementation for:
+  - ingest
+  - derive
+  - persist
+  - publish
+  - serve
+- Future workspaces should copy this engine pattern instead of introducing new request-time derivation models.
+
 ### March 2026 — Runtime Containment & Supabase Stabilization
 
 Root-cause addressed:
