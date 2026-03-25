@@ -145,6 +145,11 @@
 │   │   ├── ARTIFACT_ENGINE_DECISIONS.md
 │   │   ├── ARTIFACT_ENGINE_TODO.md
 │   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
+│   ├── 10_agent_architecture
+│   │   ├── AGENT_ARCHITECTURE_TODO.md
+│   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
+│   │   ├── MANAGER_AGENT_DECISION_MODEL.md
+│   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
 │   └── visuals
 │       ├── Agent Next Training Suggestion Prompt.png
 │       ├── Agent Playground.png
@@ -296,7 +301,9 @@
     │   │   │   ├── gmail_workspace_full_mailbox_coverage_proof.json
     │   │   │   ├── gmail_workspace_system_index.md
     │   │   │   ├── implementation_phase_1.md
-    │   │   │   └── performance_spec.md
+    │   │   │   ├── performance_spec.md
+    │   │   │   ├── sender_intelligence_system_build_plan.md
+    │   │   │   └── sender_overview_semantic_rebuild_handoff.md
     │   │   ├── 10_archive_legacy
     │   │   │   ├── legacy_cleanup_rebuild_plan.md
     │   │   │   └── legacy_product_flow_v2.md
@@ -376,6 +383,11 @@
     │   │   ├── CODEX_SESSION_START_PROMPT.md
     │   │   ├── CODEX_SOURCE_OF_TRUTH.md
     │   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+    │   ├── 09_artifact_engine
+    │   │   ├── ARTIFACT_ENGINE_BLUEPRINT.md
+    │   │   ├── ARTIFACT_ENGINE_DECISIONS.md
+    │   │   ├── ARTIFACT_ENGINE_TODO.md
+    │   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
     │   └── visuals
     │       ├── Agent Next Training Suggestion Prompt.png
     │       ├── Agent Playground.png
@@ -622,4 +634,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-139 directories, 484 files
+141 directories, 494 files
