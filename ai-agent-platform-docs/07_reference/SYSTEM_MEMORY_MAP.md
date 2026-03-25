@@ -466,6 +466,16 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── CODEX_SESSION_START_PROMPT.md
 │   │   ├── CODEX_SOURCE_OF_TRUTH.md
 │   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+│   ├── 09_artifact_engine
+│   │   ├── ARTIFACT_ENGINE_BLUEPRINT.md
+│   │   ├── ARTIFACT_ENGINE_DECISIONS.md
+│   │   ├── ARTIFACT_ENGINE_TODO.md
+│   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
+│   ├── 10_agent_architecture
+│   │   ├── AGENT_ARCHITECTURE_TODO.md
+│   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
+│   │   ├── MANAGER_AGENT_DECISION_MODEL.md
+│   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
 │   └── visuals
 │       ├── Agent Next Training Suggestion Prompt.png
 │       ├── Agent Playground.png
