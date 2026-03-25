@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-24  
+Last updated: 2026-03-25  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
@@ -29,6 +29,28 @@ Project Manager: v10 (finalized — preparing transition to v11)
   - persist
   - publish
   - serve
+
+## 🚀 March 25 — Cleanup Groups Stable, Semantic Layer Mid-Transition
+
+- Cleanup-group coverage is now complete:
+  - live model uses 8 cleanup groups
+  - sender assignment coverage is 100%
+- Grouping is considered stable at the artifact-backed architecture layer:
+  - no request-time rebuild path was reintroduced
+  - current review/intelligence surfaces still reconcile to published artifact-backed truth plus compatibility enrichment
+- Sender semantic architecture is now upgraded at the type and rollup layers:
+  - sender-level semantic meaning now uses `semantic_family` and `semantic_pattern`
+  - uncertainty is layered separately through `resolution`, `confidence`, and `provenance`
+  - umbrella/decomposition metadata now exists so broad categories can be split later instead of becoming permanent dumping grounds
+- Cluster/overview analytics now read from semantic rollups instead of legacy fallback-heavy family/pattern sources.
+- Current system stance:
+  - architecture = stable
+  - cleanup-group coverage = stable
+  - 8-group grouping model = stable for now
+  - semantic presentation layer = not fully stable yet
+- Rebuild policy has changed:
+  - do not trigger repeated rebuilds while taxonomy and cleanup-group semantics are still being refined
+  - lock the plan first, then perform one final rebuild later
 
 ## 🚀 March 24 — Sender Surface Unification (Phase L)
 
@@ -157,6 +179,10 @@ Strategic state update:
 - Passive cached rehydrate is improved, but snapshot lookup/load is still the main remaining passive cost (`~2–3s` inside the request).
 - Cross-tab duplicate requests are still possible because client-side TTL/single-flight protection is strongest within a tab/session rather than across every open browser process.
 - Cold first-open on Sender Overview and some Mailbox Intelligence seed-miss cases is still noticeably slower than warm navigation because recovery now happens through deferred safe fetches.
+- Sender Overview semantic visualization is currently the least stable layer:
+  - semantic rollups underneath are improved
+  - but the current semantic row presentation still has a trust regression around denominator/bar/label interpretation
+  - treat the visualization layer as unstable until the semantic presentation pass is complete
 
 ## ✅ Golden Path Status
 
@@ -166,7 +192,7 @@ Strategic state update:
 - Decision Mode now opens on first click again.
 - No runaway Supabase / DB load is expected during ordinary browsing.
 - Manual heavy operations remain available, but now require explicit action and stay inside guarded execution paths.
-- Current strategic focus should return to Sender Overview data usefulness and truth, not more loading-behavior rewrites.
+- Current strategic focus should stay on Sender Overview semantic truth, visualization honesty, and cleanup-group refinement, not more loading-behavior rewrites.
 
 ---
 

@@ -1,3 +1,45 @@
+### March 2026 — Cleanup-Group Coverage Complete + Semantic Taxonomy Transition
+
+Root-cause addressed:
+- Cleanup-group coverage was complete at the assignment layer, but artifact intelligence inside the groups still leaned too heavily on weak fallback buckets and generic dominant-pattern labels.
+- Sender Overview could now read artifact-backed semantic data, but the second-layer semantic row exposed a visualization-trust regression: percentages, rank labels, and bar widths were not reliably communicating the same denominator.
+
+What changed:
+- Completed cleanup-group coverage across the full sender universe:
+  - live cleanup model now uses 8 cleanup groups
+  - sender assignment coverage is now 100%
+- Stabilized the cleanup-group architecture around the published artifact-backed path:
+  - grouping is served from artifacts/runtime compatibility data
+  - no request-time rebuild was reintroduced
+- Introduced the new sender semantic model (Pass 1):
+  - `semantic_family`
+  - `semantic_pattern`
+  - explicit `resolution`
+  - explicit `confidence`
+  - explicit `provenance`
+  - umbrella + decomposition metadata
+  - legacy `operator_profile_*` and `dominant_pattern` preserved as compatibility fields
+- Introduced semantic rollups (Pass 2):
+  - `semantic_family_distribution`
+  - `semantic_pattern_distribution`
+  - `semantic_resolution_distribution`
+  - `semantic_confidence_distribution`
+  - `semantic_provenance_distribution`
+  - umbrella vs non-umbrella distribution
+- Locked the current rebuild policy:
+  - no repeated rebuilds while taxonomy and cleanup-group semantics are still being refined
+  - one later final rebuild after the cross-group plan is locked
+
+Known regression / active follow-up:
+- Sender Overview semantic visualization is not yet trustworthy enough as currently rendered:
+  - bar widths and visible percentages need explicit denominator alignment
+  - top-bucket presentation must not imply completeness when only a visible subset is shown
+  - semantic truth is now stronger underneath, but the current row still needs presentation repair before operators can trust it fully
+
+Operational consequence:
+- Cleanup-group coverage and semantic infrastructure are now ahead of the current presentation layer.
+- The system should continue using the artifact-backed 8-group model as the source of truth while visualization truth and cleanup-group refinement are completed before the next final rebuild.
+
 ### March 2026 — Gmail Workspace Final Architecture Lock
 
 Root-cause addressed:

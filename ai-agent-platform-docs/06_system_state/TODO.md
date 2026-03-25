@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-22 (First-open recovery documented • Sender Overview product/data work resumed)_
+_Last updated: 2026-03-25 (Cleanup-group coverage complete • Semantic model + rollups landed • Visualization truth follow-up required)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,30 @@ _Last updated: 2026-03-22 (First-open recovery documented • Sender Overview pr
 ## 🔥 Current Focus (This Week)
 
 ----
+
+## 🚀 Phase L2.4 — Semantic Visualization + Cleanup Taxonomy Lock (CURRENT)
+
+Goal:
+- lock the semantic presentation and cleanup-group refinement plan before the next rebuild
+- keep the current artifact-backed 8-group model stable while truth/presentation issues are resolved
+
+### L2.4.1 — Sender Overview Semantic Visualization Truth
+- [ ] Redesign the Sender Overview semantic row so percentages, counts, and bar widths use explicit and matching denominators
+- [ ] Make visible-subset vs full-group semantics obvious anywhere top buckets are shown
+- [ ] Ensure semantic cards communicate whether they show full-group share, relative comparison, or filtered/resolved-only subsets
+- [ ] Remove any presentation that makes tiny shares look visually dominant
+
+### L2.4.2 — Cleanup-Group Refinement Planning
+- [ ] Review the current 8 cleanup groups using the new semantic rollups
+- [ ] Decide which groups remain final, which need re-thresholding, and which are merge/split candidates
+- [ ] Separate durable semantic buckets from umbrella buckets and internal fallback-only states at the group level
+- [ ] Lock the cleanup-group refinement plan before any new artifact rebuild
+
+### L2.4.3 — Final Rebuild Preparation
+- [ ] Keep rebuilds paused while taxonomy, rollups, and cleanup-group semantics are still moving
+- [ ] Complete semantic visualization redesign and cleanup-group refinement first
+- [ ] Run one final rebuild only after the plan is locked
+- [ ] Validate the rebuilt artifact against the 8-group source-of-truth expectations and semantic rollup outputs
 
 ## 🚀 Phase L — Sender Surface Unification (PRIMARY)
 

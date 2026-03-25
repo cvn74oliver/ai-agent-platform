@@ -374,7 +374,8 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── decision_engine_spec.md
 │   │   │   ├── decision_model_spec.md
 │   │   │   ├── decision_scoring_advanced.md
-│   │   │   └── decision_storage_spec.md
+│   │   │   ├── decision_storage_spec.md
+│   │   │   └── sender_surface_unification_spec.md
 │   │   ├── 04_sender_decision_ui
 │   │   │   ├── decision_mode_animation_spec.md
 │   │   │   ├── decision_mode_component_map.md
@@ -413,7 +414,9 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── gmail_workspace_full_mailbox_coverage_proof.json
 │   │   │   ├── gmail_workspace_system_index.md
 │   │   │   ├── implementation_phase_1.md
-│   │   │   └── performance_spec.md
+│   │   │   ├── performance_spec.md
+│   │   │   ├── sender_intelligence_system_build_plan.md
+│   │   │   └── sender_overview_semantic_rebuild_handoff.md
 │   │   └── 10_archive_legacy
 │   │       ├── legacy_cleanup_rebuild_plan.md
 │   │       └── legacy_product_flow_v2.md
