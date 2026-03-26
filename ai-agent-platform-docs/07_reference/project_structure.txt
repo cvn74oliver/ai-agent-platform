@@ -144,6 +144,7 @@
 │   │   ├── ARTIFACT_ENGINE_BLUEPRINT.md
 │   │   ├── ARTIFACT_ENGINE_DECISIONS.md
 │   │   ├── ARTIFACT_ENGINE_TODO.md
+│   │   ├── ARTIFACT_REBUILD_PLAN.md
 │   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
 │   ├── 10_agent_architecture
 │   │   ├── AGENT_ARCHITECTURE_TODO.md
@@ -406,6 +407,7 @@
     │       ├── Cleanup Groups.png
     │       ├── Confirmation.png
     │       ├── Dashboard.png
+    │       ├── Decision Mode.png
     │       ├── Executed Actions.png
     │       ├── Fine Tune Dataset Preview p1.png
     │       ├── Fine Tune Dataset Preview p2.png
@@ -415,7 +417,7 @@
     │       ├── Pending Approvals.png
     │       ├── PM_VISUAL_REFERENCE.md
     │       ├── Review Timeline.png
-    │       ├── Sender Decisions.png
+    │       ├── Sender Overview.png
     │       └── Settings Tab.png
     ├── eslint.config.mjs
     ├── next-env.d.ts
@@ -643,4 +645,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-144 directories, 500 files
+144 directories, 502 files
