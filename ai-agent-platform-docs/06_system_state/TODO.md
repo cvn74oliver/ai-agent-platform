@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-25 (Cleanup-group coverage complete • Semantic model + rollups landed • Visualization truth follow-up required)_
+_Last updated: 2026-03-26 (Gmail Phase 1 baseline restored • March 26 refinement variant rejected • UI completion unlocked)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,12 @@ _Last updated: 2026-03-25 (Cleanup-group coverage complete • Semantic model + 
 ## 🔥 Current Focus (This Week)
 
 ----
+
+### Gmail Phase 1 Baseline Lock
+- [x] Restore published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555`
+- [x] Record `full-mailbox-20260326012615971` as a diagnostic semantic-refinement variant, not the adopted freeze candidate
+- [ ] Before any future Gmail rebuild, reconcile `web/src/lib/integrations/gmail/gmailSenderProfile.ts` with the accepted baseline decision so the rejected March 26 subtype behavior is not republished by accident
+- [ ] Complete Phase 1B UI work against the accepted baseline artifact instead of reopening Gmail artifact refinement
 
 ## 🚀 Phase L2.4 — Semantic Visualization + Cleanup Taxonomy Lock (CURRENT)
 
@@ -37,6 +43,10 @@ Goal:
 - [ ] Complete semantic visualization redesign and cleanup-group refinement first
 - [ ] Run one final rebuild only after the plan is locked
 - [ ] Validate the rebuilt artifact against the 8-group source-of-truth expectations and semantic rollup outputs
+
+Baseline note:
+- For Gmail Phase 1 operational work, treat `full-mailbox-20260325230627555` as the frozen reference artifact.
+- Do not use `full-mailbox-20260326012615971` as the rebuild/freeze candidate.
 
 ## 🚀 Phase L — Sender Surface Unification (PRIMARY)
 

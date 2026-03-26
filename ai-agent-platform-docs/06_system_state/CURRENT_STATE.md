@@ -1,12 +1,24 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-25  
+Last updated: 2026-03-26  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
 ---
 
+## 🚀 March 26 — Gmail Phase 1 Artifact Baseline Freeze
+
+- Accepted Gmail Phase 1 artifact baseline is now locked to:
+  - `full-mailbox-20260325230627555`
+- Published `all_indexed` runtime/publication state has been restored to that baseline version without another rebuild.
+- March 26 semantic-refinement variants were informative, but are not adopted as the Gmail Phase 1 freeze candidate.
+  - rejected diagnostic variant: `full-mailbox-20260326012615971`
+  - reason: reduced `offer_campaign` inflation, but regressed total marketing subtype coverage inside `subscription-senders`
+- Operational rule:
+  - Phase 1B UI completion should validate against `full-mailbox-20260325230627555`
+  - future Gmail artifact work must not treat `full-mailbox-20260326012615971` as the accepted baseline
+  - before any future Gmail rebuild, the current resolver code must be reconciled with the accepted baseline decision
 
 ## 🚀 March 24 — Gmail Workspace Final Architecture Lock
 

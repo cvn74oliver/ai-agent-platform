@@ -1,3 +1,21 @@
+### March 2026 — Gmail Phase 1 Baseline Freeze After Diagnostic Marketing Variant
+
+Root-cause addressed:
+- The March 26 marketing subtype refinement loop improved one part of the `subscription-senders` truth story, but the final published variant over-corrected and reduced total resolved marketing subtype coverage too far to serve as the Gmail Phase 1 freeze candidate.
+
+What changed:
+- Restored the published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555` without another rebuild.
+- Recorded `full-mailbox-20260326012615971` as a diagnostic semantic-refinement variant, not the adopted baseline.
+- Locked the operational rule that Phase 1B UI work should validate against the accepted March 25 artifact baseline.
+
+Why the March 26 variant was rejected:
+- It reduced `offer_campaign` inflation directionally, but overall `marketing_promotional` subtype coverage inside `subscription-senders` regressed from the previously validated baseline.
+- The result was useful diagnostic evidence about build-time signal precedence, but not a better Phase 1 artifact freeze point.
+
+Operational consequence:
+- Gmail artifacts are now considered good enough for Phase 1 UI completion at the March 25 baseline.
+- Any future Gmail artifact refinement must start from an explicit new planning decision, not from the rejected March 26 variant.
+
 ### March 2026 — Cleanup-Group Coverage Complete + Semantic Taxonomy Transition
 
 Root-cause addressed:
