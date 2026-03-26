@@ -150,6 +150,8 @@
 │   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
 │   │   ├── MANAGER_AGENT_DECISION_MODEL.md
 │   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
+│   ├── 11_product_strategy
+│   │   └── PRODUCT_ROADMAP.md
 │   └── visuals
 │       ├── Agent Next Training Suggestion Prompt.png
 │       ├── Agent Playground.png
@@ -388,6 +390,11 @@
     │   │   ├── ARTIFACT_ENGINE_DECISIONS.md
     │   │   ├── ARTIFACT_ENGINE_TODO.md
     │   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
+    │   ├── 10_agent_architecture
+    │   │   ├── AGENT_ARCHITECTURE_TODO.md
+    │   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
+    │   │   ├── MANAGER_AGENT_DECISION_MODEL.md
+    │   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
     │   └── visuals
     │       ├── Agent Next Training Suggestion Prompt.png
     │       ├── Agent Playground.png
@@ -634,4 +641,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-141 directories, 494 files
+143 directories, 499 files
