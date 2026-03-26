@@ -476,6 +476,8 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
 │   │   ├── MANAGER_AGENT_DECISION_MODEL.md
 │   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
+│   ├── 11_product_strategy
+│   │   └── PRODUCT_ROADMAP.md
 │   └── visuals
 │       ├── Agent Next Training Suggestion Prompt.png
 │       ├── Agent Playground.png

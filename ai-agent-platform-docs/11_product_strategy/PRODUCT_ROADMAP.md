@@ -293,11 +293,25 @@ Release Automata as a functional product.
 - Fully refine artifacts for Gmail
 - Ensure truth and usability
 
+## Structural vs Richer Artifacts (Execution Rule)
+
+- Structural artifacts (families, subtypes, semantic rollups, cleanup groups) must be completed and validated before UI completion.
+- Richer artifacts (deep trust breakdowns, advanced pattern_mix views, human vs automated analytics, secondary signals) are **deferred** until after the core Gmail workflow is usable end-to-end.
+
+Rationale:
+- The UI must be built on stable, trustworthy structural data.
+- Richer signals are valuable, but not required for first real system use.
+- Exposing all signals too early increases rebuild cycles and delays completion.
+
+Execution rule:
+- Finish structural artifacts → Build UI → Validate full workflow → THEN expose richer artifacts.
+
 ## After Gmail
 
 Artifacts are:
 - **paused (not abandoned)**
 - used as reference system
+- richer artifact exposure and refinement resumes after Phase 1 (Gmail system) is fully usable end-to-end
 
 ## Future Phase
 
@@ -375,6 +389,10 @@ Next step:
 ```text
 Finalize artifacts → Complete UI → Then move to Phase 2
 ```
+
+Note:
+- Richer artifact surfaces are intentionally deferred until after UI completion and end-to-end workflow validation.
+- This prevents rework and ensures artifact exposure is driven by real usage rather than speculation.
 
 ---
 
