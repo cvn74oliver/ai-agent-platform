@@ -1,3 +1,48 @@
+### March 26, 2026 — Sender Overview Hierarchy + Subtype Interaction (Phase 1B)
+
+Root-cause addressed:
+- Sender Overview previously presented dominant families (e.g., 94% marketing) as a single opaque block with limited actionable breakdown.
+- Subtype decomposition either appeared in a side panel or used inconsistent denominators, reducing trust and usability.
+- Clicking subtypes did not reliably return matching senders (empty results / local-page filtering only).
+
+What changed:
+- Introduced **hierarchical semantic family → subtype tree** in Sender Overview:
+  - expandable rows (family → subtypes → remainder)
+  - dominant family can auto-expand when appropriate
+- Implemented **denominator-correct hierarchy**:
+  - parent rows = % of full cleanup group
+  - child rows = % of parent (primary) + % of group (secondary)
+  - explicit remainder row: `Still broad inside …`
+- Added **subtype → sender list linkage**:
+  - clicking a subtype triggers a focused `sender_workspace` request
+  - sender list updates to matching senders (first page) with truthful total count
+- Fixed **empty-result bug** on focused subtype queries:
+  - resolved `safe_partial` fallback caused by oversized `gmail_sender_stats` batching
+  - adjusted batch size (1000 → 50) to avoid PostgREST `Bad Request`
+- Established **artifact baseline usage in UI**:
+  - hierarchy uses frozen `semantic_rollup` from `full-mailbox-20260325230627555`
+  - focus banner anchors to published subtype counts
+
+Known limitations (carried forward):
+- **Subtype count divergence** remains:
+  - top (artifact) vs bottom (runtime) counts may differ
+  - UI now surfaces divergence instead of masking it
+- **Focused-load performance**:
+  - subtype focus still uses `full_cluster_materialization` on cold loads (~10–15s)
+  - warm loads acceptable
+- **Decision-card preview reliability**:
+  - some high-volume senders lack preview due to weak fallback selection
+
+Operational consequence:
+- Sender Overview is now a **usable, hierarchical decision surface**.
+- Subtype interactions are **operational**, not just explanatory.
+- Artifact system remains stable; no additional rebuild required for this phase.
+
+Next step:
+- Fix decision-card preview reliability before broader UI polish or pagination work.
+
+---
+
 ### March 2026 — Gmail Phase 1 Baseline Freeze After Diagnostic Marketing Variant
 
 Root-cause addressed:

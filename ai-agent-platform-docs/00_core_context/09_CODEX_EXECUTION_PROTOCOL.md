@@ -700,4 +700,58 @@ When handing off between PM versions:
 
 4. Codex tasks should **not resume until documentation handoff is complete**.
 
+
 This prevents architecture loss between long development sessions.
+
+### PM Handoff Stability Addendum (March 26, 2026)
+
+When a PM handoff occurs during an active build phase, the outgoing PM must also record:
+
+1. **Accepted baseline / freeze candidate**
+   - If the system depends on a specific published artifact version, that version must be named explicitly.
+   - Diagnostic or rejected variants must be named explicitly so they are not mistaken for adopted truth.
+
+2. **Stable vs deferred architecture**
+   - Clearly distinguish:
+     - what is considered stable enough to build on now
+     - what is intentionally deferred until later phases
+   - Example:
+     - persisted group-level artifact truth = stable
+     - persisted per-sender subtype membership = deferred
+
+3. **Known hybrid-truth seams**
+   - Any place where UI truth and runtime truth intentionally differ must be documented.
+   - The handoff must state whether that mismatch is:
+     - a bug
+     - an accepted temporary compromise
+     - or a later-phase architectural requirement
+
+4. **Immediate next pass (strict order)**
+   - The outgoing PM must state the next 1–3 passes in strict order.
+   - This prevents the next PM from reopening recently closed work or jumping ahead.
+
+5. **Do-not-reopen rule**
+   - The outgoing PM must explicitly name the systems that should not be reopened unless a blocking bug is found.
+   - This is especially important after artifact freeze decisions, schema stabilization, or UI hierarchy decisions.
+
+### Required PM Handoff Verbal Summary
+
+Before retiring a PM version, the outgoing PM must provide one concise verbal turnover summary that includes:
+- where the product currently is
+- what is actually working
+- what is still broken
+- what the next PM should do first
+- what the next PM must not waste time reopening
+
+This summary is required even if all docs were updated.
+
+### Active Session Degradation Rule
+
+If a PM session becomes noticeably degraded (slow replies, loading failures, unstable memory continuity), the PM must:
+
+1. Stop introducing new broad work
+2. Prioritize handoff documentation immediately
+3. Reduce scope to turnover-safe actions only
+4. Prepare the next PM before session quality degrades further
+
+This is a stability rule, not a failure condition.

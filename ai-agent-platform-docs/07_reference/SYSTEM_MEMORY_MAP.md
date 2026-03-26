@@ -528,14 +528,19 @@ If source/file limits exist, prioritize these groups in order:
 9. `08_codex_instructions`
 10. `07_reference`
 
-### Active 40-File Source Strategy
+### Active 40-File Source Strategy (March 2026 — PM Turnover Refresh)
 
 The current preferred 40-file source set is optimized for:
-- Project Manager startup speed
-- Gmail Workspace execution accuracy
-- Sender Decision UI build quality
-- Codex prompt quality
-- current system-state awareness
+  - Project Manager startup speed
+  - Gmail Workspace execution accuracy
+  - Sender Overview / Decision workflow quality
+  - Codex prompt quality
+  - current system-state awareness
+  - Phase 1B UI + runtime reliability work
+  - upcoming roadmap awareness (what comes after Gmail Phase 1B)
+  - artifact methodology awareness
+  - agent/workspace architecture awareness
+  - platform-level training / RAG direction awareness
 
 The current preferred 40-file source set is:
 
@@ -557,34 +562,60 @@ The current preferred 40-file source set is:
 16. `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
 17. `03_gmail_workspace/00_overview/final_product_spec.md`
 18. `03_gmail_workspace/01_ingestion/inbox_ingestion_spec.md`
-19. `03_gmail_workspace/01_ingestion/smart_sync_and_maintenance_spec.md`
-20. `03_gmail_workspace/02_intelligence/inbox_health_spec.md`
-21. `03_gmail_workspace/02_intelligence/inbox_health_algorithm.md`
-22. `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
-23. `03_gmail_workspace/02_intelligence/intelligence_orchestrator.md`
-24. `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
-25. `03_gmail_workspace/03_decision_system/decision_model_spec.md`
-26. `03_gmail_workspace/03_decision_system/decision_storage_spec.md`
-27. `03_gmail_workspace/03_decision_system/decision_destinations_spec.md`
-28. `03_gmail_workspace/03_decision_system/decision_engine_spec.md`
-29. `03_gmail_workspace/03_decision_system/decision_scoring_advanced.md`
-30. `03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md`
-31. `03_gmail_workspace/04_sender_decision_ui/decision_ui_flow.md`
-32. `03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md`
-33. `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
-34. `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
-35. `03_gmail_workspace/05_management_execution/management_flow_spec.md`
-36. `03_gmail_workspace/05_management_execution/management_execution_engine.md`
-37. `03_gmail_workspace/05_management_execution/execution_queue_spec.md`
-38. `03_gmail_workspace/05_management_execution/execution_safety_preview.md`
-39. `03_gmail_workspace/06_learning_system/ai_learning_layer_moat.md`
-40. `03_gmail_workspace/06_learning_system/system_feedback_and_reinforcement.md`
+19. `03_gmail_workspace/02_intelligence/inbox_health_spec.md`
+20. `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
+21. `03_gmail_workspace/02_intelligence/intelligence_orchestrator.md`
+22. `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
+23. `03_gmail_workspace/03_decision_system/decision_model_spec.md`
+24. `03_gmail_workspace/03_decision_system/decision_storage_spec.md`
+25. `03_gmail_workspace/03_decision_system/decision_destinations_spec.md`
+26. `03_gmail_workspace/03_decision_system/decision_engine_spec.md`
+27. `03_gmail_workspace/03_decision_system/sender_surface_unification_spec.md`
+28. `03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md`
+29. `03_gmail_workspace/04_sender_decision_ui/decision_ui_flow.md`
+30. `03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md`
+31. `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
+32. `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
+33. `03_gmail_workspace/05_management_execution/management_flow_spec.md`
+34. `03_gmail_workspace/05_management_execution/management_execution_engine.md`
+35. `04_product_design/operational_workflow.md`
+36. `04_product_design/PM_CODEX_EXECUTION_SYSTEM.md`
+37. `08_codex_instructions/PM_CODEX_UI_REVIEW_PROTOCOL.md`
+38. `09_artifact_engine/WORKSPACE_ARTIFACT_METHODOLOGY.md`
+39. `10_agent_architecture/AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md`
+40. `11_product_strategy/PRODUCT_ROADMAP.md`
 
-When source limits are tight, deprioritize:
-- legacy archived docs
-- duplicate pre-merge docs
-- low-use design-side support docs
+Why this set changed:
+  - It removes outdated path assumptions and uses the actual current repo structure.
+  - It keeps the strongest Gmail execution docs for the current Sender Overview / Decision / Management phase.
+  - It adds the platform documents the next PM needs to understand what comes next:
+    - roadmap
+    - artifact methodology
+    - agent/workspace hierarchy
+  - It favors PM review quality over low-value deep technical references that are not active in the current phase.
+  - It keeps one slot for `SYSTEM_MEMORY_MAP.md` and 39 additional high-value files.
+
+### Why certain files were intentionally removed from the active 40
+
+The following documents remain important, but were removed from the always-loaded 40 because they are lower priority for the next PM’s day-to-day reasoning during the current phase:
+
+- `03_gmail_workspace/01_ingestion/smart_sync_and_maintenance_spec.md`
+- `03_gmail_workspace/02_intelligence/inbox_health_algorithm.md`
+- `03_gmail_workspace/02_intelligence/analytics_spec.md`
+
+Reason:
+- they are more implementation-specific or lower-value for the current PM loop
+- they can still be consulted on demand
+- they are less important than:
+  - `PRODUCT_ROADMAP.md`
+  - `WORKSPACE_ARTIFACT_METHODOLOGY.md`
+  - `AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md`
+
+When source limits are tight, deprioritize first:
+- legacy archive docs under `03_gmail_workspace/10_archive_legacy/`
+- low-use future-facing learning docs
 - generated mirror docs under `/web/docs`
+- support/reference docs that are not active in the current phase
 
 ---
 

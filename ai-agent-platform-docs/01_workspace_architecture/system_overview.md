@@ -1729,3 +1729,50 @@ Current build-stabilization finding:
 Implication:
 
 - Any deploy branch that includes imports of these runtime modules must ship the corresponding files together, or Vercel will fail during module resolution before the app reaches higher-level validation.
+
+---
+
+## 🏁 PM v11 Turnover — Gmail Phase 1B (UI + Runtime Reliability)
+
+**State at handoff (March 26, 2026):**
+- Gmail artifact baseline is frozen at `full-mailbox-20260325230627555`.
+- Sender Overview now renders a **hierarchical semantic tree** (family → subtype → remainder) with correct denominators.
+- Subtype click → sender list linkage is **operational**.
+- Empty-result (`safe_partial`) bug is fixed.
+
+### What is stable (do not reopen)
+- Artifact contract (`semantic_rollup`) and congruence across summary/header.
+- Cleanup groups and sender coverage.
+- Expandable hierarchy and denominator rules.
+
+### Known limitations (expected for Phase 1)
+1. **Count divergence (by design for now)**
+   - Top (artifact) vs bottom (runtime) counts may differ.
+   - UI treats artifact count as primary and surfaces divergence.
+2. **Focused-load performance**
+   - Uses `full_cluster_materialization` on cold loads (~10–15s).
+   - Warm loads are acceptable.
+3. **Decision-card preview reliability (critical bug)**
+   - Some high-volume senders show no preview due to weak fallback selection.
+
+### Immediate next work (strict order)
+1. **Decision-card preview reliability fix** (no rebuild)
+2. **Sender Overview row-level polish** (readability + hierarchy clarity)
+3. **Subtype focus UX clarity** (highlighting, messaging)
+4. **Defer performance optimization** (until UI is stable)
+
+### Architectural note
+Current system merges:
+- **Artifact truth (group-level, frozen)**
+- **Runtime truth (sender-level, recomputed)**
+
+Full alignment would require **persisted per-sender subtype membership**, intentionally deferred beyond Phase 1.
+
+### Operating rule for next PM
+- Favor **usable workflow** over perfect data.
+- Avoid reopening artifact design unless it blocks decisions.
+- Continue Sniper Method: small passes, single surface, validate, move on.
+
+PM v11 complete.
+
+---

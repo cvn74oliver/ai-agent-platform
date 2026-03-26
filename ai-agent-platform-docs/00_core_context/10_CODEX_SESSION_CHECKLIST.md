@@ -352,3 +352,77 @@ Violating this rule leads to:
 - Inconsistent system state
 
 This is one of the highest priority protection rules in the system.
+
+---
+
+## 🏁 PM v11 Turnover Addendum — Codex Session Discipline (March 26, 2026)
+
+### Key Lessons From This Session
+
+1. **Do not over-iterate artifact rebuilds without isolating the root cause first**
+   - Multiple rebuild loops were required because data issues, runtime issues, and UI issues were mixed together.
+   - Future sessions must separate:
+     - artifact truth issues
+     - runtime query issues
+     - UI presentation issues
+
+2. **Always validate interaction paths, not just data outputs**
+   - Subtype hierarchy looked correct before it was operational.
+   - Clicking into flows revealed real bugs (empty results, mismatched counts, slow loads).
+   - Rule: interaction testing is mandatory before declaring a pass complete.
+
+3. **Distinguish artifact-level fixes vs runtime-level fixes early**
+   - Several issues initially looked like artifact problems but were actually:
+     - batching limits
+     - preview selection
+     - request scope mismatches
+   - Future sessions must explicitly identify the layer of failure before proposing a rebuild.
+
+4. **Never assume counts must match unless architecture guarantees it**
+   - Top-level subtype counts come from frozen artifact rollups.
+   - Sender-level lists come from runtime reconstruction.
+   - Mismatch is expected unless per-sender subtype membership is persisted.
+
+5. **Performance problems are often architectural, not incremental**
+   - `full_cluster_materialization` causes 10–15s cold loads.
+   - This cannot be solved by small UI tweaks or batching changes alone.
+   - Must be deferred until structural optimization phase.
+
+---
+
+### Execution Discipline Reinforcement
+
+For future Codex sessions:
+
+- Always ask first:
+  - "Is this an artifact problem, runtime problem, or UI problem?"
+
+- Only rebuild artifacts when:
+  - artifact truth itself is incorrect
+  - and the root cause is confirmed at the artifact layer
+
+- Prefer sniper passes in this order:
+  1. Fix runtime/data access bugs
+  2. Fix UI truth presentation
+  3. Then consider artifact changes
+
+- Never introduce pagination, performance optimization, or additional features while:
+  - preview reliability is broken
+  - sender-level trust is inconsistent
+
+---
+
+### Final Rule For Next PM
+
+> Finish the decision workflow before optimizing the system.
+
+That means:
+- decision card must always show usable evidence
+- sender list must feel reliable
+- subtype hierarchy must be understandable
+
+Only after that:
+- optimize performance
+- expand artifact depth
+
+---

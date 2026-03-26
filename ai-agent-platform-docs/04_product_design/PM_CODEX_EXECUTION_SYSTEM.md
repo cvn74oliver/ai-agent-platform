@@ -18,6 +18,8 @@ The goal is to:
 > The Project Manager THINKS and DECIDES.
 > Codex EXECUTES with precision.
 > The Operator VALIDATES quickly and reports truth.
+> The SYSTEM must reflect TRUTH at all layers.
+> Artifact truth, runtime truth, and UI truth must never silently diverge.
 
 The operator should **NOT redesign, reinterpret, or solve product problems during testing**.
 The system must minimize operator thinking and maximize execution clarity.
@@ -134,7 +136,7 @@ The system is NOT a traditional dashboard.
 
 It is:
 
-> **AI-Guided Decision System**
+> **AI-Guided Decision System (Sender-First, Truth-Aligned)**
 
 Each page must:
 
@@ -155,6 +157,10 @@ The user goal is:
 NOT zero inbox.
 
 Health = decision coverage.
+
+Truth must be consistent:
+- Top-level metrics (artifacts) and drill-down data (runtime) must align or explicitly explain divergence.
+- The UI must never imply exactness if underlying layers are approximated or recomputed.
 
 Recency-weighted decisions matter more than historical noise.
 
@@ -183,6 +189,24 @@ Visuals must:
 4. No CTA for "Do Next"
 5. Duplicate sections across pages
 
+## ⚠️ Data Truth Failure Modes (NEW – CRITICAL)
+
+1. Artifact vs Runtime mismatch
+   - Top-level counts differ from drill-down results without explanation
+   - Leads to loss of operator trust
+
+2. Hidden recomputation
+   - Runtime silently recomputes data that differs from published artifact truth
+
+3. Mixed denominators
+   - Parent and child metrics use different scales without clear labeling
+
+4. Performance masking truth issues
+   - Slow loads or partial data incorrectly presented as “no results”
+
+Rule:
+→ If truth cannot be perfectly aligned, it must be explicitly communicated in the UI.
+
 ---
 
 ## Scope Discipline Rule
@@ -194,6 +218,36 @@ OR
 - 1 UI section
 
 Never multiple areas at once.
+
+## 🧠 Artifact vs Runtime Alignment Rule (NEW)
+
+The system operates on two layers:
+
+1. Artifact Layer (Published Truth)
+   - Aggregated, stable, persisted
+   - Used for top-level UI and decision framing
+
+2. Runtime Layer (Live Computation)
+   - Reconstructed or filtered at request time
+   - Used for drill-down, sender lists, and interactions
+
+Rules:
+
+- Artifact truth is the PRIMARY truth for user understanding
+- Runtime truth must:
+  - align with artifact truth OR
+  - clearly explain why it differs
+
+- Never present runtime results as authoritative if they are incomplete or recomputed differently
+
+- UI must clearly distinguish:
+  - “Published total”
+  - “Currently loaded / matching results”
+
+This prevents:
+- confusion
+- mistrust
+- incorrect decision-making
 
 ---
 
@@ -419,3 +473,27 @@ All future features must support:
 
 If a feature adds complexity without increasing clarity:
 → it should not be built
+
+## 🎯 Current Product Phase Alignment (March 2026)
+
+The system is now in the **Sender Decision System phase**.
+
+Priority:
+- Speed of decision-making
+- Clarity of sender-level actions
+- Trust in data and outcomes
+
+Deprioritized:
+- Deep analytics expansion
+- Backend optimization unless blocking UX
+- Over-complex UI structures
+
+Key rule:
+→ Every UI surface must help the user make faster, more confident sender decisions.
+
+If a change does not improve:
+- decision speed
+- clarity
+- or trust
+
+→ it should not be implemented.

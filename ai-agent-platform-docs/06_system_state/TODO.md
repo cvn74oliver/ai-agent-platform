@@ -14,11 +14,25 @@ _Last updated: 2026-03-26 (Gmail Phase 1 baseline restored • March 26 refineme
 
 ----
 
+
 ### Gmail Phase 1 Baseline Lock
 - [x] Restore published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555`
 - [x] Record `full-mailbox-20260326012615971` as a diagnostic semantic-refinement variant, not the adopted freeze candidate
 - [ ] Before any future Gmail rebuild, reconcile `web/src/lib/integrations/gmail/gmailSenderProfile.ts` with the accepted baseline decision so the rejected March 26 subtype behavior is not republished by accident
 - [ ] Complete Phase 1B UI work against the accepted baseline artifact instead of reopening Gmail artifact refinement
+
+### Gmail Phase 1B — Sender Overview + Runtime Reliability (ACTIVE)
+- [ ] Fix Decision Card preview reliability (fallback selection must always return valid message when available)
+- [ ] Ensure preview works for high-volume senders (e.g., oliver@curativemushrooms.com, support@curativemushrooms.com)
+- [ ] Verify subtype → sender list linkage across multiple cleanup groups (subscription, protected, dormant)
+- [ ] Validate sender list results remain consistent and believable relative to subtype hierarchy
+- [ ] Improve sender-row readability and semantic labeling in Sender Overview
+- [ ] Improve active subtype focus clarity (highlighting + messaging)
+- [ ] Keep current subtype hierarchy and denominator logic intact (no redesign)
+- [ ] Defer pagination until preview reliability and sender-list trust are stable
+- [ ] Defer performance optimization (full-cluster materialization) until UI is finalized
+
+Note: Phase 1B prioritizes usability and decision reliability over perfect artifact alignment.
 
 ## 🚀 Phase L2.4 — Semantic Visualization + Cleanup Taxonomy Lock (CURRENT)
 

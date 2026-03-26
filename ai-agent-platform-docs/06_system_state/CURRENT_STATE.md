@@ -20,6 +20,89 @@ Project Manager: v10 (finalized — preparing transition to v11)
   - future Gmail artifact work must not treat `full-mailbox-20260326012615971` as the accepted baseline
   - before any future Gmail rebuild, the current resolver code must be reconciled with the accepted baseline decision
 
+---
+
+## 🚀 March 26 — Sender Overview UI (Phase 1B) Progress + Active Issues
+
+**Status:** Sender Overview hierarchy and subtype interaction implemented; moving into runtime reliability fixes and UX polish.
+
+### What is Working
+- Semantic family → subtype hierarchy is live and expandable in Sender Overview.
+- Denominator correctness implemented:
+  - parent rows = % of full group
+  - child rows = % of parent + % of group (secondary)
+- Subtype → sender list linkage implemented:
+  - clicking a subtype triggers a focused sender-workspace request
+  - sender list updates based on semantic focus
+- Backend empty-result bug fixed:
+  - no more `safe_partial` empty results when subtype focus is active
+- Baseline artifact (`full-mailbox-20260325230627555`) is actively driving UI truth
+
+---
+
+### ⚠️ Active Issues (UI / Runtime Layer)
+
+1. **Subtype Count Mismatch (Expected, Not Fully Resolved)**
+   - Top hierarchy uses persisted artifact counts
+   - Bottom sender list uses runtime materialization
+   - Counts may diverge (e.g., 303 vs 52)
+   - Current UI surfaces this difference instead of hiding it
+
+2. **Focused Load Performance (High Impact)**
+   - Focused subtype queries use `full_cluster_materialization`
+   - Cold load latency observed: ~10–15 seconds
+   - Warm load performance acceptable
+   - Root cause: no persisted sender-level subtype membership
+
+3. **Decision Card Preview Reliability (Critical)**
+   - Some high-volume senders show:
+     - "No preview messages are available"
+   - Other senders load previews correctly
+   - Indicates preview selection / fallback issue, not ingestion failure
+
+4. **Sender Workspace Truth Split (Architectural)**
+   - Artifact layer = frozen group-level truth
+   - Runtime layer = reconstructed sender-level truth
+   - UI layer merges both and exposes divergence
+
+---
+
+### 🎯 Immediate Next Steps (Phase 1B Continuation)
+
+1. **Decision Card Preview Reliability Fix (NEXT PASS)**
+   - Ensure preview fallback always returns valid evidence when available
+   - No rebuild required
+
+2. **Sender Overview Row-Level UX Polish**
+   - Improve readability of sender rows
+   - Ensure semantic hierarchy and sender cards feel connected
+
+3. **Subtype Focus Usability Improvements**
+   - Maintain current focus behavior
+   - Improve clarity of active focus state
+
+4. **Defer Performance Optimization**
+   - Do NOT optimize full-cluster materialization yet
+   - Revisit only after UI is fully stable
+
+---
+
+### 🧭 Strategic Note
+
+Sender Overview has now crossed from:
+- data visualization
+
+into:
+- operational decision surface
+
+Remaining work is focused on:
+- reliability (preview evidence)
+- usability (sender interaction)
+- clarity (UI polish)
+
+Not on further artifact expansion.
+
+---
 ## 🚀 March 24 — Gmail Workspace Final Architecture Lock
 
 - Gmail Workspace data access is now locked as the platform’s canonical engine pattern.

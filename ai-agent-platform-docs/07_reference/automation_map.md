@@ -464,3 +464,105 @@ And most importantly:
 
 👉 **You are no longer building manually.  
 You are directing a system that builds itself.**
+
+---
+
+## 🏁 PM v11 Turnover Addendum — Automation Behavior (March 26, 2026)
+
+### Current Phase Context
+
+The platform has moved from **artifact construction** to **runtime reliability + UI usability (Phase 1B)**.
+
+Implication for automation:
+- No new automation loops should be introduced to “fix” UI/runtime issues.
+- Rebuild loops must be avoided unless an artifact-layer root cause is proven.
+
+---
+
+### Active Automation Reality (Gmail Workspace)
+
+- Artifact layer is **frozen** at:
+  - `full-mailbox-20260325230627555`
+- Sender Overview uses:
+  - **artifact truth for hierarchy**
+  - **runtime truth for sender lists**
+- Subtype focus now triggers **live sender_workspace requests** (not local filtering)
+
+This creates a **hybrid automation state**:
+- Aggregation = automated + persisted
+- Interaction = automated + recomputed
+
+This is intentional for Phase 1.
+
+---
+
+### ⚠️ Automation Truth Constraints (CRITICAL)
+
+Automation must respect these rules:
+
+1. **Artifact truth is primary for summaries**
+   - All top-level counts and hierarchy come from persisted artifacts
+
+2. **Runtime truth is secondary for interaction**
+   - Sender lists and previews may be recomputed
+
+3. **Mismatch is allowed but must be visible**
+   - System must NOT silently reconcile or overwrite
+
+4. **No hidden recomputation loops**
+   - Runtime must not trigger background rebuild-like behavior
+
+---
+
+### 🚨 Automation Anti-Patterns (Do NOT Introduce)
+
+- Auto-rebuild triggered by UI interactions
+- Silent artifact refresh to “fix” mismatched counts
+- Cross-layer mutation (runtime altering artifact truth)
+- Background processes that change sender classification without publish step
+
+---
+
+### 🎯 Immediate Automation Focus
+
+Automation work should now prioritize:
+
+1. **Decision Card Preview Reliability**
+   - Improve preview selection/fallback logic
+   - Ensure evidence is always available when messages exist
+
+2. **Sender Workspace Stability**
+   - Keep focused subtype requests reliable
+   - Avoid empty or misleading results
+
+3. **UI Truth Consistency**
+   - Ensure automation outputs are clearly labeled
+   - Avoid misleading representations
+
+---
+
+### 🔁 Deferred Automation (Later Phase)
+
+Do NOT implement yet:
+
+- Persisted per-sender subtype membership
+- Subtype-level precomputed sender lists
+- Performance optimization for full-cluster materialization
+- Automated subtype refinement loops
+
+These require a separate architecture phase.
+
+---
+
+### 🧭 Final Automation Rule
+
+> Automation should support user decisions — not replace them.
+
+If an automation step:
+- hides truth
+- creates confusion
+- or requires explanation
+
+→ it is not ready to be automated.
+
+---

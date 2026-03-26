@@ -296,4 +296,116 @@ The system should evolve toward:
 - Runtime must be fast, predictable, and cache-first
 - Codex must follow spec before implementing UI
 
+
 These rules override all local implementation decisions.
+
+---
+
+## 🏁 PM v11 Turnover Addendum — Runtime Reality (March 26, 2026)
+
+### Current Phase Context
+
+We are in **Phase 1B — UI usability + runtime reliability** for Gmail Workspace.
+
+Key implication:
+- The Playground runtime is **stable enough**, but several **runtime-path seams are now exposed by UI interaction**.
+- Do NOT introduce new architecture. Fix issues within current boundaries.
+
+---
+
+### Hybrid Truth Model (CRITICAL)
+
+The system currently operates with two layers:
+
+1. **Artifact Layer (Published Truth)**
+   - Source: `semantic_rollup` from frozen artifact `full-mailbox-20260325230627555`
+   - Used for: hierarchy, top counts, decision framing
+
+2. **Runtime Layer (Live Reconstruction)**
+   - Source: `gmail_sender_stats` + preview rows + resolver
+   - Used for: sender lists, decision cards, previews
+
+**Rule:**
+- Artifact truth is PRIMARY for user understanding
+- Runtime truth is SECONDARY for interaction
+- Divergence must be **visible and explained**, never hidden
+
+---
+
+### Known Runtime Seams (Do Not Misdiagnose)
+
+1. **Subtype Focus Count Divergence**
+   - Top counts (artifact) vs bottom sender counts (runtime) may differ
+   - This is expected without persisted per-sender subtype membership
+
+2. **Full-Cluster Materialization Path**
+   - Focused subtype queries use:
+     - `read_shape: full_cluster_materialization`
+   - Cold load latency ~10–15s
+   - Warm loads acceptable
+
+3. **Decision Card Preview Gaps (ACTIVE BUG)**
+   - Some high-volume senders show no preview
+   - Cause: preview selection / fallback, not ingestion
+
+---
+
+### 🚫 Do NOT Fix With Architecture Changes
+
+Do NOT:
+- add new persistence layers
+- introduce new artifact fields
+- rebuild artifacts to fix runtime issues
+- change resolver logic unless directly proven necessary
+
+These are Phase 2 concerns.
+
+---
+
+### 🎯 Immediate Runtime Priorities
+
+1. **Decision Card Preview Reliability**
+   - Ensure a valid preview is always selected when messages exist
+   - Add fallback selection logic if primary candidate fails
+
+2. **Sender Workspace Stability**
+   - Keep subtype focus requests reliable
+   - Avoid empty or misleading results
+
+3. **Truth Communication**
+   - Clearly label:
+     - published totals
+     - current matching results
+
+---
+
+### Performance Guidance (Deferred)
+
+Performance optimization should NOT be tackled yet.
+
+Future solution (not now):
+- persisted per-sender subtype membership
+- precomputed subtype membership indexes
+- avoiding full-cluster materialization
+
+---
+
+### Execution Rule
+
+> If the system works but is slow → do not redesign it yet.
+> If the system is fast but wrong → fix it immediately.
+
+---
+
+### Final Note
+
+The runtime architecture is **correct for Phase 1**.
+
+Remaining work is:
+- reliability
+- clarity
+- usability
+
+Not structural redesign.
+
+---
