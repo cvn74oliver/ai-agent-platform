@@ -1,22 +1,82 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-26  
+Last updated: 2026-03-27  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
 ---
 
+## 🚀 March 27 — Gmail Rebuild B Completed (Semantic Focus Performance)
+
+- Rebuild B is now completed and published on:
+  - `full-mailbox-20260327004328180`
+- Accepted Gmail Phase 1 artifact baseline now moves forward to:
+  - `full-mailbox-20260327004328180`
+- Scope completed:
+  - seed-row semantic membership persistence
+  - `last_activity_at` seed-row persistence
+  - full-build + incremental projector parity
+  - focused semantic artifact page read path
+  - safe fallback to `full_cluster_materialization` for unsupported or older artifacts
+  - no UI, taxonomy, cleanup-group, or `semantic_rollup` redesign
+- Migration status:
+  - `20260327101500_gmail_sender_workspace_semantic_focus_seed_rows.sql` applied to hosted Supabase
+- Rebuild B validation:
+  - `protected-trusted-senders` remains `1838` senders
+  - focused lanes now read from `focused_semantic_page`
+  - focused counts remain correct:
+    - `commerce_transactional / invoices_receipts = 167`
+    - `commerce_transactional / commerce_shipping_updates = 206`
+    - `account_notification / general_updates = 229`
+    - `account_notification / remainder = 299`
+  - cold focused loads now land around `2.3s–2.7s`
+  - previous corrected fallback baseline for the same large protected focused path was ~`20s–26s`
+  - focused stats and preview loads are now page-scoped:
+    - `seed_row_count: 12`
+    - `stats_count: 12`
+    - `preview_row_count: 60`
+
+---
+
+## 🚀 March 27 — Gmail Rebuild A Completed (Structural Preview Seeding)
+
+- Rebuild A is now completed and published on:
+  - `full-mailbox-20260326221425010`
+- Accepted Gmail Phase 1 artifact baseline now moves forward to:
+  - `full-mailbox-20260326221425010`
+- Scope completed:
+  - bounded structural preview seeding for `no_inbox_rows` senders only
+  - full-build + incremental projector parity
+  - no schema, taxonomy, cleanup-group, or UI changes
+- Validated sender outcomes:
+  - `oliver@curativemushrooms.com` now has `preview_ready: true`, `preview_message_ids: 5`, `cleanup_group_message_count: 8003`
+  - `support@curativemushrooms.com` now has `preview_ready: true`, `preview_message_ids: 5`, `cleanup_group_message_count: 4631`
+  - `consumer@e.mail.realtor.com` remained healthy
+  - `seaworld@m.seaworldparks.com` remained healthy
+- Validated cluster outcomes:
+  - `protected-trusted-senders`: `9/9` structural `no_inbox_rows` senders now preview-ready
+  - `historical-out-of-inbox-senders`: `34/34` structural `no_inbox_rows` senders now preview-ready
+- Count-truth remained correct:
+  - structural `no_inbox_rows` senders keep rollup-backed message totals
+  - bounded preview evidence does not collapse `cleanup_group_message_count`
+- Rebuild B is now complete:
+  - semantic-focus cold-load performance is artifact-backed and page-scoped on rebuilt artifacts
+
+---
+
 ## 🚀 March 26 — Gmail Phase 1 Artifact Baseline Freeze
 
-- Accepted Gmail Phase 1 artifact baseline is now locked to:
+- Accepted Gmail Phase 1 artifact baseline was temporarily locked to:
   - `full-mailbox-20260325230627555`
-- Published `all_indexed` runtime/publication state has been restored to that baseline version without another rebuild.
+- That March 26 freeze was superseded on March 27 by Rebuild A:
+  - `full-mailbox-20260326221425010`
+- The March 26 publication restore was the pre-Rebuild-A operating baseline.
 - March 26 semantic-refinement variants were informative, but are not adopted as the Gmail Phase 1 freeze candidate.
   - rejected diagnostic variant: `full-mailbox-20260326012615971`
   - reason: reduced `offer_campaign` inflation, but regressed total marketing subtype coverage inside `subscription-senders`
 - Operational rule:
-  - Phase 1B UI completion should validate against `full-mailbox-20260325230627555`
+  - March 26 UI work validated against `full-mailbox-20260325230627555` until Rebuild A landed
   - future Gmail artifact work must not treat `full-mailbox-20260326012615971` as the accepted baseline
   - before any future Gmail rebuild, the current resolver code must be reconciled with the accepted baseline decision
 
@@ -36,7 +96,7 @@ Project Manager: v10 (finalized — preparing transition to v11)
   - sender list updates based on semantic focus
 - Backend empty-result bug fixed:
   - no more `safe_partial` empty results when subtype focus is active
-- Baseline artifact (`full-mailbox-20260325230627555`) is actively driving UI truth
+- Baseline artifact (`full-mailbox-20260327004328180`) is actively driving UI truth
 
 ---
 
@@ -48,17 +108,17 @@ Project Manager: v10 (finalized — preparing transition to v11)
    - Counts may diverge (e.g., 303 vs 52)
    - Current UI surfaces this difference instead of hiding it
 
-2. **Focused Load Performance (High Impact)**
-   - Focused subtype queries use `full_cluster_materialization`
-   - Cold load latency observed: ~10–15 seconds
-   - Warm load performance acceptable
-   - Root cause: no persisted sender-level subtype membership
+2. **Focused Load Performance (Resolved For Rebuilt Artifacts)**
+   - Rebuild B now persists sender-level semantic membership on seed rows
+   - Focused subtype queries now use `focused_semantic_page` on rebuilt artifacts
+   - Cold load latency for the protected sample lanes now lands around ~2.3s–2.7s
+   - Warm load performance remains good
 
-3. **Decision Card Preview Reliability (Critical)**
-   - Some high-volume senders show:
-     - "No preview messages are available"
-   - Other senders load previews correctly
-   - Indicates preview selection / fallback issue, not ingestion failure
+3. **Decision Card Preview Reliability (Partially Resolved)**
+   - Structural preview seeding for `no_inbox_rows` senders is now fixed in:
+     - `full-mailbox-20260326221425010`
+   - High-volume structural senders like `oliver@curativemushrooms.com` and `support@curativemushrooms.com` now have seeded preview evidence
+   - Any remaining Decision Card preview issues are now runtime/rendering-quality issues, not missing artifact evidence for this sender class
 
 4. **Sender Workspace Truth Split (Architectural)**
    - Artifact layer = frozen group-level truth
@@ -69,9 +129,9 @@ Project Manager: v10 (finalized — preparing transition to v11)
 
 ### 🎯 Immediate Next Steps (Phase 1B Continuation)
 
-1. **Decision Card Preview Reliability Fix (NEXT PASS)**
-   - Ensure preview fallback always returns valid evidence when available
-   - No rebuild required
+1. **Decision Card Preview Follow-up (Narrow)**
+   - Browser-verify rebuilt structural preview evidence in Decision Mode
+   - Keep any remaining work bounded to runtime rendering / evidence exploration, not artifact seeding
 
 2. **Sender Overview Row-Level UX Polish**
    - Improve readability of sender rows
@@ -81,9 +141,9 @@ Project Manager: v10 (finalized — preparing transition to v11)
    - Maintain current focus behavior
    - Improve clarity of active focus state
 
-4. **Defer Performance Optimization**
-   - Do NOT optimize full-cluster materialization yet
-   - Revisit only after UI is fully stable
+4. **Defer Further Performance Optimization**
+   - Do NOT widen beyond the new focused semantic page path yet
+   - Revisit only if another focused request shape still falls back materially
 
 ---
 

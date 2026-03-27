@@ -1,3 +1,105 @@
+### March 27, 2026 — Rebuild B Completed: Semantic Focus Performance Activation
+
+Root-cause addressed:
+- Large semantic subtype focus reads were still forced through `full_cluster_materialization`.
+- Even after the 1000-row truncation seam was fixed, cold focused loads on `protected-trusted-senders` still had to:
+  - load all `1838` senders
+  - load full stats for the full cluster
+  - recompute semantic membership
+  - filter in memory down to focused lanes like `167`, `206`, `229`, and `299`
+
+What changed:
+- Applied hosted Supabase migration:
+  - `20260327101500_gmail_sender_workspace_semantic_focus_seed_rows.sql`
+- Added persisted seed-row fields:
+  - `semantic_family_key`
+  - `semantic_subtype_key`
+  - `semantic_pattern_key`
+  - `last_activity_at`
+- Added focused semantic indexes on `gmail_sender_workspace_seed_rows`
+- Full-build and incremental projector paths now persist identical sender-level semantic membership and `last_activity_at`
+- Sender-workspace headers now advertise:
+  - `artifact_capabilities.focused_semantic_page = true`
+- Runtime now uses `focused_semantic_page` for supported focused semantic requests and falls back safely for older artifacts or unsupported shapes
+
+Rebuild result:
+- Published new artifact version:
+  - `full-mailbox-20260327004328180`
+- Workspace data-access acceptance: `ok: true`
+
+Validation highlights:
+- `protected-trusted-senders` full cluster sender count remains:
+  - `1838`
+- Focused lane counts remained correct after rebuild:
+  - `commerce_transactional / invoices_receipts = 167`
+  - `commerce_transactional / commerce_shipping_updates = 206`
+  - `account_notification / general_updates = 229`
+  - `account_notification / remainder = 299`
+- Cold focused read path switched:
+  - before: `full_cluster_materialization`
+  - after: `focused_semantic_page`
+- Cold focused timing improved materially:
+  - before corrected baseline: ~`20s–26s`
+  - after rebuilt fast path: ~`2.3s–2.7s`
+- Page-scoped load behavior confirmed on the focused path:
+  - `seed_row_count: 12`
+  - `stats_count: 12`
+  - `preview_row_count: 60`
+
+Operational consequence:
+- Semantic-focus correctness is now artifact-backed and directly pageable on rebuilt artifacts.
+- Rebuild B is complete and the accepted Gmail Phase 1 artifact baseline now moves to `full-mailbox-20260327004328180`.
+
+### March 27, 2026 — Rebuild A Completed: Structural Preview Seeding for `no_inbox_rows` Senders
+
+Root-cause addressed:
+- Structural senders with large indexed totals but `cleanup_exclusion_reason = no_inbox_rows` could publish with zero preview evidence because preview seeding only used inbox rows.
+- That produced false-empty Decision Mode evidence for senders like `oliver@curativemushrooms.com` and `support@curativemushrooms.com`, even though large rollup-backed totals already existed in the artifact.
+
+What changed:
+- Implemented bounded structural preview fallback in the projector:
+  - full-build path
+  - incremental slice path
+- New rule for affected senders:
+  - if sender is structurally assigned
+  - and `scopedInboxRows.length === 0`
+  - preview candidates are selected from `scopedRows`
+  - recency-first
+  - valid `message_id` required
+  - prefer visible evidence fields when present
+  - capped at `5`
+- Preserved count-truth:
+  - structural `cleanup_group_message_count` remains rollup-backed
+  - bounded preview evidence does not collapse large sender totals
+- Added the minimal downstream archive/confirmation seam fix so bounded structural preview rows are not misclassified as inconsistent archive scope.
+
+Rebuild result:
+- Published new artifact version:
+  - `full-mailbox-20260326221425010`
+- Cleanup-group live audit: `ok: true`
+- Workspace data-access acceptance: `ok: true`
+
+Validation highlights:
+- `oliver@curativemushrooms.com`
+  - `preview_ready: true`
+  - `preview_message_ids: 5`
+  - `cleanup_group_message_count: 8003`
+- `support@curativemushrooms.com`
+  - `preview_ready: true`
+  - `preview_message_ids: 5`
+  - `cleanup_group_message_count: 4631`
+- protected peer no-regression:
+  - `consumer@e.mail.realtor.com` healthy
+  - `seaworld@m.seaworldparks.com` healthy
+- Cluster-level:
+  - `protected-trusted-senders`: `9/9` structural `no_inbox_rows` senders preview-ready
+  - `historical-out-of-inbox-senders`: `34/34` structural `no_inbox_rows` senders preview-ready
+
+Operational consequence:
+- Structural no-inbox senders no longer default to zero artifact evidence when valid scoped rows exist.
+- Rebuild A is complete and the current accepted Gmail Phase 1 artifact baseline is now `full-mailbox-20260326221425010`.
+- Rebuild B remains deferred.
+
 ### March 26, 2026 — Sender Overview Hierarchy + Subtype Interaction (Phase 1B)
 
 Root-cause addressed:

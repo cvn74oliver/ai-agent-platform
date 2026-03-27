@@ -1,310 +1,297 @@
-# 📍 AUTHORITATIVE DOCUMENT
+# ARTIFACT_REBUILD_PLAN
 
-This document is the source of truth for all Gmail artifact rebuild planning.
+## Purpose
 
-Location:
-ai-agent-platform-docs/09_artifact_engine/ARTIFACT_REBUILD_PLAN.md
+This is the authoritative rebuild-planning document for Gmail artifacts.
 
-This file must be updated BEFORE any rebuild is executed.
+Rules:
+- Define rebuild scope here before any rebuild is executed.
+- Keep rebuilds deliberate, narrow, and bundled only when the issues share the same artifact stage.
+- Do not use `/web/docs` as the source of truth.
 
-🔧 ARTIFACT REBUILD PLAN — GMAIL WORKSPACE
+Current accepted Gmail Phase 1 baseline:
+- `full-mailbox-20260327004328180`
 
-Purpose
+---
 
-Define all rebuild-worthy artifact issues and group them into intentional rebuild passes to avoid repeated rebuild cycles.
+## Rebuild A - Structural Preview Seeding Fix
 
-⸻
+### Status
 
-🔹 REBUILD A — Structural Preview Seeding Fix (READY)
+- `implemented`
+- `rebuilt`
+- `validated`
+- `published_version: full-mailbox-20260326221425010`
 
-Problem
+### Execution Result
 
-Senders with:
-	•	large indexed totals
-	•	but no_inbox_rows
+- Rebuild A completed successfully and published:
+  - `full-mailbox-20260326221425010`
+- Sender validation:
+  - `oliver@curativemushrooms.com` now preview-ready with `5` seeded preview message ids and truthful `cleanup_group_message_count: 8003`
+  - `support@curativemushrooms.com` now preview-ready with `5` seeded preview message ids and truthful `cleanup_group_message_count: 4631`
+  - `consumer@e.mail.realtor.com` remained healthy
+  - `seaworld@m.seaworldparks.com` remained healthy
+- Cluster validation:
+  - `protected-trusted-senders`: `9/9` structural `no_inbox_rows` senders preview-ready
+  - `historical-out-of-inbox-senders`: `34/34` structural `no_inbox_rows` senders preview-ready
+- Guardrail result:
+  - bounded preview seeding did not collapse structural sender totals
+  - the downstream archive-scope seam was corrected before rebuild execution
 
-→ produce:
-	•	preview_ready: false
-	•	preview_message_ids: 0
+### Problem
 
-Result:
-👉 8,000 emails but zero preview evidence
+Some structural senders can have very large indexed totals but zero previewable evidence.
 
-⸻
+Confirmed class:
+- structural senders with `cleanup_exclusion_reason = no_inbox_rows`
 
-Root Cause
+Observed examples:
+- `oliver@curativemushrooms.com`
+- `support@curativemushrooms.com`
 
-Preview seeding uses:
+Current bad outcome:
+- `total_message_count` is large
+- `preview_ready = false`
+- `preview_message_ids = []`
+- Decision Mode has no previewable evidence
 
-scopedInboxRows
+### Root Cause
 
-But totals use:
+Artifact counts and structural assignment use:
+- `scopedRows`
 
-scopedRows
+Preview seeding currently uses:
+- `scopedInboxRows`
 
-Mismatch = broken preview system.
+That mismatch means a sender can be structurally present in the artifact with thousands of indexed rows, but still seed zero preview evidence if `scopedInboxRows.length === 0`.
 
-⸻
+### Scope
 
-Fix
+Rebuild A is limited to preview seeding for structural `no_inbox_rows` senders.
 
-IF scopedInboxRows.length === 0:
-→ select preview rows from scopedRows using a bounded policy:
+Do not include:
+- taxonomy changes
+- cleanup-group changes
+- UI changes
+- schema changes
+- semantic subtype persistence
+- broader runtime performance work
 
-- prioritize most recent messages (recency-first)
-- cap at a fixed limit (e.g., 5 messages)
-- exclude obviously invalid or empty-content rows where possible
-- ensure preview index growth remains bounded
+### Bounded Preview-Selection Policy
 
-Goal:
-Preview evidence must exist for high-volume structural senders without exploding artifact size.
+This policy applies in both:
+- full projector
+- incremental projector
 
-⸻
+Trigger condition:
+- sender is structurally assigned
+- `scopedInboxRows.length === 0`
+- candidate pool comes from `scopedRows`
+
+Selection policy:
+1. Sort candidates by recency descending using message timestamp.
+2. Require a valid `message_id`.
+3. Prefer rows with visible evidence fields when present.
+   - prefer non-empty subject
+   - if the source row exposes snippet-like preview text, prefer non-empty preview text
+4. Exclude rows that are clearly empty when that can be determined from available fields.
+5. If exclusions would empty the pool, fall back to the most recent valid-message-id rows.
+6. Cap seeded preview candidates at `5` messages per sender.
+
+Bounded-growth rule:
+- Do not write unbounded preview-index rows for this structural fallback path.
+- The fallback preview-index footprint for each affected sender is capped at `5`.
+
+### Important Product Boundary
+
+The bounded seed cap is an **artifact seeding limit**, not the final user-facing evidence exploration limit.
+
+Meaning:
+- Rebuild A guarantees a minimum evidence sample for affected structural senders.
+- It does **not** mean Decision Mode should permanently limit users to only `5` messages.
+- Deeper evidence exploration (for example, "load more" or semantic-group-specific evidence browsing) is a separate later lane and is **not** part of Rebuild A.
+
+Seed-row rule:
+- `preview_message_ids` must be written from the same bounded selected set.
+- `preview_ready` becomes `true` when the bounded selected set is non-empty.
+
+Count-truth guardrail:
+- The bounded preview cap must not redefine sender totals.
+- `total_message_count` remains rollup-backed.
+- `cleanup_candidate_message_count` remains rollup-backed.
+- `cleanup_group_message_count` must remain truthful for the sender and must not silently collapse to the bounded preview-row count.
+
+Important supporting validation:
+- Any downstream path that currently assumes `preview_index_row_count === cleanup_group_message_count` for these structural senders must be verified before rebuild execution.
+- If that assumption blocks bounded structural preview seeding, the minimal supporting correction belongs inside Rebuild A because it is directly caused by the bounded preview policy.
+
+### Required Code Areas
+
+- [gmailArtifactFullMailboxProjector.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailArtifactFullMailboxProjector.ts)
+  - full-build sender projection
+  - bounded structural preview candidate selection
+  - seed finalize for `preview_message_ids` and `preview_ready`
+- [gmailArtifactFullMailboxProjector.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailArtifactFullMailboxProjector.ts)
+  - `projectGmailSenderArtifactSlice(...)` incremental parity path
+- [gmailArtifactIncrementalUpdater.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailArtifactIncrementalUpdater.ts)
+  - parity validation for the incremental path
+
+Read-only dependency/input:
+- [inboxAnalysis.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/inboxAnalysis.ts)
+  - structural `no_inbox_rows` / protected / historical assignment signals
+
+No schema changes expected in:
+- [gmailArtifactStore.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailArtifactStore.ts)
+
+### Validation Targets
+
+Required sender checks:
+- `oliver@curativemushrooms.com`
+- `support@curativemushrooms.com`
+- `consumer@e.mail.realtor.com`
+- `seaworld@m.seaworldparks.com`
+
+Required cluster checks:
+- `protected-trusted-senders`
+- `historical-out-of-inbox-senders`
+
+Required outcomes:
+- affected structural `no_inbox_rows` senders no longer default to zero preview evidence when valid scoped rows exist
+- full-build and incremental outputs stay aligned
+- bounded preview selection does not distort sender totals
+- no unrelated taxonomy, cleanup-group, or UI behavior changes are introduced
+
+---
+
+## Rebuild B - Semantic Focus Performance
+
+### Status
+
+- `implemented`
+- `rebuilt`
+- `validated`
+- `published_version: full-mailbox-20260327004328180`
+
+### Execution Result
 
-Required Changes
-	•	gmailArtifactFullMailboxProjector.ts
-	•	gmailArtifactIncrementalUpdater.ts
+- Hosted Supabase migration applied:
+  - `20260327101500_gmail_sender_workspace_semantic_focus_seed_rows.sql`
+- Rebuild B completed successfully and published:
+  - `full-mailbox-20260327004328180`
+- Focused semantic fast-path activation validated on rebuilt artifacts:
+  - `read_shape: focused_semantic_page`
+  - `protected-trusted-senders` cluster count preserved at `1838`
+  - focused counts preserved:
+    - `commerce_transactional / invoices_receipts = 167`
+    - `commerce_transactional / commerce_shipping_updates = 206`
+    - `account_notification / general_updates = 229`
+    - `account_notification / remainder = 299`
+- Cold focused-load improvement validated:
+  - previous corrected fallback baseline: ~`20s–26s`
+  - rebuilt fast path: ~`2.3s–2.7s`
+- Focused page-scoped load behavior validated:
+  - `seed_row_count: 12`
+  - `stats_count: 12`
+  - `preview_row_count: 60`
 
-⸻
+### What Landed
 
-Validation Targets
-	•	oliver@curativemushrooms.com
-	•	support@curativemushrooms.com
-	•	consumer@e.mail.realtor.com
-	•	seaworld@m.seaworldparks.com
+- Queryable sender-level semantic membership now persists on `gmail_sender_workspace_seed_rows`
+- `last_activity_at` persists on seed rows for focused sorting
+- Full-build and incremental projector paths share the same semantic persistence helper path
+- Runtime uses `focused_semantic_page` for supported semantic-focus request shapes
+- Older artifacts and unsupported request shapes still fall back safely to `full_cluster_materialization`
 
-Additional check:
-- at least one sender from `historical-out-of-inbox-senders`
-- verify structural preview seeding works outside protected group
+---
 
-⸻
+## Pressure Trend - Classification
 
-Status
+### Classification
 
-👉 READY TO IMPLEMENT + REBUILD
+- `artifact_backed`
+- `no_rebuild_needed`
+- `not_in_rebuild_a`
 
-⸻
+### Why
 
-🔹 REBUILD B — Semantic Focus Performance (PLANNED)
+Pressure Trend is already on an artifact-backed request path.
 
-Problem
+Authoritative references:
+- [gmail_workspace_data_access_stabilization_spec.md](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_data_access_stabilization_spec.md)
+  - Phase C moved `mailbox_pressure_trend` to artifact-backed reads
+  - Phase G.6 added window-specific artifact bucket families
+  - Phase G.7 verified render/consumption
+- [gmail_workspace_data_access_stabilization_proof_bundle.md](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_data_access_stabilization_proof_bundle.md)
+  - pressure trend was included in the artifact-only request-path stabilization proof
 
-Clicking semantic subtype:
-	•	triggers full_cluster_materialization
-	•	cold load = 10–15 seconds
+Current runtime/code path:
+- [gmailPressureTrendArtifacts.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailPressureTrendArtifacts.ts)
+  - artifact bucket-family selection by window
+- [gmailCleanupWorkspace.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts)
+  - `loadGmailPressureTrendForTenant(...)` reads published mailbox intelligence artifacts
+- [inbox-analysis/route.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/app/api/integrations/gmail/inbox-analysis/route.ts)
+  - `mailbox_pressure_trend` routes to the artifact-backed loader
 
-⸻
+Conclusion:
+- Pressure Trend should stay out of Rebuild A.
+- No rebuild work is currently required for Pressure Trend classification alone.
+- Only reopen it if a separate render/consumption bug appears.
 
-Root Cause
+---
 
-No persisted membership:
-	•	subtype → sender mapping computed at runtime
+## Deferred / Not Bundled
 
-⸻
+Do not bundle into Rebuild A:
+- cleanup-group redesign
+- taxonomy changes
+- richer Sender Overview artifact exposure
+- semantic redistribution work
+- Management changes
+- UI redesign
+- runtime-only performance work unrelated to structural preview seeding
+- deeper Decision Mode evidence expansion UX (for example, "load more", progressive reveal, or semantic-group-specific evidence browsing)
 
-Fix Direction
+---
 
-Persist:
+## Future Lane - Decision Mode Evidence Expansion
 
-sender → semantic_subtype_membership
+### Classification
 
-Then:
-	•	filter using artifact
-	•	avoid full recompute
+- `deferred`
+- `separate_product_lane`
+- `not_in_rebuild_a`
 
-Important:
-Determine whether performance bottleneck is:
-- artifact membership absence (rebuild required)
-- runtime materialization inefficiency (no rebuild required)
+### Why
 
-Do not assume rebuild until classification is complete.
+Rebuild A solves **minimum evidence availability** for structural `no_inbox_rows` senders.
 
-⸻
+It does **not** define the final user-facing evidence browsing model.
 
-Required Work
-	•	artifact projector
-	•	possibly runtime filtering layer
+Future work may include:
+- progressive reveal (`load more`)
+- bounded runtime expansion beyond the seeded artifact sample
+- semantic-group-specific evidence buckets inside Decision Mode
 
-⸻
+This lane must be designed separately so Rebuild A stays narrow and rebuild-safe.
 
-Status
+---
 
-👉 DESIGN REQUIRED BEFORE IMPLEMENTATION
+## Execution Order
 
-⸻
+1. Lock this rebuild plan document.
+2. Finish Rebuild A implementation and preflight seams.
+3. Run one rebuild.
+4. Validate Rebuild A targets.
+5. Update authoritative state docs.
+6. Continue product/runtime work in parallel.
+7. Revisit Rebuild B only in a later dedicated design pass.
+8. Revisit Decision Mode Evidence Expansion in a separate product lane.
 
-🔹 REBUILD C — Semantic Evidence Mapping (NEW)
+---
 
-Problem
+## Key Rule
 
-Decision Mode shows:
-	•	flat preview list
+One clean rebuild is better than repeated narrow rebuild churn.
 
-But system already has:
-	•	semantic families
-	•	subtypes
-
-👉 Not connected to evidence
-
-⸻
-
-Goal
-
-Change:
-
-sender → preview_messages[]
-
-Into:
-
-sender → {
-  updates: [],
-  invoices: [],
-  marketing: [],
-  security: [],
-}
-
-
-⸻
-
-Required Investigation
-	•	do preview rows carry semantic metadata?
-	•	can grouping be derived?
-	•	or requires schema change?
-
-⸻
-
-Status
-
-👉 INVESTIGATION REQUIRED (NO BUILD YET)
-
-Note:
-This is a structural enhancement, not a bug fix.
-Do NOT bundle into Rebuild A.
-Must be designed separately to avoid scope explosion.
-
-⸻
-
-🔹 DEFERRED (NOT PART OF CURRENT REBUILDS)
-	•	Cleanup group redesign
-	•	Taxonomy restructuring
-	•	Distribution balancing (99% bucket issues)
-	•	Richer artifact exposure
-	•	UI changes
-
-⸻
-
-🔹 REBUILD AUDIT ADDITION — Pressure Trend Verification (NEW)
-
-Problem
-
-Pressure Trend may be reading:
-- pre-artifact data
-- or partially artifact-backed data
-
-Unclear if it is fully aligned with artifact system.
-
-Required Audit
-
-Determine:
-- data source for Pressure Trend
-- whether it uses artifact outputs or legacy aggregation
-- whether rebuild is required for alignment
-
-Classification
-
-Must be categorized as:
-- same rebuild (Rebuild A)
-- separate rebuild
-- no rebuild needed
-- audit only
-
-Status
-
-👉 AUDIT REQUIRED (DO NOT INCLUDE IN REBUILD YET)
-
-⸻
-
-🧭 Execution Order
-	1. Artifact Rebuild Bundling Audit (complete first)
-	2. Implement Rebuild A
-	3. Run ONE rebuild
-	4. Validate system thoroughly
-	5. Continue product work in parallel
-	6. Design Rebuild B (performance)
-	7. Design Rebuild C (semantic evidence mapping)
-	8. Bundle future rebuilds deliberately
-
-⸻
-
-🧠 Key Rule
-
-Never rebuild for one issue.
-Always rebuild for a validated bundle.
-
-Rebuild scope must be locked BEFORE execution.
-No mid-rebuild scope expansion.
-
-⸻
-
-🚀 2. Execution Roadmap (What happens now)
-
-Here’s how we move forward efficiently.
-
-⸻
-
-🟢 NOW (Parallel Work)
-
-Thread 1 — Codex (Artifact Work)
-
-👉 Rebuild A implementation + rebuild
-
-Thread 2 — You + Me (Product Work)
-
-While rebuild runs:
-	•	test flows
-	•	identify next runtime/UI issues
-	•	validate decision system
-
-⸻
-
-🔵 AFTER REBUILD A
-
-We immediately validate:
-	•	Curative senders now show preview evidence
-	•	No regression on Amazon / others
-	•	No weird preview inflation
-
-⸻
-
-🟡 NEXT (After validation)
-
-We choose next lane:
-
-Option A (likely):
-
-👉 Performance (Rebuild B design)
-
-Option B:
-
-👉 Continue runtime/UI improvements
-
-⸻
-
-⚠️ Important mindset shift
-
-You said something very important:
-
-“I don’t want to get stuck in rebuild mode all day”
-
-Correct.
-
-So here’s the rule:
-
-👉 Rebuild is a lane, not the whole system
-
-We:
-	•	run rebuild
-	•	keep working elsewhere
-	•	come back and validate
-
-⸻
+Do not expand Rebuild A after implementation begins.

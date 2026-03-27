@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-26 (Gmail Phase 1 baseline restored • March 26 refinement variant rejected • UI completion unlocked)_
+_Last updated: 2026-03-27 (Rebuild A completed • structural preview seeding fixed • new Gmail baseline published)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -18,12 +18,15 @@ _Last updated: 2026-03-26 (Gmail Phase 1 baseline restored • March 26 refineme
 ### Gmail Phase 1 Baseline Lock
 - [x] Restore published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555`
 - [x] Record `full-mailbox-20260326012615971` as a diagnostic semantic-refinement variant, not the adopted freeze candidate
+- [x] Implement Rebuild A structural preview seeding fix for `no_inbox_rows` structural senders
+- [x] Run and publish Rebuild A as `full-mailbox-20260326221425010`
+- [x] Promote the accepted Gmail Phase 1 artifact baseline to `full-mailbox-20260326221425010`
 - [ ] Before any future Gmail rebuild, reconcile `web/src/lib/integrations/gmail/gmailSenderProfile.ts` with the accepted baseline decision so the rejected March 26 subtype behavior is not republished by accident
-- [ ] Complete Phase 1B UI work against the accepted baseline artifact instead of reopening Gmail artifact refinement
+- [ ] Complete Phase 1B UI work against the accepted rebuilt baseline artifact instead of reopening Gmail artifact refinement
 
 ### Gmail Phase 1B — Sender Overview + Runtime Reliability (ACTIVE)
-- [ ] Fix Decision Card preview reliability (fallback selection must always return valid message when available)
-- [ ] Ensure preview works for high-volume senders (e.g., oliver@curativemushrooms.com, support@curativemushrooms.com)
+- [ ] Browser-verify Decision Card preview behavior on the rebuilt structural-evidence baseline
+- [x] Ensure preview works for high-volume structural senders (e.g., oliver@curativemushrooms.com, support@curativemushrooms.com)
 - [ ] Verify subtype → sender list linkage across multiple cleanup groups (subscription, protected, dormant)
 - [ ] Validate sender list results remain consistent and believable relative to subtype hierarchy
 - [ ] Improve sender-row readability and semantic labeling in Sender Overview
@@ -59,7 +62,7 @@ Goal:
 - [ ] Validate the rebuilt artifact against the 8-group source-of-truth expectations and semantic rollup outputs
 
 Baseline note:
-- For Gmail Phase 1 operational work, treat `full-mailbox-20260325230627555` as the frozen reference artifact.
+- For Gmail Phase 1 operational work, treat `full-mailbox-20260326221425010` as the current reference artifact.
 - Do not use `full-mailbox-20260326012615971` as the rebuild/freeze candidate.
 
 ## 🚀 Phase L — Sender Surface Unification (PRIMARY)
