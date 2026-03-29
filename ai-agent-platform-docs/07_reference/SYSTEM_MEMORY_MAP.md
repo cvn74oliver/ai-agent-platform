@@ -386,6 +386,7 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
 │   │   │   ├── sender_decision_mode_spec.md
 │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
+│   │   │   ├── SENDER_DISTRIBUTION_CHART_SPEC.md
 │   │   │   ├── sender_overview_card_target_spec.md
 │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
 │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
@@ -410,6 +411,7 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── 09_reference
 │   │   │   ├── codex_safeguards.md
 │   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_artifact_refresh_and_sync_protocol.md
 │   │   │   ├── gmail_workspace_canonical_engine_pattern.md
 │   │   │   ├── gmail_workspace_data_access_stabilization_acceptance.md
 │   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.json

@@ -7,29 +7,110 @@ Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
-## 🚀 March 29 — Sender Overview Broader-Scope Chart Recovery Accepted; Smart Sync Freshness Moved Out
+## 🚀 March 29 — Subscription Sender Overview Load Stability Accepted
 
 ### What changed
 
-- Sender Overview broader-scope chart behavior is now accepted for active-scope review routes when scoped discovery data exists.
-- Accepted active-scope behavior is:
-  - `7d`: valid comparison-only / outside-timeframe when no recent scoped data exists
-  - `30d`, `60d`, `90d`: ready weekly rails when data exists
-  - `180d`, `365d`, `all_indexed`: ready monthly rails when data exists
-- The remaining short-window gap is no longer being treated as a chart-contract defect.
+- `subscription-senders` Sender Overview load instability is now treated as recovered.
+- The fix stayed narrowly inside the Overview load path:
+  - [review/page.tsx](/Users/olivercarlin/Documents/ai-agent-platform/web/src/app/agents/[id]/operations/review/page.tsx) no longer blocks the deferred default Overview `sender_workspace` fetch behind `defaultOverviewRuntimeGate === 'waiting'`
+  - first usable Overview/chart now hydrates from the earliest `overviewShellWorkspace`
+  - `runtime_selected_cluster_rail_family` stays progressive enrichment only
+- [gmailCleanupWorkspace.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts) now pages the `subscription-senders` fast-path candidate-row loader in backend-safe chunks for that fast path specifically.
 
 ### Current accepted distinction
 
-- Valid `1W` comparison-only behavior may occur when the tenant has no recent scoped discovery data.
-- The `24`-month historical cutoff remains expected bounded-backfill behavior.
-- The newly identified open issue is upstream of chart rendering:
-  - Smart Sync / mailbox-index freshness does not appear to be advancing indexed coverage all the way to the current date in some cases
-  - that freshness gap can suppress recent scoped discovery and produce valid `1W` empty/outside states
+- Cold server-side preferred-cluster runtime bootstrap for `30d` `subscription-senders` is still expensive:
+  - `runtime_state_total_ms = 33593`
+  - `cleanup_plan_ms = 32777`
+  - `preferred_cluster_review_bootstrap_ms = 30793`
+  - `selected_cluster_rail_family_load_ms = 1218`
+- The page no longer waits on that full runtime lane before becoming useful:
+  - cold browser first usable Overview/chart: `4397ms`
+  - warm browser first usable Overview/chart: `200ms`
+- The chart now populates on first load and stays populated after settle.
+- The old fast-path rejection pattern is gone:
+  - no more `rejected_candidate_rows_incomplete`
+  - current cold fast-path proof shows `status = applied_scoped_underfill`
+  - `candidate_row_count = 1843`
+  - `selected_cluster_row_count = 1843`
+- Warm server-side follow-up timings are stable:
+  - runtime total `2163ms`
+  - sender workspace `790ms`
+
+### Why this was mostly a `subscription-senders` problem
+
+- `subscription-senders` is the heaviest active `30d` cluster in the current tenant:
+  - runtime estimate `1936` supporting messages
+  - scoped sender-workspace truth `1843` supporting messages across `349` senders
+- The page-level runtime gate could delay default Overview for any slow cluster, but `subscription-senders` also hit the fast-path pagination ceiling before this fix.
+- That combination made the delay and refresh instability show up much more clearly here than in the smaller structural groups.
+
+### Smoke-check status
+
+- `protected-trusted-senders`
+  - route opens
+  - chart populates
+  - no manual refresh required in the proof run
+- `needs-review-senders`
+  - route opens
+  - chart populates
+  - no manual refresh required in the proof run
+- `dormant-backlog-senders`
+  - route opens
+  - chart populates
+  - no manual refresh required in the proof run
 
 ### Thread status
 
-- Sender Overview broader-scope chart recovery is accepted and this thread is closed on that lane.
-- Any further investigation should move to the separate mailbox-index / Smart Sync freshness thread rather than reopening chart-contract work.
+- The `subscription-senders` Sender Overview load-stability sniper pass is accepted.
+- Runtime cold bootstrap cost remains a separate performance concern, but it is no longer the first-usable page blocker for this lane.
+- Smart Sync, mailbox refresh, artifact publication, cleanup-group regrouping/promotion, and `7d` rail bootstrap all remain untouched by this accepted fix.
+
+## 🚀 March 29 — Sender Overview 7-Day Rail Bootstrap Recovery Accepted
+
+### What changed
+
+- The remaining `1W` Sender Overview failure was traced to selected-cluster rail bootstrap, not Smart Sync freshness and not artifact publication.
+- Runtime was reusing a persisted scoped cleanup snapshot that was structurally valid but semantically invalid for current indexed coverage:
+  - `visible_cluster_count === 0`
+  - indexed coverage already supported non-zero `7d` cluster discovery
+- Selected-cluster rail bootstrap now rejects persisted scoped snapshots when they are:
+  - expired
+  - behind current indexed coverage
+  - empty despite indexed coverage showing non-zero cluster potential
+- Rejected or missing unpublished scoped snapshots now fall through to read-only scoped discovery with no artifact-layer or persistence-side effects.
+
+### Current accepted distinction
+
+- For this tenant, `7d` should show daily bars right now.
+- The prior `snapshot_outside_timeframe` / zero-cluster `1W` result was false-empty, not honest-empty.
+- Honest `1W` comparison-only remains acceptable only when fresh scoped discovery truly excludes the selected cleanup group.
+- Some live `7d` charts currently render only `2–3` visible day bars.
+- That is accepted as non-blocking for this lane and is currently treated as likely honest daily activity visibility, not proof of a broken `7d` bootstrap.
+- Whether the chart should render all seven calendar days including explicit zero-activity days remains a separate presentation/product question.
+- The `24`-month historical cutoff remains expected bounded-backfill behavior and is unrelated to this fix.
+
+### Thread status
+
+- The `7d` Sender Overview rail lane is accepted as recovered.
+- The fix remains isolated to selected-cluster rail bootstrap in `runtimeStateService`.
+- Artifact publication, Smart Sync, mailbox-index recovery, and Slice 2 cleanup-group promotion work all remain out of scope for this closed lane.
+- `subscription-senders` load instability / slow or unreliable page load behavior remains out of scope for this lane and should be handled in a separate sniper thread.
+
+### Runtime validation proof
+
+- Published artifact state remained unchanged:
+  - `published_version = full-mailbox-20260329092447406`
+- Live runtime proof after the fix showed `7d` resolving `ready` with `day` granularity and visible cluster count `7` for:
+  - `subscription-senders`
+  - `protected-trusted-senders`
+  - `needs-review-senders`
+  - `historical-out-of-inbox-senders`
+- First-pass bootstrap evidence showed the stale empty `7d` snapshot rejected with:
+  - `persisted_snapshot_rejected_reason = empty_with_index_potential`
+- Runtime then fell through to:
+  - `snapshot_source = readonly_scoped_discovery`
 
 ## 🚀 March 29 — Cleanup-Group Legacy Rollup Compatibility Restored
 

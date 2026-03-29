@@ -1,3 +1,126 @@
+### March 29, 2026 — Subscription Sender Overview Load Stability Accepted
+
+Root-cause addressed:
+- The remaining `subscription-senders` Sender Overview instability was not a rail-bootstrap correctness issue, not an artifact freshness issue, and not a Smart Sync problem.
+- Two narrow load-path defects were compounding:
+  - `review/page.tsx` suppressed the deferred default Overview `sender_workspace` fetch while `defaultOverviewRuntimeGate.status === 'waiting'`, so first usable Overview/chart could stay blocked behind slow preferred-cluster runtime bootstrap.
+  - `gmailCleanupWorkspace.ts` fast-path candidate-row loading requested optimistic large ranges, but the backend only returned `1000` rows per chunk on this path, which could force `subscription-senders` into `rejected_candidate_rows_incomplete` fallback behavior on high-volume loads.
+- Result before the fix:
+  - cold `30d` runtime bootstrap could spend tens of seconds in `cleanup_plan_ms` / preferred-cluster review bootstrap
+  - `subscription-senders` first usable Overview/chart could feel delayed or require refresh
+  - chart hydration could miss the earliest usable dataset even when Overview shell data was available sooner than the full runtime lane
+
+What changed:
+- Narrow page-level progressive render fix shipped in [review/page.tsx](/Users/olivercarlin/Documents/ai-agent-platform/web/src/app/agents/[id]/operations/review/page.tsx):
+  - the deferred default Overview `sender_workspace` fetch is no longer blocked behind runtime-gate `waiting`
+  - first usable Overview/chart now comes from the earliest `overviewShellWorkspace`
+  - `runtime_selected_cluster_rail_family` remains progressive enrichment only
+- Narrow fast-path pagination fix shipped in [gmailCleanupWorkspace.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts):
+  - the candidate-row loader now pages in backend-safe chunks only for this fast-path path
+  - no Smart Sync, artifact publication, cleanup-group structure, or `7d` bootstrap logic was changed
+
+Timing proof:
+- Server-side cold `30d` runtime probe for `subscription-senders`:
+  - `runtime_state_total_ms = 33593`
+  - `cleanup_plan_ms = 32777`
+  - `preferred_cluster_review_bootstrap_ms = 30793`
+  - `selected_cluster_rail_family_load_ms = 1218`
+- Browser cold `30d` `subscription-senders` page open after clearing client caches:
+  - first usable Overview/chart at `4397ms`
+  - first `sender_workspace` request finished at `4351ms`
+  - chart was populated on first usable render and remained populated after settle
+- Server-side cold `30d` `subscription-senders` sender-workspace probe:
+  - total load `3580ms`
+  - fast-path log now reports `status = applied_scoped_underfill`
+  - `candidate_row_count = 1843`
+  - `selected_cluster_row_count = 1843`
+  - no `rejected_candidate_rows_incomplete`
+- Warm follow-up proof:
+  - runtime: `runtime_state_total_ms = 2163`, `cleanup_plan_ms = 1482`, `preferred_cluster_review_bootstrap_ms = 1117`, `selected_cluster_rail_family_load_ms = 296`
+  - sender workspace: `790ms`
+  - browser first usable: `200ms` with no additional runtime or sender-workspace network round-trip
+
+Why this only impacted `subscription-senders`:
+- It is the highest-volume active `30d` cleanup group in this tenant:
+  - runtime cluster estimate `1936` messages
+  - scoped sender-workspace truth `1843` messages across `349` senders
+- The page-level runtime gate could delay any default Overview when runtime bootstrap was slow, but `subscription-senders` suffered most because its fallback workspace fetch was also more likely to hit the fast-path pagination failure.
+- After the fix, the page can render from Overview shell data without waiting for the full runtime/bootstrap lane, and the fast path now completes instead of falling back.
+
+Smoke checks:
+- `protected-trusted-senders`
+  - first usable chart in `3042ms`
+  - chart remained populated
+- `needs-review-senders`
+  - first usable chart in `3191ms`
+  - chart remained populated
+- `dormant-backlog-senders`
+  - first usable chart in `2571ms`
+  - chart remained populated
+
+Accepted state boundary:
+- The cold preferred-cluster runtime lane is still expensive on `30d` and remains visible in server timing (`~33.6s` cold) when snapshot/bootstrap work is needed.
+- That runtime cost is no longer blocking first usable `subscription-senders` Sender Overview.
+- This lane is accepted as a load-path / hydration consistency fix:
+  - no Smart Sync change
+  - no artifact publication change
+  - no cleanup-group regrouping/promotion
+  - no `7d` rail bootstrap change
+
+### March 29, 2026 — Sender Overview 7-Day Rail Bootstrap Recovery Accepted
+
+Root-cause addressed:
+- The remaining `1W` Sender Overview failure was not a mailbox freshness defect and not an artifact-publication defect.
+- Review-page runtime was reusing the latest persisted scoped cleanup snapshot for selected-cluster rail bootstrap without rejecting semantically invalid empty `7d` snapshots.
+- The stale `7d` snapshot path could remain structurally reusable even when:
+  - `visible_cluster_count === 0`
+  - current indexed coverage had already advanced enough to support non-zero `7d` cluster discovery
+- Result:
+  - selected-cluster Sender Overview rails could resolve `snapshot_outside_timeframe`
+  - visible cluster count could stay `0`
+  - cleanup-group lanes could falsely render `comparison-only` / `outside-timeframe` even though live indexed data already supported daily bars
+
+What changed:
+- Narrow fix shipped in selected-cluster rail bootstrap only.
+- Added scoped snapshot rejection rules in `runtimeStateService` so a persisted scoped snapshot is no longer reused when:
+  - it is expired
+  - indexed coverage has advanced beyond the snapshot
+  - it is semantically invalid for the current mailbox state:
+    - `visible_cluster_count === 0`
+    - indexed coverage indicates non-zero cluster potential
+- When a scoped snapshot is rejected or missing for an unpublished scope, selected-cluster rail bootstrap now falls through to read-only scoped discovery:
+  - no artifact changes
+  - no Smart Sync changes
+  - no publication changes
+  - no `agent_events` persistence side effects in this lane
+- Fresh read-only scoped discovery is reused only through the in-memory cleanup snapshot cache for the current runtime process.
+
+Before / after proof:
+- Before the fix:
+  - latest persisted `7d` snapshot was empty and older than current indexed coverage
+  - selected-cluster rail bootstrap resolved `7d` as `snapshot_outside_timeframe`
+  - visible cluster count was `0`
+- After the fix:
+  - first live `7d` rail bootstrap rejected the stale empty snapshot with reason `empty_with_index_potential`
+  - runtime fell through to `readonly_scoped_discovery`
+  - live runtime truth now resolves `7d` as `ready` with daily bars and visible cluster count `7`
+- Validated cleanup groups:
+  - `subscription-senders`
+  - `protected-trusted-senders`
+  - `needs-review-senders`
+  - `historical-out-of-inbox-senders`
+
+Accepted product/state distinction:
+- For this tenant, `7d` should show daily bars right now.
+- The previous `comparison-only` / `outside-timeframe` result was false-empty, not honest-empty.
+- Honest `1W` comparison-only remains valid in principle only when fresh scoped discovery truly excludes the cluster.
+- Some recovered `7d` charts currently show only `2–3` visible day bars in live UI samples.
+- That is accepted as non-blocking for this lane and is being treated as likely honest activity visibility rather than proof of a broken `7d` bootstrap.
+- Whether Sender Overview should render all seven calendar days including explicit zero-activity bars is a separate presentation/product question and not part of this recovery acceptance.
+- `subscription-senders` load instability / slow or unreliable page load behavior is explicitly out of scope for this closed lane.
+- Artifact publication remains untouched:
+  - current published version is still `full-mailbox-20260329092447406`
+
 ### March 29, 2026 — Sender Overview Broader-Scope Chart Recovery Accepted; Mailbox-Index Freshness Gap Split Out
 
 Root-cause addressed:

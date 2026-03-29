@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-29 (sender-overview broader-scope chart recovery accepted • mailbox-index freshness moved to separate thread • cleanup-group restructuring still open)_
+_Last updated: 2026-03-29 (sender-overview 7d rail bootstrap recovered • subscription-senders overview stabilized • artifact layer unchanged • cleanup-group restructuring still open)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -14,11 +14,55 @@ _Last updated: 2026-03-29 (sender-overview broader-scope chart recovery accepted
 
 ----
 
-### Mailbox-Index / Smart Sync Freshness (NEW THREAD)
-- [ ] Open and track a separate mailbox-index / Smart Sync freshness investigation thread
-- [ ] Verify whether mailbox-index maintenance is failing to advance indexed coverage to the current date
-- [ ] Measure whether recent scoped discovery stays suppressed even when broader-scope sender-overview chart behavior is otherwise correct
-- [ ] Keep Sender Overview broader-scope chart-contract work closed unless new freshness evidence proves a real rendering/data-contract regression
+### Sender Overview 7d Rail Bootstrap Recovery
+- [x] Prove whether `7d` was honestly empty or falsely empty under current product contract
+- [x] Isolate the zero-cluster introduction point to selected-cluster rail bootstrap snapshot reuse
+- [x] Reject persisted scoped snapshots when:
+  - expired
+  - behind indexed coverage
+  - empty despite indexed coverage showing non-zero cluster potential
+- [x] Fall through to read-only scoped discovery for rejected unpublished scopes
+- [x] Prove live runtime `7d` recovery for:
+  - `subscription-senders`
+  - `protected-trusted-senders`
+  - `needs-review-senders`
+  - `historical-out-of-inbox-senders`
+- [x] Keep Smart Sync, mailbox-index recovery, artifact publication, and Slice 2 promotion untouched in this lane
+- [x] Record the accepted tenant truth:
+  - `7d` should show daily bars now
+  - prior `comparison-only` / `outside-timeframe` state was false-empty
+- [x] Record accepted closeout boundary:
+  - sparse `2–3` visible day bars are not a blocker for this lane
+  - explicit zero-day bar rendering is separate presentation/product work
+  - `subscription-senders` load instability belongs in a separate sniper thread
+
+### Subscription Sender Overview Load Stability
+- [x] Unblock the deferred default Overview `sender_workspace` fetch from `defaultOverviewRuntimeGate === 'waiting'`
+- [x] Treat `runtime_selected_cluster_rail_family` as progressive enrichment only for first usable Overview/chart readiness
+- [x] Repair `subscription-senders` sender-workspace fast-path pagination in backend-safe chunks without widening the fix surface
+- [x] Prove cold `30d` runtime cost remains outside the page fast-path:
+  - cold runtime `runtime_state_total_ms = 33593`
+  - `preferred_cluster_review_bootstrap_ms = 30793`
+- [x] Prove cold `30d` `subscription-senders` Overview/chart becomes usable without refresh:
+  - first usable browser render `= 4397ms`
+  - chart populated on first usable snapshot
+- [x] Prove warm `30d` `subscription-senders` Overview stays fast:
+  - warm browser first usable `= 200ms`
+  - no additional runtime / sender-workspace network round-trip in the proof run
+- [x] Prove chart remains populated after settle / enrichment completes
+- [x] Prove the old fast-path rejection pattern disappeared:
+  - no `rejected_candidate_rows_incomplete`
+  - cold fast-path now logs `applied_scoped_underfill`
+  - `candidate_row_count = 1843`
+  - `selected_cluster_row_count = 1843`
+- [x] Capture updated warm server timings:
+  - runtime total `2163ms`
+  - sender workspace `790ms`
+- [x] Smoke-check:
+  - `protected-trusted-senders`
+  - `needs-review-senders`
+  - `dormant-backlog-senders`
+- [x] Keep Smart Sync, mailbox refresh, artifact publication, cleanup-group regrouping/promotion, and `7d` rail bootstrap untouched in this lane
 
 
 ### Gmail Phase 1 Baseline Lock
@@ -53,9 +97,10 @@ _Last updated: 2026-03-29 (sender-overview broader-scope chart recovery accepted
 ### Current Accepted Product State
 - [x] Accept Sender Overview timeframe behavior as correct in the current product
 - [x] Accept Sender Overview broader-scope chart recovery when scoped discovery data exists
-- [x] Record that valid `1W` comparison-only behavior may occur when no recent scoped data exists
+- [x] Record that honest `1W` comparison-only remains valid only when fresh scoped discovery truly excludes the cluster
+- [x] Record that this tenant's `7d` Sender Overview rails should show daily bars now
+- [x] Record that stale empty persisted scoped snapshots are invalid when indexed coverage shows non-zero cluster potential
 - [x] Record that the `24`-month historical cutoff is expected bounded-backfill behavior
-- [x] Move mailbox-index / Smart Sync freshness into a separate open thread instead of treating it as a chart-contract defect
 - [x] Accept current `subscription-senders` UI / productization validation
 - [x] Keep `subscription-senders` as one cleanup group in the current artifact-backed model
 - [x] Record that no taxonomy split shipped in the current pass
