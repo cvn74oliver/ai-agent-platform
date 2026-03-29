@@ -1,3 +1,222 @@
+### March 29, 2026 — Supabase Pressure Incident Root Cause Locked + Runtime Hot-Path Guidance
+
+Root-cause addressed:
+- The artifact-backed architecture remained broadly correct.
+- Pressure came from two combined hot-path failures:
+  - unnecessary rehydrate triggers in `OperationsRuntimeContext`
+    - warm cached remount forced rehydrate
+    - focus / visibility could force rehydrate without a change-driven reason
+  - timeout-prone preferred-cluster cleanup snapshot lookup behavior in `runtimeStateService`
+- Combined effect:
+  - repeated `/api/agents/playground` pressure
+  - degraded selected-cluster bootstrap on preferred-cluster rehydrates
+  - incident looked like a tier/capacity problem even though the dominant failure mode was trigger multiplication plus a hot-path lookup timeout
+
+What changed:
+- Removed the `OperationsRuntimeContext` trigger regression:
+  - warm cached remount no longer forces rehydrate
+  - focus / visibility no longer force rehydrate without a change-driven reason
+- Fixed the preferred-cluster snapshot timeout path in `runtimeStateService`:
+  - cache-first scoped cleanup snapshot lookup
+  - supporting `agent_events` indexes added via:
+    - `20260329131500_agent_events_cleanup_snapshot_lookup_indexes.sql`
+- Kept the already-shipped selected-cluster bootstrap optimization in the active path:
+  - cache / versioned rail-family reuse for repeated preferred-cluster rehydrates
+
+Why it mattered:
+- The right fix was not to abandon the artifact-backed model; it was to remove rehydrate multipliers and harden the lookup path feeding selected-cluster bootstrap.
+- One degraded runtime lookup was enough to make the whole system appear underprovisioned and to amplify load through `/api/agents/playground`.
+
+What to watch next:
+- Stay on the upgraded Supabase tier for now.
+- Treat `/api/agents/playground` as a hot path.
+- Treat `agent_events` cleanup snapshot lookup as a hot-path dependency.
+- Future runtime changes must capture before / after timing for:
+  - total rehydrate
+  - `cleanup_plan_ms`
+  - `selected_cluster_rail_family_load_ms`
+  - `preferred_cluster_review_bootstrap_ms`
+- Warm-path validation is mandatory; do not validate only first-load / cold-load behavior.
+
+Current accepted product/state note:
+- Sender Overview timeframe behavior is accepted as correct.
+- `subscription-senders` UI / productization validation is accepted.
+- `subscription-senders` remains one cleanup group; no taxonomy split shipped.
+- Cleanup-group restructuring into smaller artifact-defined groups remains open work.
+
+Lessons learned:
+- Do not assume a pressure incident is “just scale” before checking trigger multipliers and timeout-prone hot queries.
+- One degraded runtime lookup can make the whole system appear underprovisioned.
+- Runtime validation must include repeated rehydrate behavior, not just first-load behavior.
+
+### March 28, 2026 — Subscription-Senders Semantic Improvement Phase 3 Accepted
+
+Root-cause addressed:
+- The accepted local semantic-improvement baseline against `full-mailbox-20260327004328180` had already improved marketing subtype coverage materially, but `subscription-senders` still carried a clear-family unresolved remainder that was suppressing pattern clarity and keeping headline persistence `provisional`.
+- The remaining population was not uniform:
+  - `123` clear-family unresolved marketing senders were the only approved gain pool
+  - `21` mixed senders remained decomposable but out of scope
+  - `183` weak-history senders were required to stay unresolved
+
+What changed:
+- Implemented a surgical resolver-only Phase 3 pass limited to:
+  - `resolveSemanticPatternSelection(...)`
+  - `resolveMarketingPromotionalSubtype(...)`
+- Added a narrow clear-family rescue path only for currently unresolved senders that already had:
+  - `marketing_promotional` family
+  - `clear` family resolution
+  - clear marketing operator profile
+- Kept the pass population-targeted:
+  - no weak-history gains
+  - no mixed-population gains
+  - no already-resolved subtype churn
+  - no offer expansion
+- Added a dedicated verification packet script to report locked before/after metrics, target-pool accounting, guardrail outcomes, and already-resolved preservation.
+
+Accepted outcome:
+- Locked metrics improved from the Phase 2 local baseline to the accepted Phase 3 local after-state:
+  - resolved marketing subtype senders: `472 -> 481`
+  - resolved marketing subtype coverage: `59% -> 60%`
+  - unresolved promotional remainder: `327 -> 318`
+  - `offer_campaign`: `252 -> 252`
+  - `product_marketing_update`: `174 -> 179`
+  - `editorial_newsletter`: `46 -> 50`
+  - pattern clear share: `3% -> 5%`
+- Headline persistence remained:
+  - family: `provisional`
+  - pattern: `provisional`
+  - accepted because the remaining blocker is outside the targeted Phase 3 pool and current rollup-contract work stayed intentionally out of scope
+
+Target-pool accounting:
+- Execution-start target pool: `123`
+- Stayed unresolved: `114`
+- Resolved to `product_marketing_update`: `5`
+- Resolved to `editorial_newsletter`: `4`
+- Resolved to `offer_campaign`: `0`
+- Excluded because stronger concrete non-marketing evidence kept them out: `18`
+- Resolved outside the target pool: `0`
+
+Guardrail results:
+- Weak-history stayed unresolved:
+  - `183` before
+  - `0` resolved after
+- Mixed stayed unresolved:
+  - `21` before
+  - `0` resolved after
+- Already-resolved subtype preservation held:
+  - already-resolved before: `472`
+  - preserved resolved after: `472`
+  - same-subtype preservation: `472`
+  - downgraded / churned: `0`
+- Offer anti-regression held:
+  - target-pool offer gains: `0 / 9`
+  - combined product + editorial gains: `9`
+
+Explicit non-changes:
+- no taxonomy change
+- no rebuild or publication
+- no UI change
+- no schema change
+- no rollup-contract change
+- no broad semantic tuning outside the `123`-sender pool
+
+Operational consequence:
+- Subscription semantic Phase 3 is complete and accepted as a narrow resolver pass.
+- The next thread should be a new planning thread for subscription semantic rebuild/publication planning.
+- That next thread should be limited to:
+  - planning how to rebuild/publish the improved semantic truth
+  - defining post-rebuild validation against the locked baseline
+  - deciding whether a new split-readiness evaluation is needed after publication
+- It should explicitly not be:
+  - a taxonomy-split implementation thread
+  - a UI thread
+  - another broad semantic tuning thread
+
+### March 28, 2026 — Subscription-Senders Split-Readiness Evaluation Accepted
+
+Root-cause addressed:
+- `subscription-senders` remained the most obvious future split candidate, but the system did not yet have a decision-locked evaluation of whether the published artifact actually supported a clean top-level lane split.
+- Prior discussion risked widening from semantic evaluation into redesign or rebuild planning before the readiness gate was explicitly checked.
+
+What changed:
+- Completed and accepted an evaluation-only split-readiness memo using the exact published Gmail artifact:
+  - `full-mailbox-20260327004328180`
+- Locked the evaluation to semantic evidence first, with operator behavior used only as a confirmation layer.
+- Evaluated current internal seams inside `subscription-senders` without approving any promotion:
+  - `offer_campaign`
+  - `product_marketing_update`
+  - `editorial_newsletter`
+  - unresolved promotional remainder
+
+Accepted findings:
+- `subscription-senders` is not split-ready yet.
+- Current semantic blockers remain primary:
+  - `marketing_promotional` still accounts for `799 / 853` senders (`94%`)
+  - resolved marketing subtype coverage remains only `244 / 799` (`31%`)
+  - the largest unresolved promotional remainder (`324` senders) is still larger than the strongest candidate seam (`offer_campaign` at `151` senders)
+  - published headline subtype persistence remains `provisional`
+- Operator evidence is still too thin to strengthen a split case:
+  - only `16` destination profiles existed for the current agent
+  - only `3` intersected `subscription-senders`
+  - none of the reviewed senders landed in `offer_campaign`, `product_marketing_update`, or `editorial_newsletter`
+
+Explicit non-changes:
+- no resolver changes
+- no schema changes
+- no rebuild
+- no sender reassignment
+- no UI changes
+- no lane promotion
+
+Operational consequence:
+- This thread closes the current split-readiness evaluation as complete and approved.
+- The correct next step is a separate `subscription-senders` semantic-improvement planning thread.
+- Rebuild / taxonomy gate planning stays closed for now.
+
+### March 28, 2026 — Cleanup Groups Role Correction + `needs-review-senders` Reframe
+
+Root-cause addressed:
+- Cleanup Groups still mixed stable section structure with inconsistent lane-role wording.
+- `needs-review-senders` was visible, but it was not explicit enough that the group exists for low-evidence coverage rather than as a normal action lane.
+- Sender Overview and Mailbox Intelligence were not yet using the locked lane-role language consistently at the handoff/entry seams.
+
+What changed:
+- Shipped the locked lane-role labels across the current Cleanup Groups presentation layer:
+  - `Primary action lane`
+  - `Backlog lane`
+  - `Safety / coverage lane`
+- Kept the existing Cleanup Groups section titles and ordering intact:
+  - `Start Here`
+  - `Reduce Backlog`
+  - `Exceptions & Coverage`
+- Updated section-summary and support copy so lane role is explicit without redesigning the page structure.
+- Reframed `needs-review-senders` as low-evidence safety / coverage:
+  - not a default starting point
+  - not a momentum lane
+  - not a coherent semantic bucket
+- Updated Mailbox Intelligence handoff wording so the default recommendation language clearly avoids safety / coverage lanes unless no stronger path remains.
+- Updated Sender Overview entry framing through the existing bridge-copy seam only:
+  - no new role panel
+  - no new hero block
+  - no added row above semantic analysis
+
+Explicit non-changes:
+- no taxonomy split
+- no artifact change
+- no schema change
+- no sender reassignment
+- no rebuild
+- no recommendation-logic or ordering change
+
+Validation:
+- Pass validated against accepted Gmail artifact:
+  - `full-mailbox-20260327004328180`
+- Targeted ESLint passed for the touched presentation files.
+
+Operational consequence:
+- Cleanup Groups Phase A+B is now complete and accepted as a narrow presentation/state-alignment pass.
+- Future cleanup-group semantic-improvement, taxonomy-redesign gating, and rebuild planning remain separate next-phase work.
+
 ### March 27, 2026 — Rebuild B Completed: Semantic Focus Performance Activation
 
 Root-cause addressed:

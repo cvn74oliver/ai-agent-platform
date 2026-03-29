@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-27 (Rebuild A completed • structural preview seeding fixed • new Gmail baseline published)_
+_Last updated: 2026-03-29 (runtime hot-path guidance locked • current product state accepted • cleanup-group restructuring still open)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -23,6 +23,52 @@ _Last updated: 2026-03-27 (Rebuild A completed • structural preview seeding fi
 - [x] Promote the accepted Gmail Phase 1 artifact baseline to `full-mailbox-20260326221425010`
 - [ ] Before any future Gmail rebuild, reconcile `web/src/lib/integrations/gmail/gmailSenderProfile.ts` with the accepted baseline decision so the rejected March 26 subtype behavior is not republished by accident
 - [ ] Complete Phase 1B UI work against the accepted rebuilt baseline artifact instead of reopening Gmail artifact refinement
+
+### Operations Runtime Hot-Path Guidance
+- [x] Record that the artifact-backed architecture remained broadly correct during the Supabase pressure incident
+- [x] Record the actual root cause as:
+  - unnecessary `OperationsRuntimeContext` rehydrate triggers
+  - timeout-prone preferred-cluster cleanup snapshot lookup in `runtimeStateService`
+- [x] Remove the warm cached remount rehydrate trigger regression
+- [x] Remove focus / visibility rehydrate triggers when no change-driven reason exists
+- [x] Fix preferred-cluster snapshot timeout behavior with cache-first scoped lookup in `runtimeStateService`
+- [x] Add supporting `agent_events` cleanup-snapshot lookup indexes
+- [x] Keep cache / versioned rail-family reuse as the selected-cluster bootstrap strategy for repeated preferred-cluster rehydrates
+- [x] Stay on the upgraded Supabase tier for now
+- [ ] For any future runtime hot-path change, capture before / after timing for:
+  - total rehydrate
+  - `cleanup_plan_ms`
+  - `selected_cluster_rail_family_load_ms`
+  - `preferred_cluster_review_bootstrap_ms`
+- [ ] Require warm-path validation on repeated rehydrates, not just cold-load validation
+- [ ] Keep treating `/api/agents/playground` and `agent_events` cleanup snapshot lookup as hot-path dependencies in runtime review and rollout decisions
+- [ ] Re-evaluate the Supabase tier only after repeated preferred-cluster warm-path timings stay stable
+
+### Current Accepted Product State
+- [x] Accept Sender Overview timeframe behavior as correct in the current product
+- [x] Accept current `subscription-senders` UI / productization validation
+- [x] Keep `subscription-senders` as one cleanup group in the current artifact-backed model
+- [x] Record that no taxonomy split shipped in the current pass
+- [ ] Plan cleanup-group restructuring into smaller artifact-defined groups as separate open work
+
+### Subscription-Senders Split-Readiness Evaluation
+- [x] Complete the evaluation-only split-readiness memo against `full-mailbox-20260327004328180`
+- [x] Record that `subscription-senders` is not split-ready yet
+- [x] Record that semantic blockers remain primary and operator evidence is still too thin to strengthen a split case
+- [x] Open a separate `subscription-senders` semantic-improvement planning thread
+- [x] Complete the narrow Phase 3 semantic-improvement implementation against the local resolver baseline
+- [x] Prove that gains came only from the `123` clear-family target pool
+- [x] Prove that weak-history and mixed populations stayed unresolved
+- [x] Prove that no already-resolved subtype churn/regression occurred
+- [x] Prove that offer anti-regression held
+- [ ] Open a new `subscription-senders` semantic rebuild/publication planning thread
+- [ ] In that thread, define how to rebuild/publish the improved semantic truth
+- [ ] In that thread, define post-rebuild validation against the locked baseline
+- [ ] In that thread, decide whether a new split-readiness evaluation is needed after publication
+- [ ] Keep that next thread narrow:
+  - not a taxonomy-split implementation thread
+  - not a UI thread
+  - not another broad semantic tuning thread
 
 ### Gmail Phase 1B — Sender Overview + Runtime Reliability (ACTIVE)
 - [ ] Browser-verify Decision Card preview behavior on the rebuilt structural-evidence baseline
@@ -62,7 +108,7 @@ Goal:
 - [ ] Validate the rebuilt artifact against the 8-group source-of-truth expectations and semantic rollup outputs
 
 Baseline note:
-- For Gmail Phase 1 operational work, treat `full-mailbox-20260326221425010` as the current reference artifact.
+- For Gmail Phase 1 operational work, treat `full-mailbox-20260327004328180` as the current reference artifact.
 - Do not use `full-mailbox-20260326012615971` as the rebuild/freeze candidate.
 
 ## 🚀 Phase L — Sender Surface Unification (PRIMARY)

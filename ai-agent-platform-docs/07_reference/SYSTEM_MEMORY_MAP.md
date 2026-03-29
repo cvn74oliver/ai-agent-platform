@@ -382,8 +382,11 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── decision_mode_full_build_spec.md
 │   │   │   ├── decision_mode_ui_final_build_spec.md
 │   │   │   ├── decision_ui_flow.md
+│   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
 │   │   │   ├── sender_decision_mode_spec.md
+│   │   │   ├── sender_distribution_chart_spec_Phase_2.md
 │   │   │   ├── sender_overview_card_target_spec.md
+│   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
 │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
 │   │   │   ├── workspace_ui_structure.md
 │   │   │   └── workspace_ux_spec.md
@@ -470,6 +473,7 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   ├── ARTIFACT_ENGINE_BLUEPRINT.md
 │   │   ├── ARTIFACT_ENGINE_DECISIONS.md
 │   │   ├── ARTIFACT_ENGINE_TODO.md
+│   │   ├── ARTIFACT_REBUILD_PLAN.md
 │   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
 │   ├── 10_agent_architecture
 │   │   ├── AGENT_ARCHITECTURE_TODO.md

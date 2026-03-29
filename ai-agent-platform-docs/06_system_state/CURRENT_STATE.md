@@ -1,9 +1,193 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-27  
+Last updated: 2026-03-29  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
+
+---
+
+## 🚀 March 29 — Operations Runtime Pressure Incident Resolved + Current Guidance
+
+### What changed
+
+- Root cause summary:
+  - the artifact-backed architecture remained broadly correct
+  - pressure came from two combined hot-path problems:
+    - unnecessary rehydrate triggers in `OperationsRuntimeContext`
+      - warm cached remount could force rehydrate
+      - focus / visibility could force rehydrate without a change-driven reason
+    - timeout-prone preferred-cluster cleanup snapshot lookup behavior in `runtimeStateService`
+  - combined effect:
+    - repeated `/api/agents/playground` pressure
+    - degraded selected-cluster bootstrap on preferred-cluster rehydrates
+- Fixes now in place:
+  - `OperationsRuntimeContext` trigger regression removed:
+    - warm cached remount no longer forces rehydrate
+    - focus / visibility no longer force rehydrate without a change-driven reason
+  - preferred-cluster snapshot timeout path fixed in `runtimeStateService`:
+    - cache-first scoped cleanup snapshot lookup
+    - supporting `agent_events` cleanup-snapshot lookup indexes added
+      - `20260329131500_agent_events_cleanup_snapshot_lookup_indexes.sql`
+  - selected-cluster rail bootstrap optimization was already shipped and remains part of the stable path:
+    - cache / versioned rail-family reuse for repeated preferred-cluster rehydrates
+
+### Why it mattered
+
+- The incident looked like a Supabase capacity problem, but the main failure mode was trigger multiplication plus a timeout-prone hot lookup.
+- One degraded preferred-cluster runtime lookup was enough to slow or fail selected-cluster bootstrap and make the whole system appear underprovisioned.
+- The correct response was to keep the artifact-backed architecture, remove unnecessary rehydrate triggers, and harden the `agent_events` lookup path feeding selected-cluster review bootstrap.
+
+### What to watch next
+
+- Stay on the upgraded Supabase tier for now.
+- Treat `/api/agents/playground` as a hot path.
+- Treat `agent_events` cleanup snapshot lookup as a hot-path dependency.
+- Future runtime changes must capture before / after timing for:
+  - total rehydrate
+  - `cleanup_plan_ms`
+  - `selected_cluster_rail_family_load_ms`
+  - `preferred_cluster_review_bootstrap_ms`
+- Warm-path validation is mandatory:
+  - validate repeated rehydrate behavior
+  - do not rely on cold-load validation alone
+
+### Current accepted product state
+
+- Sender Overview timeframe behavior is currently accepted as correct.
+- `subscription-senders` UI / productization validation is accepted.
+- `subscription-senders` remains one cleanup group in the current artifact-backed model; no taxonomy split shipped.
+- Cleanup-group restructuring into smaller artifact-defined groups remains open work.
+
+### Lessons learned
+
+- Do not assume a pressure incident is “just scale” before checking timeout-prone hot queries and trigger multipliers.
+- One degraded runtime lookup can make the whole system appear underprovisioned.
+- Runtime validation must include repeated rehydrate behavior, not only first-load behavior.
+
+## 🚀 March 28 — Subscription-Senders Semantic Improvement Phase 3 Completed
+
+- Exact artifact baseline used for the accepted Phase 3 pass:
+  - `full-mailbox-20260327004328180`
+- Scope completed:
+  - surgical resolver-only pass in `gmailSenderProfile.ts`
+  - production logic changes limited to:
+    - `resolveSemanticPatternSelection(...)`
+    - `resolveMarketingPromotionalSubtype(...)`
+  - verification packet added for target-pool accounting and guardrail proof
+- Locked before/after metrics:
+  - resolved marketing subtype senders: `472 -> 481`
+  - resolved marketing subtype coverage: `59% -> 60%`
+  - unresolved promotional remainder: `327 -> 318`
+  - `offer_campaign`: `252 -> 252`
+  - `product_marketing_update`: `174 -> 179`
+  - `editorial_newsletter`: `46 -> 50`
+  - pattern clear share: `3% -> 5%`
+  - headline family persistence: `provisional -> provisional`
+  - headline pattern persistence: `provisional -> provisional`
+- Target-pool outcome:
+  - execution-start target pool: `123`
+  - stayed unresolved: `114`
+  - resolved to `product_marketing_update`: `5`
+  - resolved to `editorial_newsletter`: `4`
+  - resolved to `offer_campaign`: `0`
+  - excluded by stronger concrete non-marketing evidence: `18`
+  - resolved outside the target pool: `0`
+- Guardrails held:
+  - weak-history stayed unresolved:
+    - `183` before
+    - `0` resolved after
+  - mixed stayed unresolved:
+    - `21` before
+    - `0` resolved after
+  - already-resolved subtype preservation held:
+    - already-resolved before: `472`
+    - preserved resolved after: `472`
+    - same-subtype preservation: `472`
+    - downgraded / churned: `0`
+  - offer anti-regression held:
+    - target-pool offer gains: `0 / 9`
+    - combined product + editorial gains: `9`
+- Strategic consequence:
+  - this Phase 3 implementation thread is complete and accepted
+  - headline persistence is still allowed to remain `provisional` because the remaining blocker stayed outside the targeted pool and outside current scope
+  - the correct next step is a new planning thread for subscription semantic rebuild/publication planning
+  - that next thread should be limited to:
+    - rebuild/publication planning
+    - post-rebuild validation against the locked baseline
+    - deciding whether a new split-readiness evaluation is needed after publication
+  - it should explicitly not be:
+    - a taxonomy-split implementation thread
+    - a UI thread
+    - another broad semantic tuning thread
+
+---
+
+## 🚀 March 28 — Subscription-Senders Split-Readiness Evaluation Completed
+
+- Exact artifact baseline used for the accepted evaluation:
+  - `full-mailbox-20260327004328180`
+- Evaluation outcome:
+  - `subscription-senders` is **not** split-ready yet
+  - semantic blockers remain primary
+  - operator evidence is still too thin to strengthen a split case
+  - the approved next step is a separate `subscription-senders` semantic-improvement planning thread
+- Accepted evaluation findings:
+  - `subscription-senders` contains `853` senders and `69,089` cleanup-group messages in the published artifact
+  - `marketing_promotional` still dominates the lane at `799 / 853` senders (`94%`)
+  - published artifact resolved marketing subtype coverage remains only `244 / 799` (`31%`)
+  - the published unresolved promotional remainder (`555` senders) is still larger than the strongest candidate internal seam (`offer_campaign` at `151` senders)
+  - published headline subtype persistence remains `provisional`, not split-ready
+  - current persisted operator evidence is still thin:
+    - `16` destination profiles total for the current agent
+    - only `3` intersect `subscription-senders`
+    - no reviewed senders yet land in `offer_campaign`, `product_marketing_update`, or `editorial_newsletter`
+- Explicit non-changes for this evaluation:
+  - no resolver change
+  - no schema change
+  - no rebuild
+  - no sender reassignment
+  - no UI change
+  - no lane promotion
+- Strategic consequence:
+  - this split-readiness evaluation thread is complete and accepted
+  - future work should remain separated into:
+    - semantic-improvement implementation first
+    - rebuild / publication planning only after the accepted semantic pass
+
+---
+
+## 🚀 March 28 — Cleanup Groups Role Correction + `needs-review-senders` Reframe Completed
+
+- Current accepted Gmail Phase 1 artifact used for this shipped pass:
+  - `full-mailbox-20260327004328180`
+- Scope completed:
+  - Cleanup Groups lane-role language is now explicit and consistent:
+    - `Primary action lane`
+    - `Backlog lane`
+    - `Safety / coverage lane`
+  - Existing Cleanup Groups section structure remains intact:
+    - `Start Here`
+    - `Reduce Backlog`
+    - `Exceptions & Coverage`
+  - Section summaries, card support copy, and Mailbox Intelligence handoff wording now reflect the locked lane-role model.
+  - Sender Overview entry framing now uses the existing bridge-copy seam to explain whether the operator is entering:
+    - a default cleanup lane
+    - a backlog recovery lane
+    - a safety / coverage review
+  - `needs-review-senders` is now explicitly framed as low-evidence safety / coverage, not as a default action lane or a coherent semantic bucket.
+- Explicit non-changes for this pass:
+  - no taxonomy split
+  - no artifact change
+  - no schema change
+  - no sender reassignment
+  - no recommendation-logic or ordering change
+  - no rebuild
+- Validation:
+  - targeted ESLint passed for the touched Cleanup Groups / Mailbox Intelligence / Sender Overview files
+- Strategic consequence:
+  - the Cleanup Groups Phase A+B role-correction pass is now complete and accepted
+  - future work on subscription semantic-improvement, taxonomy redesign gates, and rebuild planning should start in separate next-phase threads
 
 ---
 
@@ -270,8 +454,11 @@ Strategic state update:
 
 ## 🔥 System Stability
 
-- Supabase resource usage is now stabilized under normal browsing.
+- Supabase pressure is currently mitigated on the upgraded tier and latest runtime fixes.
+- `/api/agents/playground` remains a hot path.
+- `agent_events` cleanup snapshot lookup remains a hot-path dependency.
 - Passive runtime no longer triggers heavy mailbox work on page load.
+- Warm cached remounts and focus / visibility transitions no longer force rehydrate without a change-driven reason.
 - Normal page navigation no longer launches:
   - cleanup discovery rebuilds
   - mailbox-index sync
@@ -302,6 +489,7 @@ Strategic state update:
   - safe fallback content otherwise
   - deferred post-mount fetch only when needed
 - Warm loads are fast again once runtime/cached state is present.
+- Preferred-cluster bootstrap now uses cache-first scoped snapshot lookup, with cache / versioned rail-family reuse on repeated preferred-cluster rehydrates.
 - Decision Mode entry no longer requires navigation; it is triggered from Sender Overview via overlay/focus transition.
 
 ## 🛠️ First-Open Recovery Status
@@ -331,7 +519,7 @@ Strategic state update:
 ## 🚧 Known Limitations
 
 - Manual cleanup regeneration still costs roughly `~4s` on a cache-hit run, which is now acceptable but not free.
-- Passive cached rehydrate is improved, but snapshot lookup/load is still the main remaining passive cost (`~2–3s` inside the request).
+- Preferred-cluster bootstrap is materially better after the cache-first scoped snapshot lookup fix, but `agent_events` cleanup snapshot lookup is still a hot-path dependency that must be measured on every runtime change.
 - Cross-tab duplicate requests are still possible because client-side TTL/single-flight protection is strongest within a tab/session rather than across every open browser process.
 - Cold first-open on Sender Overview and some Mailbox Intelligence seed-miss cases is still noticeably slower than warm navigation because recovery now happens through deferred safe fetches.
 - Sender Overview semantic visualization is currently the least stable layer:
@@ -345,9 +533,9 @@ Strategic state update:
 - Sender Overview now loads safely on normal navigation.
 - Cleanup Groups now opens safely again on first navigation.
 - Decision Mode now opens on first click again.
-- No runaway Supabase / DB load is expected during ordinary browsing.
+- No currently known trigger multiplier or timeout-prone preferred-cluster snapshot path remains on the validated warm path.
 - Manual heavy operations remain available, but now require explicit action and stay inside guarded execution paths.
-- Current strategic focus should stay on Sender Overview semantic truth, visualization honesty, and cleanup-group refinement, not more loading-behavior rewrites.
+- Current strategic focus should stay on Sender Overview semantic truth, visualization honesty, and cleanup-group refinement, while treating future runtime hot-path changes as measurement-first work.
 
 ---
 

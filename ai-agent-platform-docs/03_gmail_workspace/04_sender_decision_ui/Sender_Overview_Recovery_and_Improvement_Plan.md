@@ -5,6 +5,21 @@ This document may still contain useful implementation detail, but it predates th
 Current canonical source:
 - `03_gmail_workspace/03_decision_system/sender_surface_unification_spec.md`
 
+## ACTIVE RECOVERY STATUS NOTE
+
+Current Sender Overview recovery status:
+- the review page itself is stable again
+- the broad fast-store experiment was rolled back
+- in-rail timeframe clicks no longer trigger the earlier full-page instability
+- page shell, header shell, and sender-list shell now stay mounted during local rail interaction
+- the current unresolved problem is narrower: unseen timeframe clicks in the rail still fall back to a technical placeholder instead of a real product recovery state
+
+Current active recovery priority:
+- fix rail-only unseen-scope fallback behavior with a hyper-focused pass
+- do **not** reopen broad fast-mode architecture, runtime/service rewrites, or page-wide substitutions in that pass
+
+Until that corrective rail fallback pass is complete, treat this document’s earlier phase ordering as temporarily superseded by the active recovery priority below.
+
 If this document conflicts with the unified sender-surface model, the unified model wins.
 
 Key architecture update:
@@ -349,6 +364,30 @@ Not from page-time recomputation.
 
 ## 6. Proposed Phase Plan
 
+### Phase 0 — Rail fallback stabilization
+
+**Goal:** finish stabilizing Sender Overview timeframe controls without reopening architecture scope.
+
+**Scope**
+- review/page.tsx and the rail presentation seam only
+- no backend/runtime/service rewrites
+- no broad fast-mode architecture work
+- no page-wide substitutions
+
+**Deliverables**
+- replace the technical unseen-scope fallback with a real product recovery state inside the rail
+- keep the rail shell mounted
+- keep the chip strip interactive
+- keep header shell, sender list shell, and page shell unchanged during rail-only scope switching
+- preserve the stronger recovery UX so broader timeframe guidance is obvious
+
+**Success criteria**
+- no technical placeholder text like `No in-memory rail package is available`
+- unseen timeframe clicks stay local and stable
+- only the rail body changes
+- no router mutation, no runtime refresh, no full-page blanking
+- fallback behavior reads like product UX, not implementation leakage
+
 ### Phase 1 — Sender workflow usability cleanup
 
 **Goal:** make the sender row understandable and usable without changing backend logic.
@@ -503,19 +542,22 @@ Not from page-time recomputation.
 ## 7. Immediate Priorities
 
 If we are choosing what to do next, my recommended order is:
-	1.	Phase 1 — Sender workflow usability cleanup
-	2.	Phase 2 — Message preview reliability
-	3.	Phase 3 — Sender Overview cold-load performance
-	4.	Phase 4 — Operator profile usefulness
-	5.	Phase 5 — Chart/top-module usefulness
-	6.	Phase 6 — Whole-mailbox truth strategy
-	7.	Phase 7 — Final polish
+	1.	Phase 0 — Rail fallback stabilization
+	2.	Phase 1 — Sender workflow usability cleanup
+	3.	Phase 2 — Message preview reliability
+	4.	Phase 3 — Sender Overview cold-load performance
+	5.	Phase 4 — Operator profile usefulness
+	6.	Phase 5 — Chart/top-module usefulness
+	7.	Phase 6 — Whole-mailbox truth strategy
+	8.	Phase 7 — Final polish
 
 Reason:
-	•	right now the biggest pain is understanding the sender workflow
-	•	the second-biggest pain is preview not loading well
-	•	the third-biggest pain is cold-load speed
-	•	whole-mailbox truth is important, but it is a bigger architecture pass and should not derail immediate sender usability
+- the immediate blocker is no longer page stability — it is rail fallback behavior for unseen scopes
+- we should not resume broader Sender Overview improvement work until that rail behavior is product-clean again
+- after that, the biggest pain remains understanding the sender workflow
+- the second-biggest pain remains preview reliability
+- the third-biggest pain remains cold-load speed
+- whole-mailbox truth is still strategically important, but it should not derail the hyper-focused stabilization work
 
 ⸻
 
@@ -610,6 +652,6 @@ When using this document in Codex:
 - prefer small, verifiable sniper passes with before/after behavior, exact files changed, and explicit scope verification
 - after each meaningful pass, update the authoritative project docs if the change affects current state, roadmap, or system behavior
 
-For the current moment, Phase 1 remains the active priority unless this document is explicitly updated.
+For the current moment, Phase 0 remains the active priority unless this document is explicitly updated.
 
 I think this is the right anchor document. It captures both what is broken and how to tackle it in order, without trying to fix everything in one shot.

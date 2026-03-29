@@ -1732,6 +1732,41 @@ Implication:
 
 ---
 
+## Subscription Semantic Milestone - March 28, 2026
+
+Accepted subscription semantic Phase 3 outcome against `full-mailbox-20260327004328180`:
+
+- The narrow resolver-only pass improved the local semantic baseline from:
+  - `472 -> 481` resolved marketing subtype senders
+  - `59% -> 60%` resolved marketing subtype coverage
+  - `327 -> 318` unresolved promotional remainder
+  - `3% -> 5%` pattern clear share
+- The only intended gain population was the `123` clear-family unresolved marketing senders:
+  - `5` resolved to `product_marketing_update`
+  - `4` resolved to `editorial_newsletter`
+  - `0` resolved to `offer_campaign`
+  - `0` resolved outside the target pool
+- Guardrails held:
+  - weak-history stayed unresolved (`183 -> 0` resolved)
+  - mixed stayed unresolved (`21 -> 0` resolved)
+  - already-resolved subtype preservation was exact (`472 / 472`)
+  - offer anti-regression held (`0 / 9` target-pool gains)
+
+Architectural implication:
+
+- The current local semantic truth is improved, but publication truth has not yet moved.
+- Headline persistence is still allowed to remain `provisional` because rebuild/publication and rollup-contract work stayed out of scope.
+- The next thread should be a narrow planning thread for subscription semantic rebuild/publication planning only:
+  - plan how to rebuild/publish the improved semantic truth
+  - define post-rebuild validation against the locked baseline
+  - decide whether a new split-readiness evaluation is needed after publication
+- It should explicitly not be:
+  - a taxonomy-split implementation thread
+  - a UI thread
+  - another broad semantic tuning thread
+
+---
+
 ## 🏁 PM v11 Turnover — Gmail Phase 1B (UI + Runtime Reliability)
 
 **State at handoff (March 26, 2026):**
