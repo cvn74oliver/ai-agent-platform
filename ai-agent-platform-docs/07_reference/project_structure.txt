@@ -125,7 +125,6 @@
 │   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
 │   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
 │   │   ├── automation_map.md
-│   │   ├── CLOSEOUT_CHECKLIST.md
 │   │   ├── phase1_clarify_spec.md
 │   │   ├── project_structure.txt
 │   │   ├── schema_comparison_checklist.md
@@ -159,6 +158,8 @@
 │   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
 │   ├── 11_product_strategy
 │   │   └── PRODUCT_ROADMAP.md
+│   ├── 12_operating_model
+│   │   └── CLOSEOUT_CHECKLIST.md
 │   └── visuals
 │       ├── Agent Next Training Suggestion Prompt.png
 │       ├── Agent Playground.png
@@ -272,6 +273,7 @@
     │   │   │   └── sender_surface_unification_spec.md
     │   │   ├── 04_sender_decision_ui
     │   │   │   ├── build_decision_mode_dev_spec.md
+    │   │   │   ├── Cleanup_Groups_spec_phase_plan.md
     │   │   │   ├── decision_mode_animation_spec.md
     │   │   │   ├── decision_mode_build_sequence.md
     │   │   │   ├── decision_mode_component_map.md
@@ -281,9 +283,11 @@
     │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
     │   │   │   ├── sender_decision_mode_spec.md
     │   │   │   ├── sender_decision_ui_spec.md
+    │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
     │   │   │   ├── sender_overview_card_target_spec.md
     │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
     │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
+    │   │   │   ├── Shared_Rail_Analysis_spec.md
     │   │   │   ├── start_building_decision_mode_components.md
     │   │   │   ├── workspace_ui_structure.md
     │   │   │   └── workspace_ux_spec.md
@@ -377,6 +381,7 @@
     │   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
     │   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
     │   │   ├── automation_map.md
+    │   │   ├── CLOSEOUT_CHECKLIST.md
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
     │   │   ├── schema_comparison_checklist.md
@@ -666,4 +671,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-144 directories, 523 files
+145 directories, 527 files
