@@ -2272,3 +2272,61 @@ Do NOT regress sender-first model.
 Do NOT reintroduce message-first logic.
 
 This is a polish + intelligence layering phase, not a rebuild phase.
+
+---
+
+## Gmail Artifact Refresh Recovery State - March 29, 2026
+
+Current mailbox-index to artifact-refresh state:
+
+- Smart Sync is working.
+- Mailbox index is current for the validated tenant:
+  - `indexed_total_rows=234341`
+  - `last_rows_before=234339`
+  - `last_rows_after=234341`
+  - `last_upserted_messages=2`
+  - `last_deleted_messages=0`
+- Artifact publication is no longer stranded behind the old orphaned `building_version` lock.
+
+Current artifact liveness contract:
+
+- `published_version`
+  - last fully published artifact version served by artifact-backed readers
+- `building_version`
+  - candidate artifact version currently being written; not treated as live on its own
+- `refresh_in_progress`
+  - a refresh attempt has started and publication has moved into build mode
+- `refresh_skipped_existing_build_in_progress`
+  - planner decision used only when the shared liveness gate confirms a truly live build
+- `refresh_completed_at=null`
+  - means the current refresh attempt has not yet recorded a terminal result; this is no longer accepted as proof that work is still alive
+
+Current build-liveness behavior:
+
+- All artifact skip/start decisions now flow through `reconcileGmailArtifactBuildLiveness(...)`.
+- Raw `building_version` alone is no longer the lock signal for:
+  - mailbox-index refresh planning
+  - incremental artifact refresh skips
+  - stale-build reclaim decisions
+- Reclaim is idempotent and safe under concurrent requests because publication updates are compare-and-set scoped to the expected stale `building_version` and `refresh_job_id`.
+
+Current validated publication state:
+
+- `published_version=full-mailbox-20260329092447406`
+- `published_at=2026-03-29T10:03:51.301+00:00`
+- `building_version=null`
+- `build_status=published`
+- `freshness_state=fresh`
+- `freshness_reason=published_artifact_current`
+- linked job:
+  - `job_id=full-rebuild:085c8ef7-2fd7-4842-8499-cd605e894a77:all_indexed:full-mailbox-20260329092447406`
+  - `status=completed`
+  - `phase=published`
+
+Current validation status:
+
+- Deterministic stale-build proof confirms the same sync-completion flow now reclaims a stale build and re-plans refresh instead of skipping forever.
+- Live full-mailbox publication proof confirms artifact publication advances beyond the stale pinned version:
+  - before: `full-mailbox-20260328080841849`
+  - after: `full-mailbox-20260329092447406`
+- Runtime acceptance proof confirms artifact-backed readers now resolve the newer published artifact version instead of remaining pinned to the stale one.

@@ -4263,3 +4263,73 @@ Fresh timing evidence from local logs:
   - Cleanup Groups scope-chain server duration: `0ms`
   - Review scope-chain server duration: `1ms`
   - browser durations in the warmed flow dropped to roughly `700ms` to `800ms`
+
+## Gmail Artifact Refresh Recovery - March 29, 2026
+
+Completed:
+
+- Implemented one authoritative artifact-build liveness gate in:
+  - `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+- Switched mailbox-index refresh planning to reconcile build liveness before any skip/start decision in:
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- Switched incremental artifact refresh to use the same liveness gate instead of raw `building_version` checks in:
+  - `web/src/lib/integrations/gmail/gmailArtifactIncrementalUpdater.ts`
+- Added idempotent stale/orphaned build reclaim:
+  - compare-and-set publication update keyed by `building_version` + `refresh_job_id`
+  - linked `gmail_artifact_jobs` row is also marked terminal with an explicit reclaim reason
+- Added deterministic stale-lock proof coverage in:
+  - `web/scripts/gmail-artifact-stale-build-recovery-audit.mjs`
+- Fixed artifact finalize stack overflow in:
+  - `web/src/lib/integrations/gmail/gmailArtifactFullMailboxProjector.ts`
+  - root cause: large preview/seed arrays were spread into `push(...rows)` during finalize row assembly
+- Fixed cleanup-group semantic artifact contract drift in:
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+  - root cause: non-promoted groups carried non-zero `actionable_review_unit_count` metrics while emitting an empty `review_unit_plan`
+
+Implemented reclaim contract:
+
+- Treat `building_version` as a candidate build, not proof of liveness.
+- A build is live only when the shared liveness helper confirms the linked `gmail_artifact_jobs` row is:
+  - present
+  - version/scope matched
+  - non-terminal
+  - within the artifact heartbeat/grace window
+- Reclaim stale or orphaned builds by:
+  - clearing `building_version`
+  - setting publication `build_status` to `failed`
+  - setting publication `freshness_state` to `refresh_failed`
+  - stamping `refresh_completed_at`
+  - updating or creating the linked `gmail_artifact_jobs` row as failed with the same reclaim reason
+- Explicit reclaim reasons now recorded in publication/job state:
+  - `refresh_reclaimed_missing_job`
+  - `refresh_reclaimed_mismatched_job`
+  - `refresh_reclaimed_stale_build`
+  - `refresh_reclaimed_terminal_job`
+
+Validation and proof:
+
+- Deterministic stale-lock proof passed for the exact live pattern:
+  - before: `published_version=full-mailbox-20260328080841849`
+  - before: `building_version=full-mailbox-20260329054914204`
+  - before: `refresh_completed_at=null`
+  - old plan: `reason=refresh_skipped_existing_build_in_progress`
+  - new reconcile result: `reclaim_reason=refresh_reclaimed_stale_build`
+  - new plan in the same sync-completion flow: `action=incremental`, `reason=eligible_incremental_sync_delta`
+- Live artifact publish proof passed after the stale lock was reclaimed:
+  - resumed build job: `full-rebuild:085c8ef7-2fd7-4842-8499-cd605e894a77:all_indexed:full-mailbox-20260329092447406`
+  - published version before: `full-mailbox-20260328080841849`
+  - published version after: `full-mailbox-20260329092447406`
+  - publication after:
+    - `building_version=null`
+    - `build_status=published`
+    - `freshness_state=fresh`
+    - `freshness_reason=published_artifact_current`
+- Runtime/UI acceptance proof passed against the new artifact version:
+  - sender workspace artifact reads: `artifact_version=full-mailbox-20260329092447406`
+  - mailbox intelligence artifact reads: `artifact_version=full-mailbox-20260329092447406`
+  - cleanup-group intelligence reads: `artifact_version=full-mailbox-20260329092447406`
+  - playground runtime rehydrate reads:
+    - `artifact_mode=published_artifact`
+    - `artifact_version=full-mailbox-20260329092447406`
+    - `snapshot_version_before=full-mailbox-20260329092447406`
+    - `snapshot_version_after=full-mailbox-20260329092447406`

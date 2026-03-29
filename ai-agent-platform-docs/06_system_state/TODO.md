@@ -986,3 +986,26 @@ Next Phase (PM v9):
 - Gamification + reward system integration
 - AI learning layer (post-decision intelligence)
 - Cross-page UX consistency pass
+
+---
+
+## Gmail Artifact Refresh Recovery Follow-Up - March 29, 2026
+
+Completed:
+
+- [x] Replace raw `building_version` lock checks with one authoritative artifact-build liveness gate.
+- [x] Make stale/orphaned artifact-build reclaim idempotent and safe under concurrent requests.
+- [x] Update both publication state and linked `gmail_artifact_jobs` rows on stale-build reclaim.
+- [x] Add deterministic proof for the exact stale-lock scenario:
+  - old plan skipped with `refresh_skipped_existing_build_in_progress`
+  - new logic reclaims and re-plans refresh in the same sync-completion flow
+- [x] Remove the finalize-stage `push(...rows)` stack-overflow crash that was blocking publication after reclaim.
+- [x] Fix non-promoted cleanup-group semantic surface metrics so artifact validation no longer blocks full-mailbox publication.
+- [x] Re-publish the mailbox artifact and verify runtime reads the new version end-to-end.
+
+Still next:
+
+- [ ] Add a small persisted/auditable mailbox-index refresh-hint trail so live incremental artifact replay can be proven from stored sync facts instead of inferred message rows.
+- [ ] Add an earlier heartbeat/progress update inside long `loading_published_artifact` incremental refresh phases so genuinely live work is easier to distinguish from stalls during artifact reads.
+- [ ] Add regression coverage for cleanup-group surface decisions so non-promoted groups cannot emit actionable review-unit metrics with an empty `review_unit_plan`.
+- [ ] Keep follow-up scope limited to mailbox-index/artifact-refresh behavior; do not mix in Cleanup Groups Slice 2 rollout or sender-overview redesign work here.
