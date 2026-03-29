@@ -377,6 +377,7 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── decision_storage_spec.md
 │   │   │   └── sender_surface_unification_spec.md
 │   │   ├── 04_sender_decision_ui
+│   │   │   ├── Cleanup_Groups_spec_phase_plan.md
 │   │   │   ├── decision_mode_animation_spec.md
 │   │   │   ├── decision_mode_component_map.md
 │   │   │   ├── decision_mode_full_build_spec.md
@@ -388,6 +389,7 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── sender_overview_card_target_spec.md
 │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
 │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
+│   │   │   ├── Shared_Rail_Analysis_spec.md
 │   │   │   ├── workspace_ui_structure.md
 │   │   │   └── workspace_ux_spec.md
 │   │   ├── 05_management_execution
@@ -482,6 +484,8 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
 │   ├── 11_product_strategy
 │   │   └── PRODUCT_ROADMAP.md
+│   ├── 12_operating_model
+│   │   └── CLOSEOUT_CHECKLIST.md
 │   └── visuals
 │       ├── Agent Next Training Suggestion Prompt.png
 │       ├── Agent Playground.png

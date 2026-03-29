@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-29 (runtime hot-path guidance locked • current product state accepted • cleanup-group restructuring still open)_
+_Last updated: 2026-03-29 (sender-overview broader-scope chart recovery accepted • mailbox-index freshness moved to separate thread • cleanup-group restructuring still open)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,12 @@ _Last updated: 2026-03-29 (runtime hot-path guidance locked • current product 
 ## 🔥 Current Focus (This Week)
 
 ----
+
+### Mailbox-Index / Smart Sync Freshness (NEW THREAD)
+- [ ] Open and track a separate mailbox-index / Smart Sync freshness investigation thread
+- [ ] Verify whether mailbox-index maintenance is failing to advance indexed coverage to the current date
+- [ ] Measure whether recent scoped discovery stays suppressed even when broader-scope sender-overview chart behavior is otherwise correct
+- [ ] Keep Sender Overview broader-scope chart-contract work closed unless new freshness evidence proves a real rendering/data-contract regression
 
 
 ### Gmail Phase 1 Baseline Lock
@@ -46,10 +52,21 @@ _Last updated: 2026-03-29 (runtime hot-path guidance locked • current product 
 
 ### Current Accepted Product State
 - [x] Accept Sender Overview timeframe behavior as correct in the current product
+- [x] Accept Sender Overview broader-scope chart recovery when scoped discovery data exists
+- [x] Record that valid `1W` comparison-only behavior may occur when no recent scoped data exists
+- [x] Record that the `24`-month historical cutoff is expected bounded-backfill behavior
+- [x] Move mailbox-index / Smart Sync freshness into a separate open thread instead of treating it as a chart-contract defect
 - [x] Accept current `subscription-senders` UI / productization validation
 - [x] Keep `subscription-senders` as one cleanup group in the current artifact-backed model
 - [x] Record that no taxonomy split shipped in the current pass
 - [ ] Plan cleanup-group restructuring into smaller artifact-defined groups as separate open work
+
+### Cleanup-Group Slice 2 Stabilization Guardrail
+- [x] Restore backward compatibility for legacy published `semantic_rollup` payloads missing nested Slice 2 cleanup-group fields
+- [x] Ensure artifact/runtime read paths do not throw when `semantic_rollup.surface` is absent
+- [x] Re-stabilize Sender Overview loads for legacy cleanup groups on the live artifact-backed path
+- [x] Expand live route verification to `needs-review-senders` and `historical-out-of-inbox-senders` alongside the initial sampled cleanup groups
+- [ ] Keep forward Slice 2 regrouping/promotion rollout paused until the compatibility fix is accepted and preserved through follow-up validation
 
 ### Subscription-Senders Split-Readiness Evaluation
 - [x] Complete the evaluation-only split-readiness memo against `full-mailbox-20260327004328180`

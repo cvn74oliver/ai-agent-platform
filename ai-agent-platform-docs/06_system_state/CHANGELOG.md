@@ -1,3 +1,94 @@
+### March 29, 2026 — Sender Overview Broader-Scope Chart Recovery Accepted; Mailbox-Index Freshness Gap Split Out
+
+Root-cause addressed:
+- The remaining Sender Overview Exceptions & Coverage confusion was no longer centered on chart rendering itself.
+- Broader active-scope timeframe behavior for:
+  - `needs-review-senders`
+  - `protected-trusted-senders`
+  - `historical-out-of-inbox-senders`
+  needed to be rechecked against:
+  - live review-page rendering
+  - selected-cluster rail-family scope resolution
+  - `sender_workspace` counts
+- The resulting scope matrix showed:
+  - active-scope rail truth is now recovered for broader scopes when scoped data exists
+  - the remaining gap is upstream of chart rendering, in mailbox-index / Smart Sync freshness
+
+What changed:
+- Locked the Sender Overview broader-scope chart lane as recovered for active-scope review routes when scoped discovery data exists.
+- Confirmed the active route matrix now behaves as:
+  - `7d`: valid comparison-only / outside-timeframe when no recent scoped discovery data exists
+  - `30d`, `60d`, `90d`: ready weekly rails when data exists
+  - `180d`, `365d`, `all_indexed`: ready monthly rails when data exists
+- Aligned live `sender_workspace` derivation for structural coverage groups with the structural cleanup-group assignment contract so `needs-review-senders` and `protected-trusted-senders` no longer collapse to zero sender rows on broader active scopes.
+
+Accepted product/state distinction:
+- Sender Overview broader-scope chart recovery is accepted.
+- Valid `1W` comparison-only behavior may still occur when no recent scoped data exists.
+- The 24-month historical cutoff remains expected bounded-backfill behavior; it is not a chart-contract defect.
+
+Open issue moved to a new thread:
+- The newly identified open issue is a separate mailbox-index / Smart Sync freshness gap.
+- Suspected behavior:
+  - mailbox-index maintenance is not advancing indexed coverage up to the current date
+  - this can suppress recent scoped discovery and create valid `1W` empty/outside states even when the chart contract itself is correct
+- This freshness issue is now explicitly separated from Sender Overview chart rendering and rail-contract work.
+- This thread is closed on the chart-recovery lane; any further investigation should happen in the separate mailbox-index / Smart Sync freshness thread.
+
+### March 29, 2026 — Cleanup-Group Legacy Rollup Compatibility Stabilization
+
+Root-cause addressed:
+- A Slice 2 semantic-rollup schema expansion leaked into live artifact read paths before backward compatibility was finished.
+- Legacy/published artifact rows still carried `semantic_rollup` payloads without the new nested blocks:
+  - `surface`
+  - `promotion`
+  - `review_unit_plan`
+- Runtime parsing in `gmailCleanupWorkspace.ts` reconstructed those legacy rollups as if they were complete canonical rollups, then `buildMirroredSemanticArtifactFieldsFromRollup(...)` dereferenced `rollup.surface.tier` unconditionally.
+- Result:
+  - `Sender Overview` / selected cleanup-group workspace loads could fail with:
+    - `TypeError: Cannot read properties of undefined (reading 'tier')`
+  - `/api/agents/playground` could 500 on the same path
+  - safe-partial fallback could return zeroed workspace truth because the throw happened before valid legacy artifact data could be reconciled
+
+What changed:
+- Restored backward compatibility in `gmailSemanticRollupContract.ts`:
+  - added compatibility normalization for legacy rollups missing `surface`, `promotion`, or `review_unit_plan`
+  - `buildMirroredSemanticArtifactFieldsFromRollup(...)` now repairs missing Slice 2 blocks instead of throwing
+  - validation now runs against compatibility-normalized rollups
+- Restored parse-safe runtime behavior in `gmailCleanupWorkspace.ts`:
+  - legacy `semantic_rollup` parsing now preserves real Slice 2 nested metadata when present
+  - missing nested Slice 2 blocks are normalized through the shared compatibility path
+  - mailbox-intelligence cleanup-group builders now read normalized parsed analytics instead of assuming mirrored surface fields already exist on artifact rows
+  - summary/header parse paths now pass `cluster_id` into compatibility repair so structural-lane defaults remain stable for legacy artifacts
+
+Why it mattered:
+- This was a P0 runtime/schema compatibility break on the live artifact-backed Gmail path.
+- The correct fix was a narrow read-path stabilization:
+  - no rebuild
+  - no forward Slice 2 promotion rollout
+  - no sender reassignment
+- Legacy published artifacts must remain readable while Slice 2 metadata is still rolling in incrementally.
+
+Validation run:
+- targeted lint:
+  - `./node_modules/.bin/eslint src/lib/integrations/gmail/gmailSemanticRollupContract.ts src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - result: `0` errors, `4` pre-existing warnings in `gmailCleanupWorkspace.ts`
+- live browser validation on `http://127.0.0.1:3000`:
+  - `subscription-senders` Sender Overview route opened successfully
+  - `system-notification-senders` Sender Overview route opened successfully
+  - `protected-trusted-senders` Sender Overview route opened successfully
+  - `needs-review-senders` Sender Overview route opened successfully
+  - `historical-out-of-inbox-senders` Sender Overview route opened successfully
+  - no `Failed to load sender workspace` UI state was observed in those probes
+- live `/api/agents/playground` probe:
+  - browser-backed intelligence mount now returns `POST /api/agents/playground -> 200`
+  - no browser-visible 500 on the stabilized path
+
+Current status after fix:
+- Legacy published artifacts without Slice 2 nested surface metadata are readable again.
+- New Slice 2 nested metadata still parses when present.
+- Forward Slice 2 regrouping work remains paused until this stabilization baseline is accepted.
+
 ### March 29, 2026 — Supabase Pressure Incident Root Cause Locked + Runtime Hot-Path Guidance
 
 Root-cause addressed:

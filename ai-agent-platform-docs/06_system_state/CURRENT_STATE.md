@@ -7,6 +7,78 @@ Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
+## 🚀 March 29 — Sender Overview Broader-Scope Chart Recovery Accepted; Smart Sync Freshness Moved Out
+
+### What changed
+
+- Sender Overview broader-scope chart behavior is now accepted for active-scope review routes when scoped discovery data exists.
+- Accepted active-scope behavior is:
+  - `7d`: valid comparison-only / outside-timeframe when no recent scoped data exists
+  - `30d`, `60d`, `90d`: ready weekly rails when data exists
+  - `180d`, `365d`, `all_indexed`: ready monthly rails when data exists
+- The remaining short-window gap is no longer being treated as a chart-contract defect.
+
+### Current accepted distinction
+
+- Valid `1W` comparison-only behavior may occur when the tenant has no recent scoped discovery data.
+- The `24`-month historical cutoff remains expected bounded-backfill behavior.
+- The newly identified open issue is upstream of chart rendering:
+  - Smart Sync / mailbox-index freshness does not appear to be advancing indexed coverage all the way to the current date in some cases
+  - that freshness gap can suppress recent scoped discovery and produce valid `1W` empty/outside states
+
+### Thread status
+
+- Sender Overview broader-scope chart recovery is accepted and this thread is closed on that lane.
+- Any further investigation should move to the separate mailbox-index / Smart Sync freshness thread rather than reopening chart-contract work.
+
+## 🚀 March 29 — Cleanup-Group Legacy Rollup Compatibility Restored
+
+### What changed
+
+- Narrow stabilization fix shipped for the live Gmail artifact-backed cleanup-group read path.
+- Root cause was a backward-compatibility break between:
+  - legacy published `semantic_rollup` payloads
+  - new Slice 2 nested fields:
+    - `surface`
+    - `promotion`
+    - `review_unit_plan`
+- Runtime parsing could reconstruct a legacy rollup without those nested fields, then later mirror logic dereferenced `rollup.surface.tier` as if it were always present.
+- Fixes now in place:
+  - `gmailSemanticRollupContract.ts`
+    - compatibility-normalizes legacy rollups before mirroring/validation
+    - no longer throws when `semantic_rollup.surface` is absent
+  - `gmailCleanupWorkspace.ts`
+    - parses nested Slice 2 metadata when present
+    - repairs legacy rollups when nested Slice 2 metadata is absent
+    - builds cleanup-group mailbox intelligence from normalized parsed analytics instead of assuming mirrored surface fields already exist on the artifact row
+
+### Why it mattered
+
+- This was a live P0 regression:
+  - `Sender Overview` cleanup-group loads could fail with `Failed to load sender workspace`
+  - `/api/agents/playground` could 500 on the same semantic-rollup mirror path
+  - safe-partial fallback could degrade valid artifact-backed groups to zeroed workspace truth
+- The correct response was a narrow read-path compatibility repair, not broader Slice 2 rollout work.
+
+### Validation status
+
+- Targeted lint ran on the touched files:
+  - `0` errors
+  - `4` pre-existing warnings in `gmailCleanupWorkspace.ts`
+- Live browser validation on `http://127.0.0.1:3000` succeeded for:
+  - `subscription-senders`
+  - `system-notification-senders`
+  - `protected-trusted-senders`
+  - `needs-review-senders`
+  - `historical-out-of-inbox-senders`
+- Live browser-backed `POST /api/agents/playground` returned `200` during the stabilized intelligence mount.
+
+### Current rule
+
+- Legacy published Gmail artifacts must remain readable even when Slice 2 nested cleanup-group metadata is absent.
+- Any new Slice 2 schema expansion must be parse-safe and optional before it is allowed to flow through live artifact-backed runtime paths.
+- Forward Slice 2 regrouping work is paused until this stabilization baseline is accepted.
+
 ## 🚀 March 29 — Operations Runtime Pressure Incident Resolved + Current Guidance
 
 ### What changed

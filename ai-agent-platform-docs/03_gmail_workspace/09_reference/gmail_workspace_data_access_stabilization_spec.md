@@ -866,6 +866,28 @@ Phase K locks the stabilized sequence with:
 - full-build retry/resume/recovery hardening
 - unchanged acceptance harness proof on published full-build artifact `full-mailbox-20260324073149125`
 
+### March 29, 2026 — Legacy Semantic-Rollup Nested-Field Compatibility Guard
+
+Goal:
+- Preserve live readability of older published Gmail artifacts while Slice 2 cleanup-group metadata expands.
+
+Locked compatibility rule:
+- `semantic_rollup.surface`
+- `semantic_rollup.promotion`
+- `semantic_rollup.review_unit_plan`
+
+must be treated as optional on published artifact read paths until all live artifacts are guaranteed to carry them.
+
+Required behavior:
+- request-time artifact/runtime readers must not throw when those nested blocks are absent
+- legacy rollups must repair to safe compatibility defaults before mirrored field access
+- new nested Slice 2 metadata must still be preserved and parsed when present
+- safe-partial fallback must not zero valid legacy cleanup groups merely because new presentation metadata is missing
+
+Explicit non-goal:
+- this guard is a stabilization layer only
+- it does not authorize broader Slice 2 promotion/regrouping rollout before compatibility validation is complete
+
 ---
 
 ## Final Note

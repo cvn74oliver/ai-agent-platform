@@ -60,6 +60,7 @@
 │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
 │   │   │   ├── sender_decision_mode_spec.md
 │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
+│   │   │   ├── SENDER_DISTRIBUTION_CHART_SPEC.md
 │   │   │   ├── sender_overview_card_target_spec.md
 │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
 │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
@@ -415,6 +416,8 @@
     │   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
     │   ├── 11_product_strategy
     │   │   └── PRODUCT_ROADMAP.md
+    │   ├── 12_operating_model
+    │   │   └── CLOSEOUT_CHECKLIST.md
     │   └── visuals
     │       ├── Agent Next Training Suggestion Prompt.png
     │       ├── Agent Playground.png
@@ -453,6 +456,7 @@
     ├── scripts
     │   ├── codex-review-packet.mjs
     │   ├── gmail-artifact-full-coverage-audit.mjs
+    │   ├── gmail-artifact-stale-build-recovery-audit.mjs
     │   ├── gmail-cleanup-group-assignment-fixtures.mjs
     │   ├── gmail-cleanup-group-live-audit.mjs
     │   ├── gmail-subscription-senders-phase3-implementation-packet.mjs
@@ -610,6 +614,7 @@
     │   │   ├── runtime
     │   │   │   ├── approvalSummary.ts
     │   │   │   ├── cleanupGroupPresentation.ts
+    │   │   │   ├── gmailCleanupClusterIdentity.ts
     │   │   │   ├── gmailCleanupMemory.ts
     │   │   │   ├── gmailCleanupWorkspace.ts
     │   │   │   ├── gmailRuntimeAssembler.ts
@@ -671,4 +676,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-145 directories, 527 files
+146 directories, 531 files
