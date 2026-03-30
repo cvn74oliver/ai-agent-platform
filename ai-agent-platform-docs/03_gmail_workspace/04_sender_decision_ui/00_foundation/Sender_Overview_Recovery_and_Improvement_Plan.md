@@ -20,7 +20,26 @@ Current active recovery priority:
 
 Until that corrective rail fallback pass is complete, treat this document’s earlier phase ordering as temporarily superseded by the active recovery priority below.
 
+
 If this document conflicts with the unified sender-surface model, the unified model wins.
+
+Current planning boundary:
+- Shared Analysis Rail architecture, tab structure, and chart-system evolution are now governed by:
+  - `04_sender_decision_ui/01_analysis_rail/SENDER_ANALYSIS_RAIL_SPEC.md`
+  - `04_sender_decision_ui/01_analysis_rail/Shared_Rail_Analysis_spec.md`
+  - `04_sender_decision_ui/01_analysis_rail/SHARED_ANALYSIS_RAIL_IMPLEMENTATION_PLAN.md`
+- Sender Distribution behavior is now governed by:
+  - `04_sender_decision_ui/02_distribution_chart/SENDER_DISTRIBUTION_CHART_SPEC.md`
+  - `04_sender_decision_ui/02_distribution_chart/sender_distribution_chart_spec_Phase_2.md`
+
+Therefore, this document should now focus primarily on:
+- sender-card usability
+- preview reliability
+- cold-load performance
+- operator-profile usefulness
+- proof quality
+
+It should no longer act as the primary source of truth for analysis-rail architecture.
 
 Key architecture update:
 - Sender Overview and Decision Mode are no longer separate systems
@@ -54,6 +73,11 @@ A lot has improved already:
 	•	canonical sender category truth was separated from pattern truth
 	•	operator profile v1 now exists in persisted sender stats
 	•	pages are loading again and the system is usable
+
+Additional status update:
+- the analysis/chart layer is now being split into a dedicated Shared Analysis Rail track
+- that rail work should not be planned from this document anymore
+- this document remains the anchor for sender-row/card, proof, preview, and performance recovery
 
 But Sender Overview is still not in “great condition.”
 
@@ -166,7 +190,9 @@ Important note:
 
 H. Some charts and top modules are still not strong enough
 
-These are not the main blocker, but they are still not polished.
+These are no longer the primary responsibility of this document.
+
+Chart and top-module evolution is now primarily owned by the Shared Analysis Rail track. This document may still name usability problems that affect Sender Overview holistically, but it should not be treated as the canonical architecture plan for chart-system redesign.
 
 Problems:
 	•	some charts feel diagnostic rather than actionable
@@ -364,29 +390,27 @@ Not from page-time recomputation.
 
 ## 6. Proposed Phase Plan
 
-### Phase 0 — Rail fallback stabilization
+### Phase 0 — Recovery boundary clarification
 
-**Goal:** finish stabilizing Sender Overview timeframe controls without reopening architecture scope.
+**Goal:** keep Sender Overview recovery work narrowly focused and prevent overlap with the Shared Analysis Rail track.
 
 **Scope**
-- review/page.tsx and the rail presentation seam only
-- no backend/runtime/service rewrites
-- no broad fast-mode architecture work
-- no page-wide substitutions
+- clarify ownership boundaries between:
+  - sender-row/card usability
+  - preview reliability
+  - cold-load performance
+  - operator-profile usefulness
+  - shared analysis rail architecture
+- ensure this document is not used to drive rail-tab or chart-architecture implementation
 
 **Deliverables**
-- replace the technical unseen-scope fallback with a real product recovery state inside the rail
-- keep the rail shell mounted
-- keep the chip strip interactive
-- keep header shell, sender list shell, and page shell unchanged during rail-only scope switching
-- preserve the stronger recovery UX so broader timeframe guidance is obvious
+- explicit ownership boundary in docs
+- updated phase ordering that keeps this document focused on sender workflow recovery
 
 **Success criteria**
-- no technical placeholder text like `No in-memory rail package is available`
-- unseen timeframe clicks stay local and stable
-- only the rail body changes
-- no router mutation, no runtime refresh, no full-page blanking
-- fallback behavior reads like product UX, not implementation leakage
+- no overlap/conflict with Shared Analysis Rail planning docs
+- sender-card / preview / performance work remains clearly scoped here
+- rail/chart architecture is treated as a separate track
 
 ### Phase 1 — Sender workflow usability cleanup
 
@@ -478,25 +502,22 @@ Not from page-time recomputation.
 
 ⸻
 
-### Phase 5 — Chart and top-module usefulness pass
+### Phase 5 — Holistic page usefulness check (non-rail)
 
-**Goal:** make the upper part of the page help the workflow instead of distract from it.
+**Goal:** improve any remaining non-rail page elements that still weaken decision-making.
 
 **Scope**
-	•	top modules only
-	•	no full redesign
-	•	simplify and prioritize
+- only non-rail, non-chart supporting elements
+- no shared rail redesign
+- no tab architecture work
 
 **Deliverables**
-	•	decide which top modules stay
-	•	demote or remove non-useful diagnostics
-	•	improve timeline usefulness
-	•	make charts more obviously actionable
+- identify any leftover page modules or copy that still distract from action
+- simplify or demote weak supporting surfaces outside the Shared Analysis Rail
 
 **Success criteria**
-	•	upper modules help orient, not overwhelm
-	•	activity timeline reads like a real timeline
-	•	visual intelligence helps direct next action
+- the page feels coherent around the sender workflow
+- supporting non-rail elements do not compete with the main decision path
 
 ⸻
 
@@ -541,23 +562,43 @@ Not from page-time recomputation.
 
 ## 7. Immediate Priorities
 
-If we are choosing what to do next, my recommended order is:
-	1.	Phase 0 — Rail fallback stabilization
-	2.	Phase 1 — Sender workflow usability cleanup
-	3.	Phase 2 — Message preview reliability
-	4.	Phase 3 — Sender Overview cold-load performance
-	5.	Phase 4 — Operator profile usefulness
-	6.	Phase 5 — Chart/top-module usefulness
-	7.	Phase 6 — Whole-mailbox truth strategy
-	8.	Phase 7 — Final polish
+If we are choosing what to do next from this document, the recommended order is:
+	1.	Phase 1 — Sender workflow usability cleanup
+	2.	Phase 2 — Message preview reliability
+	3.	Phase 3 — Sender Overview cold-load performance
+	4.	Phase 4 — Operator profile usefulness
+	5.	Phase 5 — Holistic page usefulness check (non-rail)
+	6.	Phase 6 — Whole-mailbox truth strategy
+	7.	Phase 7 — Final polish
 
 Reason:
-- the immediate blocker is no longer page stability — it is rail fallback behavior for unseen scopes
-- we should not resume broader Sender Overview improvement work until that rail behavior is product-clean again
-- after that, the biggest pain remains understanding the sender workflow
-- the second-biggest pain remains preview reliability
-- the third-biggest pain remains cold-load speed
-- whole-mailbox truth is still strategically important, but it should not derail the hyper-focused stabilization work
+- Shared Analysis Rail now owns chart/tab architecture and chart-driven workflow evolution
+- the biggest remaining Sender Overview pain inside this document is sender workflow clarity
+- next biggest pain is preview reliability
+- then cold-load speed
+- then operator-read usefulness
+- whole-mailbox truth remains strategically important, but should not derail focused recovery work
+## 10A. Relationship To Shared Analysis Rail
+
+This document and the Shared Analysis Rail documents now work together as follows:
+
+- Shared Analysis Rail docs own:
+  - tabbed chart architecture
+  - Sender Distribution
+  - Time Context
+  - shared workflow-subset contract
+  - chart-to-workflow interaction model
+
+- This document owns:
+  - sender-card readability
+  - preview proof quality
+  - preview speed/reliability
+  - sender-overview cold-load experience
+  - operator-profile usefulness
+  - non-rail supporting page polish
+
+Important rule:
+- if a future pass involves tabs, charts, shared workflow subset behavior, or chart-driven subset changes, it should be planned from the Shared Analysis Rail docs, not from this document.
 
 ⸻
 
@@ -649,6 +690,7 @@ When using this document in Codex:
 - execute only one phase or one narrowly defined sub-pass at a time
 - do not mix backend, loading, UI, and architecture work in the same pass unless the phase explicitly requires it
 - preserve runtime containment and first-open safety unless a phase explicitly targets loading behavior
+- do not use this document as authority for shared analysis rail architecture, tab behavior, or chart-system design
 - prefer small, verifiable sniper passes with before/after behavior, exact files changed, and explicit scope verification
 - after each meaningful pass, update the authoritative project docs if the change affects current state, roadmap, or system behavior
 

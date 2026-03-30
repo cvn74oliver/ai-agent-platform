@@ -1,5 +1,3 @@
-
-
 # Cleanup Groups Discovery Spec (Artifact-Driven)
 
 ## Purpose
@@ -20,6 +18,16 @@ This document locks the next-phase direction:
 Cleanup Groups are not sacred.
 
 They are a discovery and decision-routing layer. That means they must be allowed to change when the evidence improves.
+
+The system must assume that any existing group could be:
+- incorrect
+- outdated
+- poorly defined due to weak historical data
+
+Therefore:
+- no existing group is preserved by default
+- every group must re-earn its existence from current artifact truth
+- every surfaced group must justify operator value, not historical convenience
 
 The new source of truth is not:
 - early Gmail heuristics
@@ -51,6 +59,8 @@ This phase must explicitly reevaluate all of the following:
    - Are the currently surfaced groups the right ones?
    - Are some current groups merely leftovers from an earlier poor-data era?
    - Which groups should be semantic parents, structural lanes, secondaries, or hidden/compatibility only?
+   - Which groups are actively harmful to decision clarity because they are too large, too mixed, or misleading?
+   - Which groups should be split into multiple parents instead of being decomposed only at runtime?
 
 4. **Parents and sub-parents**
    - What should become a true parent?
@@ -70,10 +80,13 @@ The current framework already introduced several strong ideas that should be pre
 - secondary artifact groups that stay openable without being equal-weight starts
 - a framework that can generalize to other workspaces beyond Gmail
 
-So the goal is:
-- **keep the framework**
-- **replace weak assumptions inside the framework**
-- **rerun discovery from better data**
+Important clarification:
+- The framework is preserved.
+- The current group implementations are not.
+
+This means:
+- structure survives
+- content must be rediscovered
 
 ---
 
@@ -85,6 +98,7 @@ The implementation lane should produce clear answers to these questions:
 - Which of those are true semantic parents?
 - Which are structural lanes for safety, coverage, backlog, or special handling?
 - Which current surfaced groups should be demoted or removed from equal-weight status?
+- Are we missing entire parent lanes that only become visible with larger-scale data?
 
 ### B. Group validity
 - Which current cleanup groups are still justified by current artifact truth?
@@ -109,11 +123,18 @@ The implementation lane should produce clear answers to these questions:
 Goal: inspect the current mailbox as if the old cleanup groups do not deserve trust by default.
 
 This phase should:
-- reevaluate the entire cleanup-group universe from current artifact and semantic evidence
-- identify which current groups remain valid
-- identify which current groups are outdated or misleading
-- identify candidate new parents, structural lanes, and sub-parents
-- produce a proposed end-state map from evidence, not from legacy naming
+- treat all current groups as provisional hypotheses, not truth
+- recompute grouping candidates directly from artifact + semantic signals
+- explicitly score each existing group for:
+  - coherence
+  - operator usefulness
+  - overlap with other groups
+- identify:
+  - groups that survive unchanged
+  - groups that require renaming
+  - groups that must be split
+  - groups that should be demoted or removed
+- identify entirely new candidate parents that did not exist in the original system
 
 Deliverable:
 - a discovery map showing proposed top-level parents, structural lanes, secondaries, and required decompositions
@@ -212,6 +233,7 @@ This lane must stay disciplined about what it is and is not doing.
 - confuse operator helper views with durable artifact truth
 - turn every small pattern into a top-level surfaced parent
 - optimize only for the current mailbox while breaking framework transferability
+- default to incremental tweaks when a full structural reset is justified by better data
 
 ---
 
@@ -232,3 +254,146 @@ Start the cleanup-group rediscovery thread with a plan-first pass that:
 - tests whether the current parent lanes are still the best ones
 - proposes improved parents, sub-parents, structural lanes, and secondaries
 - preserves the strongest ideas from the current framework while replacing weak early assumptions
+
+---
+
+## Disposition Matrix (Required Output)
+
+For the frozen artifact version used in this pass, produce a table with one row per current group:
+
+| current_group_id | sender_count | dominant_family | dominant_share_pct | clear_share_pct | classification | action | target_canonical_id | notes |
+|------------------|--------------|-----------------|--------------------|------------------|----------------|--------|----------------------|-------|
+
+Where:
+- `classification` ∈ {semantic_parent_candidate, structural_parent, secondary_candidate, context_only, invalid}
+- `action` ∈ {keep, rename, split, demote, collapse, remove, alias_only}
+- `target_canonical_id` uses the canonical grammar below
+
+This table is mandatory for Phase 1 completion.
+
+---
+
+## Canonical IDs and Alias Model
+
+Define a workspace-generic ID grammar (model-layer):
+- `semantic.<name>`
+- `structural.<name>`
+- `secondary.<name>`
+- `context.<name>`
+- `child.<name>`
+- `review.<name>`
+
+Rules:
+- Each surfaced group has exactly one canonical ID.
+- Current/legacy IDs are maintained as aliases for one rollout.
+- Compatibility-only aliases may be retired after usage drops.
+- Redirects must preserve `compat_source` for UX clarity.
+
+Also define separate **UI labels** (product-layer) that can differ from canonical IDs.
+
+---
+
+## Fresh Start Surface (Product View)
+
+Describe the first-screen experience explicitly:
+
+- Lanes (top to bottom):
+  - Action (semantic parents)
+  - Backlog (structural backlog)
+  - Coverage (structural coverage/safety)
+  - Secondary (small but coherent groups)
+  - Context (collapsed by default)
+
+- Within each lane:
+  - order by operator value (descending)
+  - show counts + short rationale
+
+- Defaults:
+  - first visible lane = Action
+  - first recommended click = top semantic parent (if exists)
+  - context lane collapsed
+
+- Must be understandable without internal knowledge.
+
+---
+
+## Durable Child vs Runtime Review Unit (Clarification)
+
+- **Durable child** (persisted):
+  - under a semantic parent only
+  - ≥ 75 senders AND ≥ 10% of parent
+  - not a remainder/spillover bucket
+  - survives ≥ 2 artifact publications OR 1 + explicit sign-off
+
+- **Runtime review unit** (session-only):
+  - below thresholds OR remainder/spillover
+  - any slice under structural parents
+  - any provisional subtype
+
+- **Borderline handling**:
+  - classify as `candidate_child`
+  - keep as runtime unit
+  - promote only after meeting durability criteria across artifacts
+
+---
+
+## Evidence Thresholds (Reference)
+
+- **Semantic parent**:
+  - sender_count ≥ 100
+  - dominant_share ≥ 80%
+  - clear_share ≥ 60%
+  - ≥ 3 actionable units (≥ 25 senders), largest ≥ 100
+
+- **Structural parent**:
+  - distinct routing obligation (backlog/safety/coverage/context)
+  - typically ≥ 100 senders (context may be smaller, collapsed)
+
+- **Secondary group**:
+  - sender_count ≥ 25
+  - dominant_share ≥ 60%
+  - clear_share ≥ 50%
+
+- **Demotion/removal**:
+  - sender_count < 25 with no structural role
+  - fails coherence thresholds
+
+---
+
+## Pre-Implementation Decisions
+
+### Locked
+- Framework: parent lanes, semantic vs structural, review-unit decomposition
+- Alias model and canonical ID grammar
+- Artifact-first discovery and scoring
+
+### Open (must be decided before implementation)
+- Final UI labels for canonical groups
+- Exact lane ordering for this mailbox
+- Final disposition for borderline groups (e.g., small semantic candidates)
+
+---
+
+## Implementation Philosophy (Critical)
+
+This lane must follow a strict philosophy:
+
+1. Discovery before preservation
+   - never assume the current structure is correct
+   - always validate against artifact truth first
+
+2. Operator-first validation
+   - every group must make decision-making easier
+   - if it does not improve clarity or speed, it should not exist
+
+3. Framework over instance
+   - design the model so it works for:
+     - Gmail
+     - finance workspaces
+     - marketing workspaces
+     - operational systems
+   - avoid Gmail-specific logic in the core grouping model
+
+4. Evidence over intuition
+   - grouping decisions must be explainable from artifact signals
+   - not just naming intuition or prior assumptions

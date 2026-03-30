@@ -26,31 +26,56 @@ Layout:
 ```
 Sender Intelligence Overview
 
-Charts
-Summary Cards
-Sender Distribution
+Analysis Rail (Tabbed)
+Dynamic Context Panel
 Primary CTA
 ```
 
-### Charts
+### Analysis Rail (Primary Surface)
 
-Top senders in this group  
-Recency distribution  
-Category breakdown  
-Human vs automation ratio  
+This is the central analysis system for the page.
 
-These mirror the intelligence page but are **scoped to the selected cleanup group**.
+It is a shared, full-width container with two modes:
 
-### Summary Cards
+- Sender Distribution (primary)
+- Time Context (secondary)
 
-Batch Size  
-Sender Count  
-Unread Ratio  
-Automation Ratio  
+Only one mode is visible at a time (tab-based system).
 
-### Sender Distribution
+Behavior:
+- Both modes share the same timeframe controls
+- Both read from the same workflow subset contract
+- Both reflect the active cleanup group and scope
+- Switching tabs does NOT trigger runtime rehydrate
 
-Optional lightweight table or ranked list of top senders.
+Purpose:
+- Sender Distribution → who to act on
+- Time Context → when activity is happening
+
+This replaces stacking multiple charts vertically.
+
+### Dynamic Context Panel
+
+This section replaces static summary cards.
+
+It updates based on the active Analysis Rail mode and selection.
+
+Examples:
+
+Sender Distribution mode:
+- Selected sender
+- Rank
+- % of total
+- Suggested action
+
+Time Context mode:
+- Selected timeframe
+- Activity trend
+- Volume comparison
+- Suggested action
+
+Purpose:
+Provide immediate, actionable insight tied to the current view.
 
 ---
 
@@ -65,6 +90,10 @@ Behavior:
 • Locks the overview UI  
 • Transitions into focused decision mode  
 • Begins sender-by-sender flow  
+
+Important:
+- The workflow subset established in the Analysis Rail carries into Decision Mode
+- The overview is not just informational; it defines the starting execution context
 
 ---
 
@@ -191,14 +220,23 @@ You're done reviewing this group
 
 ## Key Design Principle
 
-The system uses a **two-phase zoom model**:
+The system uses a three-layer decision model:
 
-Zoom Out → Understand the group (overview)  
-Zoom In → Make fast decisions (card flow)
+1. Analysis (Analysis Rail)
+   - understand who and when
+   - define the workflow subset
+
+2. Context (Dynamic Context Panel)
+   - interpret the current state
+   - suggest action
+
+3. Execution (Decision Mode)
+   - act on one sender at a time
 
 This ensures:
-• confidence before action  
-• speed during action  
+- clarity before action
+- consistency between analysis and execution
+- no duplicated or conflicting decision logic
 
 ---
 
@@ -213,3 +251,8 @@ Tables are for:
 Cards are for:
 • decisions
 • speed
+
+Additionally:
+- Do NOT introduce parallel decision systems
+- Charts, workflow list, and Decision Mode must share one authoritative subset
+- No UI interaction should trigger a runtime rehydrate

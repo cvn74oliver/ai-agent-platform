@@ -2,9 +2,29 @@ Cleanup Group Spec + Phase Plan
 
 Purpose
 
-Define the product role, UI rules, and phased evolution plan for Cleanup Groups inside the Gmail workspace.
+Define the product role, UI rules, and phased evolution plan for Cleanup Groups inside the Gmail workspace, while explicitly preserving a workspace-agnostic framework that can be reused across any future domain (e.g. finance, marketing, operations).
 
-Cleanup Groups is the operator’s selection surface between Mailbox Intelligence and Sender Overview. It should help users choose the right sender cluster to review next, without overwhelming them or forcing them into the largest unresolved group by default.
+Cleanup Groups is the first implementation of a generalized "decision grouping system" that will later apply to any workspace where entities must be reviewed, prioritized, and acted on.
+
+⸻
+
+Framework Principle (Critical)
+
+Cleanup Groups is not a Gmail-specific feature.
+
+It is the first implementation of a generalized grouping + prioritization system that must work across:
+	•	email (senders)
+	•	finance (assets, transactions)
+	•	marketing (campaigns, creatives)
+	•	operations (tasks, entities, workflows)
+
+Therefore:
+	•	group definitions must not depend on Gmail-only concepts
+	•	lane structure must represent universal decision patterns, not email categories
+	•	naming and structure should remain abstract enough to transfer
+	•	artifact-driven grouping logic must be reusable across workspaces
+
+Gmail is only the first dataset used to validate the framework.
 
 ⸻
 
@@ -34,11 +54,15 @@ Current Phase 1 system truth:
 	•	schema
 	•	rebuild logic
 
-This means current Cleanup Groups work is presentation and recommendation, not structural regrouping.
+This means current Cleanup Groups work was originally presentation and recommendation, not structural regrouping.
+
+However, with the introduction of large-scale indexed data and artifact/semantic signals, this constraint is no longer valid for future phases. Structural regrouping is now expected and required in later phases.
 
 ⸻
 
 Current Group Types
+
+These categories reflect early heuristic grouping and must not be treated as final or authoritative.
 
 Cleanup Groups currently mixes three different kinds of operator lanes:
 
@@ -80,6 +104,8 @@ Make Cleanup Groups:
 
 Without changing the underlying 8-group artifact structure.
 
+Note: This phase was intentionally limited to presentation improvements. It does not validate whether the groups themselves are correct.
+
 ⸻
 
 Phase 1B UI Rules
@@ -94,6 +120,10 @@ Cleanup Groups should render in three visual sections:
 Default card ordering
 
 Default section ordering should be explicit, but not permanently hard-locked.
+
+Important:
+- This ordering is provisional and based on early data assumptions.
+- It must be revalidated during artifact-driven rediscovery.
 
 Recommended current order:
 
@@ -120,6 +150,11 @@ Each card should lead with:
 
 Semantic/supporting detail should remain secondary and may live in expandable detail.
 
+Important constraint:
+- These UI rules were designed around early heuristic grouping.
+- They must not constrain future structural redesign decisions.
+- In later phases, UI may adapt to reflect newly discovered group structures.
+
 Large-group startability
 
 Large groups should feel startable before the user clicks through.
@@ -141,6 +176,10 @@ Recommendation priority:
 	3.	High-impact manageable opportunity
 	4.	Backlog pass
 	5.	Never default to coverage / exception lanes
+
+Future constraint:
+- Recommendation logic must evolve alongside group restructuring.
+- It must not assume current group boundaries remain valid.
 
 Implemented Cleanup Groups state
 
@@ -178,16 +217,29 @@ Phase 1B Out of Scope
 
 Later Structural Direction
 
-Later phases may revisit the cleanup-group structure itself.
+The next phase must explicitly reevaluate the cleanup-group structure itself using artifact and semantic data.
 
-That future work should evaluate:
-	•	whether some groups are too large to remain motivating
-	•	whether some groups should be subdivided using richer artifact truth
-	•	whether the current 8-group model still best serves operator workflow
-	•	whether needs-review should be decomposed into more coherent sub-lanes
-	•	whether protected and similar lanes should remain broad safety surfaces or be broken into bounded review units
+This is not optional.
 
-This later work should happen after Phase 1 presentation improvements are validated.
+The original grouping system was created using limited data and heuristic assumptions. We now have:
+	•	significantly larger indexed coverage
+	•	artifact-backed summaries
+	•	semantic grouping signals
+
+Therefore, the system must transition from:
+	heuristic grouping → artifact-driven grouping
+
+This includes:
+	•	revalidating all existing groups
+	•	identifying missing groups
+	•	removing or collapsing weak groups
+	•	promoting new semantic parents where justified
+	•	redefining structural lanes if needed
+
+The goal is not to refine the current groups.
+The goal is to discover the correct groups from current truth.
+
+This phase must explicitly produce a new canonical grouping model, not just adjustments to the existing one.
 
 ⸻
 
@@ -199,6 +251,7 @@ Questions to answer in later phases:
 	•	Which groups should remain broad for safety/coverage reasons?
 	•	Which groups should be split based on artifact-stage evidence?
 	•	Can sender-overview bounded entry paths reduce the need for top-level group splitting?
+	•	Which current groups are misleading or harmful to operator decision-making due to scale or lack of coherence?
 
 ⸻
 
@@ -221,8 +274,17 @@ Future:
 
 Phase 3
 
-Future:
-	artifact-informed evaluation of whether groups should be restructured, subdivided, or re-thresholded
+Artifact-driven rediscovery and restructuring of cleanup groups:
+	•	full reevaluation of all current groups
+	•	introduction of semantic parents based on real evidence
+	•	redefinition of structural lanes where needed
+	•	removal or demotion of weak or misleading groups
+
+Deliverable:
+- Full disposition matrix (keep / rename / split / demote / collapse / remove)
+- Proposed canonical parent set
+- Proposed lane structure
+- Alias mapping plan
 
 Phase 4
 
@@ -242,17 +304,21 @@ Cleanup Groups is working well when:
 	•	the top of the page helps the operator understand the decision landscape before they start comparing cards
 	•	the hero uses trustworthy group-level progress language rather than recommendation-widget language
 	•	the cards do not carry more analytical burden than they need once hero / analytics context is present
+	•	the grouping system reflects current artifact truth rather than legacy assumptions
+	•	the structure can be reused across non-Gmail workspaces without redesign
 
 ⸻
 
 Summary
 
-Cleanup Groups has now completed its current UI clarity + hero/progress phase:
-	1.	First: guidance, clarity, recommendation logic, startability, and handoff congruency were improved on top of current artifact truth
-	2.	Second: a true hero + progress layer was added so the page can frame the next decision before the operator evaluates individual cards
-	3.	Later: evaluate whether deeper analytics, richer decision support, or the artifact-driven group structure itself should be refined in a separate future phase
+Cleanup Groups has now completed its UI clarity and progress phase, but the system is still operating on an early-stage grouping model.
 
-That keeps current work focused while preserving a clear path to a more artifact-native cleanup-group system later.
+The next critical milestone is transitioning to an artifact-driven grouping system:
+	1.	The current UI layer remains intact as a framework
+	2.	The underlying group structure will be rediscovered and redefined using real data
+	3.	Future work will align grouping, workflow, and decision execution under a unified framework that applies beyond Gmail
+
+This ensures that we are not refining an outdated model, but evolving toward the correct one.
 
 ⸻
 
@@ -266,3 +332,46 @@ Any future Cleanup Groups work should happen in a separate next-phase thread and
 	•	richer decision support
 
 That future lane should not silently widen from product planning into implementation without a separate approval step.
+
+Note:
+- The current system should be treated as a temporary baseline.
+- It exists to support the next phase of rediscovery, not to define the final grouping model.
+
+⸻
+
+Implementation Philosophy
+
+This system must follow these rules moving forward:
+
+1. Framework first, dataset second
+	•	Gmail is an example, not the definition
+	•	the grouping system must generalize to other workspaces
+
+2. Discovery over preservation
+	•	no group survives by default
+	•	all groups must justify themselves with artifact evidence
+
+3. Operator-first design
+	•	groups must make decisions faster and clearer
+	•	if a group does not improve workflow, it should not exist
+
+4. Evidence-based grouping
+	•	grouping must be explainable from data signals
+	•	not from historical naming or intuition
+
+5. Progressive evolution
+	•	UI framework can remain stable
+	•	group structure must be allowed to evolve as data improves
+
+⸻
+
+Next Step (Execution Alignment)
+
+Before any implementation begins:
+- All cleanup-group documents must be aligned to artifact-driven rediscovery
+- A dedicated implementation plan must be created (separate from this spec)
+- A new Codex thread must be started with a clean premise
+
+Do not continue implementation from previous threads that assumed the current grouping structure was correct.
+
+This reset is required to prevent drift and ensure correct system evolution.

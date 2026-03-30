@@ -111,6 +111,22 @@ Operational meaning:
 - Cluster-global totals must come from artifact summaries/snapshots, not from bounded loaded rows such as `workspace.senders.length`.
 - Decision Mode queue state must preserve parity with the same artifact-backed cluster truth used by Sender Overview and Cleanup Groups.
 
+## UI System Alignment (NEW)
+
+The following UI systems must strictly follow the canonical engine pattern:
+- Shared Analysis Rail (Sender Distribution + Time Context)
+- Cleanup Groups (all lanes and group structures)
+- Sender Overview workflow list
+- Decision Mode queue
+
+Rules:
+- All UI systems must read from artifact-backed truth
+- No UI layer may compute its own grouping, ranking, or totals independently
+- All derived subsets (e.g. workflow_scope, chart interactions) must be built from artifact-backed data, not raw mailbox queries
+- UI interaction must never trigger artifact rebuild, mailbox scan, or sync
+
+This ensures that all user-facing decision systems remain consistent with the canonical data model.
+
 ## Allowed Patterns
 
 - Add new artifact families that are built asynchronously and published side-by-side.
@@ -123,6 +139,7 @@ Operational meaning:
   - persist
   - publish
   - serve
+- Add UI-driven subset views (e.g. workflow subsets, chart-driven subsets) that derive from artifact-backed data without persisting new group structures.
 
 ## Forbidden Patterns
 
@@ -135,6 +152,7 @@ Operational meaning:
 - Publishing a partially-written `building_version`.
 - Replacing artifact truth with browser-only arithmetic when artifact summary/snapshot truth exists.
 - Treating full rebuild as a different truth model from incremental publication.
+- Allowing charts, cleanup groups, or workflow UI to define their own independent ranking, grouping, or decision logic separate from artifact-backed truth.
 
 ## Common Regression Patterns To Avoid
 
@@ -158,6 +176,15 @@ Required shape:
 6. Persist freshness and build state explicitly.
 7. Keep browser/runtime reconciliation pinned to artifact-backed truth.
 
+Additional requirement:
+
+8. All analysis and grouping layers must be built as reusable UI systems that sit on top of artifact-backed data, including:
+   - analysis rails (multi-mode analytical surfaces)
+   - grouping systems (cleanup groups or equivalent)
+   - workflow subset systems
+
+These must remain generic so they can apply to non-Gmail domains without redesign.
+
 ## Final Stabilization Proof Summary
 
 The Gmail Workspace stabilization sequence established:
@@ -178,3 +205,20 @@ Current final proof anchors:
 - direct parity proof: `cluster_diff_count: 0`, `sender_diff_count: 0`
 - unchanged acceptance harness: `ok: true` on `full-mailbox-20260324073149125`
 
+---
+
+## Integration With Decision Systems (NEW)
+
+The canonical engine pattern now directly supports decision systems:
+
+- Analysis Rail → defines subset
+- Cleanup Groups → defines entry structure
+- Sender Workflow → defines ordered entities
+- Decision Mode → executes decisions
+
+All four layers must:
+- share the same artifact-backed truth
+- share the same ordering source
+- avoid duplicating logic
+
+If any layer diverges from artifact-backed truth, the system becomes inconsistent and must be treated as a regression.
