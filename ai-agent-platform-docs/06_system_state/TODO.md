@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-29 (sender-overview 7d rail bootstrap recovered • subscription-senders overview stabilized • artifact layer unchanged • cleanup-group restructuring still open)_
+_Last updated: 2026-03-30 (subscription Sender Overview load stability accepted • 7d recovery preserved • cleanup-group restructuring still open)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -34,36 +34,27 @@ _Last updated: 2026-03-29 (sender-overview 7d rail bootstrap recovered • subsc
 - [x] Record accepted closeout boundary:
   - sparse `2–3` visible day bars are not a blocker for this lane
   - explicit zero-day bar rendering is separate presentation/product work
-  - `subscription-senders` load instability belongs in a separate sniper thread
+  - later `subscription-senders` load-stability follow-up is tracked and accepted separately
 
-### Subscription Sender Overview Load Stability
-- [x] Unblock the deferred default Overview `sender_workspace` fetch from `defaultOverviewRuntimeGate === 'waiting'`
-- [x] Treat `runtime_selected_cluster_rail_family` as progressive enrichment only for first usable Overview/chart readiness
-- [x] Repair `subscription-senders` sender-workspace fast-path pagination in backend-safe chunks without widening the fix surface
-- [x] Prove cold `30d` runtime cost remains outside the page fast-path:
-  - cold runtime `runtime_state_total_ms = 33593`
-  - `preferred_cluster_review_bootstrap_ms = 30793`
-- [x] Prove cold `30d` `subscription-senders` Overview/chart becomes usable without refresh:
-  - first usable browser render `= 4397ms`
-  - chart populated on first usable snapshot
-- [x] Prove warm `30d` `subscription-senders` Overview stays fast:
-  - warm browser first usable `= 200ms`
-  - no additional runtime / sender-workspace network round-trip in the proof run
-- [x] Prove chart remains populated after settle / enrichment completes
-- [x] Prove the old fast-path rejection pattern disappeared:
-  - no `rejected_candidate_rows_incomplete`
-  - cold fast-path now logs `applied_scoped_underfill`
-  - `candidate_row_count = 1843`
-  - `selected_cluster_row_count = 1843`
-- [x] Capture updated warm server timings:
-  - runtime total `2163ms`
-  - sender workspace `790ms`
-- [x] Smoke-check:
-  - `protected-trusted-senders`
-  - `needs-review-senders`
-  - `dormant-backlog-senders`
-- [x] Keep Smart Sync, mailbox refresh, artifact publication, cleanup-group regrouping/promotion, and `7d` rail bootstrap untouched in this lane
-
+### Subscription-Senders Sender Overview Load Stability
+- [x] Separate cold initial review-page bootstrap from timeframe-switch behavior in proof
+- [x] Identify why first entry was still triggering heavy `/api/agents/playground` runtime rehydrate
+- [x] Restore stable first-entry Sender Overview loading for `subscription-senders`
+- [x] Preserve faster warm timeframe switching behavior
+- [x] Reuse persisted scoped snapshot truth for default Sender Overview workspace loads on:
+  - `60d`
+  - `90d`
+  - `365d`
+- [x] Remove `rejected_candidate_count_mismatch` from the accepted default overview path
+- [x] Restore the accepted `7d` fallback contract after the intermediate regression:
+  - rejected `empty_with_index_potential` `7d` snapshots must fall through to fresh read-only scoped discovery
+  - `7d` must not terminate as `unavailable_scope` when fresh indexed truth exists
+- [x] Prove final accepted live behavior for:
+  - `subscription-senders`
+  - at least one structural cleanup group
+- [x] Accept as non-blocking for this lane:
+  - sparse daily-bar density when recent activity is honestly sparse
+  - future product/presentation decisions about zero-activity day rendering
 
 ### Gmail Phase 1 Baseline Lock
 - [x] Restore published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555`

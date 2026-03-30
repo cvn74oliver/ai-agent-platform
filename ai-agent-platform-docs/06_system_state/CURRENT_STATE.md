@@ -1,71 +1,62 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-29  
+Last updated: 2026-03-30  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
 ---
 
-## 🚀 March 29 — Subscription Sender Overview Load Stability Accepted
+## 🚀 March 30 — Subscription-Senders Sender Overview Load Stability Accepted
 
 ### What changed
 
-- `subscription-senders` Sender Overview load instability is now treated as recovered.
-- The fix stayed narrowly inside the Overview load path:
-  - [review/page.tsx](/Users/olivercarlin/Documents/ai-agent-platform/web/src/app/agents/[id]/operations/review/page.tsx) no longer blocks the deferred default Overview `sender_workspace` fetch behind `defaultOverviewRuntimeGate === 'waiting'`
-  - first usable Overview/chart now hydrates from the earliest `overviewShellWorkspace`
-  - `runtime_selected_cluster_rail_family` stays progressive enrichment only
-- [gmailCleanupWorkspace.ts](/Users/olivercarlin/Documents/ai-agent-platform/web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts) now pages the `subscription-senders` fast-path candidate-row loader in backend-safe chunks for that fast path specifically.
+- The accepted load-stability lane is now closed as fixed.
+- `subscription-senders` first-entry Sender Overview loading is stable again.
+- The final accepted fix combined three narrow behaviors:
+  - preserve the warm timeframe-switch behavior that no longer re-triggers `/api/agents/playground`
+  - reuse persisted scoped cleanup snapshots for default Sender Overview workspace loads on `60d` / `90d` / `365d`
+  - restore the accepted `7d` fallback so `empty_with_index_potential` resolves through fresh read-only scoped discovery instead of terminating as `unavailable_scope`
+- `7d` readonly scoped discovery was also tightened so it can recover from recent-truth mismatch without loading the entire indexed corpus.
 
-### Current accepted distinction
+### Current accepted state
 
-- Cold server-side preferred-cluster runtime bootstrap for `30d` `subscription-senders` is still expensive:
-  - `runtime_state_total_ms = 33593`
-  - `cleanup_plan_ms = 32777`
-  - `preferred_cluster_review_bootstrap_ms = 30793`
-  - `selected_cluster_rail_family_load_ms = 1218`
-- The page no longer waits on that full runtime lane before becoming useful:
-  - cold browser first usable Overview/chart: `4397ms`
-  - warm browser first usable Overview/chart: `200ms`
-- The chart now populates on first load and stays populated after settle.
-- The old fast-path rejection pattern is gone:
-  - no more `rejected_candidate_rows_incomplete`
-  - current cold fast-path proof shows `status = applied_scoped_underfill`
-  - `candidate_row_count = 1843`
-  - `selected_cluster_row_count = 1843`
-- Warm server-side follow-up timings are stable:
-  - runtime total `2163ms`
-  - sender workspace `790ms`
+- Pages load correctly again for this lane.
+- Chart timeframes open correctly.
+- The earlier terminal flood / runtime churn pattern is no longer reproducing in accepted validation.
+- `7d` renders again instead of falling into broken unavailable / false-empty state.
+- Broader scoped views remain healthy.
+- This accepted lane does **not** require any Smart Sync, artifact-publication, cleanup-group restructure, or chart-redesign follow-up to stay valid.
 
-### Why this was mostly a `subscription-senders` problem
+### Runtime / browser proof now locked
 
-- `subscription-senders` is the heaviest active `30d` cluster in the current tenant:
-  - runtime estimate `1936` supporting messages
-  - scoped sender-workspace truth `1843` supporting messages across `349` senders
-- The page-level runtime gate could delay default Overview for any slow cluster, but `subscription-senders` also hit the fast-path pagination ceiling before this fix.
-- That combination made the delay and refresh instability show up much more clearly here than in the smaller structural groups.
+- Final terminal proof showed:
+  - `7d -> readonly_scoped_discovery`
+  - `7d scope_resolution -> snapshot_ready`
+  - `runtime_state_total_ms ~ 8.9s`
+  - `preferred_cluster_review_bootstrap_ms ~ 5.7s`
+- Final broader-scope proof for `subscription-senders` showed:
+  - `60d ~1.5s`
+  - `90d ~1.6s`
+  - `365d ~2.1s`
+  - scoped snapshot reuse remained applied
+  - `rejected_candidate_count_mismatch` was gone on the accepted default overview path
+- Final browser proof on `localhost:3000` showed:
+  - `subscription-senders` cold first usable at about `4.7s`
+  - `protected-trusted-senders` cold first usable at about `5.5s`
+  - no `Failed to load sender workspace`
+  - `7d` present as `ready` in runtime-selected cluster rail family for both lanes
 
-### Smoke-check status
+### Explicit accepted boundary
 
-- `protected-trusted-senders`
-  - route opens
-  - chart populates
-  - no manual refresh required in the proof run
-- `needs-review-senders`
-  - route opens
-  - chart populates
-  - no manual refresh required in the proof run
-- `dormant-backlog-senders`
-  - route opens
-  - chart populates
-  - no manual refresh required in the proof run
-
-### Thread status
-
-- The `subscription-senders` Sender Overview load-stability sniper pass is accepted.
-- Runtime cold bootstrap cost remains a separate performance concern, but it is no longer the first-usable page blocker for this lane.
-- Smart Sync, mailbox refresh, artifact publication, cleanup-group regrouping/promotion, and `7d` rail bootstrap all remain untouched by this accepted fix.
+- Accepted for this thread:
+  - stable first-entry Sender Overview loading for `subscription-senders`
+  - preserved `7d` rail recovery
+  - preserved faster scoped timeframe switching behavior
+  - removed broken runtime churn / regression patterns that were surfacing in this lane
+- Explicitly non-blocking for this thread:
+  - sparse daily-bar density when recent data is honestly sparse
+  - any future presentation/product decision about zero-activity day rendering
 
 ## 🚀 March 29 — Sender Overview 7-Day Rail Bootstrap Recovery Accepted
 
@@ -96,7 +87,7 @@ Project Manager: v10 (finalized — preparing transition to v11)
 - The `7d` Sender Overview rail lane is accepted as recovered.
 - The fix remains isolated to selected-cluster rail bootstrap in `runtimeStateService`.
 - Artifact publication, Smart Sync, mailbox-index recovery, and Slice 2 cleanup-group promotion work all remain out of scope for this closed lane.
-- `subscription-senders` load instability / slow or unreliable page load behavior remains out of scope for this lane and should be handled in a separate sniper thread.
+- The later `subscription-senders` load-stability follow-up is now also accepted as closed in its own lane.
 
 ### Runtime validation proof
 
