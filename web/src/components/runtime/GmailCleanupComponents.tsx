@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type {
   GmailCleanupRuleIntent,
   GmailCleanupStage,
@@ -17,6 +17,21 @@ import type {
   GmailSenderWorkspaceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import { GMAIL_CLEANUP_ACTIVE_STAGES } from '@/lib/runtime/gmailCleanupWorkspace'
+import {
+  buildCleanupGroupInternalStructure,
+  getCleanupGroupRecommendationExplanation,
+  type CleanupGroupRecommendationReason,
+} from '@/lib/runtime/cleanupGroupPresentation'
+import {
+  buildGmailSemanticPresentationPolicy,
+  gmailSemanticFamilyDisplayLabel,
+  gmailSemanticPatternClassDisplayLabel,
+} from '@/lib/runtime/gmailSemanticPresentationPolicy'
+import {
+  OPERATIONS_ANALYSIS_SCOPE_OPTIONS,
+  analysisScopeControlLabel,
+  type OperationsAnalysisScope,
+} from '@/lib/runtime/operationsWorkspace'
 
 type ScopeStep = {
   key: keyof GmailScopeLadderCounts
@@ -62,6 +77,12 @@ function formatDate(value: string | null | undefined): string {
 function formatPercent(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—'
   return `${Math.round(value * 100)}%`
+}
+
+function cleanupGroupShareLabel(sharePct: number | null | undefined): string {
+  if (sharePct == null || !Number.isFinite(sharePct)) return 'Impact share pending'
+  if (sharePct <= 0) return '<1% of cleanup message volume'
+  return `${Math.round(sharePct)}% of cleanup message volume`
 }
 
 function policyClass(policy: GmailSenderPolicy): string {
@@ -141,15 +162,22 @@ function confirmationPolicyDescription(policy: GmailSenderPolicy): string {
 function stageTabClass(active: boolean): string {
   return active
     ? 'border-cyan-700/60 bg-cyan-950/25 text-cyan-100'
-    : 'border-gray-800 bg-gray-950/35 text-gray-300 hover:border-gray-700 hover:text-white'
+    : 'border-slate-500/35 bg-[linear-gradient(180deg,rgba(23,31,44,0.96),rgba(14,20,30,0.96))] text-slate-200 hover:border-slate-400/55 hover:bg-[linear-gradient(180deg,rgba(29,38,52,0.98),rgba(17,23,34,0.98))] hover:text-white'
 }
+
+const neutralNestedSurfaceClass = 'app-surface-card-nested'
+const neutralInsetSurfaceClass = 'app-surface-card-inset'
+const neutralPillSurfaceClass = 'app-surface-card-tile'
+const quietControlSurfaceClass =
+  'app-surface-card-tile text-slate-200 hover:border-slate-400/55 hover:bg-[linear-gradient(180deg,rgba(30,40,55,0.98),rgba(17,24,35,0.98))] hover:text-white'
+const quietSecondaryActionClass = quietControlSurfaceClass
 
 function metricCard(title: string, value: string, subtitle: string, accent: string) {
   return (
-    <div className={`rounded-2xl border ${accent} p-4`}>
-      <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">{title}</p>
+    <div className={`${neutralNestedSurfaceClass} rounded-2xl ${accent} p-4`}>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">{title}</p>
       <p className="mt-2 text-3xl font-semibold text-white">{value}</p>
-      <p className="mt-2 text-sm text-gray-300">{subtitle}</p>
+      <p className="mt-2 text-sm text-slate-200">{subtitle}</p>
     </div>
   )
 }
@@ -163,10 +191,10 @@ function metricMeterCard(props: {
   valueClass?: string
 }) {
   return (
-    <div className={`rounded-2xl border ${props.accentClass} p-4`}>
+    <div className={`${neutralNestedSurfaceClass} rounded-2xl ${props.accentClass} p-4`}>
       <p
         className={`text-center text-[10px] uppercase tracking-[0.22em] ${
-          props.titleClass || 'text-gray-500'
+          props.titleClass || 'text-slate-300'
         }`}
       >
         {props.title}
@@ -178,17 +206,17 @@ function metricMeterCard(props: {
       >
         {props.value}
       </p>
-      <p className="mt-3 text-center text-sm leading-5 text-gray-300">{props.subtitle}</p>
+      <p className="mt-3 text-center text-sm leading-5 text-slate-200">{props.subtitle}</p>
     </div>
   )
 }
 
 function sectionCard(title: string, subtitle: string, children: ReactNode) {
   return (
-    <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 space-y-3">
+    <section className="app-surface-card rounded-2xl p-4 space-y-3">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">{title}</p>
-        <p className="mt-1 text-sm text-gray-300">{subtitle}</p>
+        <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">{title}</p>
+        <p className="mt-1 text-sm text-slate-200">{subtitle}</p>
       </div>
       {children}
     </section>
@@ -197,26 +225,30 @@ function sectionCard(title: string, subtitle: string, children: ReactNode) {
 
 function insightCard(title: string, value: string, subtitle: string) {
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-950/60 p-3">
-      <p className="text-[10px] uppercase tracking-wide text-gray-500">{title}</p>
+    <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
+      <p className="text-[10px] uppercase tracking-wide text-slate-300">{title}</p>
       <p className="mt-2 text-sm font-semibold text-white">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-gray-400">{subtitle}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-200">{subtitle}</p>
     </div>
   )
 }
 
 function diagnosticRow(label: string, value: string, detail?: string) {
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-950/60 p-3">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">{label}</p>
+    <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">{label}</p>
       <p className="mt-1 text-sm font-semibold text-white">{value}</p>
-      {detail ? <p className="mt-1 text-xs leading-5 text-gray-400">{detail}</p> : null}
+      {detail ? <p className="mt-1 text-xs leading-5 text-slate-200">{detail}</p> : null}
     </div>
   )
 }
 
 function loadingSkeleton(className: string) {
-  return <div className={`animate-pulse rounded-xl bg-gray-800/70 ${className}`} />
+  return (
+    <div
+      className={`animate-pulse rounded-xl bg-[linear-gradient(90deg,rgba(36,49,66,0.72),rgba(24,34,47,0.96),rgba(36,49,66,0.72))] ${className}`}
+    />
+  )
 }
 
 type ManagementSignalsData = {
@@ -247,7 +279,7 @@ export function MailboxContextMetrics(props: {
         title: 'Indexed senders',
         value: props.totalSenderCount.toLocaleString(),
         subtitle: 'Total sender universe in scope for cleanup decisions.',
-        accentClass: 'border-gray-800 bg-gray-950/45',
+        accentClass: 'border-[var(--app-border-muted)] bg-[var(--app-surface-nested)]',
         titleClass: 'text-slate-500',
         valueClass: 'text-white',
       })}
@@ -291,7 +323,7 @@ function ManagementSignalsSection(props: {
       props.managementSignals.approvalsWaiting > 0
         ? 'Approvals are the only thing stopping visible inbox reduction right now.'
         : 'No approvals are currently blocking visible inbox reduction.',
-    actionLabel: props.approvalHref ? 'Open Confirmation' : null,
+    actionLabel: props.approvalHref ? 'Open Management' : null,
     href: props.approvalHref,
   }
   const secondaryManagementSignalRows = [
@@ -371,14 +403,14 @@ function ManagementSignalsSection(props: {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
           Management signals
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-slate-300">
           Execution friction and downstream state that materially affects inbox health
         </p>
       </div>
-      <div className="overflow-hidden rounded-3xl border border-gray-800/80 bg-gray-950/45 xl:flex xl:items-stretch">
+      <div className="app-surface-card overflow-hidden rounded-3xl xl:flex xl:items-stretch">
         <div className="flex flex-col border-b border-white/8 bg-amber-950/35 p-5 xl:min-h-[19rem] xl:flex-[1.05] xl:border-b-0 xl:border-r xl:border-r-white/8 xl:p-6">
           <p className="text-[10px] uppercase tracking-[0.24em] text-white/82">
             {primaryManagementSignal.label}
@@ -400,7 +432,7 @@ function ManagementSignalsSection(props: {
             </div>
           ) : null}
         </div>
-        <div className="min-h-0 bg-white/[0.025] xl:flex-[0.95] xl:self-stretch">
+        <div className="min-h-0 bg-[linear-gradient(180deg,rgba(22,30,43,0.72),rgba(13,19,29,0.72))] xl:flex-[0.95] xl:self-stretch">
           <div className="grid h-full min-h-0 xl:grid-rows-4">
             {secondaryManagementSignalRows.map((signal, index) => (
               <div
@@ -451,7 +483,7 @@ function healthSeverityMeta(score: number, state: string): {
   if (state === 'Unavailable' || state === 'Not indexed yet') {
     return {
       label: state,
-      badgeClass: 'border-gray-700 bg-gray-950/30 text-gray-200',
+      badgeClass: 'border-[var(--app-border-muted)] bg-[var(--app-surface-3)] text-gray-200',
       scoreClass: 'text-gray-200',
     }
   }
@@ -495,121 +527,350 @@ function maxChartValue(values: number[]): number {
   return max > 0 ? max : 1
 }
 
-function HorizontalBarChart(props: {
+export function HorizontalBarChart(props: {
   title: string
-  items: Array<{ label: string; value: number; detail?: string }>
+  items: Array<{ id?: string; label: string; value: number; detail?: string }>
   accentClass: string
+  activeId?: string | null
   activeLabel?: string | null
-  onItemClick?: (item: { label: string; value: number; detail?: string }) => void
+  onItemClick?: (item: { id?: string; label: string; value: number; detail?: string }) => void
+  description?: string
+  emptyStateTitle?: string
+  emptyStateDetail?: string
+  scaleMode?: 'relative_visible_max' | 'absolute_total'
+  scaleTotal?: number | null
+  scaleNote?: string | null
+  detailFormatter?: (
+    item: { id?: string; label: string; value: number; detail?: string },
+    meta: {
+      rank: number
+      total: number
+      max: number
+      scaleMode: 'relative_visible_max' | 'absolute_total'
+      scaleTotal: number | null
+    }
+  ) => {
+    label: string
+    value: string
+    detail: string
+    footer?: string | null
+  }
 }) {
   const max = maxChartValue(props.items.map((item) => item.value))
+  const scaleMode = props.scaleMode === 'absolute_total' ? 'absolute_total' : 'relative_visible_max'
+  const scaleTotal =
+    scaleMode === 'absolute_total' &&
+    typeof props.scaleTotal === 'number' &&
+    Number.isFinite(props.scaleTotal) &&
+    props.scaleTotal > 0
+      ? props.scaleTotal
+      : null
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null)
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(() => props.items[0]?.label ?? null)
+  const hasControlledActive = props.activeId !== undefined || props.activeLabel !== undefined
+
+  const resolvedHoveredLabel =
+    hoveredLabel && props.items.some((item) => item.label === hoveredLabel) ? hoveredLabel : null
+  const resolvedSelectedLabel =
+    selectedLabel && props.items.some((item) => item.label === selectedLabel)
+      ? selectedLabel
+      : props.items[0]?.label ?? null
+
+  const hoveredItem = resolvedHoveredLabel
+    ? props.items.find((item) => item.label === resolvedHoveredLabel) || null
+    : null
+  const externalActiveItem =
+    props.activeId != null
+      ? props.items.find((item) => item.id === props.activeId) || null
+      : props.activeLabel != null
+        ? props.items.find((item) => item.label === props.activeLabel) || null
+        : null
+  const selectedItem = resolvedSelectedLabel
+    ? props.items.find((item) => item.label === resolvedSelectedLabel) || null
+    : null
+  const activeItem =
+    hoveredItem ||
+    externalActiveItem ||
+    (hasControlledActive ? props.items[0] || null : selectedItem || props.items[0] || null)
+  const activeIndex = activeItem
+    ? props.items.findIndex(
+        (item) => (item.id || item.label) === (activeItem.id || activeItem.label)
+      )
+    : -1
+  const detail =
+    activeItem && props.detailFormatter
+      ? props.detailFormatter(activeItem, {
+          rank: Math.max(activeIndex, 0),
+          total: props.items.length,
+          max,
+          scaleMode,
+          scaleTotal,
+        })
+      : activeItem
+        ? {
+            label: activeItem.label,
+            value: activeItem.value.toLocaleString(),
+            detail:
+              activeItem.detail ||
+              'Hover to inspect this segment or click to keep it selected while you read.',
+            footer:
+              activeIndex >= 0
+                ? `Rank ${activeIndex + 1} of ${props.items.length} visible segments.`
+                : null,
+          }
+        : null
 
   return sectionCard(
     props.title,
-    'Live cached intelligence rendered as fast visual context instead of long text-only lists.',
+    props.description || 'Live cached intelligence rendered as fast visual context instead of long text-only lists.',
     <div className="space-y-3">
-      {props.items.map((item) => {
-        const active = props.activeLabel === item.label
-        const row = (
-          <div
-            className={`space-y-1.5 rounded-xl px-2 py-1 ${
-              active ? 'bg-cyan-950/20 ring-1 ring-cyan-700/40' : ''
-            }`}
-          >
-          <div className="flex items-center justify-between gap-3 text-xs text-gray-300">
-            <span>{item.label}</span>
-            <span>
-              {item.value.toLocaleString()}
-              {item.detail ? ` · ${item.detail}` : ''}
-            </span>
+      {props.scaleNote ? <p className="text-[11px] leading-5 text-slate-300">{props.scaleNote}</p> : null}
+      {!activeItem || !detail ? (
+        <div className={`${neutralInsetSurfaceClass} rounded-2xl border-dashed p-4`}>
+          <p className="text-sm font-semibold text-white">
+            {props.emptyStateTitle || 'No visible chart data yet'}
+          </p>
+          <p className="mt-2 text-sm text-slate-200">
+            {props.emptyStateDetail || 'This chart will appear as soon as scoped sender intelligence is available.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Selected segment</p>
+            <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">{detail.label}</p>
+                <p className="mt-1 text-2xl font-semibold text-white">{detail.value}</p>
+              </div>
+              <span className={`${neutralPillSurfaceClass} rounded-full px-2.5 py-1 text-[11px] text-slate-100`}>
+                {activeIndex >= 0
+                  ? `Rank ${activeIndex + 1} of ${props.items.length} visible`
+                  : 'Inspecting'}
+              </span>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-200">{detail.detail}</p>
+            {detail.footer ? <p className="mt-2 text-[11px] text-slate-300">{detail.footer}</p> : null}
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-gray-900">
-            <div
-              className={`h-full rounded-full ${props.accentClass}`}
-              style={{ width: `${Math.max(8, Math.round((item.value / max) * 100))}%` }}
-            />
+          <div className="space-y-2">
+            {props.items.map((item) => {
+              const active = activeItem.label === item.label
+              const rawWidthPct =
+                scaleMode === 'absolute_total' && scaleTotal
+                  ? Math.max(0, Math.min((item.value / scaleTotal) * 100, 100))
+                  : Math.max(0, Math.min((item.value / max) * 100, 100))
+              const minWidthPx = item.value > 0 ? '2px' : '0px'
+              return (
+                <button
+                  key={item.id || item.label}
+                  type="button"
+                  onMouseEnter={() => setHoveredLabel(item.label)}
+                  onMouseLeave={() => setHoveredLabel(null)}
+                  onFocus={() => setHoveredLabel(item.label)}
+                  onBlur={() => setHoveredLabel(null)}
+                  onClick={() => {
+                    setSelectedLabel(item.label)
+                    props.onItemClick?.(item)
+                  }}
+                  className={`block w-full rounded-xl border text-left transition ${
+                    active
+                      ? 'border-cyan-700/45 bg-cyan-950/18 ring-1 ring-cyan-700/35 shadow-[0_10px_24px_rgba(2,6,23,0.14)]'
+                      : 'border-slate-500/25 bg-[rgba(12,17,25,0.74)] hover:border-slate-400/45 hover:bg-[rgba(18,25,37,0.92)]'
+                  }`}
+                >
+                  <div className="space-y-1.5 rounded-xl px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 text-xs text-slate-200">
+                      <span>{item.label}</span>
+                      <span>
+                        {item.value.toLocaleString()}
+                        {item.detail ? ` · ${item.detail}` : ''}
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[rgba(7,12,20,0.94)]">
+                      <div
+                        className={`h-full rounded-full ${props.accentClass}`}
+                        style={{
+                          width: `${rawWidthPct}%`,
+                          minWidth: rawWidthPct > 0 ? minWidthPx : undefined,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
-          </div>
-        )
-
-        if (!props.onItemClick) {
-          return <div key={item.label}>{row}</div>
-        }
-
-        return (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => props.onItemClick?.(item)}
-            className="block w-full rounded-xl text-left hover:bg-gray-950/40"
-          >
-            {row}
-          </button>
-        )
-      })}
+        </>
+      )}
     </div>
   )
 }
 
-function TimelineChart(props: {
+export function TimelineChart(props: {
   title: string
   items: Array<{ label: string; count: number }>
   accentClass: string
   onItemClick?: (item: { label: string; count: number }) => void
+  readOnly?: boolean
+  description?: string
+  emptyStateTitle?: string
+  emptyStateDetail?: string
+  detailFormatter?: (
+    item: { label: string; count: number },
+    meta: {
+      rank: number
+      total: number
+      max: number
+      peak: { label: string; count: number } | null
+      latest: { label: string; count: number } | null
+    }
+  ) => {
+    label: string
+    value: string
+    detail: string
+    footer?: string | null
+  }
 }) {
   const max = maxChartValue(props.items.map((item) => item.count))
   const peak = props.items
     .slice()
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))[0]
   const latest = props.items[props.items.length - 1]
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null)
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(() => latest?.label || props.items[0]?.label || null)
+
+  const resolvedHoveredLabel =
+    hoveredLabel && props.items.some((item) => item.label === hoveredLabel) ? hoveredLabel : null
+  const resolvedSelectedLabel =
+    selectedLabel && props.items.some((item) => item.label === selectedLabel)
+      ? selectedLabel
+      : latest?.label || props.items[0]?.label || null
+
+  const hoveredItem = resolvedHoveredLabel
+    ? props.items.find((item) => item.label === resolvedHoveredLabel) || null
+    : null
+  const selectedItem = resolvedSelectedLabel
+    ? props.items.find((item) => item.label === resolvedSelectedLabel) || null
+    : null
+  const activeItem =
+    hoveredItem || (props.readOnly ? latest || props.items[0] || null : selectedItem || latest || props.items[0] || null)
+  const activeIndex = activeItem ? props.items.findIndex((item) => item.label === activeItem.label) : -1
+  const detail =
+    activeItem && props.detailFormatter
+      ? props.detailFormatter(activeItem, {
+          rank: Math.max(activeIndex, 0),
+          total: props.items.length,
+          max,
+          peak: peak || null,
+          latest: latest || null,
+        })
+      : activeItem
+        ? {
+            label: activeItem.label,
+            value: `${activeItem.count.toLocaleString()} senders`,
+            detail:
+              props.readOnly
+                ? 'Hover this timeline to compare sender activity periods inside the selected cleanup group.'
+                : 'This period shows sender activity inside the selected cleanup group, not mailbox-wide message traffic.',
+            footer:
+              peak && latest
+                ? `Peak period: ${peak.label}. Latest visible period: ${latest.label}.`
+                : null,
+          }
+        : null
 
   return sectionCard(
     props.title,
-    'Activity stays sender-first, but the timeline shows how much of the cleanup universe is recent versus historical.',
-    <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {insightCard(
-          'Peak period',
-          peak ? `${peak.label} · ${peak.count.toLocaleString()}` : '—',
-          'This is the heaviest recent activity window in the cached cleanup sender universe.'
-        )}
-        {insightCard(
-          'Latest period',
-          latest ? `${latest.label} · ${latest.count.toLocaleString()}` : '—',
-          'Click any period below to sort the sender table toward recent activity.'
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        {props.items.map((item) => {
-          const chartCard = (
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/60 p-3">
-              <div className="flex h-24 items-end">
-                <div
-                  className={`w-full rounded-t-xl ${props.accentClass}`}
-                  style={{ height: `${Math.max(12, Math.round((item.count / max) * 100))}%` }}
-                />
-              </div>
-              <p className="mt-3 text-xs text-gray-400">{item.label}</p>
-              <p className="mt-1 text-sm font-medium text-white">{item.count.toLocaleString()}</p>
+    props.description || 'Activity stays sender-first, but the timeline shows how much of the cleanup universe is recent versus historical.',
+    <div className="space-y-4">
+      {!activeItem || !detail ? (
+        <div className={`${neutralInsetSurfaceClass} rounded-2xl border-dashed p-4`}>
+          <p className="text-sm font-semibold text-white">
+            {props.emptyStateTitle || 'No visible timeline data yet'}
+          </p>
+          <p className="mt-2 text-sm text-slate-200">
+            {props.emptyStateDetail || 'This timeline will render once scoped sender activity is available.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-3 lg:grid-cols-3">
+            {insightCard('Selected period', `${detail.label} · ${detail.value}`, detail.detail)}
+            {insightCard(
+              'Peak period',
+              peak ? `${peak.label} · ${peak.count.toLocaleString()}` : '—',
+              'The heaviest visible sender-activity window inside this cleanup group.'
+            )}
+            {insightCard(
+              'Latest period',
+              latest ? `${latest.label} · ${latest.count.toLocaleString()}` : '—',
+              props.readOnly
+                ? 'Hover the bars below to compare periods. Timeline drill-down is intentionally off in this surface.'
+                : 'Hover or click a period below to keep the detail panel focused while you read.'
+            )}
+          </div>
+          <div className={`${neutralInsetSurfaceClass} rounded-2xl p-4`}>
+            <div className="flex min-h-[14rem] items-end gap-3 overflow-x-auto pb-1">
+              {props.items.map((item) => {
+                const active = activeItem.label === item.label
+                const height = `${Math.max(18, Math.round((item.count / max) * 100))}%`
+                const content = (
+                  <>
+                    <div className="flex h-40 items-end">
+                      <div
+                        className={`w-full rounded-t-2xl ${props.accentClass}`}
+                        style={{ height }}
+                      />
+                    </div>
+                    <p className="mt-3 text-xs text-slate-300">{item.label}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{item.count.toLocaleString()}</p>
+                  </>
+                )
+
+                if (props.readOnly) {
+                  return (
+                    <div
+                      key={item.label}
+                      onMouseEnter={() => setHoveredLabel(item.label)}
+                      onMouseLeave={() => setHoveredLabel(null)}
+                      className={`flex min-w-[4.5rem] flex-1 flex-col justify-end rounded-2xl border p-3 text-left transition ${
+                        active
+                          ? 'border-cyan-700/50 bg-cyan-950/18 ring-1 ring-cyan-700/40 shadow-[0_10px_24px_rgba(2,6,23,0.16)]'
+                          : 'border-slate-500/30 bg-[linear-gradient(180deg,rgba(26,34,46,0.98),rgba(15,21,31,0.98))]'
+                      }`}
+                    >
+                      {content}
+                    </div>
+                  )
+                }
+
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onMouseEnter={() => setHoveredLabel(item.label)}
+                    onMouseLeave={() => setHoveredLabel(null)}
+                    onFocus={() => setHoveredLabel(item.label)}
+                    onBlur={() => setHoveredLabel(null)}
+                    onClick={() => {
+                      setSelectedLabel(item.label)
+                      props.onItemClick?.(item)
+                    }}
+                    className={`flex min-w-[4.5rem] flex-1 flex-col justify-end rounded-2xl border p-3 text-left transition ${
+                      active
+                        ? 'border-cyan-700/50 bg-cyan-950/18 ring-1 ring-cyan-700/40 shadow-[0_10px_24px_rgba(2,6,23,0.16)]'
+                        : 'border-slate-500/30 bg-[linear-gradient(180deg,rgba(26,34,46,0.98),rgba(15,21,31,0.98))] hover:border-slate-400/50'
+                    }`}
+                  >
+                    {content}
+                  </button>
+                )
+              })}
             </div>
-          )
-
-          if (!props.onItemClick) {
-            return <div key={item.label}>{chartCard}</div>
-          }
-
-          return (
-            <button
-              key={item.label}
-              type="button"
-              onClick={() => props.onItemClick?.(item)}
-              className="block w-full rounded-2xl text-left hover:bg-gray-950/35"
-            >
-              {chartCard}
-            </button>
-          )
-        })}
-      </div>
+          </div>
+          {detail.footer ? <p className="text-xs leading-5 text-slate-200">{detail.footer}</p> : null}
+        </>
+      )}
     </div>
   )
 }
@@ -951,7 +1212,7 @@ function CompactTrendChart(props: {
         ? 'border-emerald-700/50 bg-emerald-950/15 text-emerald-100'
         : props.direction === 'stable'
           ? 'border-sky-700/50 bg-sky-950/15 text-sky-100'
-          : 'border-gray-700 bg-gray-950/30 text-gray-300'
+          : 'border-[var(--app-border-muted)] bg-[var(--app-surface-3)] text-gray-300'
   const selectedPeriodLabel = activeItem ? activeItem.label : 'No visible period yet'
   const selectedPeriodSummary =
     !activeItem
@@ -1072,13 +1333,13 @@ function CompactTrendChart(props: {
     (props.customRangeMax != null && customRangeDraft.end > props.customRangeMax)
 
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-950/60 p-4 space-y-4">
+    <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4 space-y-4`}>
       <div className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">{props.title}</p>
-              <span className="rounded-full border border-gray-800 bg-gray-950/45 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-gray-300">
+              <span className={`${neutralPillSurfaceClass} rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-100`}>
                 {props.activeRangeLabel || 'Active chart range'}
               </span>
             </div>
@@ -1087,7 +1348,7 @@ function CompactTrendChart(props: {
                 const active = props.activeWindow === option.key
                 const className = active
                   ? 'border-cyan-700/60 bg-cyan-950/25 text-cyan-100'
-                  : 'border-gray-800 bg-gray-950/40 text-gray-300 hover:border-gray-700 hover:text-white'
+                  : 'border-slate-500/35 bg-[linear-gradient(180deg,rgba(22,30,42,0.96),rgba(13,19,29,0.96))] text-slate-200 hover:border-slate-400/55 hover:text-white'
                 if (option.key === 'custom') {
                   return (
                     <button
@@ -1124,7 +1385,7 @@ function CompactTrendChart(props: {
           </p>
         </div>
         {customEditorOpen ? (
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-3">
+          <div className={`${neutralInsetSurfaceClass} rounded-2xl p-3`}>
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
               <label className="space-y-2 text-xs text-gray-300">
                 <span className="uppercase tracking-[0.18em] text-gray-500">Start date</span>
@@ -1136,7 +1397,7 @@ function CompactTrendChart(props: {
                   onChange={(event) =>
                     setCustomRangeDraft((current) => ({ ...current, start: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
+                  className={`${neutralInsetSurfaceClass} w-full rounded-xl px-3 py-2 text-sm text-gray-100`}
                 />
               </label>
               <label className="space-y-2 text-xs text-gray-300">
@@ -1149,7 +1410,7 @@ function CompactTrendChart(props: {
                   onChange={(event) =>
                     setCustomRangeDraft((current) => ({ ...current, end: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
+                  className={`${neutralInsetSurfaceClass} w-full rounded-xl px-3 py-2 text-sm text-gray-100`}
                 />
               </label>
               <div className="flex flex-wrap items-end gap-2">
@@ -1171,7 +1432,7 @@ function CompactTrendChart(props: {
                     setCustomRangeDraft(buildDefaultCustomRangeDraft())
                     setCustomEditorOpen(false)
                   }}
-                  className="rounded-xl border border-gray-700 bg-gray-950/40 px-4 py-2 text-sm text-gray-300 hover:border-gray-600 hover:text-white"
+                  className={`${quietControlSurfaceClass} rounded-xl px-4 py-2 text-sm`}
                 >
                   Cancel
                 </button>
@@ -1191,9 +1452,9 @@ function CompactTrendChart(props: {
           </p>
         </div>
       </div>
-      <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-3">
+      <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
         {props.loading ? (
-          <div className="flex h-72 items-center justify-center rounded-2xl border border-dashed border-gray-800 bg-gray-950/45 px-6 text-center">
+          <div className={`${neutralInsetSurfaceClass} flex h-72 items-center justify-center rounded-2xl border-dashed px-6 text-center`}>
             <div className="max-w-xl space-y-2">
               <p className="text-sm font-semibold text-white">Loading active Pressure Trend range…</p>
               <p className="text-sm leading-6 text-gray-400">
@@ -1209,7 +1470,7 @@ function CompactTrendChart(props: {
             </div>
           </div>
         ) : !hasVisiblePeriods || !hasAnyPressure ? (
-          <div className="flex h-72 items-center justify-center rounded-2xl border border-dashed border-gray-800 bg-gray-950/45 px-6 text-center">
+          <div className={`${neutralInsetSurfaceClass} flex h-72 items-center justify-center rounded-2xl border-dashed px-6 text-center`}>
             <div className="max-w-xl space-y-2">
               <p className="text-sm font-semibold text-white">
                 {!hasVisiblePeriods
@@ -1473,6 +1734,1648 @@ function CompactTrendChart(props: {
   )
 }
 
+type SenderTimeContextRailMetric = {
+  value: string
+  detail: string
+}
+
+function formatSignedCount(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return 'Not measurable yet'
+  if (value === 0) return '0'
+  return `${value > 0 ? '+' : ''}${value.toLocaleString()}`
+}
+
+function hasMeaningfullyDistinctActivityPeak(
+  peak: { label: string; count: number } | null,
+  latest: { label: string; count: number } | null
+): boolean {
+  if (!peak || !latest) return false
+  if (peak.label === latest.label || peak.count <= latest.count) return false
+  const difference = peak.count - latest.count
+  return difference >= Math.max(3, Math.round(Math.max(peak.count, latest.count) * 0.15))
+}
+
+function senderTimeContextInterpretation(params: {
+  item: { label: string; count: number }
+  previous: { label: string; count: number } | null
+  peak: { label: string; count: number } | null
+  latest: { label: string; count: number } | null
+}): string {
+  const { item, previous, peak, latest } = params
+  if (item.count === 0) {
+    return 'No active senders were visible here.'
+  }
+  if (peak && latest && item.label === peak.label && item.label === latest.label) {
+    return 'This group is still sitting at its visible high point.'
+  }
+  if (peak && item.label === peak.label) {
+    return 'This is the strongest visible activity window in the group.'
+  }
+  if (latest && item.label === latest.label) {
+    if (peak && peak.count > item.count) {
+      return 'Recent activity is below the visible peak.'
+    }
+    return 'Recent activity is still carrying the main workload.'
+  }
+  if (!previous) {
+    return 'This period sets the starting point for the visible timeline.'
+  }
+  const delta = item.count - previous.count
+  if (delta > 0) {
+    return 'Activity climbed from the previous visible period.'
+  }
+  if (delta < 0) {
+    return 'Activity eased from the previous visible period.'
+  }
+  return 'Activity held steady against the previous visible period.'
+}
+
+function senderTimeContextWhatHappened(params: {
+  item: { label: string; count: number }
+  previous: { label: string; count: number } | null
+  peak: { label: string; count: number } | null
+  latest: { label: string; count: number } | null
+}): string {
+  const { item, previous, peak, latest } = params
+  if (item.count === 0) {
+    return `No active senders landed in ${item.label}, so this part of the timeline does not add fresh workload.`
+  }
+  if (!previous) {
+    return `${item.label} is the first visible checkpoint in this timeline, with ${item.count.toLocaleString()} active senders.`
+  }
+  const delta = item.count - previous.count
+  if (peak && latest && item.label === peak.label && item.label === latest.label) {
+    return `${item.label} is both the latest and strongest visible window, with ${item.count.toLocaleString()} active senders still driving this group.`
+  }
+  if (peak && item.label === peak.label) {
+    return `${item.label} is the visible peak at ${item.count.toLocaleString()} active senders, up ${Math.max(delta, 0).toLocaleString()} from the prior period.`
+  }
+  if (latest && item.label === latest.label) {
+    if (delta > 0) {
+      return `${item.label} is the latest visible period and activity is climbing again, up ${delta.toLocaleString()} senders from ${previous.label}.`
+    }
+    if (delta < 0) {
+      return `${item.label} is the latest visible period and activity has eased by ${Math.abs(delta).toLocaleString()} senders since ${previous.label}.`
+    }
+    return `${item.label} matches ${previous.label}, so the recent pace is holding steady.`
+  }
+  if (delta > 0) {
+    return `${item.label} sits above ${previous.label} by ${delta.toLocaleString()} active senders, showing a stronger burst of activity in that window.`
+  }
+  if (delta < 0) {
+    return `${item.label} sits below ${previous.label} by ${Math.abs(delta).toLocaleString()} active senders, showing a lighter window than the period before it.`
+  }
+  return `${item.label} matches ${previous.label}, so activity stayed even across both visible periods.`
+}
+
+function senderTimeContextWhyItMatters(params: {
+  item: { label: string; count: number }
+  peak: { label: string; count: number } | null
+  latest: { label: string; count: number } | null
+}): string {
+  const { item, peak, latest } = params
+  if (item.count === 0) {
+    return 'That usually means the work in this cleanup group comes from other periods, not from fresh activity here.'
+  }
+  if (peak && latest && item.label === peak.label && item.label === latest.label) {
+    return 'This means the pressure is still live right now, not just leftover buildup from an older spike.'
+  }
+  if (peak && latest && item.label === peak.label) {
+    const difference = Math.max(peak.count - latest.count, 0)
+    return difference > 0
+      ? `This is where the heaviest buildup happened. The latest visible period is ${difference.toLocaleString()} senders lower, so the group now mixes live work with residue from that spike.`
+      : 'This peak is still representative of the current workload.'
+  }
+  if (latest && item.label === latest.label) {
+    if (peak && peak.count > item.count) {
+      return `Current activity is ${Math.abs(peak.count - item.count).toLocaleString()} senders below the visible peak, so part of today’s review load comes from earlier accumulation.`
+    }
+    return 'Current activity is still close to the top of the visible range, so the workload remains active.'
+  }
+  if (latest && item.count > latest.count) {
+    return `This period was heavier than the current one by ${Math.abs(item.count - latest.count).toLocaleString()} senders, which points to stronger historical buildup than the group is carrying right now.`
+  }
+  if (latest && item.count < latest.count) {
+    return `The current period now runs ${Math.abs(latest.count - item.count).toLocaleString()} senders above this one, so pressure is still active rather than purely historical.`
+  }
+  return 'This period helps separate a stable stretch of activity from the stronger spikes nearby.'
+}
+
+function senderTimeContextWhatToDo(params: {
+  item: { label: string; count: number }
+  latest: { label: string; count: number } | null
+  nextActionDetail: string
+}): string {
+  const { item, latest, nextActionDetail } = params
+  if (latest && item.label !== latest.label && item.count > latest.count) {
+    return `Use ${item.label} to understand where the backlog built up, then move back into sender review with that pattern in mind. ${nextActionDetail}`
+  }
+  if (latest && item.label === latest.label) {
+    return `Use the current period as the live read on this cleanup group, then keep the next sender decisions moving. ${nextActionDetail}`
+  }
+  return nextActionDetail
+}
+
+function SenderOverviewAnalysisRailShell(props: {
+  modeLabel: string
+  description: string
+  tabStrip?: ReactNode
+  scopeStatus?: {
+    label: string
+    detail: string
+    tone: 'aligned' | 'comparing' | 'outside' | 'not_loaded'
+  }
+  controlStrip?: ReactNode
+  children: ReactNode
+}) {
+  const scopeStatusClassName = props.scopeStatus
+    ? props.scopeStatus.tone === 'aligned'
+      ? 'border-emerald-700/45 bg-emerald-950/20 text-emerald-100'
+      : props.scopeStatus.tone === 'comparing'
+        ? 'border-cyan-700/55 bg-cyan-950/20 text-cyan-100'
+        : props.scopeStatus.tone === 'outside'
+          ? 'border-amber-700/45 bg-amber-950/20 text-amber-100'
+          : 'border-slate-600/55 bg-slate-950/45 text-slate-100'
+    : ''
+
+  return (
+    <section className="app-surface-card rounded-[28px] p-5 space-y-4">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Analysis rail</p>
+          <span className="rounded-full border border-cyan-700/55 bg-cyan-950/20 px-3 py-1 text-xs text-cyan-100">
+            {props.modeLabel}
+          </span>
+          {props.scopeStatus ? (
+            <span className={`rounded-full border px-3 py-1 text-xs ${scopeStatusClassName}`}>
+              {props.scopeStatus.label}
+            </span>
+          ) : null}
+        </div>
+        <p className="max-w-4xl text-sm leading-6 text-slate-300">{props.description}</p>
+        {props.scopeStatus ? (
+          <p className="max-w-4xl text-xs leading-5 text-slate-400">{props.scopeStatus.detail}</p>
+        ) : null}
+        {props.tabStrip ? props.tabStrip : null}
+        {props.controlStrip ? props.controlStrip : null}
+      </div>
+      {props.children}
+    </section>
+  )
+}
+
+type SharedAnalysisRailTab = 'time_context' | 'sender_distribution'
+
+type SenderDistributionRailItem = {
+  senderKey: string
+  label: string
+  rank: number
+  sharePct: number
+  messageCount: number
+  messageCountLabel: string
+  shareLabel: string
+  rankLabel: string
+  supportLabel: string
+  active: boolean
+}
+
+function senderDistributionInterpretation(params: {
+  item: SenderDistributionRailItem
+  topItem: SenderDistributionRailItem | null
+  visibleTopThreeShare: number
+}): string {
+  const { item, topItem, visibleTopThreeShare } = params
+  if (item.rank === 1) {
+    return visibleTopThreeShare >= 60
+      ? 'This sender is leading a top-heavy current scope.'
+      : 'This sender leads the current scope, but workload is still shared across several senders.'
+  }
+  if (topItem && item.sharePct >= topItem.sharePct * 0.8) {
+    return 'This sender is close to the leading contributor and still materially shapes the group.'
+  }
+  if (item.sharePct >= 12) {
+    return 'This sender carries a meaningful share of the current cleanup group.'
+  }
+  return 'This sender sits in the long tail relative to the higher-ranked bars to the left.'
+}
+
+function senderDistributionWhatHappened(item: SenderDistributionRailItem): string {
+  if (item.rank === 1) {
+    return `${item.label} is the largest contributor in the current scope.`
+  }
+  return `${item.label} is ${item.rankLabel.toLowerCase()} in the current scope.`
+}
+
+function senderDistributionWhyItMatters(params: {
+  item: SenderDistributionRailItem
+  topItem: SenderDistributionRailItem | null
+  visibleTopThreeShare: number
+}): string {
+  const { item, topItem, visibleTopThreeShare } = params
+  if (item.rank === 1) {
+    return visibleTopThreeShare >= 60
+      ? 'A large share of this group is concentrated near the top, so starting here should cut into the workload quickly.'
+      : 'This sender leads the group, but the workload is still spread enough that the next few bars matter too.'
+  }
+  if (item.rank <= 3) {
+    return 'This sender still sits near the top of the current scope and is representative of the pressure in this group.'
+  }
+  if (topItem && item.sharePct >= topItem.sharePct * 0.5) {
+    return 'This sender is below the leader but still strong enough to change the shape of the current scope.'
+  }
+  return 'This sender helps explain the tail of the group rather than the dominant pressure at the top.'
+}
+
+function senderDistributionWhatToDo(item: SenderDistributionRailItem, locked: boolean): string {
+  if (locked) {
+    return 'Stay with this sender in the workflow below, or clear the selection to return to the broader full-scope distribution.'
+  }
+  if (item.rank === 1) {
+    return 'Start with this sender first, then compare the next few bars to see whether the group is top-heavy.'
+  }
+  if (item.rank <= 3) {
+    return 'Compare this sender against the bars immediately to the left, then lock it when you want to narrow the workflow.'
+  }
+  return 'Use this sender as a tail comparison, then return to the higher-ranked bars when you want the fastest reduction.'
+}
+
+export function SharedAnalysisRailTabStrip(props: {
+  activeTab: SharedAnalysisRailTab
+  onSelectTab?: (tab: SharedAnalysisRailTab) => void
+}) {
+  const tabs: Array<{ id: SharedAnalysisRailTab; label: string }> = [
+    { id: 'sender_distribution', label: 'Sender Distribution' },
+    { id: 'time_context', label: 'Time Context' },
+  ]
+
+  return (
+    <div role="tablist" aria-label="Shared Analysis Rail tabs" className="flex flex-wrap gap-2">
+      {tabs.map((tab) => {
+        const active = props.activeTab === tab.id
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => props.onSelectTab?.(tab.id)}
+            className={
+              active
+                ? 'rounded-full border border-cyan-500/75 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-50'
+                : 'rounded-full border border-slate-600/55 bg-slate-950/40 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-cyan-700/55 hover:text-cyan-100'
+            }
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export function SenderDistributionPlaceholderRail(props: {
+  cleanupGroupLabel: string
+  authoritativeScopeLabel: string
+  kindLabel: string
+  populationModeLabel: string
+  tabStrip?: ReactNode
+}) {
+  return (
+    <SenderOverviewAnalysisRailShell
+      modeLabel="Sender Distribution"
+      description="Sender Distribution is reserved for the Phase 2 ranked sender view. Phase 1 keeps this tab as a strict placeholder so the shared rail foundation lands without changing workflow behavior."
+      tabStrip={props.tabStrip}
+    >
+      <div className={`${neutralInsetSurfaceClass} rounded-[24px] p-5 space-y-4`}>
+        <div className="rounded-2xl border border-slate-700/45 bg-[rgba(9,21,33,0.76)] p-5">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Phase 1 placeholder</p>
+          <p className="mt-2 text-lg font-semibold text-white">Foundation only</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
+            This tab does not rank senders, render a chart, or change the workflow below yet. It
+            only confirms that the shared rail container and shared workflow contract are in place
+            for later phases.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Cleanup group</p>
+            <p className="mt-2 text-sm font-semibold text-white">{props.cleanupGroupLabel}</p>
+          </div>
+          <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+              Authoritative scope
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">{props.authoritativeScopeLabel}</p>
+          </div>
+          <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Contract kind</p>
+            <p className="mt-2 text-sm font-semibold text-white">{props.kindLabel}</p>
+          </div>
+          <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+              Population mode
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">{props.populationModeLabel}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-700/45 bg-[rgba(9,21,33,0.76)] p-5">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">What stays true now</p>
+          <p className="mt-2 text-sm leading-6 text-slate-200">
+            The workflow list and guided Decision Mode still follow the current page-session truth.
+            This placeholder only surfaces that normalized contract without introducing Phase 2
+            ranking behavior or Phase 3 timeframe-driven workflow changes.
+          </p>
+        </div>
+      </div>
+    </SenderOverviewAnalysisRailShell>
+  )
+}
+
+export function SenderDistributionAnalysisRail(props: {
+  items: SenderDistributionRailItem[]
+  totalRankedSenders: number
+  focusedSenderKey: string | null
+  onSelectSender?: (senderKey: string) => void
+  onClearSelection?: () => void
+  scopeControls?: {
+    activeScope: OperationsAnalysisScope
+    pendingScope: OperationsAnalysisScope | null
+    onSelectScope?: (scope: OperationsAnalysisScope) => void
+  }
+  scopeStatus?: {
+    label: string
+    detail: string
+    tone: 'aligned' | 'comparing' | 'outside' | 'not_loaded'
+  }
+  tabStrip?: ReactNode
+  isUpdating?: boolean
+  isLoading?: boolean
+  errorMessage?: string | null
+}) {
+  const [hoveredSenderKey, setHoveredSenderKey] = useState<string | null>(null)
+  const chartViewportRef = useRef<HTMLDivElement | null>(null)
+  const [chartViewportWidth, setChartViewportWidth] = useState(0)
+  const max = maxChartValue(props.items.map((item) => item.messageCount))
+  const chartHeight = 272
+  const paddingLeft = 56
+  const paddingRight = 20
+  const paddingTop = 24
+  const paddingBottom = 44
+  const activeScope = props.scopeControls?.activeScope || null
+
+  useEffect(() => {
+    const node = chartViewportRef.current
+    if (!node) return
+
+    const syncWidth = (nextWidth?: number) => {
+      const measuredWidth = Math.floor(nextWidth || node.getBoundingClientRect().width)
+      if (measuredWidth > 0) {
+        setChartViewportWidth((current) => (current === measuredWidth ? current : measuredWidth))
+      }
+    }
+
+    syncWidth()
+
+    if (typeof ResizeObserver === 'undefined') {
+      if (typeof window === 'undefined') return
+      const handleResize = () => syncWidth()
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      syncWidth(entries[0]?.contentRect.width)
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const node = chartViewportRef.current
+    if (!node || typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      return
+    }
+
+    const syncWidth = () => {
+      const measuredWidth = Math.floor(node.getBoundingClientRect().width)
+      if (measuredWidth > 0) {
+        setChartViewportWidth((current) => (current === measuredWidth ? current : measuredWidth))
+      }
+    }
+
+    let secondFrame = 0
+    const firstFrame = window.requestAnimationFrame(() => {
+      syncWidth()
+      secondFrame = window.requestAnimationFrame(syncWidth)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [activeScope, props.items.length])
+
+  const hoveredItem = props.items.find((item) => item.senderKey === hoveredSenderKey) || null
+  const lockedItem = props.items.find((item) => item.senderKey === props.focusedSenderKey) || null
+  const focusedItem = lockedItem || props.items[0] || null
+  const metricItem = hoveredItem || focusedItem
+  const previewingDifferentSender =
+    Boolean(hoveredItem && focusedItem && hoveredItem.senderKey !== focusedItem.senderKey)
+  const anchoredStateLabel = lockedItem ? 'Locked selection' : 'Default focus'
+  const anchoredStateDetail = lockedItem
+    ? 'This sender stays anchored below until you clear it.'
+    : 'This sender anchors the read until you lock another one.'
+  const metricRowDetail =
+    previewingDifferentSender && hoveredItem && focusedItem
+      ? `Previewing ${hoveredItem.label} while ${focusedItem.label} stays anchored below.`
+      : metricItem
+        ? `Showing exact sender metrics for ${metricItem.label}.`
+        : 'No sender is available yet.'
+  const topItem = props.items[0] || null
+  const visibleTopThreeShare = props.items
+    .slice(0, 3)
+    .reduce((sum, item) => sum + item.sharePct, 0)
+  const activeInterpretation =
+    focusedItem
+      ? senderDistributionInterpretation({
+          item: focusedItem,
+          topItem,
+          visibleTopThreeShare,
+        })
+      : 'No sender is available yet.'
+  const whatHappened = focusedItem
+    ? senderDistributionWhatHappened(focusedItem)
+    : 'No sender is available yet.'
+  const whyItMatters = focusedItem
+    ? senderDistributionWhyItMatters({
+        item: focusedItem,
+        topItem,
+        visibleTopThreeShare,
+      })
+    : 'The cleanup group needs sender distribution data before this rail can explain the workload.'
+  const whatToDo = focusedItem
+    ? senderDistributionWhatToDo(focusedItem, Boolean(lockedItem))
+    : 'Wait for ranked sender data to load, then start with the highest visible bar.'
+  const chartWidth = chartViewportWidth > 0 ? chartViewportWidth : 320
+  const chartInnerWidth = Math.max(chartWidth - paddingLeft - paddingRight, 1)
+  const slotWidth = props.items.length > 0 ? chartInnerWidth / props.items.length : chartInnerWidth
+  const gap = props.items.length > 1 ? (slotWidth >= 10 ? Math.min(slotWidth * 0.18, 10) : 0) : 0
+  const barWidth = props.items.length > 0 ? Math.max(Math.min(slotWidth - gap, 24), Math.min(slotWidth, 1)) : chartInnerWidth
+  const bars = props.items.map((item, index) => {
+    const x = paddingLeft + index * slotWidth + Math.max(slotWidth - barWidth, 0) / 2
+    const height =
+      item.messageCount > 0
+        ? Math.max(18, (item.messageCount / max) * (chartHeight - paddingTop - paddingBottom))
+        : 8
+    const y = chartHeight - paddingBottom - height
+    const slotX = paddingLeft + index * slotWidth
+    return { ...item, x, y, width: barWidth, height, slotX, slotWidth }
+  })
+  const hoveredBar =
+    hoveredItem ? bars.find((bar) => bar.senderKey === hoveredItem.senderKey) || null : null
+  const hoverCardWidth = 248
+  const hoverCardLeft = hoveredBar
+    ? Math.min(
+        Math.max(12, hoveredBar.x + hoveredBar.width / 2 - hoverCardWidth / 2),
+        Math.max(12, chartWidth - hoverCardWidth - 12)
+      )
+    : 12
+  const axisLabelValues = [max, Math.round(max / 2), 0]
+  const slotMarkerIndexes = useMemo(() => {
+    if (props.items.length === 0) return []
+    if (props.items.length <= 12) {
+      return props.items.map((_, index) => index)
+    }
+    return Array.from(
+      new Set([
+        0,
+        Math.floor((props.items.length - 1) * 0.25),
+        Math.floor((props.items.length - 1) * 0.5),
+        Math.floor((props.items.length - 1) * 0.75),
+        props.items.length - 1,
+      ])
+    )
+  }, [props.items])
+
+  return (
+    <SenderOverviewAnalysisRailShell
+      modeLabel="Sender Distribution"
+      description="Rank senders by artifact-backed contribution and narrow the workflow to the exact sender you want to review next."
+      tabStrip={props.tabStrip}
+      scopeStatus={props.scopeStatus}
+      controlStrip={
+        props.scopeControls ? (
+          <SenderOverviewAnalysisScopeStrip
+            activeScope={props.scopeControls.activeScope}
+            pendingScope={props.scopeControls.pendingScope}
+            onSelectScope={props.scopeControls.onSelectScope}
+          />
+        ) : null
+      }
+    >
+      <div className={`${neutralInsetSurfaceClass} relative rounded-[24px] p-4`}>
+        {props.isUpdating ? (
+          <div className="mb-3 flex justify-end">
+            <div className="rounded-full border border-cyan-700/45 bg-slate-950/85 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
+              Updating sender ranking…
+            </div>
+          </div>
+        ) : null}
+
+        {props.items.length === 0 ? (
+          <div className="flex min-h-[22rem] items-center justify-center rounded-2xl border border-dashed border-slate-500/25 px-6 text-center">
+            <div className="max-w-xl space-y-2">
+              <p className="text-sm font-semibold text-white">
+                {props.isLoading
+                  ? 'Loading full sender distribution'
+                  : props.errorMessage
+                    ? 'Could not load sender distribution'
+                    : 'No sender distribution is visible yet'}
+              </p>
+              <p className="text-sm leading-6 text-slate-300">
+                {props.isLoading
+                  ? 'This rail is loading the current authoritative sender distribution without changing the workflow below.'
+                  : props.errorMessage ||
+                    'Sender bars will appear here once the artifact-backed distribution payload is ready.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-2xl border border-slate-700/45 bg-[rgba(9,21,33,0.76)] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="max-w-2xl">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                    Authoritative sender distribution
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-100">
+                    This chart shows the full current-scope sender population. Workflow
+                    pagination below does not change the rail shape.
+                  </p>
+                </div>
+                <span className="rounded-full border border-cyan-700/45 bg-cyan-950/20 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
+                  {`${props.totalRankedSenders.toLocaleString()} ranked sender${
+                    props.totalRankedSenders === 1 ? '' : 's'
+                  }`}
+                </span>
+              </div>
+
+              <div ref={chartViewportRef} className="relative mt-4 w-full">
+                {hoveredItem && hoveredBar ? (
+                  <div
+                    className="pointer-events-none absolute top-3 z-10 rounded-2xl border border-cyan-900/60 bg-gray-950/95 px-3 py-2 shadow-[0_18px_40px_rgba(2,12,27,0.55)]"
+                    style={{ left: hoverCardLeft, width: hoverCardWidth }}
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-200/80">
+                      Quick read
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-white">{hoveredItem.label}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-cyan-100/75">
+                      {hoveredItem.supportLabel}
+                    </p>
+                    <div className="mt-2 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-500">Rank slot</span>
+                        <span className="font-medium text-white">{hoveredItem.rankLabel}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-500">Group share</span>
+                        <span className="font-medium text-white">{hoveredItem.shareLabel}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-500">Supporting volume</span>
+                        <span className="font-medium text-white">
+                          {hoveredItem.messageCountLabel}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-3 border-t border-cyan-950/50 pt-2 text-[11px] leading-5 text-gray-100">
+                      {senderDistributionInterpretation({
+                        item: hoveredItem,
+                        topItem,
+                        visibleTopThreeShare,
+                      })}
+                    </p>
+                  </div>
+                ) : null}
+                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-72 w-full">
+                  {axisLabelValues.map((value, index) => {
+                    const ratio = index === 0 ? 1 : index === 1 ? 0.5 : 0
+                    const y =
+                      chartHeight -
+                      paddingBottom -
+                      ratio * (chartHeight - paddingTop - paddingBottom)
+                    return (
+                      <g key={`tick-${value}-${index}`}>
+                        <text
+                          x={10}
+                          y={y + (ratio === 0 ? 0 : 4)}
+                          fill="rgba(148,163,184,0.7)"
+                          fontSize="11"
+                        >
+                          {value.toLocaleString()}
+                        </text>
+                        {ratio > 0 ? (
+                          <line
+                            x1={paddingLeft}
+                            y1={y}
+                            x2={chartWidth - paddingRight}
+                            y2={y}
+                            stroke="rgba(148,163,184,0.14)"
+                            strokeWidth="1"
+                          />
+                        ) : null}
+                      </g>
+                    )
+                  })}
+                  <line
+                    x1={paddingLeft}
+                    y1={chartHeight - paddingBottom}
+                    x2={chartWidth - paddingRight}
+                    y2={chartHeight - paddingBottom}
+                    stroke="rgba(148,163,184,0.18)"
+                    strokeWidth="1"
+                  />
+                  {bars.map((bar) => {
+                    const isHovered = hoveredItem?.senderKey === bar.senderKey
+                    const isLocked = lockedItem?.senderKey === bar.senderKey
+                    const isDefaultFocused = !isLocked && focusedItem?.senderKey === bar.senderKey
+                    return (
+                      <g key={bar.senderKey}>
+                        <rect
+                          x={bar.slotX}
+                          y={paddingTop}
+                          width={Math.max(bar.slotWidth, 1)}
+                          height={chartHeight - paddingTop - paddingBottom}
+                          fill="rgba(0,0,0,0.001)"
+                          className="cursor-pointer"
+                          role="button"
+                          aria-label={`${bar.label}, ${bar.rankLabel}, ${bar.messageCountLabel}, ${bar.shareLabel}.`}
+                          aria-pressed={isLocked}
+                          tabIndex={0}
+                          onMouseEnter={() => setHoveredSenderKey(bar.senderKey)}
+                          onMouseLeave={() =>
+                            setHoveredSenderKey((current) =>
+                              current === bar.senderKey ? null : current
+                            )
+                          }
+                          onFocus={() => setHoveredSenderKey(bar.senderKey)}
+                          onBlur={() =>
+                            setHoveredSenderKey((current) =>
+                              current === bar.senderKey ? null : current
+                            )
+                          }
+                          onClick={() => props.onSelectSender?.(bar.senderKey)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return
+                            event.preventDefault()
+                            props.onSelectSender?.(bar.senderKey)
+                          }}
+                        />
+                        {(isLocked || isDefaultFocused) ? (
+                          <rect
+                            x={bar.x - 3}
+                            y={Math.max(10, bar.y - 3)}
+                            width={bar.width + 6}
+                            height={bar.height + 6}
+                            rx={Math.min(18, Math.max(8, bar.width / 2))}
+                            fill="none"
+                            stroke={
+                              isLocked
+                                ? 'rgba(255,255,255,0.92)'
+                                : 'rgba(148,163,184,0.42)'
+                            }
+                            strokeWidth={isLocked ? 2.25 : 1.5}
+                          />
+                        ) : null}
+                        <rect
+                          x={bar.x}
+                          y={bar.y}
+                          width={bar.width}
+                          height={bar.height}
+                          rx={Math.min(14, Math.max(4, bar.width / 3))}
+                          fill={
+                            isHovered
+                              ? 'rgba(125,211,252,0.92)'
+                              : isLocked
+                                ? 'rgba(103,232,249,0.8)'
+                                : isDefaultFocused
+                                  ? 'rgba(148,163,184,0.72)'
+                                  : 'rgba(100,116,139,0.82)'
+                          }
+                          stroke={
+                            isHovered
+                              ? 'rgba(186,230,253,0.95)'
+                              : isLocked
+                                ? 'rgba(255,255,255,0.24)'
+                                : isDefaultFocused
+                                  ? 'rgba(148,163,184,0.28)'
+                                  : 'rgba(255,255,255,0.1)'
+                          }
+                          strokeWidth={isHovered ? 1.5 : 1}
+                          className="transition-all duration-150"
+                        />
+                        {isHovered ? (
+                          <rect
+                            x={bar.x - 2}
+                            y={Math.max(12, bar.y - 2)}
+                            width={bar.width + 4}
+                            height={bar.height + 4}
+                            rx={Math.min(18, Math.max(8, bar.width / 2))}
+                            fill="none"
+                            stroke="rgba(186,230,253,0.9)"
+                            strokeWidth="2"
+                          />
+                        ) : null}
+                      </g>
+                    )
+                  })}
+                  {slotMarkerIndexes.map((index) => {
+                    const bar = bars[index]
+                    if (!bar) return null
+                    const markerX =
+                      index === 0
+                        ? bar.slotX
+                        : index === bars.length - 1
+                          ? bar.slotX + bar.slotWidth
+                          : bar.slotX + bar.slotWidth / 2
+                    const textAnchor =
+                      index === 0 ? 'start' : index === bars.length - 1 ? 'end' : 'middle'
+                    return (
+                      <text
+                        key={`slot-marker-${bar.senderKey}`}
+                        x={markerX}
+                        y={chartHeight - 14}
+                        textAnchor={textAnchor}
+                        fill="rgba(203,213,225,0.82)"
+                        fontSize="11"
+                      >
+                        {bar.rankLabel}
+                      </text>
+                    )
+                  })}
+                </svg>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                    Locked selection
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full border border-slate-300/60 bg-slate-400/20" />
+                    Default focus
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-sky-300" />
+                    Hover preview
+                  </span>
+                </div>
+                <p>Baseline labels show rank slots only. Hover and lock reveal sender identity.</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {props.isUpdating ? (
+          <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-slate-950/16" />
+        ) : null}
+      </div>
+
+      {props.items.length > 0 ? (
+        <div className="rounded-[24px] border border-cyan-900/35 bg-cyan-950/10 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-3xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">In focus</p>
+                <span className={`${neutralPillSurfaceClass} rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-100`}>
+                  {anchoredStateLabel}
+                </span>
+              </div>
+              <p className="mt-2 text-lg font-semibold text-white">
+                {focusedItem?.label || 'No sender in focus yet'}
+              </p>
+              <p className="mt-1 text-sm text-cyan-50/90">{activeInterpretation}</p>
+              <p className="mt-2 text-xs leading-5 text-cyan-100/75">{anchoredStateDetail}</p>
+            </div>
+            {lockedItem && props.onClearSelection ? (
+              <button
+                type="button"
+                onClick={props.onClearSelection}
+                className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+              >
+                Clear selection
+              </button>
+            ) : (
+              <p className="max-w-sm text-xs leading-5 text-cyan-100/70">
+                The rail is currently centered on the highest-ranked sender in the current scope.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                  Exact metrics
+                </p>
+                <p className="mt-1 text-xs leading-5 text-cyan-100/75">{metricRowDetail}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {diagnosticRow(
+              'Rank slot',
+              metricItem ? metricItem.rankLabel : '—',
+              previewingDifferentSender && hoveredItem && focusedItem
+                ? `${hoveredItem.label} is being previewed while ${focusedItem.label} stays locked below.`
+                : metricItem
+                  ? `${metricItem.label} in the current scope.`
+                  : 'No sender is available yet.'
+            )}
+            {diagnosticRow(
+              'Group share',
+              metricItem ? metricItem.shareLabel : '—',
+              'Share of cleanup-group volume in the current authoritative scope.'
+            )}
+            {diagnosticRow(
+              'Supporting volume',
+              metricItem ? metricItem.messageCountLabel : '—',
+              metricItem
+                ? metricItem.supportLabel
+                : 'Sender signal and unread context appear here once the rail is ready.'
+            )}
+          </div>
+
+          <div className={`${neutralNestedSurfaceClass} mt-4 rounded-[22px] p-4`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                Across this cleanup group
+              </p>
+              <span className="text-[11px] leading-5 text-slate-400">
+                This durable read stays anchored to the locked sender until you clear it.
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-3 xl:grid-cols-3">
+              {diagnosticRow(
+                'What happened',
+                focusedItem ? focusedItem.label : 'No sender yet',
+                whatHappened
+              )}
+              {diagnosticRow('Why it matters', 'Workload read', whyItMatters)}
+              {diagnosticRow('What to do', lockedItem ? 'Stay focused' : 'Next move', whatToDo)}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </SenderOverviewAnalysisRailShell>
+  )
+}
+
+function SenderOverviewAnalysisScopeStrip(props: {
+  activeScope: OperationsAnalysisScope
+  pendingScope: OperationsAnalysisScope | null
+  onSelectScope?: (scope: OperationsAnalysisScope) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {OPERATIONS_ANALYSIS_SCOPE_OPTIONS.map((scope) => {
+        const isActive = props.activeScope === scope
+        const isPending = props.pendingScope === scope
+        const interactive = typeof props.onSelectScope === 'function'
+        const className = isActive
+          ? isPending
+            ? 'rounded-full border border-cyan-500/75 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-50 opacity-85'
+            : 'rounded-full border border-cyan-500/75 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-50'
+          : 'rounded-full border border-slate-600/55 bg-slate-950/40 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-cyan-700/55 hover:text-cyan-100'
+
+        if (!interactive) {
+          return (
+            <span key={scope} className={className}>
+              {analysisScopeControlLabel(scope)}
+            </span>
+          )
+        }
+
+        return (
+          <button
+            key={scope}
+            type="button"
+            aria-pressed={isActive}
+            disabled={isPending}
+            onClick={() => props.onSelectScope?.(scope)}
+            className={className}
+          >
+            {analysisScopeControlLabel(scope)}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export function SenderTimeContextAnalysisRail(props: {
+  items: Array<{ label: string; count: number }>
+  granularity: 'day' | 'week' | 'month'
+  overallActivity: SenderTimeContextRailMetric
+  activityMix: SenderTimeContextRailMetric
+  patternSignal: SenderTimeContextRailMetric
+  nextAction: {
+    title: string
+    detail: string
+  }
+  scopeControls?: {
+    activeScope: OperationsAnalysisScope
+    pendingScope: OperationsAnalysisScope | null
+    onSelectScope?: (scope: OperationsAnalysisScope) => void
+  }
+  scopeStatus?: {
+    label: string
+    detail: string
+    tone: 'aligned' | 'comparing' | 'outside' | 'not_loaded'
+  }
+  tabStrip?: ReactNode
+  isUpdating?: boolean
+  bodyOverride?: ReactNode | null
+}) {
+  const formatTimelineBucketLabel = (
+    label: string,
+    granularity: 'day' | 'week' | 'month',
+    format: 'compact' | 'full' = 'compact'
+  ): string => {
+    const normalized = label.trim()
+    if (!normalized) return label
+
+    if (granularity === 'month') {
+      const parsed = /^\d{4}-\d{2}$/.test(normalized)
+        ? Date.parse(`${normalized}-01T00:00:00Z`)
+        : Date.parse(normalized)
+      if (!Number.isFinite(parsed)) return normalized
+      return new Date(parsed).toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized
+    const parsed = Date.parse(`${normalized}T00:00:00Z`)
+    if (!Number.isFinite(parsed)) return normalized
+    const dateLabel = new Date(parsed).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    })
+    if (granularity === 'week' && format === 'full') {
+      return `Week of ${dateLabel}`
+    }
+    return dateLabel
+  }
+  const chartItems = props.items.map((item, index) => ({
+    ...item,
+    key: `${item.label}-${index}`,
+    compactLabel: formatTimelineBucketLabel(item.label, props.granularity, 'compact'),
+    detailLabel: formatTimelineBucketLabel(item.label, props.granularity, 'full'),
+  }))
+  const peakItem = chartItems
+    .slice()
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))[0] || null
+  const latestItem = chartItems[chartItems.length - 1] || null
+  const defaultFocusedItem =
+    hasMeaningfullyDistinctActivityPeak(peakItem, latestItem) && peakItem
+      ? peakItem
+      : latestItem || chartItems[0] || null
+  const activeScope = props.scopeControls?.activeScope || null
+  const [lockedInteraction, setLockedInteraction] = useState<{
+    scope: OperationsAnalysisScope | null
+    itemKey: string | null
+  }>({
+    scope: activeScope,
+    itemKey: null,
+  })
+  const [hoveredInteraction, setHoveredInteraction] = useState<{
+    scope: OperationsAnalysisScope | null
+    itemKey: string | null
+  }>({
+    scope: activeScope,
+    itemKey: null,
+  })
+  const chartViewportRef = useRef<HTMLDivElement | null>(null)
+  const [chartViewportWidth, setChartViewportWidth] = useState(0)
+  const max = maxChartValue(chartItems.map((item) => item.count))
+  const chartHeight = 272
+  const paddingLeft = 56
+  const paddingRight = 20
+  const paddingTop = 24
+  const paddingBottom = 44
+
+  useEffect(() => {
+    const node = chartViewportRef.current
+    if (!node) return
+
+    const syncWidth = (nextWidth?: number) => {
+      const measuredWidth = Math.floor(nextWidth || node.getBoundingClientRect().width)
+      if (measuredWidth > 0) setChartViewportWidth(measuredWidth)
+    }
+
+    syncWidth()
+
+    if (typeof ResizeObserver === 'undefined') {
+      if (typeof window === 'undefined') return
+      const handleResize = () => syncWidth()
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      syncWidth(entries[0]?.contentRect.width)
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const node = chartViewportRef.current
+    if (!node || typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      return
+    }
+
+    const syncWidth = () => {
+      const measuredWidth = Math.floor(node.getBoundingClientRect().width)
+      if (measuredWidth > 0) {
+        setChartViewportWidth((current) => (current === measuredWidth ? current : measuredWidth))
+      }
+    }
+
+    let secondFrame = 0
+    const firstFrame = window.requestAnimationFrame(() => {
+      syncWidth()
+      secondFrame = window.requestAnimationFrame(syncWidth)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [activeScope, chartItems.length, props.bodyOverride])
+
+  const lockedItemKey = lockedInteraction.scope === activeScope ? lockedInteraction.itemKey : null
+  const hoveredItemKey = hoveredInteraction.scope === activeScope ? hoveredInteraction.itemKey : null
+  const resolvedLockedItemKey =
+    lockedItemKey && chartItems.some((item) => item.key === lockedItemKey) ? lockedItemKey : null
+  const resolvedHoveredItemKey =
+    hoveredItemKey && chartItems.some((item) => item.key === hoveredItemKey) ? hoveredItemKey : null
+  const lockedItem =
+    chartItems.find((item) => item.key === resolvedLockedItemKey) || null
+  const hoveredItem =
+    chartItems.find((item) => item.key === resolvedHoveredItemKey) || null
+  const focusedItem = lockedItem || defaultFocusedItem
+  const focusedIndex = focusedItem
+    ? chartItems.findIndex((item) => item.key === focusedItem.key)
+    : -1
+  const previousItem = focusedIndex > 0 ? chartItems[focusedIndex - 1] : null
+  const metricItem = hoveredItem || focusedItem
+  const metricIndex = metricItem
+    ? chartItems.findIndex((item) => item.key === metricItem.key)
+    : -1
+  const metricPreviousItem = metricIndex > 0 ? chartItems[metricIndex - 1] : null
+  const metricDelta =
+    metricItem && metricPreviousItem ? metricItem.count - metricPreviousItem.count : null
+  const activeInterpretation =
+    focusedItem
+      ? senderTimeContextInterpretation({
+          item: { ...focusedItem, label: focusedItem.detailLabel },
+          previous: previousItem ? { ...previousItem, label: previousItem.detailLabel } : null,
+          peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
+          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+        })
+      : 'No visible activity is available yet.'
+  const whatHappened =
+    focusedItem
+      ? senderTimeContextWhatHappened({
+          item: { ...focusedItem, label: focusedItem.detailLabel },
+          previous: previousItem ? { ...previousItem, label: previousItem.detailLabel } : null,
+          peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
+          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+        })
+      : 'No visible activity is available yet.'
+  const whyItMatters =
+    focusedItem
+      ? senderTimeContextWhyItMatters({
+          item: { ...focusedItem, label: focusedItem.detailLabel },
+          peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
+          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+        })
+      : 'The cleanup group needs visible timeline data before this rail can explain the workload.'
+  const whatToDo =
+    focusedItem
+      ? senderTimeContextWhatToDo({
+          item: { ...focusedItem, label: focusedItem.detailLabel },
+          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+          nextActionDetail: props.nextAction.detail,
+        })
+      : props.nextAction.detail
+  const chartWidth = chartViewportWidth > 0 ? chartViewportWidth : 320
+  const chartInnerWidth = Math.max(chartWidth - paddingLeft - paddingRight, 1)
+  const slotWidth = chartItems.length > 0 ? chartInnerWidth / chartItems.length : chartInnerWidth
+  const gap = chartItems.length > 1 ? Math.min(Math.max(slotWidth * 0.18, 6), 18) : 0
+  const barWidth = chartItems.length > 0 ? Math.max(18, slotWidth - gap) : chartInnerWidth
+  const bars = chartItems.map((item, index) => {
+    const x = paddingLeft + index * slotWidth + Math.max(slotWidth - barWidth, 0) / 2
+    const height =
+      item.count > 0
+        ? Math.max(18, (item.count / max) * (chartHeight - paddingTop - paddingBottom))
+        : 8
+    const y = chartHeight - paddingBottom - height
+    return { ...item, x, y, width: barWidth, height }
+  })
+  const hoveredBar =
+    hoveredItem ? bars.find((bar) => bar.key === hoveredItem.key) || null : null
+  const hoverPreviousItem =
+    hoveredItem
+      ? chartItems[chartItems.findIndex((item) => item.key === hoveredItem.key) - 1] || null
+      : null
+  const hoverDelta =
+    hoveredItem && hoverPreviousItem ? hoveredItem.count - hoverPreviousItem.count : null
+  const hoverCardWidth = 248
+  const hoverCardLeft = hoveredBar
+    ? Math.min(
+        Math.max(12, hoveredBar.x + hoveredBar.width / 2 - hoverCardWidth / 2),
+        Math.max(12, chartWidth - hoverCardWidth - 12)
+      )
+    : 12
+  const axisLabelValues = [max, Math.round(max / 2), 0]
+  const previewingDifferentPeriod =
+    Boolean(hoveredItem && focusedItem && hoveredItem.key !== focusedItem.key)
+  const anchoredStateLabel = lockedItem ? 'Locked selection' : 'Default focus'
+  const anchoredStateDetail = lockedItem
+    ? 'This period stays anchored below until you clear it.'
+    : 'This period anchors the read until you lock another one.'
+  const metricRowDetail =
+    previewingDifferentPeriod && hoveredItem && focusedItem
+      ? `Previewing ${hoveredItem.detailLabel} metrics while ${focusedItem.detailLabel} stays in focus below.`
+      : metricItem
+        ? `Showing exact counts for ${metricItem.detailLabel}.`
+        : 'No visible period is available yet.'
+
+  return (
+    <SenderOverviewAnalysisRailShell
+      modeLabel="Time Context"
+      description="See when this cleanup group was most active and where the workload came from."
+      tabStrip={props.tabStrip}
+      scopeStatus={props.scopeStatus}
+      controlStrip={
+        props.scopeControls ? (
+          <SenderOverviewAnalysisScopeStrip
+            activeScope={props.scopeControls.activeScope}
+            pendingScope={props.scopeControls.pendingScope}
+            onSelectScope={props.scopeControls.onSelectScope}
+          />
+        ) : null
+      }
+    >
+      <div className={`${neutralInsetSurfaceClass} relative rounded-[24px] p-4`}>
+        {props.isUpdating ? (
+          <div className="mb-3 flex justify-end">
+            <div className="rounded-full border border-cyan-700/45 bg-slate-950/85 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
+              Updating time window…
+            </div>
+          </div>
+        ) : null}
+        {props.bodyOverride ? (
+          <div className="min-h-[52rem]">{props.bodyOverride}</div>
+        ) : chartItems.length === 0 ? (
+          <div className="flex h-72 items-center justify-center rounded-2xl border border-dashed border-slate-500/25 px-6 text-center">
+            <div className="max-w-xl space-y-2">
+              <p className="text-sm font-semibold text-white">No visible time context yet</p>
+              <p className="text-sm leading-6 text-slate-300">
+                This rail will appear once the cleanup group has enough sender activity to chart.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div ref={chartViewportRef} className="relative w-full">
+              {hoveredItem && hoveredBar ? (
+                <div
+                  className="pointer-events-none absolute top-3 z-10 rounded-2xl border border-cyan-900/60 bg-gray-950/95 px-3 py-2 shadow-[0_18px_40px_rgba(2,12,27,0.55)]"
+                  style={{ left: hoverCardLeft, width: hoverCardWidth }}
+                >
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-200/80">
+                    Quick read
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">{hoveredItem.detailLabel}</p>
+                  <div className="mt-2 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-gray-500">Active senders</span>
+                      <span className="font-medium text-white">{hoveredItem.count.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-gray-500">Previous</span>
+                      <span className="font-medium text-white">
+                        {hoverPreviousItem ? hoverPreviousItem.count.toLocaleString() : 'No prior period'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-gray-500">Change</span>
+                      <span className="font-medium text-white">{formatSignedCount(hoverDelta)}</span>
+                    </div>
+                  </div>
+                  <p className="mt-3 border-t border-cyan-950/50 pt-2 text-[11px] leading-5 text-gray-100">
+                    {senderTimeContextInterpretation({
+                      item: { ...hoveredItem, label: hoveredItem.detailLabel },
+                      previous: hoverPreviousItem
+                        ? { ...hoverPreviousItem, label: hoverPreviousItem.detailLabel }
+                        : null,
+                      peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
+                      latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+                    })}
+                  </p>
+                </div>
+              ) : null}
+              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-72 w-full">
+                {axisLabelValues.map((value, index) => {
+                  const ratio = index === 0 ? 1 : index === 1 ? 0.5 : 0
+                  const y =
+                    chartHeight -
+                    paddingBottom -
+                    ratio * (chartHeight - paddingTop - paddingBottom)
+                  return (
+                    <g key={`tick-${value}-${index}`}>
+                      <text
+                        x={10}
+                        y={y + (ratio === 0 ? 0 : 4)}
+                        fill="rgba(148,163,184,0.7)"
+                        fontSize="11"
+                      >
+                        {value.toLocaleString()}
+                      </text>
+                      {ratio > 0 ? (
+                        <line
+                          x1={paddingLeft}
+                          y1={y}
+                          x2={chartWidth - paddingRight}
+                          y2={y}
+                          stroke="rgba(148,163,184,0.14)"
+                          strokeWidth="1"
+                        />
+                      ) : null}
+                    </g>
+                  )
+                })}
+                <line
+                  x1={paddingLeft}
+                  y1={chartHeight - paddingBottom}
+                  x2={chartWidth - paddingRight}
+                  y2={chartHeight - paddingBottom}
+                  stroke="rgba(148,163,184,0.18)"
+                  strokeWidth="1"
+                />
+                {bars.map((bar, index) => {
+                  const isPeak = peakItem?.key === bar.key
+                  const isLatest = latestItem?.key === bar.key
+                  const isHovered = hoveredItem?.key === bar.key
+                  const isLocked = lockedItem?.key === bar.key
+                  const isDefaultFocused = !isLocked && focusedItem?.key === bar.key
+                  const defaultFocusedFill = isPeak
+                    ? 'rgba(158,114,28,0.92)'
+                    : isLatest
+                      ? 'rgba(79,111,137,0.88)'
+                      : 'rgba(148,163,184,0.62)'
+                  const defaultFocusedStroke = isPeak
+                    ? 'rgba(251,191,36,0.42)'
+                    : isLatest
+                      ? 'rgba(34,211,238,0.28)'
+                      : 'rgba(148,163,184,0.22)'
+                  const markerLabel = isPeak && isLatest ? 'Peak + latest' : isPeak ? 'Peak' : isLatest ? 'Latest' : null
+                  const anchor =
+                    index === 0 ? 'start' : index === bars.length - 1 ? 'end' : 'middle'
+                  const labelX =
+                    index === 0
+                      ? bar.x
+                      : index === bars.length - 1
+                        ? bar.x + bar.width
+                        : bar.x + bar.width / 2
+                  return (
+                    <g key={bar.key}>
+                      {markerLabel ? (
+                        <text
+                          x={labelX}
+                          y={Math.max(18, bar.y - 8)}
+                          textAnchor={anchor}
+                          fill={
+                            isPeak && isLatest
+                              ? 'rgba(251,191,36,0.72)'
+                              : isPeak
+                                ? 'rgba(251,191,36,0.72)'
+                                : 'rgba(34,211,238,0.66)'
+                          }
+                          fontSize="10"
+                          fontWeight="500"
+                        >
+                          {markerLabel}
+                        </text>
+                      ) : null}
+                      {isPeak ? (
+                        <line
+                          x1={bar.x + 2}
+                          y1={Math.max(14, bar.y - 3)}
+                          x2={bar.x + bar.width - 2}
+                          y2={Math.max(14, bar.y - 3)}
+                          stroke="rgba(251,191,36,0.5)"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      ) : null}
+                      {isLatest ? (
+                        <line
+                          x1={bar.x + 2}
+                          y1={Math.max(18, bar.y - (isPeak ? 8 : 3))}
+                          x2={bar.x + bar.width - 2}
+                          y2={Math.max(18, bar.y - (isPeak ? 8 : 3))}
+                          stroke="rgba(34,211,238,0.48)"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      ) : null}
+                      {(isLocked || isDefaultFocused) ? (
+                        <rect
+                          x={bar.x - 3}
+                          y={Math.max(10, bar.y - 3)}
+                          width={bar.width + 6}
+                          height={bar.height + 6}
+                          rx={Math.min(18, Math.max(8, bar.width / 2))}
+                          fill="none"
+                          stroke={isLocked ? 'rgba(255,255,255,0.92)' : 'rgba(148,163,184,0.42)'}
+                          strokeWidth={isLocked ? 2.25 : 1.5}
+                        />
+                      ) : null}
+                      <rect
+                        x={bar.x}
+                        y={bar.y}
+                        width={bar.width}
+                        height={bar.height}
+                        rx={Math.min(14, Math.max(4, bar.width / 3))}
+                        fill={
+                          isHovered
+                            ? 'rgba(125,211,252,0.92)'
+                            : isLocked
+                              ? 'rgba(103,232,249,0.78)'
+                              : isDefaultFocused
+                                ? defaultFocusedFill
+                                : isPeak
+                                  ? 'rgba(158,114,28,0.92)'
+                                  : isLatest
+                                    ? 'rgba(79,111,137,0.88)'
+                                    : 'rgba(100,116,139,0.82)'
+                        }
+                        stroke={
+                          isHovered
+                            ? 'rgba(186,230,253,0.95)'
+                            : isLocked
+                              ? 'rgba(255,255,255,0.2)'
+                              : isDefaultFocused
+                                ? defaultFocusedStroke
+                                : isPeak
+                                  ? 'rgba(251,191,36,0.42)'
+                                  : isLatest
+                                    ? 'rgba(34,211,238,0.28)'
+                                    : 'rgba(255,255,255,0.1)'
+                        }
+                        strokeWidth={isHovered ? 1.5 : 1}
+                        className="cursor-pointer transition-all duration-150"
+                        role="button"
+                        aria-label={`${bar.detailLabel}. ${bar.count.toLocaleString()} active senders.`}
+                        aria-pressed={isLocked}
+                        tabIndex={0}
+                        onMouseEnter={() =>
+                          setHoveredInteraction({
+                            scope: activeScope,
+                            itemKey: bar.key,
+                          })
+                        }
+                        onMouseLeave={() =>
+                          setHoveredInteraction((current) =>
+                            current.scope === activeScope && current.itemKey === bar.key
+                              ? { scope: activeScope, itemKey: null }
+                              : current
+                          )
+                        }
+                        onFocus={() =>
+                          setHoveredInteraction({
+                            scope: activeScope,
+                            itemKey: bar.key,
+                          })
+                        }
+                        onBlur={() =>
+                          setHoveredInteraction((current) =>
+                            current.scope === activeScope && current.itemKey === bar.key
+                              ? { scope: activeScope, itemKey: null }
+                              : current
+                          )
+                        }
+                        onClick={() =>
+                          setLockedInteraction((current) => ({
+                            scope: activeScope,
+                            itemKey:
+                              current.scope === activeScope && current.itemKey === bar.key
+                                ? null
+                                : bar.key,
+                          }))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return
+                          event.preventDefault()
+                          setLockedInteraction((current) => ({
+                            scope: activeScope,
+                            itemKey:
+                              current.scope === activeScope && current.itemKey === bar.key
+                                ? null
+                                : bar.key,
+                          }))
+                        }}
+                      />
+                      {isHovered ? (
+                        <rect
+                          x={bar.x - 2}
+                          y={Math.max(12, bar.y - 2)}
+                          width={bar.width + 4}
+                          height={bar.height + 4}
+                          rx={Math.min(18, Math.max(8, bar.width / 2))}
+                          fill="none"
+                          stroke="rgba(186,230,253,0.9)"
+                          strokeWidth="2"
+                        />
+                      ) : null}
+                      <text
+                        x={labelX}
+                        y={chartHeight - 14}
+                        textAnchor={anchor}
+                        fill={
+                          isHovered
+                            ? 'rgba(255,255,255,0.98)'
+                            : isLocked
+                              ? 'rgba(255,255,255,0.94)'
+                              : isDefaultFocused
+                                ? 'rgba(226,232,240,0.9)'
+                                : 'rgba(203,213,225,0.82)'
+                        }
+                        fontSize="11"
+                        fontWeight={isHovered || isLocked ? '600' : '400'}
+                      >
+                        {bar.compactLabel}
+                      </text>
+                    </g>
+                  )
+                })}
+              </svg>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                  Locked selection
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full border border-slate-300/60 bg-slate-400/20" />
+                  Default focus
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-sky-300" />
+                  Hover preview
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-0.5 w-3 rounded-full bg-amber-300/70" />
+                  Peak period
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-0.5 w-3 rounded-full bg-cyan-300/70" />
+                  Latest visible period
+                </span>
+              </div>
+              <p>Hover previews another period. Click keeps one anchored below.</p>
+            </div>
+          </>
+        )}
+        {props.isUpdating ? (
+          <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-slate-950/22" />
+        ) : null}
+      </div>
+
+      {props.bodyOverride ? null : (
+        <div className="rounded-[24px] border border-cyan-900/35 bg-cyan-950/10 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-3xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">In focus</p>
+                <span className={`${neutralPillSurfaceClass} rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-100`}>
+                  {anchoredStateLabel}
+                </span>
+              </div>
+              <p className="mt-2 text-lg font-semibold text-white">
+                {focusedItem ? focusedItem.label : 'No visible period yet'}
+              </p>
+              <p className="mt-1 text-sm text-cyan-50/90">{activeInterpretation}</p>
+              <p className="mt-2 text-xs leading-5 text-cyan-100/75">{anchoredStateDetail}</p>
+            </div>
+            {lockedItem ? (
+              <button
+                type="button"
+                onClick={() => setLockedInteraction({ scope: activeScope, itemKey: null })}
+                className={`${quietControlSurfaceClass} rounded-full px-3 py-1.5 text-xs`}
+              >
+                Clear selection
+              </button>
+            ) : (
+              <p className="max-w-sm text-xs leading-5 text-cyan-100/70">
+                The rail is currently centered on the period that best explains the visible workload.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Exact metrics</p>
+                <p className="mt-1 text-xs leading-5 text-cyan-100/75">{metricRowDetail}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {diagnosticRow(
+              'Active senders',
+              metricItem ? metricItem.count.toLocaleString() : '—',
+              metricItem
+                ? `Visible activity in ${metricItem.label}.`
+                : 'No visible activity is available yet.'
+            )}
+            {diagnosticRow(
+              'Previous period',
+              metricPreviousItem ? metricPreviousItem.count.toLocaleString() : 'No prior period',
+              metricPreviousItem
+                ? `${metricPreviousItem.label} is the comparison point for this read.`
+                : 'A comparison appears once the timeline has an earlier visible period.'
+            )}
+            {diagnosticRow(
+              'Change vs prior',
+              formatSignedCount(metricDelta),
+              metricDelta == null
+                ? 'This period opens the visible timeline.'
+                : metricDelta > 0
+                  ? 'More active senders were visible than in the prior period.'
+                  : metricDelta < 0
+                    ? 'Fewer active senders were visible than in the prior period.'
+                    : 'Activity matched the prior period.'
+            )}
+          </div>
+
+          <div className={`${neutralNestedSurfaceClass} mt-4 rounded-[22px] p-4`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Across this cleanup group</p>
+              <span className="text-[11px] leading-5 text-slate-400">
+                These signals stay anchored to the focused period until you lock a different one.
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                props.overallActivity,
+                props.activityMix,
+                props.patternSignal,
+              ].map((metric, index) => {
+                const label = index === 0 ? 'Overall activity' : index === 1 ? 'Activity mix' : 'Pattern signal'
+                return (
+                  <div
+                    key={label}
+                    className="min-w-[180px] flex-1 rounded-xl border border-slate-400/10 bg-black/10 px-3 py-2"
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">{label}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-100">{metric.value}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-300/90">{metric.detail}</p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 grid gap-3 xl:grid-cols-3">
+              {diagnosticRow('What happened', focusedItem ? focusedItem.label : 'No visible period yet', whatHappened)}
+              {diagnosticRow('Why it matters', 'Workload read', whyItMatters)}
+              {diagnosticRow('What to do', props.nextAction.title, whatToDo)}
+            </div>
+          </div>
+        </div>
+      )}
+    </SenderOverviewAnalysisRailShell>
+  )
+}
+
 export function GmailScopeLadder(props: {
   title: string
   subtitle: string
@@ -1486,7 +3389,7 @@ export function GmailScopeLadder(props: {
     <section className="app-surface-card rounded-2xl p-4 space-y-3">
       <div>
         <p className="app-eyebrow">{props.title}</p>
-        <p className="mt-1 text-sm text-gray-300">{props.subtitle}</p>
+        <p className="mt-1 text-sm text-slate-200">{props.subtitle}</p>
       </div>
       <div className="grid gap-3 xl:grid-cols-5">
         {visibleSteps.map((step) => {
@@ -1494,17 +3397,17 @@ export function GmailScopeLadder(props: {
           return (
           <div
             key={step.key}
-            className={`rounded-2xl border p-3 ${
+            className={`rounded-2xl p-3 ${
               isEvidenceStep
-                ? 'border-dashed border-gray-800 bg-gray-950/35'
-                : 'border-gray-800 bg-gray-950/55'
+                ? `${neutralInsetSurfaceClass} border-dashed`
+                : neutralNestedSurfaceClass
             }`}
           >
-            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">{step.label}</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">{step.label}</p>
             <p className={`mt-2 font-semibold text-white ${isEvidenceStep ? 'text-xl' : 'text-2xl'}`}>
               {props.counts[step.key].toLocaleString()}
             </p>
-            <p className="mt-2 text-xs leading-5 text-gray-400">{step.reason}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-200">{step.reason}</p>
           </div>
           )
         })}
@@ -1608,7 +3511,7 @@ export function InboxHealthGauge(props: {
               A clean inbox is not zero inbox. Keeping a sender is still a clean outcome. The goal is to remove uncertainty by deciding how each sender should be treated.
             </p>
           </div>
-          <div className="rounded-2xl border border-emerald-700/30 bg-gray-950/50 px-4 py-3 text-right">
+          <div className={`${neutralNestedSurfaceClass} rounded-2xl border border-emerald-700/30 px-4 py-3 text-right`}>
             <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/80">Decided senders</p>
             <p className="mt-2 text-3xl font-semibold text-white">
               {props.contextMetrics.decidedSenderCount.toLocaleString()} /{' '}
@@ -1631,7 +3534,7 @@ export function InboxHealthGauge(props: {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-gray-800 bg-gray-950/55 p-5 space-y-5">
+      <div className="app-surface-card rounded-3xl p-5 space-y-5">
         <div className="grid gap-5 2xl:grid-cols-[0.72fr_1.28fr]">
           <div className="space-y-4">
             <div>
@@ -1641,7 +3544,7 @@ export function InboxHealthGauge(props: {
                 <span className="ml-2 text-xl font-medium text-gray-400">/ 100</span>
               </p>
             </div>
-            <div className="min-h-[132px] rounded-2xl border border-gray-800 bg-gray-950/60 p-4">
+            <div className={`${neutralNestedSurfaceClass} min-h-[132px] rounded-2xl p-4`}>
               <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">{hoverTitle}</p>
               <p className="mt-2 text-sm font-medium text-white">
                 {hoverCopy}
@@ -1656,7 +3559,7 @@ export function InboxHealthGauge(props: {
               onFocus={() => setHoveredSection('band')}
               onMouseLeave={() => setHoveredSection(null)}
               onBlur={() => setHoveredSection(null)}
-              className="block w-full rounded-2xl border border-gray-800 bg-gray-950/60 p-4 text-left"
+              className={`${neutralNestedSurfaceClass} block w-full rounded-2xl p-4 text-left`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1694,7 +3597,7 @@ export function InboxHealthGauge(props: {
                 onFocus={() => setHoveredSection('driver')}
                 onMouseLeave={() => setHoveredSection(null)}
                 onBlur={() => setHoveredSection(null)}
-                className="rounded-2xl border border-gray-800 bg-gray-950/60 p-4 text-left"
+                className={`${neutralNestedSurfaceClass} rounded-2xl p-4 text-left`}
               >
                 <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Primary driver</p>
                 <p className="mt-2 text-sm font-medium text-white">{props.primaryDriver}</p>
@@ -1705,7 +3608,7 @@ export function InboxHealthGauge(props: {
                 onFocus={() => setHoveredSection('intervention')}
                 onMouseLeave={() => setHoveredSection(null)}
                 onBlur={() => setHoveredSection(null)}
-                className="rounded-2xl border border-gray-800 bg-gray-950/60 p-4 text-left"
+                className={`${neutralNestedSurfaceClass} rounded-2xl p-4 text-left`}
               >
                 <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Next intervention</p>
                 <p className="mt-2 text-sm font-medium text-white">{props.recommendedIntervention}</p>
@@ -1716,7 +3619,7 @@ export function InboxHealthGauge(props: {
                 onFocus={() => setHoveredSection('impact')}
                 onMouseLeave={() => setHoveredSection(null)}
                 onBlur={() => setHoveredSection(null)}
-                className="rounded-2xl border border-gray-800 bg-gray-950/60 p-4 text-left"
+                className={`${neutralNestedSurfaceClass} rounded-2xl p-4 text-left`}
               >
                 <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Expected improvement</p>
                 <p className="mt-2 text-sm font-medium text-white">{props.expectedImpact}</p>
@@ -1784,7 +3687,7 @@ export function MailboxMissionPanel(props: {
 }) {
   const actionButtonLabel =
     props.healthIntelligence.nextActionMode === 'approve_queue'
-      ? 'Open Confirmation'
+      ? 'Open Management'
       : props.healthIntelligence.nextActionMode === 'resume_work'
         ? 'Resume sender review'
       : props.healthIntelligence.nextActionMode === 'open_group'
@@ -1812,7 +3715,7 @@ export function MailboxMissionPanel(props: {
         </p>
       </div>
       <div className="grid gap-4 2xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
+        <div className="app-surface-card rounded-2xl p-4">
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Mission briefing</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {diagnosticRow(
@@ -1857,7 +3760,7 @@ export function MailboxMissionPanel(props: {
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Why now</p>
               <p className="mt-2 text-sm text-gray-300">{props.healthIntelligence.nextActionDetail}</p>
             </div>
-            <div className="rounded-2xl border border-cyan-900/35 bg-gray-950/45 p-4">
+            <div className={`${neutralNestedSurfaceClass} rounded-2xl border border-cyan-900/35 p-4`}>
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Expected payoff</p>
               <p className="mt-2 text-sm font-medium text-white">
                 {props.healthIntelligence.expectedImpact}
@@ -1870,7 +3773,7 @@ export function MailboxMissionPanel(props: {
         </div>
       </div>
       <div className="grid gap-4 2xl:grid-cols-[1.12fr_0.88fr]">
-        <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
+        <div className="app-surface-card rounded-2xl p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Work in progress</p>
@@ -1894,7 +3797,7 @@ export function MailboxMissionPanel(props: {
             )}
           </div>
           {props.resumeTask ? (
-            <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-950/60 p-3">
+            <div className={`${neutralNestedSurfaceClass} mt-4 rounded-2xl p-3`}>
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Resume work</p>
               <p className="mt-1 text-sm font-semibold text-white">{props.resumeTask.title}</p>
               <p className="mt-1 text-xs leading-5 text-gray-400">
@@ -1915,7 +3818,7 @@ export function MailboxMissionPanel(props: {
           className={`rounded-2xl border p-4 ${
             props.pendingApprovals > 0
               ? 'border-amber-800/55 bg-[linear-gradient(180deg,rgba(120,53,15,0.18),rgba(69,26,3,0.38))]'
-              : 'border-gray-800 bg-gray-950/55'
+              : 'border-[var(--app-border-muted)] bg-[var(--app-surface-nested)]'
           }`}
         >
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Approvals</p>
@@ -1962,7 +3865,7 @@ export function MailboxMissionPanel(props: {
               href={props.approvalHref || '#'}
               className="automata-primary-button mt-4 inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
             >
-              Open Confirmation
+              Open Management
             </Link>
           ) : null}
         </div>
@@ -2019,7 +3922,7 @@ export function MailboxIntelligenceLoadingState(props: {
             'Senders in review',
             'Senders already decided',
           ].map((label) => (
-            <div key={label} className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4">
+            <div key={label} className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
               <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">{label}</p>
               {loadingSkeleton('mt-3 h-8 w-24')}
               {loadingSkeleton('mt-3 h-2.5 w-full')}
@@ -2027,7 +3930,7 @@ export function MailboxIntelligenceLoadingState(props: {
             </div>
           ))}
         </section>
-        <div className="rounded-3xl border border-gray-800 bg-gray-950/45 p-5 space-y-5">
+        <div className="app-surface-card rounded-3xl p-5 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Inbox health rail</p>
@@ -2037,15 +3940,15 @@ export function MailboxIntelligenceLoadingState(props: {
               {['Critical', 'Degraded', 'Warning', 'Stable', 'Healthy'].map((band) => (
                 <span
                   key={band}
-                  className="rounded-full border border-gray-700 bg-gray-950/60 px-2.5 py-1 text-[11px] text-gray-400"
+                  className={`${neutralPillSurfaceClass} rounded-full px-2.5 py-1 text-[11px] text-gray-400`}
                 >
                   {band}
                 </span>
               ))}
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-gray-800">
-            <div className="grid h-6 grid-cols-12 gap-px bg-gray-900/50 px-px py-px">
+          <div className={`${neutralInsetSurfaceClass} overflow-hidden rounded-2xl`}>
+            <div className="grid h-6 grid-cols-12 gap-px bg-[var(--app-surface-3)] px-px py-px">
               {Array.from({ length: 12 }).map((_, index) => (
                 <div
                   key={index}
@@ -2055,7 +3958,7 @@ export function MailboxIntelligenceLoadingState(props: {
             </div>
           </div>
           <div className="grid gap-4 2xl:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
+            <div className="app-surface-card rounded-2xl p-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Mission briefing</p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
@@ -2100,7 +4003,7 @@ export function MailboxIntelligenceLoadingState(props: {
             {loadingSkeleton('h-16 w-full')}
             {loadingSkeleton('h-16 w-full')}
           </div>
-          <div className="flex h-48 items-end gap-2 rounded-2xl border border-gray-800 bg-gray-950/60 p-3">
+          <div className={`${neutralInsetSurfaceClass} flex h-48 items-end gap-2 rounded-2xl p-3`}>
             {['h-10', 'h-14', 'h-[4.5rem]', 'h-24', 'h-20', 'h-12'].map((height, index) => (
               <div key={index} className="flex flex-1 flex-col justify-end gap-2">
                 {loadingSkeleton(`${height} w-full`)}
@@ -2110,7 +4013,7 @@ export function MailboxIntelligenceLoadingState(props: {
           </div>
           <div className="grid gap-3 xl:grid-cols-5">
             {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="rounded-2xl border border-gray-800 bg-gray-950/55 p-3">
+              <div key={index} className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
                 {loadingSkeleton('h-3 w-24')}
                 {loadingSkeleton('mt-2 h-4 w-full')}
                 {loadingSkeleton('mt-2 h-3 w-5/6')}
@@ -2140,87 +4043,127 @@ export function CleanupGroupContributionCards(props: {
   groups: GmailMailboxIntelligenceData['cleanup_groups']
   buildClusterHref: (clusterId: string) => string
   openGroupsHref: string
+  recommendedGroup: GmailMailboxIntelligenceData['cleanup_groups'][number] | null
+  recommendedReason: CleanupGroupRecommendationReason
 }) {
-  const rankedGroups = props.groups
-    .slice()
-    .sort(
-      (left, right) =>
-        right.sender_count - left.sender_count ||
-        right.message_count - left.message_count ||
-        left.title.localeCompare(right.title)
-    )
-    .slice(0, 3)
-  const recommendedGroup = rankedGroups[0] || null
-  const alternateGroup = rankedGroups[1] || null
+  const recommendationCopy = getCleanupGroupRecommendationExplanation(props.recommendedReason)
+  const internalStructure =
+    props.recommendedGroup?.cluster_id === 'subscription-senders'
+    ? buildCleanupGroupInternalStructure(
+        props.recommendedGroup.cluster_id,
+        props.recommendedGroup.semantic_rollup || null
+      )
+    : null
   return sectionCard(
     'Cleanup Groups Handoff',
     'Mailbox Intelligence should hand off one clear next group, not recreate the full Cleanup Groups surface.',
     <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-      {recommendedGroup ? (
+      {props.recommendedGroup ? (
         <Link
-          href={props.buildClusterHref(recommendedGroup.cluster_id)}
+          href={props.buildClusterHref(props.recommendedGroup.cluster_id)}
           className="rounded-2xl border border-cyan-900/45 bg-cyan-950/10 p-4 hover:border-cyan-700/60"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300">Recommended next group</p>
-              <p className="mt-1 text-lg font-semibold text-white">{recommendedGroup.title}</p>
+              <p className="mt-1 text-lg font-semibold text-white">{props.recommendedGroup.title}</p>
             </div>
             <span className="rounded-full border border-cyan-700/45 bg-cyan-950/20 px-2.5 py-1 text-[11px] text-cyan-100">
-              {recommendedGroup.share_pct}% of cleanup candidates
+              {cleanupGroupShareLabel(props.recommendedGroup.share_pct)}
             </span>
           </div>
           <p className="mt-3 text-sm text-gray-300">
-            {recommendedGroup.why_selected ||
-              `${recommendedGroup.sender_count.toLocaleString()} senders generate the strongest recurring inbox noise in the current cleanup opportunity.`}
+            {props.recommendedGroup.why_selected ||
+              `${props.recommendedGroup.sender_count.toLocaleString()} senders are currently grouped into the clearest next primary action lane.`}
           </p>
+          {internalStructure ? (
+            <div className={`${neutralNestedSurfaceClass} mt-4 rounded-2xl p-3`}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">
+                Patterns inside this group
+              </p>
+              <p className="mt-1 text-sm text-gray-200">{internalStructure.summary}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {internalStructure.patterns.map((pattern) => (
+                  <span
+                    key={pattern.id}
+                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-gray-100"
+                  >
+                    {pattern.label} · {pattern.groupSharePct}%
+                  </span>
+                ))}
+                {internalStructure.remainder ? (
+                  <span className="rounded-full border border-slate-500/35 bg-slate-900/50 px-2.5 py-1 text-[11px] text-slate-100">
+                    {internalStructure.remainder.label} · {internalStructure.remainder.groupSharePct}%
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-3 space-y-1.5 text-xs leading-5 text-slate-300">
+                {internalStructure.howToStart.slice(0, 3).map((step) => (
+                  <p key={step}>{step}</p>
+                ))}
+              </div>
+              {internalStructure.intentionalRemainderNote ? (
+                <p className="mt-3 text-xs leading-5 text-slate-400">
+                  {internalStructure.intentionalRemainderNote}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {diagnosticRow(
               'Sender scope',
-              `${recommendedGroup.sender_count.toLocaleString()} senders`,
+              `${props.recommendedGroup.sender_count.toLocaleString()} senders`,
               'Primary decision scope for the next review pass.'
             )}
             {diagnosticRow(
               'Expected payoff',
-              `~${recommendedGroup.message_count.toLocaleString()} supporting messages`,
+              `~${props.recommendedGroup.message_count.toLocaleString()} supporting messages`,
               'Supporting message context explains the likely payoff; the decision object is still the sender.'
             )}
           </div>
-          <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-950/60 p-3">
+          <div className={`${neutralNestedSurfaceClass} mt-4 rounded-2xl p-3`}>
             <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Why this is next</p>
-            <p className="mt-1 text-sm font-semibold text-white">
-              Open this group first to act on the biggest remaining sender opportunity before smaller clusters dilute attention.
-            </p>
+            <p className="mt-1 text-sm font-semibold text-white">{recommendationCopy.title}</p>
+            <p className="mt-1 text-xs leading-5 text-gray-400">{recommendationCopy.detail}</p>
             <p className="mt-1 text-xs leading-5 text-gray-400">
-              Safety context: {recommendedGroup.safety_note} {recommendedGroup.risk_note}
+              Safety context: {props.recommendedGroup.safety_note} {props.recommendedGroup.risk_note}
             </p>
           </div>
           <span className="mt-4 inline-flex rounded-full border border-gray-700 px-3 py-1 text-[11px] text-gray-200">
             Open in Cleanup Groups
           </span>
         </Link>
-      ) : null}
-      <div className="rounded-2xl border border-dashed border-gray-800 bg-gray-950/30 p-4">
+      ) : (
+        <div className="rounded-2xl border border-[var(--app-border-muted)] bg-[var(--app-surface-nested)] p-4">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300">Recommended next group</p>
+          <p className="mt-2 text-lg font-semibold text-white">No default group is highlighted</p>
+          <p className="mt-3 text-sm text-gray-300">{recommendationCopy.detail}</p>
+          <div className={`${neutralNestedSurfaceClass} mt-4 rounded-2xl p-3`}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Why this is next</p>
+            <p className="mt-1 text-sm font-semibold text-white">{recommendationCopy.title}</p>
+            <p className="mt-1 text-xs leading-5 text-gray-400">{recommendationCopy.bridgeDetail}</p>
+          </div>
+        </div>
+      )}
+      <div className={`${neutralInsetSurfaceClass} rounded-2xl border-dashed p-4`}>
         <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Bridge into Cleanup Groups</p>
         <div className="mt-3 grid gap-3">
           {diagnosticRow(
             'Open next',
-            recommendedGroup ? recommendedGroup.title : 'No recommended group yet',
-            recommendedGroup
-              ? `${recommendedGroup.sender_count.toLocaleString()} cleanup-ready senders are the biggest remaining opportunity in the current snapshot.`
-              : 'Refresh cleanup analysis to generate the next sender group recommendation.'
+            props.recommendedGroup ? props.recommendedGroup.title : 'No default recommendation',
+            props.recommendedGroup
+              ? recommendationCopy.detail
+              : 'Safety / coverage lanes stay available, but Cleanup Groups should not auto-pick one for you.'
           )}
           {diagnosticRow(
-            'Alternate after that',
-            alternateGroup ? alternateGroup.title : 'No alternate group yet',
-            alternateGroup
-              ? `${alternateGroup.sender_count.toLocaleString()} senders and ~${alternateGroup.message_count.toLocaleString()} supporting messages are next after the primary handoff.`
-              : 'No second-ranked group is available in the current snapshot.'
+            'Recommendation rule',
+            recommendationCopy.title,
+            recommendationCopy.bridgeDetail
           )}
           {diagnosticRow(
             'What changes after you click through',
             'You move from command guidance to full group selection',
-            'Cleanup Groups owns the full comparison surface. Mailbox Intelligence only hands off the clearest next bridge.'
+            'Cleanup Groups owns the full comparison surface. Mailbox Intelligence only hands off the clearest next primary action lane or, when appropriate, the deliberate backlog lane.'
           )}
         </div>
         <Link
@@ -2238,6 +4181,8 @@ export function MailboxIntelligenceDashboard(props: {
   data: GmailMailboxIntelligenceData
   buildClusterHref: (clusterId: string) => string
   openGroupsHref: string
+  recommendedCleanupGroup: GmailMailboxIntelligenceData['cleanup_groups'][number] | null
+  recommendedCleanupGroupReason: CleanupGroupRecommendationReason
   managementSignals: ManagementSignalsData
   approvalHref: string | null
   managementHref: string | null
@@ -2311,6 +4256,8 @@ export function MailboxIntelligenceDashboard(props: {
         groups={props.data.cleanup_groups}
         buildClusterHref={props.buildClusterHref}
         openGroupsHref={props.openGroupsHref}
+        recommendedGroup={props.recommendedCleanupGroup}
+        recommendedReason={props.recommendedCleanupGroupReason}
       />
     </div>
   )
@@ -2353,9 +4300,9 @@ export function SenderEvidenceDrawer(props: {
 }) {
   if (!props.open) return null
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-950/60 p-3 space-y-2">
+    <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3 space-y-2`}>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-wide text-gray-500">
+        <p className="text-xs uppercase tracking-wide text-slate-300">
           Message evidence for {props.sender}
         </p>
         {props.snippetLoading ? (
@@ -2367,13 +4314,13 @@ export function SenderEvidenceDrawer(props: {
           key={message.message_id}
           type="button"
           onClick={() => props.onOpenMessage(message.message_id)}
-          className="block w-full rounded-xl border border-gray-800 bg-gray-950/70 p-3 text-left hover:border-cyan-700/60"
+          className={`${neutralInsetSurfaceClass} block w-full rounded-xl p-3 text-left hover:border-cyan-700/60 hover:bg-[linear-gradient(180deg,rgba(18,28,41,0.98),rgba(10,17,26,0.98))]`}
         >
           <p className="text-sm font-medium text-white">{message.subject || '(no subject)'}</p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-slate-300">
             {formatDate(message.date)} · {(message.category_labels || []).join(', ') || 'No category'}
           </p>
-          <p className="mt-2 text-sm leading-6 text-gray-300">
+          <p className="mt-2 text-sm leading-6 text-slate-200">
             {message.snippet ||
               (props.snippetLoading
                 ? 'Loading preview text from Gmail…'
@@ -2382,6 +4329,631 @@ export function SenderEvidenceDrawer(props: {
         </button>
       ))}
     </div>
+  )
+}
+
+export type GmailSharedSenderCardManagedState = {
+  destinationState: GmailDestinationState
+  executionState: GmailDestinationExecutionState
+  lastActionTimestamp: string
+}
+
+export type GmailSharedSenderCardSnippetHydrationState = {
+  loading: boolean
+  error: string | null
+}
+
+function sharedSenderSignalLabel(
+  senderSignal: GmailSenderWorkspaceData['senders'][number]['sender_signal']
+): string {
+  if (senderSignal === 'likely_machine_generated') return 'Likely automated'
+  if (senderSignal === 'likely_human') return 'Likely human'
+  return 'Mixed signal'
+}
+
+function sharedSenderSemanticFamilyBadge(
+  sender: GmailSenderWorkspaceData['senders'][number]
+): string {
+  if (sender.semantic_family.resolution === 'thin_history') return 'Thin semantic history'
+  if (sender.semantic_family.resolution === 'mixed') return 'Mixed semantic read'
+  return gmailSemanticFamilyDisplayLabel(sender.semantic_family.family)
+}
+
+function sharedSenderSemanticPatternBadge(
+  sender: GmailSenderWorkspaceData['senders'][number]
+): string {
+  if (sender.semantic_pattern.resolution === 'thin_history') return 'Pattern needs more history'
+  if (sender.semantic_pattern.resolution === 'mixed') return 'Mixed pattern'
+  return gmailSemanticPatternClassDisplayLabel(sender.semantic_pattern.pattern_class)
+}
+
+function sharedSenderSemanticSubtitle(
+  sender: GmailSenderWorkspaceData['senders'][number]
+): string {
+  const familyBadge = sharedSenderSemanticFamilyBadge(sender)
+  const patternBadge = sharedSenderSemanticPatternBadge(sender)
+  if (patternBadge === familyBadge || sender.semantic_pattern.resolution !== 'clear') {
+    return familyBadge
+  }
+  return `${familyBadge} · ${patternBadge}`
+}
+
+function sharedSenderSemanticSummary(
+  sender: GmailSenderWorkspaceData['senders'][number]
+): string {
+  if (sender.semantic_family.resolution === 'thin_history') {
+    return 'Not enough sender history for a stable semantic read yet.'
+  }
+
+  const familyLabel = gmailSemanticFamilyDisplayLabel(sender.semantic_family.family)
+  const patternLabel = gmailSemanticPatternClassDisplayLabel(sender.semantic_pattern.pattern_class)
+
+  if (sender.semantic_family.resolution === 'mixed') {
+    return `${familyLabel} is the closest fit, but this sender still mixes different behaviors.`
+  }
+
+  if (sender.semantic_pattern.resolution === 'thin_history') {
+    return `${familyLabel} is the main semantic read. Pattern detail still needs more history.`
+  }
+
+  if (sender.semantic_pattern.resolution === 'mixed') {
+    return `${familyLabel} is the main semantic read. The recurring pattern is still mixed.`
+  }
+
+  return `${familyLabel} is the main semantic read, with ${patternLabel.toLowerCase()} as the clearest recurring pattern.`
+}
+
+function sharedEvidenceCategoryLabel(label: string | null | undefined): string {
+  const normalized = label?.replace(/\s+/g, ' ').trim() || ''
+  if (!normalized) return 'Other'
+  if (!/^CATEGORY_|^TAB_|_/.test(normalized)) return normalized
+  return normalized
+    .replace(/^CATEGORY_/, '')
+    .replace(/^TAB_/, '')
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function sharedEvidencePreviewText(
+  subject: string | null | undefined,
+  snippet: string | null | undefined
+): string | null {
+  const normalizedSubject = subject?.replace(/\s+/g, ' ').trim() || ''
+  let normalizedSnippet = snippet?.replace(/\s+/g, ' ').trim() || ''
+  if (!normalizedSnippet) return null
+
+  if (normalizedSubject) {
+    normalizedSnippet = normalizedSnippet
+      .replace(
+        new RegExp(
+          `^${normalizedSubject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*[-:|·]\\s*)?`,
+          'i'
+        ),
+        ''
+      )
+      .trim()
+  }
+
+  if (!normalizedSnippet) return null
+  if (normalizedSubject && normalizedSnippet.toLowerCase() === normalizedSubject.toLowerCase()) {
+    return null
+  }
+
+  return normalizedSnippet
+}
+
+function sharedSenderEvidenceGroups(
+  messages: GmailSenderWorkspaceData['senders'][number]['preview_messages']
+): Array<[string, GmailSenderWorkspaceData['senders'][number]['preview_messages']]> {
+  const grouped = new Map<
+    string,
+    GmailSenderWorkspaceData['senders'][number]['preview_messages']
+  >()
+
+  for (const message of messages) {
+    const rawLabel =
+      message.category_labels?.find((label) => typeof label === 'string' && label.trim().length > 0) ||
+      message.label_ids?.find((label) => typeof label === 'string' && label.trim().length > 0) ||
+      'OTHER'
+    const bucket = grouped.get(rawLabel) || []
+    bucket.push(message)
+    grouped.set(rawLabel, bucket)
+  }
+
+  return Array.from(grouped.entries()).sort((left, right) => {
+    if (right[1].length !== left[1].length) return right[1].length - left[1].length
+    return sharedEvidenceCategoryLabel(left[0]).localeCompare(sharedEvidenceCategoryLabel(right[0]))
+  })
+}
+
+function sharedSenderEvidenceAvailability(
+  messages: GmailSenderWorkspaceData['senders'][number]['preview_messages'],
+  resolutionState: 'ready' | 'resolving' = 'ready'
+): {
+  state: 'full_preview_available' | 'subject_only_evidence_available' | 'no_previewable_evidence'
+  label: string
+  detail: string
+  emptyState: string
+} {
+  if (resolutionState === 'resolving' && messages.length === 0) {
+    return {
+      state: 'no_previewable_evidence',
+      label: 'Loading evidence',
+      detail: 'Supporting evidence for this sender is still loading.',
+      emptyState: 'Supporting evidence for this sender is still loading.',
+    }
+  }
+  if (messages.length === 0) {
+    return {
+      state: 'no_previewable_evidence',
+      label: 'No previewable evidence',
+      detail: 'No previewable evidence is loaded for this sender yet.',
+      emptyState: 'No previewable evidence is loaded for this sender yet.',
+    }
+  }
+  const hasPreviewText = messages.some(
+    (message) => typeof message.snippet === 'string' && message.snippet.trim().length > 0
+  )
+  if (hasPreviewText) {
+    return {
+      state: 'full_preview_available',
+      label: 'Full preview available',
+      detail: 'Recent evidence includes preview text, so you can read proof before opening the full message preview.',
+      emptyState: 'No previewable evidence is loaded for this sender yet.',
+    }
+  }
+  return {
+    state: 'subject_only_evidence_available',
+    label: 'Subject-only evidence',
+    detail: 'Recent evidence is limited to subject and timestamp context. Snippet text is still unavailable for these messages.',
+    emptyState: 'Only subject and timestamp evidence is loaded for this sender right now.',
+  }
+}
+
+export function GmailSharedSenderCard(props: {
+  sender: GmailSenderWorkspaceData['senders'][number]
+  mode: 'overview' | 'decision'
+  groupSemanticRollup?: GmailSenderWorkspaceData['analytics']['semantic_rollup']
+  managedState?: GmailSharedSenderCardManagedState | null
+  visibleEvidenceCount?: number
+  onLoadMoreEvidence?: ((count: number) => void) | null
+  snippetHydrationState?: GmailSharedSenderCardSnippetHydrationState | null
+  evidenceResolutionState?: 'ready' | 'resolving'
+  onOpenMessagePreview?: ((
+    sender: GmailSenderWorkspaceData['senders'][number],
+    message: GmailSenderWorkspaceData['senders'][number]['preview_messages'][number]
+  ) => void) | null
+  headerSlot?: ReactNode
+  footerSlot?: ReactNode
+  actionsSlot?: ReactNode
+  className?: string
+}) {
+  const isOverviewMode = props.mode === 'overview'
+  const visibleEvidenceCount = Math.max(
+    1,
+    props.visibleEvidenceCount || (isOverviewMode ? 2 : 6)
+  )
+  const visibleMessages = props.sender.preview_messages.slice(0, visibleEvidenceCount)
+  const evidenceGroups = sharedSenderEvidenceGroups(visibleMessages)
+  const remainingEvidenceCount = Math.max(props.sender.preview_messages.length - visibleMessages.length, 0)
+  const loadMoreCount = Math.min(isOverviewMode ? 2 : 3, remainingEvidenceCount)
+  const evidenceAvailability = sharedSenderEvidenceAvailability(
+    visibleMessages.length > 0 ? visibleMessages : props.sender.preview_messages,
+    props.evidenceResolutionState || 'ready'
+  )
+  const committedSummary = props.managedState
+    ? props.managedState.destinationState === 'ARCHIVE'
+      ? `Already managed as Archive. Execution ${labelForExecutionState(props.managedState.executionState).toLowerCase()}.`
+      : `Already managed as ${labelForDestinationState(props.managedState.destinationState)}.`
+    : null
+  const evidenceContextLabel =
+    props.mode === 'decision' ? 'Evidence behind this sender' : 'Visible proof in Overview'
+  const cardShellClass =
+    props.className ||
+    (isOverviewMode
+      ? 'app-surface-card rounded-2xl border border-cyan-700/35 bg-[linear-gradient(180deg,rgba(14,25,37,0.98),rgba(7,13,21,0.99))] p-4 shadow-[0_14px_32px_rgba(2,6,23,0.22)]'
+      : 'app-surface-card rounded-[28px] border border-cyan-700/35 bg-[linear-gradient(180deg,rgba(15,24,36,0.98),rgba(8,14,23,0.99))] p-5 shadow-[0_22px_56px_rgba(2,6,23,0.28)]')
+  const presentationPolicy = useMemo(
+    () => buildGmailSemanticPresentationPolicy(props.groupSemanticRollup || null),
+    [props.groupSemanticRollup]
+  )
+  const semanticFamilyLabel = sharedSenderSemanticFamilyBadge(props.sender)
+  const semanticPatternLabel = sharedSenderSemanticPatternBadge(props.sender)
+  const semanticSubtitle = sharedSenderSemanticSubtitle(props.sender)
+  const semanticSummary = sharedSenderSemanticSummary(props.sender)
+  const senderBadges = (
+    isOverviewMode
+      ? [
+          sharedSenderSignalLabel(props.sender.sender_signal),
+          props.sender.requires_verification
+            ? 'Needs verification'
+            : props.sender.protected_hint
+              ? 'Protected context'
+              : null,
+        ]
+      : [
+          semanticFamilyLabel,
+          semanticPatternLabel,
+          sharedSenderSignalLabel(props.sender.sender_signal),
+          props.sender.protected_hint ? 'Protected signals' : null,
+          props.sender.requires_verification ? 'Needs verification' : null,
+        ]
+  ).filter(Boolean) as string[]
+
+  return (
+    <article className={cardShellClass}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className={isOverviewMode ? 'space-y-1.5' : 'space-y-2'}>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+            {props.mode === 'decision' ? 'Decision Mode' : 'Overview preview'}
+          </p>
+          <div>
+            <h3
+              className={
+                isOverviewMode
+                  ? 'text-lg font-semibold tracking-tight text-white'
+                  : 'text-2xl font-semibold tracking-tight text-white'
+              }
+            >
+              {props.sender.sender}
+            </h3>
+            <p className={isOverviewMode ? 'mt-1 text-xs leading-5 text-slate-200' : 'mt-1 text-sm text-slate-200'}>
+              {props.sender.sender_domain || 'Unknown domain'} · {semanticSubtitle} · last activity{' '}
+              {formatDate(props.sender.last_activity)}
+            </p>
+          </div>
+        </div>
+        {props.headerSlot ? <div className="shrink-0">{props.headerSlot}</div> : null}
+      </div>
+
+      <div className={isOverviewMode ? 'mt-3 flex flex-wrap gap-1.5' : 'mt-4 flex flex-wrap gap-2'}>
+        {senderBadges.map((badge) => (
+          <span
+            key={`${props.sender.sender_key}-${badge}`}
+            className={`${neutralPillSurfaceClass} rounded-full ${
+              isOverviewMode ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-[11px]'
+            } text-slate-200`}
+          >
+            {badge}
+          </span>
+        ))}
+      </div>
+
+      {committedSummary && !isOverviewMode ? (
+        <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-950/40 p-3">
+          <p className="text-xs font-medium text-slate-100">Current managed state</p>
+          <p className="mt-1 text-sm text-slate-300">{committedSummary}</p>
+          <p className="mt-2 text-[11px] text-slate-500">
+            Last destination update {formatDate(props.managedState?.lastActionTimestamp)}.
+          </p>
+        </div>
+      ) : null}
+
+      {isOverviewMode ? (
+        <>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <div className={`${neutralNestedSurfaceClass} rounded-xl p-2.5`}>
+              <p className="text-[9px] uppercase tracking-[0.18em] text-slate-300">Messages in group</p>
+              <p className="mt-1 text-base font-semibold text-white">
+                {props.sender.cleanup_group_message_count.toLocaleString()}
+              </p>
+            </div>
+            <div className={`${neutralNestedSurfaceClass} rounded-xl p-2.5`}>
+              <p className="text-[9px] uppercase tracking-[0.18em] text-slate-300">Unread</p>
+              <p className="mt-1 text-base font-semibold text-white">
+                {props.sender.unread_count.toLocaleString()}
+              </p>
+            </div>
+            <div className={`${neutralNestedSurfaceClass} rounded-xl p-2.5`}>
+              <p className="text-[9px] uppercase tracking-[0.18em] text-slate-300">Indexed total</p>
+              <p className="mt-1 text-base font-semibold text-white">
+                {(props.sender.total_sender_messages || 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 xl:grid-cols-[0.8fr_1.2fr]">
+            <div className={`${neutralNestedSurfaceClass} rounded-xl p-3`}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                {presentationPolicy.senderCard.surfaceTitle}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-100">{semanticSummary}</p>
+              <div className="mt-3 space-y-2 text-xs leading-5 text-slate-200">
+                <p>
+                  <span className="text-slate-400">Signal:</span>{' '}
+                  {sharedSenderSignalLabel(props.sender.sender_signal)}
+                </p>
+                <p>
+                  <span className="text-slate-400">Review:</span>{' '}
+                  {props.sender.requires_verification
+                    ? props.sender.verification_reasons.join(' · ')
+                    : props.sender.protected_hint || 'No extra caution from current proof.'}
+                </p>
+              </div>
+            </div>
+
+            <div className={`${neutralNestedSurfaceClass} rounded-xl p-3`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                    {evidenceContextLabel}
+                  </p>
+                  <span className="mt-1.5 inline-flex rounded-full border border-slate-700/70 bg-slate-950/35 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-slate-200">
+                    {evidenceAvailability.label}
+                  </span>
+                </div>
+                {remainingEvidenceCount > 0 && props.onLoadMoreEvidence ? (
+                  <button
+                    type="button"
+                    onClick={() => props.onLoadMoreEvidence?.(loadMoreCount)}
+                    className={`${quietControlSurfaceClass} rounded-full px-3 py-1.5 text-xs`}
+                  >
+                    Show {loadMoreCount} more
+                  </button>
+                ) : null}
+              </div>
+
+              {props.snippetHydrationState?.loading ? (
+                <p className="mt-3 text-[11px] text-cyan-200">Loading recent proof text…</p>
+              ) : null}
+              {props.snippetHydrationState?.error ? (
+                <p className="mt-3 text-[11px] text-amber-200">
+                  Some recent proof text is still unavailable.
+                </p>
+              ) : null}
+
+              <div className="mt-3 space-y-2">
+                {evidenceGroups.map(([label, messages]) => (
+                  <div key={label} className={`${neutralInsetSurfaceClass} rounded-xl p-3`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-white">
+                        {sharedEvidenceCategoryLabel(label)}
+                      </p>
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                        {messages.length.toLocaleString()} shown
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {messages.map((message) => {
+                        const previewText = sharedEvidencePreviewText(message.subject, message.snippet)
+
+                        return props.onOpenMessagePreview ? (
+                          <button
+                            key={message.message_id}
+                            type="button"
+                            onClick={() => props.onOpenMessagePreview?.(props.sender, message)}
+                            className={`${neutralNestedSurfaceClass} block w-full rounded-xl p-2.5 text-left hover:border-cyan-700/45`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <p className="text-xs font-medium text-white">
+                                {message.subject || 'No subject'}
+                              </p>
+                              <span className="text-[10px] text-slate-300">
+                                {message.date || 'No timestamp'}
+                              </span>
+                            </div>
+                            {previewText ? (
+                              <p className="mt-2 text-xs leading-5 text-slate-200">{previewText}</p>
+                            ) : (
+                              <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                                Preview text is not available yet
+                              </p>
+                            )}
+                            <p className="mt-2 text-[10px] font-medium text-cyan-200">
+                              Open full preview
+                            </p>
+                          </button>
+                        ) : (
+                          <div key={message.message_id} className={`${neutralNestedSurfaceClass} rounded-xl p-2.5`}>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <p className="text-xs font-medium text-white">
+                                {message.subject || 'No subject'}
+                              </p>
+                              <span className="text-[10px] text-slate-300">
+                                {message.date || 'No timestamp'}
+                              </span>
+                            </div>
+                            {previewText ? (
+                              <p className="mt-2 text-xs leading-5 text-slate-200">{previewText}</p>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {props.sender.preview_messages.length === 0 ? (
+                  <div className={`${neutralInsetSurfaceClass} rounded-xl p-3 text-sm text-slate-300`}>
+                    {evidenceAvailability.emptyState}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Messages in group</p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {props.sender.cleanup_group_message_count.toLocaleString()}
+              </p>
+            </div>
+            <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Unread</p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {props.sender.unread_count.toLocaleString()}
+              </p>
+            </div>
+            <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Indexed total</p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {(props.sender.total_sender_messages || 0).toLocaleString()}
+              </p>
+            </div>
+            <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">
+                {presentationPolicy.senderCard.metricLabel}
+              </p>
+              <p className="mt-2 text-sm font-medium leading-6 text-white">
+                {semanticFamilyLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                {presentationPolicy.senderCard.surfaceTitle}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-slate-100">
+                {semanticSummary}
+              </p>
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-200">
+                <p>
+                  <span className="text-slate-400">Sender signal:</span>{' '}
+                  {sharedSenderSignalLabel(props.sender.sender_signal)}
+                </p>
+                <p>
+                  <span className="text-slate-400">{presentationPolicy.senderCard.familyLabel}:</span>{' '}
+                  {semanticFamilyLabel}
+                </p>
+                <p>
+                  <span className="text-slate-400">{presentationPolicy.senderCard.patternLabel}:</span>{' '}
+                  {semanticPatternLabel}
+                </p>
+                <p>
+                  <span className="text-slate-400">{presentationPolicy.senderCard.usageLabel}:</span>{' '}
+                  {presentationPolicy.senderCard.usageDetail}
+                </p>
+              </div>
+              {props.sender.protected_hint ? (
+                <div className="mt-4 rounded-2xl border border-amber-900/45 bg-amber-950/18 p-3 text-sm text-amber-100">
+                  Protected hint: {props.sender.protected_hint}
+                </div>
+              ) : null}
+              {props.sender.requires_verification ? (
+                <div className="mt-4 rounded-2xl border border-amber-900/45 bg-amber-950/20 p-3">
+                  <p className="text-[10px] uppercase tracking-wide text-amber-200">
+                    Verification signals
+                  </p>
+                  <p className="mt-2 text-sm text-amber-100">
+                    {props.sender.verification_reasons.join(' · ')}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                    {evidenceContextLabel}
+                  </p>
+                  <span className="mt-2 inline-flex rounded-full border border-slate-700/70 bg-slate-950/35 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-200">
+                    {evidenceAvailability.label}
+                  </span>
+                  <p className="mt-2 text-sm text-slate-200">
+                    Messages remain supporting evidence only.
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">{evidenceAvailability.detail}</p>
+                </div>
+                {remainingEvidenceCount > 0 && props.onLoadMoreEvidence ? (
+                  <button
+                    type="button"
+                    onClick={() => props.onLoadMoreEvidence?.(loadMoreCount)}
+                    className={`${quietControlSurfaceClass} rounded-full px-3 py-1.5 text-xs`}
+                  >
+                    Show {loadMoreCount} more
+                  </button>
+                ) : null}
+              </div>
+
+              {props.snippetHydrationState?.loading ? (
+                <p className="mt-3 text-[11px] text-cyan-200">Loading recent proof text…</p>
+              ) : null}
+              {props.snippetHydrationState?.error ? (
+                <p className="mt-3 text-[11px] text-amber-200">
+                  Some recent proof text is still unavailable.
+                </p>
+              ) : null}
+
+              <div className="mt-4 space-y-3">
+                {evidenceGroups.map(([label, messages]) => (
+                  <div key={label} className={`${neutralInsetSurfaceClass} rounded-2xl p-4`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-white">
+                        {sharedEvidenceCategoryLabel(label)}
+                      </p>
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        {messages.length.toLocaleString()} shown
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {messages.map((message) => {
+                        const previewText = sharedEvidencePreviewText(message.subject, message.snippet)
+
+                        return props.onOpenMessagePreview ? (
+                          <button
+                            key={message.message_id}
+                            type="button"
+                            onClick={() => props.onOpenMessagePreview?.(props.sender, message)}
+                            className={`${neutralNestedSurfaceClass} block w-full rounded-2xl p-3 text-left hover:border-cyan-700/45`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <p className="text-sm font-medium text-white">
+                                {message.subject || 'No subject'}
+                              </p>
+                              <span className="text-[11px] text-slate-300">
+                                {message.date || 'No timestamp'}
+                              </span>
+                            </div>
+                            {previewText ? (
+                              <p className="mt-3 text-sm leading-6 text-slate-200">{previewText}</p>
+                            ) : (
+                              <p className="mt-3 text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                                Preview text is not available for this message yet
+                              </p>
+                            )}
+                            <p className="mt-3 text-[11px] font-medium text-cyan-200">
+                              Open full message preview
+                            </p>
+                          </button>
+                        ) : (
+                          <div key={message.message_id} className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <p className="text-sm font-medium text-white">
+                                {message.subject || 'No subject'}
+                              </p>
+                              <span className="text-[11px] text-slate-300">
+                                {message.date || 'No timestamp'}
+                              </span>
+                            </div>
+                            {previewText ? (
+                              <p className="mt-3 text-sm leading-6 text-slate-200">{previewText}</p>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {props.sender.preview_messages.length === 0 ? (
+                  <div className={`${neutralInsetSurfaceClass} rounded-2xl p-4 text-sm text-slate-300`}>
+                    {evidenceAvailability.emptyState}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {props.actionsSlot ? <div className="mt-5">{props.actionsSlot}</div> : null}
+      {props.footerSlot ? <div className="mt-5">{props.footerSlot}</div> : null}
+    </article>
   )
 }
 
@@ -2417,6 +4989,7 @@ function SenderPolicyButtons(props: {
 
 function SenderCard(props: {
   sender: GmailSenderWorkspaceData['senders'][number]
+  groupSemanticRollup?: GmailSenderWorkspaceData['analytics']['semantic_rollup']
   policy: GmailSenderPolicy
   committedState?: {
     destinationState: GmailDestinationState
@@ -2440,8 +5013,13 @@ function SenderCard(props: {
     ? `We pause this sender because ${props.sender.verification_reasons.join(', ').toLowerCase()}.`
     : 'No strong verification blockers are currently visible in the cached evidence.'
 
+  const semanticFamilyLabel = sharedSenderSemanticFamilyBadge(props.sender)
+  const semanticPatternLabel = sharedSenderSemanticPatternBadge(props.sender)
+  const semanticSubtitle = sharedSenderSemanticSubtitle(props.sender)
+  const semanticSummary = sharedSenderSemanticSummary(props.sender)
   const senderBadges = [
-    props.sender.category_summary,
+    semanticFamilyLabel,
+    semanticPatternLabel,
     props.sender.sender_signal === 'likely_machine_generated'
       ? 'Likely automated'
       : props.sender.sender_signal === 'likely_human'
@@ -2475,14 +5053,15 @@ function SenderCard(props: {
       ? `Already managed as Archive. Execution ${labelForExecutionState(props.committedState.executionState).toLowerCase()}.`
       : `Already managed as ${labelForDestinationState(props.committedState.destinationState)}. This stays out of Confirmation until you make a new draft decision.`
     : null
+  const presentationPolicy = buildGmailSemanticPresentationPolicy(props.groupSemanticRollup || null)
 
   return (
-    <article className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 space-y-3">
+    <article className="app-surface-card rounded-2xl p-4 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-base font-semibold text-white">{props.sender.sender}</p>
           <p className="mt-1 text-xs text-gray-500">
-            {(props.sender.sender_domain || 'Unknown domain')} · {props.sender.category_summary}
+            {(props.sender.sender_domain || 'Unknown domain')} · {semanticSubtitle}
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -2502,41 +5081,41 @@ function SenderCard(props: {
         {senderBadges.map((badge) => (
           <span
             key={`${props.sender.sender_key}-${badge}`}
-            className="rounded-full border border-gray-800 bg-gray-950/65 px-2.5 py-1 text-[11px] text-gray-300"
+            className={`${neutralPillSurfaceClass} rounded-full px-2.5 py-1 text-[11px] text-gray-300`}
           >
             {badge}
           </span>
         ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
-        <div className="rounded-xl border border-gray-800 bg-gray-950/65 p-3">
+        <div className={`${neutralNestedSurfaceClass} rounded-xl p-3`}>
           <p className="text-[10px] uppercase tracking-wide text-gray-500">Messages in this group</p>
           <p className="mt-1 text-lg font-semibold text-white">
             {props.sender.cleanup_group_message_count.toLocaleString()}
           </p>
         </div>
-        <div className="rounded-xl border border-gray-800 bg-gray-950/65 p-3">
+        <div className={`${neutralNestedSurfaceClass} rounded-xl p-3`}>
           <p className="text-[10px] uppercase tracking-wide text-gray-500">All indexed history</p>
           <p className="mt-1 text-lg font-semibold text-white">
             {(props.sender.total_sender_messages || 0).toLocaleString()}
           </p>
         </div>
-        <div className="rounded-xl border border-gray-800 bg-gray-950/65 p-3">
+        <div className={`${neutralNestedSurfaceClass} rounded-xl p-3`}>
           <p className="text-[10px] uppercase tracking-wide text-gray-500">Unread now</p>
           <p className="mt-1 text-lg font-semibold text-white">
             {props.sender.unread_count.toLocaleString()}
           </p>
         </div>
-        <div className="rounded-xl border border-gray-800 bg-gray-950/65 p-3">
+        <div className={`${neutralNestedSurfaceClass} rounded-xl p-3`}>
           <p className="text-[10px] uppercase tracking-wide text-gray-500">Last activity</p>
           <p className="mt-1 text-lg font-semibold text-white">{formatDate(props.sender.last_activity)}</p>
         </div>
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
         {insightCard(
-          'Why this sender is in scope',
-          props.sender.dominant_pattern,
-          `${props.sender.cleanup_group_message_count.toLocaleString()} messages from this sender match the selected cleanup group.`
+          presentationPolicy.senderCard.surfaceTitle,
+          `${semanticFamilyLabel} · ${semanticPatternLabel}`,
+          semanticSummary
         )}
         {insightCard(
           'Sender profile',
@@ -2622,6 +5201,10 @@ export function SenderDecisionStage(props: {
   const decidedSenderCount = Object.values(props.policyBySender).filter(
     (policy) => policy && policy !== 'undecided'
   ).length
+  const presentationPolicy = useMemo(
+    () => buildGmailSemanticPresentationPolicy(props.data.analytics.semantic_rollup),
+    [props.data.analytics.semantic_rollup]
+  )
   const committedVisibleCount = props.data.senders.filter(
     (sender) => props.committedBySender[sender.sender_key]
   ).length
@@ -2669,7 +5252,7 @@ export function SenderDecisionStage(props: {
           {props.data.selected_cluster.title}
         </h1>
         <p className="mt-2 text-sm text-gray-300">
-          {props.data.selected_cluster.why_selected}
+          {presentationPolicy.topExplanation.body}
         </p>
         <p className="mt-2 text-sm text-gray-300">
           This is the drill-down workspace for Phase 1. Review senders, use analytics to focus the list, and open messages only when you need evidence.
@@ -2677,7 +5260,7 @@ export function SenderDecisionStage(props: {
       </section>
       {sectionCard(
         'Cluster brief',
-        'Start with the sender set itself: why it surfaced, what to watch, and how much of the cleanup mission is already decided.',
+        'Start with the group context, the safety frame, and how much of the cleanup mission is already decided.',
         <div className="space-y-3">
           <div className="grid gap-3 xl:grid-cols-5">
             {metricCard(
@@ -2713,9 +5296,9 @@ export function SenderDecisionStage(props: {
           </div>
           <div className="grid gap-3 xl:grid-cols-3">
             {insightCard(
-              'Why this group surfaced',
-              props.data.selected_cluster.why_selected,
-              `${props.data.selected_cluster.share_pct}% of the cleanup candidate universe currently sits in this sender group.`
+              presentationPolicy.topExplanation.title,
+              presentationPolicy.cleanupGroupCard.headline,
+              presentationPolicy.cleanupGroupCard.support
             )}
             {insightCard(
               'Safety context',
@@ -2746,7 +5329,7 @@ export function SenderDecisionStage(props: {
           </div>
         </div>
       )}
-      <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
+      <section className="app-surface-card rounded-2xl p-4 text-sm text-gray-300">
         Draft decisions persist for this cleanup group during Phase 1, so you can leave and return later without losing current sender policies.
         <span className="ml-2 text-gray-500">
           Managed badges come from committed destination state and stay separate from the live draft buffer.
@@ -2843,7 +5426,7 @@ export function SenderDecisionStage(props: {
           </div>
         </div>
       )}
-      <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 space-y-4">
+      <section className="app-surface-card rounded-2xl p-4 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Sender list controls</p>
@@ -2853,7 +5436,7 @@ export function SenderDecisionStage(props: {
               Messages stay secondary evidence only.
             </p>
           </div>
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/55 px-3 py-2 text-xs text-gray-300">
+          <div className={`${neutralNestedSurfaceClass} rounded-2xl px-3 py-2 text-xs text-gray-300`}>
             {props.data.exceptions_count.toLocaleString()} senders currently show verification cues
           </div>
         </div>
@@ -2864,7 +5447,7 @@ export function SenderDecisionStage(props: {
               value={searchInputValue}
               onChange={(event) => queueSearchChange(event.target.value)}
               placeholder="sender or domain"
-              className="w-full rounded-2xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-cyan-700/60"
+              className={`${neutralInsetSurfaceClass} w-full rounded-2xl px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-cyan-700/60`}
             />
             <p className="text-[11px] text-gray-500">Search waits briefly before reloading the sender slice.</p>
           </label>
@@ -2875,7 +5458,7 @@ export function SenderDecisionStage(props: {
               onChange={(event) =>
                 props.onFilterChange(event.target.value as GmailSenderWorkspaceData['view']['filter'])
               }
-              className="w-full rounded-2xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-sm text-white outline-none focus:border-cyan-700/60"
+              className={`${neutralInsetSurfaceClass} w-full rounded-2xl px-3 py-2 text-sm text-white outline-none focus:border-cyan-700/60`}
             >
               <option value="all">All senders</option>
               <option value="needs_verification">Needs verification</option>
@@ -2891,7 +5474,7 @@ export function SenderDecisionStage(props: {
               onChange={(event) =>
                 props.onSortChange(event.target.value as GmailSenderWorkspaceData['view']['sort'])
               }
-              className="w-full rounded-2xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-sm text-white outline-none focus:border-cyan-700/60"
+              className={`${neutralInsetSurfaceClass} w-full rounded-2xl px-3 py-2 text-sm text-white outline-none focus:border-cyan-700/60`}
             >
               <option value="message_count">Group message count</option>
               <option value="sender">Sender name</option>
@@ -2908,7 +5491,7 @@ export function SenderDecisionStage(props: {
                   event.target.value as GmailSenderWorkspaceData['view']['direction']
                 )
               }
-              className="w-full rounded-2xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-sm text-white outline-none focus:border-cyan-700/60"
+              className={`${neutralInsetSurfaceClass} w-full rounded-2xl px-3 py-2 text-sm text-white outline-none focus:border-cyan-700/60`}
             >
               <option value="desc">Descending</option>
               <option value="asc">Ascending</option>
@@ -2923,7 +5506,7 @@ export function SenderDecisionStage(props: {
         ) : null}
       </section>
       {props.data.senders.length === 0 ? (
-        <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
+        <section className="app-surface-card rounded-2xl p-4 text-sm text-gray-300">
           No senders match the current search and filter controls.
         </section>
       ) : null}
@@ -2932,6 +5515,7 @@ export function SenderDecisionStage(props: {
           <SenderCard
             key={sender.sender_key}
             sender={sender}
+            groupSemanticRollup={props.data.analytics.semantic_rollup}
             policy={props.policyBySender[sender.sender_key] || 'undecided'}
             committedState={props.committedBySender[sender.sender_key] || null}
             open={props.openSenderKey === sender.sender_key}
@@ -3070,6 +5654,7 @@ export function ExceptionsStage(props: {
             <SenderCard
               key={sender.sender_key}
               sender={sender}
+              groupSemanticRollup={null}
               policy={props.policyBySender[sender.sender_key] || 'undecided'}
               open={true}
               onToggleOpen={() => undefined}

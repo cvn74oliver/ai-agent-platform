@@ -584,3 +584,103 @@ Your job:
 ---
 
 # End of Brief
+# 
+# 
+# ---
+#
+## 🏁 PM v11 Turnover Addendum — Practical Onboarding Context (March 26, 2026)
+#
+### Where You Are Starting
+#
+You are entering the system at a **late Phase 1 (Gmail Workspace) state** where:
+#
+- Artifact system is **stable and frozen** at:
+  - `full-mailbox-20260325230627555`
+- Sender Overview now includes:
+  - hierarchical semantic family → subtype tree
+  - correct parent/child denominators
+  - subtype → sender list interaction
+- The system is **functionally usable**, not just structurally correct
+#
+---
+#
+### What Is Actually Working (Trust This)
+#
+- Cleanup groups are valid and complete
+- Sender-level decisions can be made end-to-end
+- Subtype hierarchy provides meaningful breakdown of dominant categories
+- Subtype clicks correctly drive sender list (with runtime-backed results)
+#
+---
+#
+### What Still Feels Broken (But Is Known)
+#
+These are **expected Phase 1 limitations**, not regressions:
+#
+1. **Top vs bottom count mismatch**
+   - Top = artifact truth
+   - Bottom = runtime reconstruction
+   - This is intentionally surfaced, not hidden
+#
+2. **Slow subtype loads (cold)**
+   - Uses `full_cluster_materialization`
+   - ~10–15 seconds
+   - Warm loads acceptable
+#
+3. **Decision-card preview gaps**
+   - Some high-volume senders fail to show preview
+   - This is the **next critical fix**
+#
+---
+#
+### How To Think About The System
+#
+The system is now in a **hybrid truth state**:
+#
+- Artifact layer = stable, authoritative summary
+- Runtime layer = operational, sometimes divergent detail
+#
+This is acceptable for Phase 1.
+#
+Do NOT attempt to “force” alignment unless it blocks decisions.
+#
+---
+#
+### What You Must Do First
+#
+1. Fix **Decision-card preview reliability**
+2. Ensure sender-level interaction always works
+3. Improve readability and clarity of Sender Overview
+#
+---
+#
+### What You Must NOT Do
+#
+- Do NOT restart artifact work
+- Do NOT chase perfect subtype coverage
+- Do NOT rebuild unless artifact truth is proven incorrect
+- Do NOT optimize performance yet
+#
+---
+#
+### The Most Important Rule
+#
+> A system that works imperfectly is more valuable than a perfect system that cannot be used.
+#
+---
+#
+### Your Objective
+#
+Turn this system into something the user can:
+#
+- understand instantly
+- interact with confidently
+- use repeatedly without confusion
+#
+Everything else comes later.
+#
+---
+#
+PM v11 onboarding context complete.
+#
+---

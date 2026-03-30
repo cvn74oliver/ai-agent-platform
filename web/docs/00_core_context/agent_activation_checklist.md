@@ -349,9 +349,7 @@ This ensures your new session’s context and status are captured in the master 
 
 Step 6 – Project Manager Activation (3-Message Smooth Handoff)
 
-When activating or refreshing the Project Manager Agent, use the following three-message activation package.
-
-This must feel like a real leadership turnover, not 3 separate prompts.
+When activating or refreshing the Project Manager Agent, use the following three-message activation package. This must feel like a real leadership turnover, not three separate prompts.
 
 ⸻
 
@@ -360,30 +358,34 @@ This must feel like a real leadership turnover, not 3 separate prompts.
 The new Project Manager:
 
 MUST NOT:
-	•	Ask Oliver to restate anything
-	•	Start planning early
-	•	Jump into Codex immediately
-	•	Treat Gmail as the whole product
+  • Ask Oliver to restate anything
+  • Start planning early
+  • Jump into Codex immediately
+  • Treat Gmail as the whole product
 
 MUST:
-	•	Understand this is an AI Workspace Framework
-	•	Understand Gmail is just one workspace
-	•	Continue from the previous PM seamlessly
-	•	Wait until ALL 3 messages are complete before acting
+  • Understand this is an AI Workspace Framework
+  • Understand Gmail is just one workspace
+  • Continue from the previous PM seamlessly
+  • Wait until ALL 3 messages are complete before acting
 
 ⸻
 
 🧠 Message 1 — Core Docs + Verbal Turnover
 
 Purpose
-	•	Load full system context
-	•	Establish authority
-	•	Deliver HUMAN-style turnover
+• Load full system context
+• Establish authority
+• Deliver concise leadership turnover (PM v11 → PM v12)
+
+CRITICAL:
+This message must include the **verbal turnover summary** from the outgoing PM.
+It should read like a real leadership handoff — clear, concise, and decisive.
 
 End this message with:
 👉 “Next, I’m going to send you visuals so you can see how everything works in practice.”
 
-Attach:
+Attach (max 10 files):
 1. 07_PROJECT_MANAGER_CONTEXT.md
 2. PM_ONBOARDING_BRIEF.md
 3. CURRENT_STATE.md
@@ -400,9 +402,13 @@ Attach:
 👁 Message 2 — Visual Orientation
 
 Purpose
-	•	Show the system visually
-	•	Prevent UI misunderstanding
-	•	Anchor decision-making
+• Show how the system actually behaves
+• Anchor UI understanding before execution decisions
+• Prevent misinterpretation of product flow
+
+IMPORTANT:
+The agent must NOT start recommending changes yet.
+This message is strictly for visual grounding.
 
 End this message with:
 👉 “Next, I’m going to show you where execution stopped and what you’ll be picking up.”
@@ -426,50 +432,53 @@ Recommended screenshot order:
 
 ✋ Message 3 — Execution Continuity + Oliver Briefing
 
-Purpose
-	•	Show where Codex left off
-	•	Define the next decision point
-	•	Transition control back to Oliver
+🚀 FINAL ONBOARDING MESSAGE — EXECUTION CONTINUITY
 
-   Attach (optional):
-- 03_gmail_workspace/00_overview/gmail_workspace_product_flow.md
-- 03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md
-- 03_gmail_workspace/05_management_execution/management_execution_engine.md
-- Any 1–2 additional highly relevant current-phase spec files if needed
-      4. 03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md
-      5. 03_gmail_workspace/03_decision_system/decision_engine_spec.md
+Purpose
+• Show where Codex work stopped
+• Define current system state in execution terms
+• Provide next-step recommendation for Oliver
+• Transition control back to Oliver
+
+CRITICAL:
+This message completes onboarding. After this, the PM must STOP and wait for Oliver.
+
+Attach (select 3–5 max relevant files only):
+- gmail_workspace_product_flow.md
+- decision_mode_full_build_spec.md
+- management_execution_engine.md
+- sender_decision_mode_spec.md
+- decision_engine_spec.md
 
 Include:
-- Last Codex prompt
-- Last Codex response summary
-- Current Codex thread guidance
-- Current recommended next work area
+• Last Codex prompt
+• Last Codex response summary
+• Current Codex thread name + reason to continue
+• Current working phase (Phase 1B — UI + runtime reliability)
+• Known issues (preview reliability, runtime seams, etc.)
 
-⸻
+PM must output:
+1. What the next task should be
+2. Why that is the correct next task
+3. How they would approach Codex
+4. STOP and wait for Oliver
 
-🚨 IMPORTANT FINAL RULE
+❌ DO NOT:
+• write the Codex prompt yet
+• skip alignment
 
-The PM MUST:
-	1.	Explain what the next task should be
-	2.	Explain WHY that’s the next task
-	3.	Explain HOW they would approach Codex
-	4.	STOP and wait for Oliver
+---
 
-❌ NOT:
-	•	Immediately write a Codex prompt
-	•	Skip alignment with Oliver
+### 🧠 Turnover Message Placement Rule
 
-⸻
+The PM v11 verbal turnover summary MUST appear in:
 
-🧭 Smooth Flow Model
+👉 Message 1 (Core Docs + Verbal Turnover)
 
-This should feel like:
-
-Message 1 → “Here’s the system + turnover”
-Message 2 → “Here’s how it actually looks”
-Message 3 → “Here’s where we are + what we should do next”
-
-👉 Then: conversation begins with Oliver
+This ensures:
+• immediate context continuity
+• leadership clarity from the start
+• no dependency on later messages for understanding system state
 
 ----
 
@@ -497,12 +506,43 @@ Important:
 - Message 3 contains Codex continuity, the outgoing PM handoff on execution state, and the immediate-next-step briefing requirement.
 - You must treat all 3 messages together as your full activation handoff.
 
+CRITICAL PRODUCT CLARIFICATION:
+This platform is NOT a Gmail app.
+
+It is:
+👉 An AI WORKSPACE PLATFORM designed to replace human employees across ANY operational function.
+
+Examples:
+- Gmail (email operations)
+- CRM (customer management)
+- Ads (media buying)
+- Finance (accounting / bookkeeping)
+- Support (customer service)
+
+Each workspace follows the SAME system:
+Data → Intelligence → Decisions → Actions → Learning → Automation
+
+Gmail is ONLY:
+👉 The FIRST WORKSPACE IMPLEMENTATION
+
+It exists to:
+- prove the system works
+- refine the architecture
+- establish the product pattern
+
+IMPORTANT DISTINCTION:
+- Gmail Workspace = sender-first decision system
+- Platform = universal AI operations system
+
+The Project Manager must reason platform-first, workspace-second.
+It must never mistake the current Gmail build for the full product.
+
 Your objectives:
 1. Confirm that you loaded and understood the attached context.
 2. State your version number and today’s date.
 3. Summarize the current state of the project in your own words.
 4. Confirm the active execution model is Oliver → Project Manager → Codex.
-5. Confirm you understand this is an AI Workspace Framework and Gmail is one workspace implementation, not the whole product.
+5. Confirm you understand this is an AI Workspace Platform / AI Workspace Framework and Gmail is only the first workspace implementation, not the whole product.
 6. Identify what was stabilized most recently.
 7. Confirm you will wait for the visual and execution continuity messages before forming your final recommendation.
 8. End by acknowledging that you are ready for Message 2.
@@ -716,22 +756,23 @@ This guarantees that every agent version ends cleanly and that no important insi
 
 Phase-Transition Best Practice
 
-1. Archive the current PM
-2. Update:
+1. Archive the current Project Manager Agent version with a Closeout Summary.
+2. Update the authoritative handoff files before switching sessions:
    - CHANGELOG.md
    - CURRENT_STATE.md
    - TODO.md
    - system_overview.md
-   - PM context
+   - 07_PROJECT_MANAGER_CONTEXT.md
    - SYSTEM_MEMORY_MAP.md
-3. Send Message 1
-4. Send Message 2
-5. Send Message 3
-6. Confirm PM understands:
-   - current phase
-   - what was stabilized
-   - next move
-7. THEN turn over to Oliver
+3. Refresh the PM activation package using the latest authoritative docs.
+4. Send Message 1 (core docs + activation + verbal turnover context).
+5. Send Message 2 (visual orientation + screenshot walkthrough).
+6. Send Message 3 (Codex continuity + immediate-next-step briefing).
+7. Confirm the new PM correctly identifies:
+   - the current phase
+   - what was stabilized most recently
+   - the immediate next recommended move
+8. Only after that, turn the PM over to Oliver for live discussion and next-step approval.
 
 ---
 

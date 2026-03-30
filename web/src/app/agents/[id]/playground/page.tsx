@@ -266,6 +266,8 @@ type RuntimeCleanupPlanCluster = {
   title: string
   query: string
   why_selected: string
+  sender_count: number
+  message_count: number
   estimated_count: number
   sample_preview: Array<{
     message_id: string

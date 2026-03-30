@@ -1,3 +1,782 @@
+### March 30, 2026 — Subscription-Senders Sender Overview Load Stability Accepted
+
+Root-cause addressed:
+- The remaining `subscription-senders` instability was not Smart Sync, artifact freshness, cleanup-group restructuring, or a chart-design issue.
+- It was a combined review-page/runtime load-path problem:
+  - broader scoped Sender Overview loads (`60d` / `90d` / `365d`) were still recomputing sender workspace truth instead of reusing persisted scoped snapshots
+  - first-entry selected-cluster rail bootstrap was still doing unnecessary cold runtime work
+  - the first runtime reduction pass then regressed the accepted `7d` recovery contract by allowing `empty_with_index_potential` to terminate as `unavailable_scope`
+
+What changed:
+- Preserved the earlier shell-level scope-switch fix:
+  - timeframe changes no longer re-trigger `/api/agents/playground` on warm review-page scope changes
+- Restored scoped workspace reuse for default Sender Overview requests:
+  - agent-scoped persisted cleanup snapshots are now reused for `60d`, `90d`, and `365d`
+  - the request path now preserves both requested cluster identity and `request_agent_id`
+  - artifact-backed `all_indexed` behavior remains intact
+- Reduced first-entry runtime churn without reopening broader architecture:
+  - selected-cluster rail bootstrap no longer blocks first entry on unnecessary cross-scope readonly discovery for broader scopes
+  - `7d` recovery was then restored narrowly:
+    - if a persisted `7d` snapshot is rejected with `empty_with_index_potential`
+    - and indexed coverage still indicates recent scoped potential
+    - bootstrap now still falls through to fresh read-only scoped discovery
+- Narrow performance assist shipped for `7d` recovery only:
+  - `7d` readonly scoped discovery now reads a scope-bounded indexed slice instead of loading the full indexed corpus
+
+Accepted outcome:
+- Sender Overview first entry for `subscription-senders` is now stable and no longer reproduces the earlier broken churn/flood behavior.
+- `7d` is rendering again instead of falling into the broken unavailable / false-empty state.
+- Broader scopes remain healthy:
+  - `60d`, `90d`, and `365d` reuse persisted scoped snapshots
+  - `rejected_candidate_count_mismatch` is gone on the accepted default overview path
+- Warm timeframe switching remains fast and no longer re-triggers runtime rehydrate on every change.
+
+Before / after proof:
+- Before this accepted closeout:
+  - cold `/api/agents/playground` rehydrate could sit around `35–37s`
+  - broader scoped `subscription-senders` workspace loads could degrade to:
+    - `60d ~6.2s`
+    - `90d ~9.0s`
+    - `365d ~40.7s`
+  - the regression pass temporarily broke `7d` again:
+    - `scope = 7d`
+    - `source = unavailable_scope`
+    - `persisted_snapshot_rejected_reason = empty_with_index_potential`
+- Final accepted proof:
+  - runtime proof now shows:
+    - `7d -> readonly_scoped_discovery`
+    - `7d scope_resolution -> snapshot_ready`
+    - `runtime_state_total_ms ~ 8.9s`
+    - `preferred_cluster_review_bootstrap_ms ~ 5.7s`
+  - broader scoped `subscription-senders` workspace loads remain healthy:
+    - `60d ~1.5s`
+    - `90d ~1.6s`
+    - `365d ~2.1s`
+  - cold browser proof on `localhost:3000` showed:
+    - `subscription-senders` first usable at `~4.7s`
+    - `protected-trusted-senders` first usable at `~5.5s`
+    - no `Failed to load sender workspace`
+    - `7d` present as `ready` in runtime-selected cluster rail family for both lanes
+
+Accepted boundary for this thread:
+- Accepted:
+  - stable first-entry Sender Overview loading for `subscription-senders`
+  - preserved `7d` rail recovery
+  - preserved faster scoped timeframe switching behavior
+  - removed broken runtime churn / regression patterns surfacing in this lane
+- Explicitly non-blocking for this thread:
+  - sparse daily-bar density when recent underlying data is honestly sparse
+  - any future product/presentation decision about rendering explicit zero-activity days
+
+### March 29, 2026 — Sender Overview 7-Day Rail Bootstrap Recovery Accepted
+
+Root-cause addressed:
+- The remaining `1W` Sender Overview failure was not a mailbox freshness defect and not an artifact-publication defect.
+- Review-page runtime was reusing the latest persisted scoped cleanup snapshot for selected-cluster rail bootstrap without rejecting semantically invalid empty `7d` snapshots.
+- The stale `7d` snapshot path could remain structurally reusable even when:
+  - `visible_cluster_count === 0`
+  - current indexed coverage had already advanced enough to support non-zero `7d` cluster discovery
+- Result:
+  - selected-cluster Sender Overview rails could resolve `snapshot_outside_timeframe`
+  - visible cluster count could stay `0`
+  - cleanup-group lanes could falsely render `comparison-only` / `outside-timeframe` even though live indexed data already supported daily bars
+
+What changed:
+- Narrow fix shipped in selected-cluster rail bootstrap only.
+- Added scoped snapshot rejection rules in `runtimeStateService` so a persisted scoped snapshot is no longer reused when:
+  - it is expired
+  - indexed coverage has advanced beyond the snapshot
+  - it is semantically invalid for the current mailbox state:
+    - `visible_cluster_count === 0`
+    - indexed coverage indicates non-zero cluster potential
+- When a scoped snapshot is rejected or missing for an unpublished scope, selected-cluster rail bootstrap now falls through to read-only scoped discovery:
+  - no artifact changes
+  - no Smart Sync changes
+  - no publication changes
+  - no `agent_events` persistence side effects in this lane
+- Fresh read-only scoped discovery is reused only through the in-memory cleanup snapshot cache for the current runtime process.
+
+Before / after proof:
+- Before the fix:
+  - latest persisted `7d` snapshot was empty and older than current indexed coverage
+  - selected-cluster rail bootstrap resolved `7d` as `snapshot_outside_timeframe`
+  - visible cluster count was `0`
+- After the fix:
+  - first live `7d` rail bootstrap rejected the stale empty snapshot with reason `empty_with_index_potential`
+  - runtime fell through to `readonly_scoped_discovery`
+  - live runtime truth now resolves `7d` as `ready` with daily bars and visible cluster count `7`
+- Validated cleanup groups:
+  - `subscription-senders`
+  - `protected-trusted-senders`
+  - `needs-review-senders`
+  - `historical-out-of-inbox-senders`
+
+Accepted product/state distinction:
+- For this tenant, `7d` should show daily bars right now.
+- The previous `comparison-only` / `outside-timeframe` result was false-empty, not honest-empty.
+- Honest `1W` comparison-only remains valid in principle only when fresh scoped discovery truly excludes the cluster.
+- Some recovered `7d` charts currently show only `2–3` visible day bars in live UI samples.
+- That is accepted as non-blocking for this lane and is being treated as likely honest activity visibility rather than proof of a broken `7d` bootstrap.
+- Whether Sender Overview should render all seven calendar days including explicit zero-activity bars is a separate presentation/product question and not part of this recovery acceptance.
+- `subscription-senders` load instability / slow or unreliable page load behavior is explicitly out of scope for this closed lane.
+- Artifact publication remains untouched:
+  - current published version is still `full-mailbox-20260329092447406`
+
+### March 29, 2026 — Sender Overview Broader-Scope Chart Recovery Accepted; Mailbox-Index Freshness Gap Split Out
+
+Root-cause addressed:
+- The remaining Sender Overview Exceptions & Coverage confusion was no longer centered on chart rendering itself.
+- Broader active-scope timeframe behavior for:
+  - `needs-review-senders`
+  - `protected-trusted-senders`
+  - `historical-out-of-inbox-senders`
+  needed to be rechecked against:
+  - live review-page rendering
+  - selected-cluster rail-family scope resolution
+  - `sender_workspace` counts
+- The resulting scope matrix showed:
+  - active-scope rail truth is now recovered for broader scopes when scoped data exists
+  - the remaining gap is upstream of chart rendering, in mailbox-index / Smart Sync freshness
+
+What changed:
+- Locked the Sender Overview broader-scope chart lane as recovered for active-scope review routes when scoped discovery data exists.
+- Confirmed the active route matrix now behaves as:
+  - `7d`: valid comparison-only / outside-timeframe when no recent scoped discovery data exists
+  - `30d`, `60d`, `90d`: ready weekly rails when data exists
+  - `180d`, `365d`, `all_indexed`: ready monthly rails when data exists
+- Aligned live `sender_workspace` derivation for structural coverage groups with the structural cleanup-group assignment contract so `needs-review-senders` and `protected-trusted-senders` no longer collapse to zero sender rows on broader active scopes.
+
+Accepted product/state distinction:
+- Sender Overview broader-scope chart recovery is accepted.
+- Valid `1W` comparison-only behavior may still occur when no recent scoped data exists.
+- The 24-month historical cutoff remains expected bounded-backfill behavior; it is not a chart-contract defect.
+
+Open issue moved to a new thread:
+- The newly identified open issue is a separate mailbox-index / Smart Sync freshness gap.
+- Suspected behavior:
+  - mailbox-index maintenance is not advancing indexed coverage up to the current date
+  - this can suppress recent scoped discovery and create valid `1W` empty/outside states even when the chart contract itself is correct
+- This freshness issue is now explicitly separated from Sender Overview chart rendering and rail-contract work.
+- This thread is closed on the chart-recovery lane; any further investigation should happen in the separate mailbox-index / Smart Sync freshness thread.
+
+### March 29, 2026 — Cleanup-Group Legacy Rollup Compatibility Stabilization
+
+Root-cause addressed:
+- A Slice 2 semantic-rollup schema expansion leaked into live artifact read paths before backward compatibility was finished.
+- Legacy/published artifact rows still carried `semantic_rollup` payloads without the new nested blocks:
+  - `surface`
+  - `promotion`
+  - `review_unit_plan`
+- Runtime parsing in `gmailCleanupWorkspace.ts` reconstructed those legacy rollups as if they were complete canonical rollups, then `buildMirroredSemanticArtifactFieldsFromRollup(...)` dereferenced `rollup.surface.tier` unconditionally.
+- Result:
+  - `Sender Overview` / selected cleanup-group workspace loads could fail with:
+    - `TypeError: Cannot read properties of undefined (reading 'tier')`
+  - `/api/agents/playground` could 500 on the same path
+  - safe-partial fallback could return zeroed workspace truth because the throw happened before valid legacy artifact data could be reconciled
+
+What changed:
+- Restored backward compatibility in `gmailSemanticRollupContract.ts`:
+  - added compatibility normalization for legacy rollups missing `surface`, `promotion`, or `review_unit_plan`
+  - `buildMirroredSemanticArtifactFieldsFromRollup(...)` now repairs missing Slice 2 blocks instead of throwing
+  - validation now runs against compatibility-normalized rollups
+- Restored parse-safe runtime behavior in `gmailCleanupWorkspace.ts`:
+  - legacy `semantic_rollup` parsing now preserves real Slice 2 nested metadata when present
+  - missing nested Slice 2 blocks are normalized through the shared compatibility path
+  - mailbox-intelligence cleanup-group builders now read normalized parsed analytics instead of assuming mirrored surface fields already exist on artifact rows
+  - summary/header parse paths now pass `cluster_id` into compatibility repair so structural-lane defaults remain stable for legacy artifacts
+
+Why it mattered:
+- This was a P0 runtime/schema compatibility break on the live artifact-backed Gmail path.
+- The correct fix was a narrow read-path stabilization:
+  - no rebuild
+  - no forward Slice 2 promotion rollout
+  - no sender reassignment
+- Legacy published artifacts must remain readable while Slice 2 metadata is still rolling in incrementally.
+
+Validation run:
+- targeted lint:
+  - `./node_modules/.bin/eslint src/lib/integrations/gmail/gmailSemanticRollupContract.ts src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - result: `0` errors, `4` pre-existing warnings in `gmailCleanupWorkspace.ts`
+- live browser validation on `http://127.0.0.1:3000`:
+  - `subscription-senders` Sender Overview route opened successfully
+  - `system-notification-senders` Sender Overview route opened successfully
+  - `protected-trusted-senders` Sender Overview route opened successfully
+  - `needs-review-senders` Sender Overview route opened successfully
+  - `historical-out-of-inbox-senders` Sender Overview route opened successfully
+  - no `Failed to load sender workspace` UI state was observed in those probes
+- live `/api/agents/playground` probe:
+  - browser-backed intelligence mount now returns `POST /api/agents/playground -> 200`
+  - no browser-visible 500 on the stabilized path
+
+Current status after fix:
+- Legacy published artifacts without Slice 2 nested surface metadata are readable again.
+- New Slice 2 nested metadata still parses when present.
+- Forward Slice 2 regrouping work remains paused until this stabilization baseline is accepted.
+
+### March 29, 2026 — Supabase Pressure Incident Root Cause Locked + Runtime Hot-Path Guidance
+
+Root-cause addressed:
+- The artifact-backed architecture remained broadly correct.
+- Pressure came from two combined hot-path failures:
+  - unnecessary rehydrate triggers in `OperationsRuntimeContext`
+    - warm cached remount forced rehydrate
+    - focus / visibility could force rehydrate without a change-driven reason
+  - timeout-prone preferred-cluster cleanup snapshot lookup behavior in `runtimeStateService`
+- Combined effect:
+  - repeated `/api/agents/playground` pressure
+  - degraded selected-cluster bootstrap on preferred-cluster rehydrates
+  - incident looked like a tier/capacity problem even though the dominant failure mode was trigger multiplication plus a hot-path lookup timeout
+
+What changed:
+- Removed the `OperationsRuntimeContext` trigger regression:
+  - warm cached remount no longer forces rehydrate
+  - focus / visibility no longer force rehydrate without a change-driven reason
+- Fixed the preferred-cluster snapshot timeout path in `runtimeStateService`:
+  - cache-first scoped cleanup snapshot lookup
+  - supporting `agent_events` indexes added via:
+    - `20260329131500_agent_events_cleanup_snapshot_lookup_indexes.sql`
+- Kept the already-shipped selected-cluster bootstrap optimization in the active path:
+  - cache / versioned rail-family reuse for repeated preferred-cluster rehydrates
+
+Why it mattered:
+- The right fix was not to abandon the artifact-backed model; it was to remove rehydrate multipliers and harden the lookup path feeding selected-cluster bootstrap.
+- One degraded runtime lookup was enough to make the whole system appear underprovisioned and to amplify load through `/api/agents/playground`.
+
+What to watch next:
+- Stay on the upgraded Supabase tier for now.
+- Treat `/api/agents/playground` as a hot path.
+- Treat `agent_events` cleanup snapshot lookup as a hot-path dependency.
+- Future runtime changes must capture before / after timing for:
+  - total rehydrate
+  - `cleanup_plan_ms`
+  - `selected_cluster_rail_family_load_ms`
+  - `preferred_cluster_review_bootstrap_ms`
+- Warm-path validation is mandatory; do not validate only first-load / cold-load behavior.
+
+Current accepted product/state note:
+- Sender Overview timeframe behavior is accepted as correct.
+- `subscription-senders` UI / productization validation is accepted.
+- `subscription-senders` remains one cleanup group; no taxonomy split shipped.
+- Cleanup-group restructuring into smaller artifact-defined groups remains open work.
+
+Lessons learned:
+- Do not assume a pressure incident is “just scale” before checking trigger multipliers and timeout-prone hot queries.
+- One degraded runtime lookup can make the whole system appear underprovisioned.
+- Runtime validation must include repeated rehydrate behavior, not just first-load behavior.
+
+### March 28, 2026 — Subscription-Senders Semantic Improvement Phase 3 Accepted
+
+Root-cause addressed:
+- The accepted local semantic-improvement baseline against `full-mailbox-20260327004328180` had already improved marketing subtype coverage materially, but `subscription-senders` still carried a clear-family unresolved remainder that was suppressing pattern clarity and keeping headline persistence `provisional`.
+- The remaining population was not uniform:
+  - `123` clear-family unresolved marketing senders were the only approved gain pool
+  - `21` mixed senders remained decomposable but out of scope
+  - `183` weak-history senders were required to stay unresolved
+
+What changed:
+- Implemented a surgical resolver-only Phase 3 pass limited to:
+  - `resolveSemanticPatternSelection(...)`
+  - `resolveMarketingPromotionalSubtype(...)`
+- Added a narrow clear-family rescue path only for currently unresolved senders that already had:
+  - `marketing_promotional` family
+  - `clear` family resolution
+  - clear marketing operator profile
+- Kept the pass population-targeted:
+  - no weak-history gains
+  - no mixed-population gains
+  - no already-resolved subtype churn
+  - no offer expansion
+- Added a dedicated verification packet script to report locked before/after metrics, target-pool accounting, guardrail outcomes, and already-resolved preservation.
+
+Accepted outcome:
+- Locked metrics improved from the Phase 2 local baseline to the accepted Phase 3 local after-state:
+  - resolved marketing subtype senders: `472 -> 481`
+  - resolved marketing subtype coverage: `59% -> 60%`
+  - unresolved promotional remainder: `327 -> 318`
+  - `offer_campaign`: `252 -> 252`
+  - `product_marketing_update`: `174 -> 179`
+  - `editorial_newsletter`: `46 -> 50`
+  - pattern clear share: `3% -> 5%`
+- Headline persistence remained:
+  - family: `provisional`
+  - pattern: `provisional`
+  - accepted because the remaining blocker is outside the targeted Phase 3 pool and current rollup-contract work stayed intentionally out of scope
+
+Target-pool accounting:
+- Execution-start target pool: `123`
+- Stayed unresolved: `114`
+- Resolved to `product_marketing_update`: `5`
+- Resolved to `editorial_newsletter`: `4`
+- Resolved to `offer_campaign`: `0`
+- Excluded because stronger concrete non-marketing evidence kept them out: `18`
+- Resolved outside the target pool: `0`
+
+Guardrail results:
+- Weak-history stayed unresolved:
+  - `183` before
+  - `0` resolved after
+- Mixed stayed unresolved:
+  - `21` before
+  - `0` resolved after
+- Already-resolved subtype preservation held:
+  - already-resolved before: `472`
+  - preserved resolved after: `472`
+  - same-subtype preservation: `472`
+  - downgraded / churned: `0`
+- Offer anti-regression held:
+  - target-pool offer gains: `0 / 9`
+  - combined product + editorial gains: `9`
+
+Explicit non-changes:
+- no taxonomy change
+- no rebuild or publication
+- no UI change
+- no schema change
+- no rollup-contract change
+- no broad semantic tuning outside the `123`-sender pool
+
+Operational consequence:
+- Subscription semantic Phase 3 is complete and accepted as a narrow resolver pass.
+- The next thread should be a new planning thread for subscription semantic rebuild/publication planning.
+- That next thread should be limited to:
+  - planning how to rebuild/publish the improved semantic truth
+  - defining post-rebuild validation against the locked baseline
+  - deciding whether a new split-readiness evaluation is needed after publication
+- It should explicitly not be:
+  - a taxonomy-split implementation thread
+  - a UI thread
+  - another broad semantic tuning thread
+
+### March 28, 2026 — Subscription-Senders Split-Readiness Evaluation Accepted
+
+Root-cause addressed:
+- `subscription-senders` remained the most obvious future split candidate, but the system did not yet have a decision-locked evaluation of whether the published artifact actually supported a clean top-level lane split.
+- Prior discussion risked widening from semantic evaluation into redesign or rebuild planning before the readiness gate was explicitly checked.
+
+What changed:
+- Completed and accepted an evaluation-only split-readiness memo using the exact published Gmail artifact:
+  - `full-mailbox-20260327004328180`
+- Locked the evaluation to semantic evidence first, with operator behavior used only as a confirmation layer.
+- Evaluated current internal seams inside `subscription-senders` without approving any promotion:
+  - `offer_campaign`
+  - `product_marketing_update`
+  - `editorial_newsletter`
+  - unresolved promotional remainder
+
+Accepted findings:
+- `subscription-senders` is not split-ready yet.
+- Current semantic blockers remain primary:
+  - `marketing_promotional` still accounts for `799 / 853` senders (`94%`)
+  - resolved marketing subtype coverage remains only `244 / 799` (`31%`)
+  - the largest unresolved promotional remainder (`324` senders) is still larger than the strongest candidate seam (`offer_campaign` at `151` senders)
+  - published headline subtype persistence remains `provisional`
+- Operator evidence is still too thin to strengthen a split case:
+  - only `16` destination profiles existed for the current agent
+  - only `3` intersected `subscription-senders`
+  - none of the reviewed senders landed in `offer_campaign`, `product_marketing_update`, or `editorial_newsletter`
+
+Explicit non-changes:
+- no resolver changes
+- no schema changes
+- no rebuild
+- no sender reassignment
+- no UI changes
+- no lane promotion
+
+Operational consequence:
+- This thread closes the current split-readiness evaluation as complete and approved.
+- The correct next step is a separate `subscription-senders` semantic-improvement planning thread.
+- Rebuild / taxonomy gate planning stays closed for now.
+
+### March 28, 2026 — Cleanup Groups Role Correction + `needs-review-senders` Reframe
+
+Root-cause addressed:
+- Cleanup Groups still mixed stable section structure with inconsistent lane-role wording.
+- `needs-review-senders` was visible, but it was not explicit enough that the group exists for low-evidence coverage rather than as a normal action lane.
+- Sender Overview and Mailbox Intelligence were not yet using the locked lane-role language consistently at the handoff/entry seams.
+
+What changed:
+- Shipped the locked lane-role labels across the current Cleanup Groups presentation layer:
+  - `Primary action lane`
+  - `Backlog lane`
+  - `Safety / coverage lane`
+- Kept the existing Cleanup Groups section titles and ordering intact:
+  - `Start Here`
+  - `Reduce Backlog`
+  - `Exceptions & Coverage`
+- Updated section-summary and support copy so lane role is explicit without redesigning the page structure.
+- Reframed `needs-review-senders` as low-evidence safety / coverage:
+  - not a default starting point
+  - not a momentum lane
+  - not a coherent semantic bucket
+- Updated Mailbox Intelligence handoff wording so the default recommendation language clearly avoids safety / coverage lanes unless no stronger path remains.
+- Updated Sender Overview entry framing through the existing bridge-copy seam only:
+  - no new role panel
+  - no new hero block
+  - no added row above semantic analysis
+
+Explicit non-changes:
+- no taxonomy split
+- no artifact change
+- no schema change
+- no sender reassignment
+- no rebuild
+- no recommendation-logic or ordering change
+
+Validation:
+- Pass validated against accepted Gmail artifact:
+  - `full-mailbox-20260327004328180`
+- Targeted ESLint passed for the touched presentation files.
+
+Operational consequence:
+- Cleanup Groups Phase A+B is now complete and accepted as a narrow presentation/state-alignment pass.
+- Future cleanup-group semantic-improvement, taxonomy-redesign gating, and rebuild planning remain separate next-phase work.
+
+### March 27, 2026 — Rebuild B Completed: Semantic Focus Performance Activation
+
+Root-cause addressed:
+- Large semantic subtype focus reads were still forced through `full_cluster_materialization`.
+- Even after the 1000-row truncation seam was fixed, cold focused loads on `protected-trusted-senders` still had to:
+  - load all `1838` senders
+  - load full stats for the full cluster
+  - recompute semantic membership
+  - filter in memory down to focused lanes like `167`, `206`, `229`, and `299`
+
+What changed:
+- Applied hosted Supabase migration:
+  - `20260327101500_gmail_sender_workspace_semantic_focus_seed_rows.sql`
+- Added persisted seed-row fields:
+  - `semantic_family_key`
+  - `semantic_subtype_key`
+  - `semantic_pattern_key`
+  - `last_activity_at`
+- Added focused semantic indexes on `gmail_sender_workspace_seed_rows`
+- Full-build and incremental projector paths now persist identical sender-level semantic membership and `last_activity_at`
+- Sender-workspace headers now advertise:
+  - `artifact_capabilities.focused_semantic_page = true`
+- Runtime now uses `focused_semantic_page` for supported focused semantic requests and falls back safely for older artifacts or unsupported shapes
+
+Rebuild result:
+- Published new artifact version:
+  - `full-mailbox-20260327004328180`
+- Workspace data-access acceptance: `ok: true`
+
+Validation highlights:
+- `protected-trusted-senders` full cluster sender count remains:
+  - `1838`
+- Focused lane counts remained correct after rebuild:
+  - `commerce_transactional / invoices_receipts = 167`
+  - `commerce_transactional / commerce_shipping_updates = 206`
+  - `account_notification / general_updates = 229`
+  - `account_notification / remainder = 299`
+- Cold focused read path switched:
+  - before: `full_cluster_materialization`
+  - after: `focused_semantic_page`
+- Cold focused timing improved materially:
+  - before corrected baseline: ~`20s–26s`
+  - after rebuilt fast path: ~`2.3s–2.7s`
+- Page-scoped load behavior confirmed on the focused path:
+  - `seed_row_count: 12`
+  - `stats_count: 12`
+  - `preview_row_count: 60`
+
+Operational consequence:
+- Semantic-focus correctness is now artifact-backed and directly pageable on rebuilt artifacts.
+- Rebuild B is complete and the accepted Gmail Phase 1 artifact baseline now moves to `full-mailbox-20260327004328180`.
+
+### March 27, 2026 — Rebuild A Completed: Structural Preview Seeding for `no_inbox_rows` Senders
+
+Root-cause addressed:
+- Structural senders with large indexed totals but `cleanup_exclusion_reason = no_inbox_rows` could publish with zero preview evidence because preview seeding only used inbox rows.
+- That produced false-empty Decision Mode evidence for senders like `oliver@curativemushrooms.com` and `support@curativemushrooms.com`, even though large rollup-backed totals already existed in the artifact.
+
+What changed:
+- Implemented bounded structural preview fallback in the projector:
+  - full-build path
+  - incremental slice path
+- New rule for affected senders:
+  - if sender is structurally assigned
+  - and `scopedInboxRows.length === 0`
+  - preview candidates are selected from `scopedRows`
+  - recency-first
+  - valid `message_id` required
+  - prefer visible evidence fields when present
+  - capped at `5`
+- Preserved count-truth:
+  - structural `cleanup_group_message_count` remains rollup-backed
+  - bounded preview evidence does not collapse large sender totals
+- Added the minimal downstream archive/confirmation seam fix so bounded structural preview rows are not misclassified as inconsistent archive scope.
+
+Rebuild result:
+- Published new artifact version:
+  - `full-mailbox-20260326221425010`
+- Cleanup-group live audit: `ok: true`
+- Workspace data-access acceptance: `ok: true`
+
+Validation highlights:
+- `oliver@curativemushrooms.com`
+  - `preview_ready: true`
+  - `preview_message_ids: 5`
+  - `cleanup_group_message_count: 8003`
+- `support@curativemushrooms.com`
+  - `preview_ready: true`
+  - `preview_message_ids: 5`
+  - `cleanup_group_message_count: 4631`
+- protected peer no-regression:
+  - `consumer@e.mail.realtor.com` healthy
+  - `seaworld@m.seaworldparks.com` healthy
+- Cluster-level:
+  - `protected-trusted-senders`: `9/9` structural `no_inbox_rows` senders preview-ready
+  - `historical-out-of-inbox-senders`: `34/34` structural `no_inbox_rows` senders preview-ready
+
+Operational consequence:
+- Structural no-inbox senders no longer default to zero artifact evidence when valid scoped rows exist.
+- Rebuild A is complete and the current accepted Gmail Phase 1 artifact baseline is now `full-mailbox-20260326221425010`.
+- Rebuild B remains deferred.
+
+### March 26, 2026 — Sender Overview Hierarchy + Subtype Interaction (Phase 1B)
+
+Root-cause addressed:
+- Sender Overview previously presented dominant families (e.g., 94% marketing) as a single opaque block with limited actionable breakdown.
+- Subtype decomposition either appeared in a side panel or used inconsistent denominators, reducing trust and usability.
+- Clicking subtypes did not reliably return matching senders (empty results / local-page filtering only).
+
+What changed:
+- Introduced **hierarchical semantic family → subtype tree** in Sender Overview:
+  - expandable rows (family → subtypes → remainder)
+  - dominant family can auto-expand when appropriate
+- Implemented **denominator-correct hierarchy**:
+  - parent rows = % of full cleanup group
+  - child rows = % of parent (primary) + % of group (secondary)
+  - explicit remainder row: `Still broad inside …`
+- Added **subtype → sender list linkage**:
+  - clicking a subtype triggers a focused `sender_workspace` request
+  - sender list updates to matching senders (first page) with truthful total count
+- Fixed **empty-result bug** on focused subtype queries:
+  - resolved `safe_partial` fallback caused by oversized `gmail_sender_stats` batching
+  - adjusted batch size (1000 → 50) to avoid PostgREST `Bad Request`
+- Established **artifact baseline usage in UI**:
+  - hierarchy uses frozen `semantic_rollup` from `full-mailbox-20260325230627555`
+  - focus banner anchors to published subtype counts
+
+Known limitations (carried forward):
+- **Subtype count divergence** remains:
+  - top (artifact) vs bottom (runtime) counts may differ
+  - UI now surfaces divergence instead of masking it
+- **Focused-load performance**:
+  - subtype focus still uses `full_cluster_materialization` on cold loads (~10–15s)
+  - warm loads acceptable
+- **Decision-card preview reliability**:
+  - some high-volume senders lack preview due to weak fallback selection
+
+Operational consequence:
+- Sender Overview is now a **usable, hierarchical decision surface**.
+- Subtype interactions are **operational**, not just explanatory.
+- Artifact system remains stable; no additional rebuild required for this phase.
+
+Next step:
+- Fix decision-card preview reliability before broader UI polish or pagination work.
+
+---
+
+### March 2026 — Gmail Phase 1 Baseline Freeze After Diagnostic Marketing Variant
+
+Root-cause addressed:
+- The March 26 marketing subtype refinement loop improved one part of the `subscription-senders` truth story, but the final published variant over-corrected and reduced total resolved marketing subtype coverage too far to serve as the Gmail Phase 1 freeze candidate.
+
+What changed:
+- Restored the published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555` without another rebuild.
+- Recorded `full-mailbox-20260326012615971` as a diagnostic semantic-refinement variant, not the adopted baseline.
+- Locked the operational rule that Phase 1B UI work should validate against the accepted March 25 artifact baseline.
+
+Why the March 26 variant was rejected:
+- It reduced `offer_campaign` inflation directionally, but overall `marketing_promotional` subtype coverage inside `subscription-senders` regressed from the previously validated baseline.
+- The result was useful diagnostic evidence about build-time signal precedence, but not a better Phase 1 artifact freeze point.
+
+Operational consequence:
+- Gmail artifacts are now considered good enough for Phase 1 UI completion at the March 25 baseline.
+- Any future Gmail artifact refinement must start from an explicit new planning decision, not from the rejected March 26 variant.
+
+### March 2026 — Cleanup-Group Coverage Complete + Semantic Taxonomy Transition
+
+Root-cause addressed:
+- Cleanup-group coverage was complete at the assignment layer, but artifact intelligence inside the groups still leaned too heavily on weak fallback buckets and generic dominant-pattern labels.
+- Sender Overview could now read artifact-backed semantic data, but the second-layer semantic row exposed a visualization-trust regression: percentages, rank labels, and bar widths were not reliably communicating the same denominator.
+
+What changed:
+- Completed cleanup-group coverage across the full sender universe:
+  - live cleanup model now uses 8 cleanup groups
+  - sender assignment coverage is now 100%
+- Stabilized the cleanup-group architecture around the published artifact-backed path:
+  - grouping is served from artifacts/runtime compatibility data
+  - no request-time rebuild was reintroduced
+- Introduced the new sender semantic model (Pass 1):
+  - `semantic_family`
+  - `semantic_pattern`
+  - explicit `resolution`
+  - explicit `confidence`
+  - explicit `provenance`
+  - umbrella + decomposition metadata
+  - legacy `operator_profile_*` and `dominant_pattern` preserved as compatibility fields
+- Introduced semantic rollups (Pass 2):
+  - `semantic_family_distribution`
+  - `semantic_pattern_distribution`
+  - `semantic_resolution_distribution`
+  - `semantic_confidence_distribution`
+  - `semantic_provenance_distribution`
+  - umbrella vs non-umbrella distribution
+- Locked the current rebuild policy:
+  - no repeated rebuilds while taxonomy and cleanup-group semantics are still being refined
+  - one later final rebuild after the cross-group plan is locked
+
+Known regression / active follow-up:
+- Sender Overview semantic visualization is not yet trustworthy enough as currently rendered:
+  - bar widths and visible percentages need explicit denominator alignment
+  - top-bucket presentation must not imply completeness when only a visible subset is shown
+  - semantic truth is now stronger underneath, but the current row still needs presentation repair before operators can trust it fully
+
+Operational consequence:
+- Cleanup-group coverage and semantic infrastructure are now ahead of the current presentation layer.
+- The system should continue using the artifact-backed 8-group model as the source of truth while visualization truth and cleanup-group refinement are completed before the next final rebuild.
+
+### March 2026 — Gmail Workspace Final Architecture Lock
+
+Root-cause addressed:
+- The stabilized Gmail Workspace architecture was working, but the final permanent rules were still too easy to erode in future threads or feature work.
+- Read/write/update/freshness behavior needed one canonical reference so future engineers would not reintroduce request-time scans, ad hoc runtime truth, or divergent full-build behavior.
+
+What changed:
+- Added [gmail_workspace_canonical_engine_pattern.md](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_canonical_engine_pattern.md) as the permanent Gmail Workspace rule set.
+- Standardized the final model across the stabilization spec, rollout doc, proof bundle, system overview, and system-state summaries.
+- Locked the permanent architectural rules:
+  - request-time Gmail Workspace flows read published artifacts only
+  - sync/ingestion drives async artifact refresh
+  - incremental refresh is preferred when eligible
+  - full rebuild is fallback-only and parity-preserving
+  - browser/runtime surfaces consume artifact-backed truth
+- Documented explicit allowed patterns, forbidden patterns, common regression patterns, and reuse guidance for future workspaces.
+
+Final proof anchors captured:
+- proven incremental baseline: `incremental-20260324032902895`
+- published full-build artifact: `full-mailbox-20260324073149125`
+- direct parity proof: `cluster_diff_count: 0`, `sender_diff_count: 0`
+- unchanged acceptance harness: `ok: true` on `full-mailbox-20260324073149125`
+
+Operational consequence:
+- Gmail Workspace is now the platform reference implementation for:
+  - ingest
+  - derive
+  - persist
+  - publish
+  - serve
+- Future workspaces should copy this engine pattern instead of introducing new request-time derivation models.
+
+### March 2026 — Runtime Containment & Supabase Stabilization
+
+Root-cause addressed:
+- Passive runtime flows were still able to trigger expensive mailbox-wide operations during normal browsing.
+- Cached/stale runtime paths could fall through into:
+  - cleanup discovery rebuilds
+  - mailbox-index sync / sender-stats recompute
+  - inbox-analysis fallbacks that loaded up to 100,000 indexed rows
+- The result was a Supabase resource blow-up:
+  - repeated 100k-row scans
+  - CPU spike
+  - disk I/O saturation
+  - statement timeout failures
+
+Containment layer introduced:
+- Disabled passive cleanup discovery refresh during normal page-load rehydrate.
+- Disabled passive mailbox-index bootstrap / recovery / sync triggers from runtime behavior.
+- Blocked heavy initial-paint inbox-analysis routes from page loads:
+  - `sender_workspace`
+  - `mailbox_intelligence`
+  - `mailbox_pressure_trend`
+  - `cleanup_group_intelligence`
+  - `confirmation_preview`
+- Default runtime behavior is now:
+  - passive browsing = cache / runtime snapshot only
+  - heavy recompute = explicit manual action only
+
+Heavy-action safety system added:
+- Introduced server-side single-flight protection for manual heavy actions.
+- Added cooldown protection to prevent repeated back-to-back launches.
+- Added structured heavy-action logging so duplicate / blocked / completed runs are easy to trace.
+
+Performance improvements:
+- Manual cleanup regeneration no longer runs inline mailbox sync.
+- Manual cleanup regeneration no longer runs sender-stats recompute inline.
+- Added bounded in-memory discovery row cache for manual regeneration.
+- Moved cleanup snapshot persistence off the manual-regeneration critical path.
+- Optimized runtime wrapper path by skipping forced manual-regeneration preload work.
+- Passive cached rehydrate now short-circuits to the saved runtime snapshot instead of doing unnecessary wrapper work.
+
+Measured outcomes:
+- Manual regeneration improved from roughly `~60s` to roughly `~4s` on cache-hit runs.
+- Discovery row cache eliminates the second 100k indexed-row reread on repeated manual regeneration.
+- Passive cached rehydrate improved from roughly `~9s` to roughly `~3.7s`.
+- Normal page navigation no longer triggers passive full-mailbox scans or passive mailbox sync.
+
+Operator impact:
+- Mailbox Intelligence and Sender Overview are now safe to open during normal browsing.
+- Manual heavy operations are explicit, guarded, and observable.
+- Supabase resource behavior is now stable under ordinary navigation and controlled regeneration.
+
+Next state after this milestone:
+- Runtime containment is considered successful.
+- Product work can resume on top of a safer runtime foundation, with further optimization now optional rather than urgent.
+
+### March 2026 — Operations First-Open Recovery Under Containment
+
+Root-cause addressed:
+- The loading-containment pass correctly blocked unsafe initial-paint heavy routes, but two operator pages lost a deterministic first-open recovery path:
+  - `Sender Overview` could stop at the warming shell if no runtime/cached sender workspace seed was present
+  - `Mailbox Intelligence` could remain in loading or surface transient guard contention instead of resolving safely
+- The regression came from over-suppressing live first-open fetches without always promoting to a safe deferred replacement path.
+
+Exact files changed:
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- `web/src/lib/runtime/operationsWorkspace.ts`
+- `web/src/app/agents/[id]/operations/clusters/page.tsx`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/app/agents/[id]/operations/intelligence/page.tsx`
+
+Before:
+- `Cleanup Groups` could fall into a blocked initial-paint `mailbox_intelligence` path and render blank.
+- `Decision Mode` could require repeated clicking because first-open sender workspace state was not resolving deterministically.
+- `Sender Overview` could stall in warming/fallback state.
+- `Mailbox Intelligence` could still hang or surface transient heavy-action contention on first open.
+- Some cold first-opens depended too much on runtime/cached seeds being present already.
+
+After:
+- `Cleanup Groups` opens again from safe runtime/cached state.
+- `Decision Mode` opens on first click.
+- `Sender Overview` first-open no longer stalls indefinitely:
+  - safe shell first
+  - deferred `sender_workspace` recovery path
+  - transient heavy-action guard contention is retried instead of treated as terminal
+- `Mailbox Intelligence` first-open no longer hangs:
+  - renderable safe content appears immediately
+  - deferred `mailbox_intelligence` recovery path completes in the background
+- No unsafe passive initial-paint heavy route was reintroduced.
+
+Containment still intact:
+- Heavy inbox-analysis routes remain blocked on unsafe initial paint.
+- Recovery now happens through:
+  - runtime snapshot
+  - cached snapshot
+  - safe fallback content
+  - deferred post-mount fetch only when needed
+
+Known remaining limitation:
+- Cold first-open on `Sender Overview` and some `Mailbox Intelligence` seed-miss cases is still noticeably slower than warm navigation because recovery occurs through deferred safe fetches.
+- Warm loads are fast again once snapshot/cache state is available.
+
+Next step:
+- Resume `Sender Overview` product/data usefulness work.
+- Treat cold-open performance optimization as a separate later pass, not part of the current containment/loading milestone.
+
+---
 ### March 19, 2026 - Historical Backfill System Stabilization + Bounded Window Implementation
 
 Root-cause addressed:
@@ -3608,3 +4387,73 @@ Fresh timing evidence from local logs:
   - Cleanup Groups scope-chain server duration: `0ms`
   - Review scope-chain server duration: `1ms`
   - browser durations in the warmed flow dropped to roughly `700ms` to `800ms`
+
+## Gmail Artifact Refresh Recovery - March 29, 2026
+
+Completed:
+
+- Implemented one authoritative artifact-build liveness gate in:
+  - `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+- Switched mailbox-index refresh planning to reconcile build liveness before any skip/start decision in:
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- Switched incremental artifact refresh to use the same liveness gate instead of raw `building_version` checks in:
+  - `web/src/lib/integrations/gmail/gmailArtifactIncrementalUpdater.ts`
+- Added idempotent stale/orphaned build reclaim:
+  - compare-and-set publication update keyed by `building_version` + `refresh_job_id`
+  - linked `gmail_artifact_jobs` row is also marked terminal with an explicit reclaim reason
+- Added deterministic stale-lock proof coverage in:
+  - `web/scripts/gmail-artifact-stale-build-recovery-audit.mjs`
+- Fixed artifact finalize stack overflow in:
+  - `web/src/lib/integrations/gmail/gmailArtifactFullMailboxProjector.ts`
+  - root cause: large preview/seed arrays were spread into `push(...rows)` during finalize row assembly
+- Fixed cleanup-group semantic artifact contract drift in:
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+  - root cause: non-promoted groups carried non-zero `actionable_review_unit_count` metrics while emitting an empty `review_unit_plan`
+
+Implemented reclaim contract:
+
+- Treat `building_version` as a candidate build, not proof of liveness.
+- A build is live only when the shared liveness helper confirms the linked `gmail_artifact_jobs` row is:
+  - present
+  - version/scope matched
+  - non-terminal
+  - within the artifact heartbeat/grace window
+- Reclaim stale or orphaned builds by:
+  - clearing `building_version`
+  - setting publication `build_status` to `failed`
+  - setting publication `freshness_state` to `refresh_failed`
+  - stamping `refresh_completed_at`
+  - updating or creating the linked `gmail_artifact_jobs` row as failed with the same reclaim reason
+- Explicit reclaim reasons now recorded in publication/job state:
+  - `refresh_reclaimed_missing_job`
+  - `refresh_reclaimed_mismatched_job`
+  - `refresh_reclaimed_stale_build`
+  - `refresh_reclaimed_terminal_job`
+
+Validation and proof:
+
+- Deterministic stale-lock proof passed for the exact live pattern:
+  - before: `published_version=full-mailbox-20260328080841849`
+  - before: `building_version=full-mailbox-20260329054914204`
+  - before: `refresh_completed_at=null`
+  - old plan: `reason=refresh_skipped_existing_build_in_progress`
+  - new reconcile result: `reclaim_reason=refresh_reclaimed_stale_build`
+  - new plan in the same sync-completion flow: `action=incremental`, `reason=eligible_incremental_sync_delta`
+- Live artifact publish proof passed after the stale lock was reclaimed:
+  - resumed build job: `full-rebuild:085c8ef7-2fd7-4842-8499-cd605e894a77:all_indexed:full-mailbox-20260329092447406`
+  - published version before: `full-mailbox-20260328080841849`
+  - published version after: `full-mailbox-20260329092447406`
+  - publication after:
+    - `building_version=null`
+    - `build_status=published`
+    - `freshness_state=fresh`
+    - `freshness_reason=published_artifact_current`
+- Runtime/UI acceptance proof passed against the new artifact version:
+  - sender workspace artifact reads: `artifact_version=full-mailbox-20260329092447406`
+  - mailbox intelligence artifact reads: `artifact_version=full-mailbox-20260329092447406`
+  - cleanup-group intelligence reads: `artifact_version=full-mailbox-20260329092447406`
+  - playground runtime rehydrate reads:
+    - `artifact_mode=published_artifact`
+    - `artifact_version=full-mailbox-20260329092447406`
+    - `snapshot_version_before=full-mailbox-20260329092447406`
+    - `snapshot_version_after=full-mailbox-20260329092447406`

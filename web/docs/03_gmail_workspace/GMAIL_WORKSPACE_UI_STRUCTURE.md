@@ -173,18 +173,9 @@ Route:
 
 Purpose:
 
-Show the **AI‑generated cleanup groups**.
+Help the operator choose the **next cleanup group** to open before entering Sender Overview.
 
-Examples:
-
-Unread clutter backlog  
-Newsletters  
-Shopping  
-No‑reply automation  
-Promotions  
-Social
-
-Each group represents a **collection of senders that behave similarly**.
+Cleanup Groups is a **guided sender-group selection surface**, not a second analytics dashboard and not a flat list of equally weighted clusters.
 
 ---
 
@@ -195,38 +186,78 @@ Each group represents a **collection of senders that behave similarly**.
 Cleanup Groups
 --------------------------------------------------
 
-Explanation Card
+Hero
 
-Cleanup Group Cards
+Choose by Intent (compact support layer)
+
+Sectioned Cleanup Group Cards
 ```
+
+---
+
+## Hero
+
+The hero follows the same structural grammar as Mailbox Intelligence and Sender Overview:
+
+- eyebrow
+- title
+- concise explanatory line
+- four count-first signal cards
+- one goal / progress module with a right-side coverage counter
+- real progress bar
+- bottom guidance row with progress summary and next-step instruction
+
+The four signals are:
+
+- Cleanup groups in scope
+- Groups with saved work
+- Groups still to review
+- Senders in cleanup scope
+
+The goal / progress module tracks **group-level progress**, not sender-decision completion.
+
+---
+
+## Choose by Intent
+
+This is a compact support layer under the hero.
+
+It offers quick paths such as:
+
+- quickest start
+- highest manageable impact
+- backlog-focused option
+
+It stays secondary to the hero.
+
+---
+
+## Cleanup Group Sections
+
+Cleanup groups render in three visual sections:
+
+1. Start Here
+2. Reduce Backlog
+3. Exceptions & Coverage
 
 ---
 
 ## Cleanup Group Card
 
-Each card shows:
+Each card leads with:
 
-Group Name  
-Total Messages  
-Sender Count  
-Description
+- Group name
+- Workload
+- Impact
+- Why this group exists
 
-Example:
+Cards may also include:
 
-```
-Unread Clutter Backlog
+- Start with guidance for large groups
+- collapsed supporting detail
+- review CTA into Sender Overview
 
-43,000 messages
-1,500 senders
-
-Large set of unread promotional or automated mail.
-```
-
-CTA:
-
-```
-Open Review
-```
+Cards stay actionable, but cross-group comparison should be carried primarily by the hero and compact support layer above them.
 
 ---
 

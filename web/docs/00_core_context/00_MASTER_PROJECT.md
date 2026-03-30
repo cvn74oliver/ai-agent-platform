@@ -2550,6 +2550,154 @@ This protocol:
 
 > This is now the DEFAULT execution strategy for all UI refinement work.
 
+---
+---
+
+## 🏁 Project Manager Agent v11 – Turnover Snapshot (March 26, 2026)
+
+**Status:** Stable Gmail Phase 1 artifact baseline achieved; Sender Overview hierarchy and subtype interaction operational; moving into UI completion and runtime reliability fixes.
+
+### What is DONE (Do NOT revisit unless critical bug)
+- Artifact contract stabilized and congruent across:
+  - `gmail_cluster_summaries`
+  - `gmail_sender_workspace_seed_headers`
+- Accepted baseline locked:
+  - `full-mailbox-20260325230627555`
+- Subtype hierarchy implemented:
+  - expandable semantic family → subtype tree
+  - denominator correctness (parent vs child)
+- Subtype → sender list linkage implemented
+  - clicking subtype now drives sender workspace requests
+- Empty-result / safe-partial failure resolved for focused subtype queries
+
+---
+
+### ⚠️ Known Issues (ACTIVE – DO NOT IGNORE)
+
+1. **Subtype Focus Count Mismatch (Expected Behavior, Not Fully Solved)**
+   - Top hierarchy = artifact-persisted counts
+   - Bottom sender list = runtime materialized membership
+   - These may diverge (e.g., 303 vs 52)
+   - Current approach:
+     - UI treats artifact count as primary truth
+     - runtime divergence is surfaced, not hidden
+
+2. **Focused Load Performance (HIGH IMPACT)**
+   - Current focused requests use:
+     - `read_shape: full_cluster_materialization`
+   - Cold loads observed:
+     - 10–15 seconds
+   - Warm loads acceptable
+   - Root cause: no persisted per-sender subtype membership
+
+3. **Decision Card Preview Reliability (CRITICAL BUG)**
+   - Some high-volume senders show:
+     - "No preview messages are available"
+   - Example failures:
+     - oliver@curativemushrooms.com
+     - support@curativemushrooms.com
+   - Other senders load previews correctly
+   - Likely cause:
+     - preview selection / fallback logic, not ingestion
+
+4. **Sender Workspace Stability Edge Cases**
+   - Previous `gmail_sender_stats` batching bug fixed (1000 → 50)
+   - System stable, but full-cluster reads remain heavy
+
+---
+
+### 🎯 Immediate Next Priorities (IN ORDER)
+
+1. **Decision Card Preview Reliability Fix (NEXT PASS)**
+   - Ensure preview fallback always finds valid message when available
+   - Do NOT rebuild
+   - Treat as runtime/evidence-selection issue
+
+2. **Subtype Focus Truth Alignment (PARTIAL – ACCEPT CURRENT STATE)**
+   - Accept hybrid model for Phase 1
+   - Do NOT attempt full artifact-level fix yet
+
+3. **Sender Overview UI Completion**
+   - Row-by-row cleanup
+   - Improve readability and hierarchy clarity
+   - Maintain Sniper Method execution
+
+4. **Performance (DEFERRED UNTIL AFTER UI STABILIZATION)**
+   - Only revisit after UX is complete
+   - Likely requires:
+     - persisted sender-level subtype membership
+
+---
+
+### 🧠 Architectural Truth (CRITICAL FOR NEXT PM)
+
+The system currently operates on **three layers of truth**:
+
+1. **Artifact Layer (Canonical for UI summaries)**
+   - group-level semantic_rollup
+   - frozen baseline
+
+2. **Runtime Sender Workspace (Operational layer)**
+   - reconstructs sender-level truth
+   - drives decision workflow
+
+3. **UI Interpretation Layer**
+   - merges both
+   - prioritizes artifact truth for consistency
+   - surfaces divergence instead of hiding it
+
+➡️ Full alignment requires **persisted per-sender subtype membership**, which is intentionally deferred.
+
+---
+
+### 🧭 Strategic Position
+
+We are transitioning from:
+> “building correct data”
+
+to:
+> “building a usable decision system”
+
+The system is now:
+- **functionally usable**
+- **not yet performance-optimized**
+- **not yet fully artifact-consistent at sender level**
+
+This is acceptable for Phase 1.
+
+---
+
+### 🔁 PM Handoff Directive
+
+Next Project Manager must:
+
+- Continue using:
+  - Plan Mode → Sniper Execution → Scoped Validation
+- Prioritize:
+  - decision usability over backend perfection
+- Avoid:
+  - reopening artifact design unless blocking issue emerges
+- Focus on:
+  - Decision Mode reliability
+  - Sender Overview clarity
+  - Preview evidence trust
+
+---
+
+### 🏁 Final Note from PM v11
+
+The system has crossed the hardest boundary:
+
+- from non-functional → functional
+- from static → interactive
+- from guesswork → operator-driven
+
+Remaining work is refinement, not invention.
+
+> “Do not chase perfect data before finishing a usable product.”
+
+PM v11 complete.
+
 ---# Role: Prompt Engineer Agent
 _Last Updated: November 2025_
 

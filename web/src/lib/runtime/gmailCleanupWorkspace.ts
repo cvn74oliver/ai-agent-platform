@@ -3,6 +3,11 @@ import {
   type OperationsAnalysisScope,
   type OperationsInboxAnalysisRequestContext,
 } from '@/lib/runtime/operationsWorkspace'
+import {
+  listCleanupClusterIdentityKeys,
+  resolveCleanupClusterIdentity,
+  type CleanupClusterIdentitySource,
+} from '@/lib/runtime/gmailCleanupClusterIdentity'
 
 export const GMAIL_CLEANUP_STAGES = [
   'senders',
@@ -52,15 +57,345 @@ export const GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS = ['asc', 'desc'] as const
 export type GmailSenderWorkspaceSortDirection =
   (typeof GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS)[number]
 
+export type GmailSenderWorkspaceSemanticFocus = {
+  family: GmailSemanticFamily
+  kind: 'family' | 'subtype' | 'remainder'
+  subtypeKey: string | null
+  surfacedSubtypeKeys: string[]
+}
+
+export const GMAIL_CANONICAL_SENDER_CATEGORY_LABELS = [
+  'Promotions',
+  'Social',
+  'Updates',
+  'Forums',
+  'Primary',
+  'Uncategorized',
+] as const
+
+export type GmailCanonicalSenderCategoryLabel =
+  (typeof GMAIL_CANONICAL_SENDER_CATEGORY_LABELS)[number]
+
+export const GMAIL_SENDER_CATEGORY_PROFILE_MODES = [
+  'dominant',
+  'mixed',
+  'uncategorized',
+  'insufficient_data',
+] as const
+
+export type GmailSenderCategoryProfileMode =
+  (typeof GMAIL_SENDER_CATEGORY_PROFILE_MODES)[number]
+
+export const GMAIL_DOMINANT_CATEGORY_CONFIDENCE_LEVELS = ['high', 'medium', 'low'] as const
+
+export type GmailDominantCategoryConfidence =
+  (typeof GMAIL_DOMINANT_CATEGORY_CONFIDENCE_LEVELS)[number]
+
+export const GMAIL_OPERATOR_PROFILE_FAMILIES = [
+  'marketing_promotional',
+  'commerce_transactional',
+  'account_notification',
+  'security_alert',
+  'social_community',
+  'human_personal',
+  'mixed_behavior',
+  'insufficient_data',
+] as const
+
+export type GmailOperatorProfileFamily =
+  (typeof GMAIL_OPERATOR_PROFILE_FAMILIES)[number]
+
+export const GMAIL_OPERATOR_PROFILE_MODES = ['clear', 'mixed', 'insufficient_data'] as const
+
+export type GmailOperatorProfileMode =
+  (typeof GMAIL_OPERATOR_PROFILE_MODES)[number]
+
+export const GMAIL_OPERATOR_PROFILE_SOURCES = [
+  'sender_global_operator_profile_v1',
+  'insufficient_data',
+] as const
+
+export type GmailOperatorProfileSource =
+  (typeof GMAIL_OPERATOR_PROFILE_SOURCES)[number]
+
+export const GMAIL_SEMANTIC_FAMILIES = [
+  'marketing_promotional',
+  'commerce_transactional',
+  'account_notification',
+  'security_alert',
+  'social_community',
+  'human_personal',
+] as const
+
+export type GmailSemanticFamily = (typeof GMAIL_SEMANTIC_FAMILIES)[number]
+
+export const GMAIL_SEMANTIC_PATTERN_CLASSES = [
+  'promotional_cycle',
+  'transactional_cycle',
+  'service_update_cycle',
+  'security_cycle',
+  'social_activity_cycle',
+  'human_correspondence_cycle',
+] as const
+
+export type GmailSemanticPatternClass = (typeof GMAIL_SEMANTIC_PATTERN_CLASSES)[number]
+
+export const GMAIL_SEMANTIC_RESOLUTIONS = ['clear', 'mixed', 'thin_history'] as const
+
+export type GmailSemanticResolution = (typeof GMAIL_SEMANTIC_RESOLUTIONS)[number]
+
+export const GMAIL_SEMANTIC_CONFIDENCE_LEVELS = ['high', 'medium', 'low'] as const
+
+export type GmailSemanticConfidence = (typeof GMAIL_SEMANTIC_CONFIDENCE_LEVELS)[number]
+
+export const GMAIL_SEMANTIC_DECOMPOSITION_STATUSES = [
+  'not_applicable',
+  'candidate',
+  'resolved',
+  'deferred',
+] as const
+
+export type GmailSemanticDecompositionStatus =
+  (typeof GMAIL_SEMANTIC_DECOMPOSITION_STATUSES)[number]
+
+export const GMAIL_SEMANTIC_FAMILY_PROVENANCES = [
+  'operator_profile_compat',
+  'ranked_evidence_compat',
+  'artifact_seed_compat',
+] as const
+
+export type GmailSemanticFamilyProvenance =
+  (typeof GMAIL_SEMANTIC_FAMILY_PROVENANCES)[number]
+
+export const GMAIL_SEMANTIC_PATTERN_PROVENANCES = [
+  'pattern_label_compat',
+  'ranked_evidence_compat',
+  'subject_heuristic',
+  'artifact_seed_compat',
+] as const
+
+export type GmailSemanticPatternProvenance =
+  (typeof GMAIL_SEMANTIC_PATTERN_PROVENANCES)[number]
+
+export const GMAIL_SEMANTIC_GROUP_POLICY_MODES = [
+  'structural_only',
+  'structural_backlog',
+  'semantic_first',
+] as const
+
+export type GmailSemanticGroupPolicyMode =
+  (typeof GMAIL_SEMANTIC_GROUP_POLICY_MODES)[number]
+
+export const GMAIL_SEMANTIC_SUBTYPE_PERSISTENCE_STATES = [
+  'suppressed',
+  'provisional',
+  'survives',
+] as const
+
+export type GmailSemanticSubtypePersistenceState =
+  (typeof GMAIL_SEMANTIC_SUBTYPE_PERSISTENCE_STATES)[number]
+
+export const GMAIL_CLEANUP_GROUP_SURFACE_TIERS = [
+  'featured_parent',
+  'collapsed_parent',
+  'secondary',
+] as const
+
+export type GmailCleanupGroupSurfaceTier =
+  (typeof GMAIL_CLEANUP_GROUP_SURFACE_TIERS)[number]
+
+export const GMAIL_CLEANUP_GROUP_SURFACE_KINDS = [
+  'semantic_parent',
+  'backlog_parent',
+  'structural_parent',
+  'historical_parent',
+  'secondary_candidate',
+] as const
+
+export type GmailCleanupGroupSurfaceKind =
+  (typeof GMAIL_CLEANUP_GROUP_SURFACE_KINDS)[number]
+
+export const GMAIL_CLEANUP_GROUP_SURFACE_VISIBILITIES = ['visible'] as const
+
+export type GmailCleanupGroupSurfaceVisibility =
+  (typeof GMAIL_CLEANUP_GROUP_SURFACE_VISIBILITIES)[number]
+
+export const GMAIL_CLEANUP_GROUP_PROMOTION_STATUSES = [
+  'promoted',
+  'demoted_small',
+  'demoted_mixed',
+  'demoted_low_operator_value',
+  'demoted_cap_exceeded',
+  'structural_lane',
+  'secondary_visible',
+  'unresolved',
+] as const
+
+export type GmailCleanupGroupPromotionStatus =
+  (typeof GMAIL_CLEANUP_GROUP_PROMOTION_STATUSES)[number]
+
+export const GMAIL_CLEANUP_GROUP_OPERATOR_VALUE_STATUSES = [
+  'strong',
+  'low',
+  'not_applicable',
+] as const
+
+export type GmailCleanupGroupOperatorValueStatus =
+  (typeof GMAIL_CLEANUP_GROUP_OPERATOR_VALUE_STATUSES)[number]
+
+export const GMAIL_CLEANUP_GROUP_REVIEW_UNIT_BASES = [
+  'selected_axis_dominant_lane',
+  'structural_lane',
+  'secondary_group',
+  'not_promoted',
+] as const
+
+export type GmailCleanupGroupReviewUnitBasis =
+  (typeof GMAIL_CLEANUP_GROUP_REVIEW_UNIT_BASES)[number]
+
+export type GmailCleanupGroupSemanticAxis = 'family' | 'pattern'
+
+export type GmailCleanupGroupReviewUnit = {
+  unit_id: string
+  label: string
+  source_kind:
+    | 'family_subtype'
+    | 'pattern_subtype'
+    | 'family_remainder'
+    | 'pattern_remainder'
+    | 'spillover'
+  source_key: string
+  sender_count: number
+  share_pct: number
+  unit_role: 'subtype' | 'dominant_remainder' | 'spillover'
+}
+
+export type GmailSemanticDecompositionMetadata = {
+  umbrella: boolean
+  decomposition_status: GmailSemanticDecompositionStatus
+  subtype_key: string | null
+  subtype_label: string | null
+  decomposition_path: string | null
+}
+
+export type GmailResolvedSemanticFamily = GmailSemanticDecompositionMetadata & {
+  family: GmailSemanticFamily
+  resolution: GmailSemanticResolution
+  confidence: GmailSemanticConfidence
+  provenance: GmailSemanticFamilyProvenance
+}
+
+export type GmailResolvedSemanticPattern = GmailSemanticDecompositionMetadata & {
+  pattern_class: GmailSemanticPatternClass
+  resolution: GmailSemanticResolution
+  confidence: GmailSemanticConfidence
+  provenance: GmailSemanticPatternProvenance
+}
+
+export const GMAIL_CATEGORY_SUMMARY_SOURCES = [
+  'sender_global_category_distribution',
+  'uncategorized',
+  'insufficient_data',
+  'signal_category_mix',
+  'selected_cluster_row_categories',
+  'pattern_fallback',
+] as const
+
+export type GmailCategorySummarySource = (typeof GMAIL_CATEGORY_SUMMARY_SOURCES)[number]
+
+export const GMAIL_CLEANUP_EXCLUSION_REASONS = [
+  'no_inbox_rows',
+  'no_safe_rows',
+  'too_few_safe_rows',
+  'safe_ratio_too_low',
+  'protected_human_sender',
+  'protected_human_dominant',
+  'score_below_threshold',
+  'no_cluster_match',
+] as const
+
+export type GmailCleanupExclusionReason = (typeof GMAIL_CLEANUP_EXCLUSION_REASONS)[number]
+
+export const GMAIL_ASSIGNED_CLEANUP_GROUP_IDS = [
+  'subscription-senders',
+  'retail-commerce-senders',
+  'social-platform-senders',
+  'system-notification-senders',
+  'dormant-backlog-senders',
+  'protected-trusted-senders',
+  'historical-out-of-inbox-senders',
+  'needs-review-senders',
+] as const
+
+export type GmailAssignedCleanupGroupId =
+  (typeof GMAIL_ASSIGNED_CLEANUP_GROUP_IDS)[number]
+
+export const GMAIL_CLEANUP_ASSIGNMENT_REASONS = [
+  'protected_signal_override',
+  'protected_legacy_protected_human_sender',
+  'protected_legacy_protected_human_dominant',
+  'historical_no_inbox_rows',
+  'behavioral_safe_rows',
+  'behavioral_broader_rows',
+  'needs_review_no_safe_rows',
+  'needs_review_too_few_safe_rows',
+  'needs_review_safe_ratio_too_low',
+  'needs_review_score_below_threshold',
+  'needs_review_no_cluster_match',
+  'needs_review_unclassified',
+] as const
+
+export type GmailCleanupAssignmentReason =
+  (typeof GMAIL_CLEANUP_ASSIGNMENT_REASONS)[number]
+
 export type GmailCleanupClusterRef = {
   clusterId: string
+  canonicalClusterId?: string | null
+  legacyClusterIds?: string[]
+  sourceClusterIds?: string[]
   clusterType: string
   title: string
   query: string
   whySelected?: string | null
   riskNote?: string | null
   safetyNote?: string | null
+  senderCount?: number | null
+  messageCount?: number | null
   estimatedCount?: number | null
+  surfaceTier?: GmailCleanupGroupSurfaceTier | null
+  surfaceKind?: GmailCleanupGroupSurfaceKind | null
+  surfaceVisibility?: GmailCleanupGroupSurfaceVisibility | null
+  topLevelRank?: number | null
+}
+
+export type GmailCleanupWorkflowIdentity = {
+  canonicalClusterId: string
+  reviewUnitKey: string | null
+}
+
+export type GmailCleanupWorkflowClusterPayload = {
+  clusterId: string
+  canonicalClusterId: string
+  reviewUnitKey: string | null
+  legacyClusterIds: string[]
+  sourceClusterIds: string[]
+  clusterType: string
+  title: string
+  query: string
+}
+
+export type GmailNormalizedWorkflowTarget = {
+  identity: GmailCleanupWorkflowIdentity
+  metadata: {
+    clusterType: string
+    title: string
+    query: string
+  }
+  compat: {
+    requestedClusterId: string | null
+    legacyClusterIds: string[]
+    sourceClusterIds: string[]
+  }
 }
 
 export type GmailScopeLadderCounts = {
@@ -99,6 +434,206 @@ export type GmailPressureTimelineEvidenceSignal = {
   count: number
   share_pct: number
   exactness: 'actual' | 'inferred'
+}
+
+export type GmailSenderCategoryDistributionEntry = {
+  label: GmailCanonicalSenderCategoryLabel
+  count: number
+  share_pct: number
+}
+
+export type GmailSenderPatternMixEntry = {
+  pattern: string
+  count: number
+  share_pct: number
+}
+
+/** @deprecated Use `GmailResolvedSemanticFamily` and `GmailResolvedSemanticPattern` on sender records. */
+export type GmailSenderOperatorProfile = {
+  /** @deprecated Use `semantic_family.family`. */
+  operator_profile_family: GmailOperatorProfileFamily
+  /** @deprecated Use `semantic_family.resolution`. */
+  operator_profile_mode: GmailOperatorProfileMode
+  /** @deprecated Use `semantic_family.confidence`. */
+  operator_profile_confidence: GmailDominantCategoryConfidence | null
+  /** @deprecated Use `semantic_family` metadata. */
+  operator_profile_summary: string
+  /** @deprecated Use `semantic_family` metadata. */
+  operator_profile_reasons: string[]
+  /** @deprecated Use `semantic_family.provenance`. */
+  operator_profile_source: GmailOperatorProfileSource
+}
+
+export type GmailSenderWorkspaceOperatorProfileFamilyDistributionEntry = {
+  family: GmailOperatorProfileFamily
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSenderWorkspaceDominantPatternDistributionEntry = {
+  pattern: string
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSenderWorkspaceOperatorProfileModeDistributionEntry = {
+  mode: GmailOperatorProfileMode
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSenderWorkspaceCategorySummarySourceDistributionEntry = {
+  source: GmailCategorySummarySource
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSemanticRollupSubtypeEntry = {
+  key: string
+  label: string
+  decomposition_path: string | null
+  sender_count: number
+  share_pct: number
+  umbrella: boolean
+  decomposition_status: GmailSemanticDecompositionStatus
+}
+
+export type GmailSenderWorkspaceSemanticFamilyDistributionEntry = {
+  family: GmailSemanticFamily
+  sender_count: number
+  share_pct: number
+  umbrella: boolean
+  resolved_subtype_sender_count: number
+  provisional_subtype_sender_count: number
+  top_subtypes: GmailSemanticRollupSubtypeEntry[]
+}
+
+export type GmailSenderWorkspaceSemanticPatternDistributionEntry = {
+  pattern_class: GmailSemanticPatternClass
+  sender_count: number
+  share_pct: number
+  resolved_subtype_sender_count: number
+  provisional_subtype_sender_count: number
+  top_subtypes: GmailSemanticRollupSubtypeEntry[]
+}
+
+export type GmailSenderWorkspaceSemanticResolutionDistributionEntry = {
+  scope: 'family' | 'pattern'
+  resolution: GmailSemanticResolution
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSenderWorkspaceSemanticConfidenceDistributionEntry = {
+  scope: 'family' | 'pattern'
+  confidence: GmailSemanticConfidence
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSenderWorkspaceSemanticProvenanceDistributionEntry = {
+  scope: 'family' | 'pattern'
+  provenance: GmailSemanticFamilyProvenance | GmailSemanticPatternProvenance
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSenderWorkspaceSemanticUmbrellaDistributionEntry = {
+  scope: 'family' | 'pattern'
+  bucket: 'umbrella' | 'non_umbrella'
+  sender_count: number
+  share_pct: number
+}
+
+export type GmailSharedGroupSemanticRollupFamilyLane = {
+  family: GmailSemanticFamily
+  sender_count: number
+  share_pct: number
+  umbrella: boolean
+  resolved_subtype_sender_count: number
+  resolved_subtype_coverage_pct: number
+  provisional_subtype_sender_count: number
+  provisional_subtype_coverage_pct: number
+  subtype_persistence_state: GmailSemanticSubtypePersistenceState
+  decomposition_review_required: boolean
+  top_subtypes: GmailSemanticRollupSubtypeEntry[]
+}
+
+export type GmailSharedGroupSemanticRollupPatternLane = {
+  pattern_class: GmailSemanticPatternClass
+  sender_count: number
+  share_pct: number
+  resolved_subtype_sender_count: number
+  resolved_subtype_coverage_pct: number
+  provisional_subtype_sender_count: number
+  provisional_subtype_coverage_pct: number
+  subtype_persistence_state: GmailSemanticSubtypePersistenceState
+  decomposition_review_required: boolean
+  top_subtypes: GmailSemanticRollupSubtypeEntry[]
+}
+
+export type GmailSharedGroupSemanticRollup = {
+  group_policy_mode: GmailSemanticGroupPolicyMode
+  sender_basis: {
+    sender_count: number
+    message_count: number
+    uncertain_sender_count: number
+    uncertain_sender_share_pct: number
+  }
+  headline: {
+    dominant_semantic_family: GmailSemanticFamily | null
+    dominant_semantic_pattern: GmailSemanticPatternClass | null
+    family_subtype_persistence_state: GmailSemanticSubtypePersistenceState | null
+    pattern_subtype_persistence_state: GmailSemanticSubtypePersistenceState | null
+  }
+  family_distribution: GmailSharedGroupSemanticRollupFamilyLane[]
+  pattern_distribution: GmailSharedGroupSemanticRollupPatternLane[]
+  trust: {
+    resolution_distribution: GmailSenderWorkspaceSemanticResolutionDistributionEntry[]
+    confidence_distribution: GmailSenderWorkspaceSemanticConfidenceDistributionEntry[]
+    provenance_distribution: GmailSenderWorkspaceSemanticProvenanceDistributionEntry[]
+    umbrella_distribution: GmailSenderWorkspaceSemanticUmbrellaDistributionEntry[]
+    summary: {
+      family_clear_share_pct: number
+      pattern_clear_share_pct: number
+      family_low_confidence_share_pct: number
+      pattern_low_confidence_share_pct: number
+      family_umbrella_share_pct: number
+      pattern_umbrella_share_pct: number
+    }
+  }
+  surface: {
+    tier: GmailCleanupGroupSurfaceTier
+    kind: GmailCleanupGroupSurfaceKind
+    visibility: GmailCleanupGroupSurfaceVisibility
+    top_level_rank: number | null
+    canonical_cluster_id: string
+    legacy_cluster_ids: string[]
+    source_cluster_ids: string[]
+  }
+  promotion: {
+    status: GmailCleanupGroupPromotionStatus
+    selected_axis: GmailCleanupGroupSemanticAxis | null
+    reason_codes: string[]
+    operator_value_status: GmailCleanupGroupOperatorValueStatus
+    metrics: {
+      sender_count: number
+      dominant_share_pct: number
+      clear_share_pct: number
+      actionable_review_unit_count: number
+      largest_review_unit_sender_count: number
+    }
+  }
+  review_unit_plan: {
+    required: boolean
+    basis: GmailCleanupGroupReviewUnitBasis
+    trigger_reason: string | null
+    units: GmailCleanupGroupReviewUnit[]
+  }
+  completeness: {
+    canonical: true
+    runtime_repair_expected: false
+  }
 }
 
 export type GmailPressureTimelineBucket = {
@@ -230,6 +765,9 @@ export type GmailMailboxIntelligenceData = {
   }
   cleanup_groups: Array<{
     cluster_id: string
+    canonical_cluster_id: string
+    legacy_cluster_ids: string[]
+    source_cluster_ids: string[]
     cluster_type: string
     title: string
     query: string
@@ -240,9 +778,30 @@ export type GmailMailboxIntelligenceData = {
     sender_count: number
     share_pct: number
     dominant_sender: string | null
+    dominant_semantic_family: GmailSemanticFamily | null
+    dominant_semantic_pattern: GmailSemanticPatternClass | null
     dominant_pattern: string | null
     protected_message_count: number
     uncertain_sender_count: number
+    surface_tier: GmailCleanupGroupSurfaceTier
+    surface_kind: GmailCleanupGroupSurfaceKind
+    surface_visibility: GmailCleanupGroupSurfaceVisibility
+    top_level_rank: number | null
+    promotion_status: GmailCleanupGroupPromotionStatus
+    selected_semantic_axis: GmailCleanupGroupSemanticAxis | null
+    operator_value_status: GmailCleanupGroupOperatorValueStatus
+    review_units_required: boolean
+    review_unit_basis: GmailCleanupGroupReviewUnitBasis
+    review_unit_count: number
+    semantic_rollup_schema_version: number | null
+    semantic_rollup_hash: string | null
+    semantic_rollup: GmailSharedGroupSemanticRollup | null
+    semantic_family_distribution: GmailSenderWorkspaceSemanticFamilyDistributionEntry[]
+    semantic_pattern_distribution: GmailSenderWorkspaceSemanticPatternDistributionEntry[]
+    semantic_resolution_distribution: GmailSenderWorkspaceSemanticResolutionDistributionEntry[]
+    semantic_confidence_distribution: GmailSenderWorkspaceSemanticConfidenceDistributionEntry[]
+    semantic_provenance_distribution: GmailSenderWorkspaceSemanticProvenanceDistributionEntry[]
+    semantic_umbrella_distribution: GmailSenderWorkspaceSemanticUmbrellaDistributionEntry[]
   }>
   sender_ranking: Array<{
     sender: string
@@ -255,7 +814,12 @@ export type GmailMailboxIntelligenceData = {
     last_seen: string | null
     category_summary: string
     sender_signal: 'likely_machine_generated' | 'likely_human' | 'uncertain'
+    assigned_cleanup_group_id: GmailAssignedCleanupGroupId
+    assignment_reason: GmailCleanupAssignmentReason
+    is_cleanup_candidate: boolean
+    cleanup_exclusion_reason: GmailCleanupExclusionReason | null
   }>
+  initial_pressure_trend?: GmailPressureTrendData | null
   source: 'gmail_index_cache'
 }
 
@@ -268,8 +832,32 @@ export type GmailSenderWorkspaceSender = {
   unread_count: number
   last_activity: string | null
   first_seen: string | null
+  category_distribution: GmailSenderCategoryDistributionEntry[]
+  categorized_message_count: number
+  uncategorized_message_count: number
+  multi_category_message_count: number
+  dominant_category: GmailCanonicalSenderCategoryLabel | null
+  dominant_category_confidence: GmailDominantCategoryConfidence | null
+  category_profile_mode: GmailSenderCategoryProfileMode
   category_summary: string
+  category_summary_source: GmailCategorySummarySource
+  semantic_family: GmailResolvedSemanticFamily
+  semantic_pattern: GmailResolvedSemanticPattern
+  /** @deprecated Use `semantic_pattern.pattern_class` and decomposition metadata. */
   dominant_pattern: string
+  pattern_mix: GmailSenderPatternMixEntry[]
+  /** @deprecated Use `semantic_family.family`. */
+  operator_profile_family: GmailOperatorProfileFamily
+  /** @deprecated Use `semantic_family.resolution`. */
+  operator_profile_mode: GmailOperatorProfileMode
+  /** @deprecated Use `semantic_family.confidence`. */
+  operator_profile_confidence: GmailDominantCategoryConfidence | null
+  /** @deprecated Use `semantic_family` metadata. */
+  operator_profile_summary: string
+  /** @deprecated Use `semantic_family` metadata. */
+  operator_profile_reasons: string[]
+  /** @deprecated Use `semantic_family.provenance`. */
+  operator_profile_source: GmailOperatorProfileSource
   sender_signal: 'likely_machine_generated' | 'likely_human' | 'uncertain'
   machine_probability: number | null
   human_probability: number | null
@@ -285,6 +873,8 @@ export type GmailSenderWorkspaceData = {
   scope_ladder: GmailScopeLadderCounts
   selected_cluster: {
     cluster_id: string
+    canonical_cluster_id: string
+    legacy_cluster_ids: string[]
     cluster_type: string
     title: string
     query: string
@@ -294,6 +884,10 @@ export type GmailSenderWorkspaceData = {
     message_count: number
     sender_count: number
     share_pct: number
+    surface_tier?: GmailCleanupGroupSurfaceTier | null
+    surface_kind?: GmailCleanupGroupSurfaceKind | null
+    surface_visibility?: GmailCleanupGroupSurfaceVisibility | null
+    top_level_rank?: number | null
   }
   senders: GmailSenderWorkspaceSender[]
   pagination: {
@@ -303,16 +897,51 @@ export type GmailSenderWorkspaceData = {
     total_pages: number
     cluster_total_senders: number
   }
+  cluster_global: {
+    sender_keys: string[]
+    sender_keys_complete: boolean
+  }
   analytics: {
     sender_category_distribution: Array<{
       label: string
       sender_count: number
     }>
+    cleanup_group_surface_tier?: GmailCleanupGroupSurfaceTier | null
+    cleanup_group_surface_kind?: GmailCleanupGroupSurfaceKind | null
+    cleanup_group_surface_visibility?: GmailCleanupGroupSurfaceVisibility | null
+    cleanup_group_top_level_rank?: number | null
+    cleanup_group_canonical_cluster_id?: string | null
+    cleanup_group_legacy_cluster_ids?: string[]
+    cleanup_group_source_cluster_ids?: string[]
+    cleanup_group_promotion_status?: GmailCleanupGroupPromotionStatus | null
+    cleanup_group_selected_semantic_axis?: GmailCleanupGroupSemanticAxis | null
+    cleanup_group_operator_value_status?: GmailCleanupGroupOperatorValueStatus | null
+    cleanup_group_review_units_required?: boolean | null
+    cleanup_group_review_unit_basis?: GmailCleanupGroupReviewUnitBasis | null
+    cleanup_group_review_unit_count?: number | null
+    cleanup_group_demotion_reasons?: string[]
+    semantic_rollup_schema_version: number | null
+    semantic_rollup_hash: string | null
+    semantic_rollup: GmailSharedGroupSemanticRollup | null
+    semantic_family_distribution: GmailSenderWorkspaceSemanticFamilyDistributionEntry[]
+    semantic_pattern_distribution: GmailSenderWorkspaceSemanticPatternDistributionEntry[]
+    semantic_resolution_distribution: GmailSenderWorkspaceSemanticResolutionDistributionEntry[]
+    semantic_confidence_distribution: GmailSenderWorkspaceSemanticConfidenceDistributionEntry[]
+    semantic_provenance_distribution: GmailSenderWorkspaceSemanticProvenanceDistributionEntry[]
+    semantic_umbrella_distribution: GmailSenderWorkspaceSemanticUmbrellaDistributionEntry[]
+    /** @deprecated Use `semantic_family_distribution`. */
+    operator_profile_family_distribution: GmailSenderWorkspaceOperatorProfileFamilyDistributionEntry[]
+    /** @deprecated Use `semantic_pattern_distribution`. */
+    dominant_pattern_distribution: GmailSenderWorkspaceDominantPatternDistributionEntry[]
+    /** @deprecated Use `semantic_resolution_distribution` with `scope='family'`. */
+    operator_profile_mode_distribution: GmailSenderWorkspaceOperatorProfileModeDistributionEntry[]
+    /** @deprecated Use `semantic_provenance_distribution`. */
+    category_summary_source_distribution: GmailSenderWorkspaceCategorySummarySourceDistributionEntry[]
     sender_activity_timeline: Array<{
       label: string
       sender_count: number
     }>
-    sender_activity_timeline_granularity: 'week' | 'month'
+    sender_activity_timeline_granularity: 'day' | 'week' | 'month'
     cluster_contribution: Array<{
       sender: string
       sender_key: string
@@ -327,6 +956,32 @@ export type GmailSenderWorkspaceData = {
     direction: GmailSenderWorkspaceSortDirection
   }
   exceptions_count: number
+  source: 'gmail_index_cache'
+}
+
+export type GmailSenderDistributionSender = {
+  sender: string
+  sender_key: string
+  cleanup_group_message_count: number
+  unread_count: number
+  last_activity: string | null
+  sender_signal: 'likely_machine_generated' | 'likely_human' | 'uncertain'
+  requires_verification: boolean
+}
+
+export type GmailSenderDistributionData = {
+  analysis_scope: OperationsAnalysisScope
+  selected_cluster: {
+    cluster_id: string
+    canonical_cluster_id: string
+    legacy_cluster_ids: string[]
+    cluster_type: string
+    title: string
+    query: string
+    message_count: number
+    sender_count: number
+  }
+  senders: GmailSenderDistributionSender[]
   source: 'gmail_index_cache'
 }
 
@@ -468,6 +1123,7 @@ export type GmailSenderDestinationProfile = {
   sender_key: string
   sender: string
   domain: string | null
+  cluster: GmailCleanupWorkflowClusterPayload | null
   trust_signals: GmailSenderDestinationTrustSignals | null
   destination_state: GmailDestinationState
   destination_timestamp: string
@@ -523,12 +1179,7 @@ export type GmailCleanupWorkflowDraft = {
 export type GmailCleanupMemoryWritePayload = {
   agentId: string
   sessionId: string | null
-  cluster: {
-    clusterId: string
-    clusterType: string
-    title: string
-    query: string
-  } | null
+  cluster: GmailCleanupWorkflowClusterPayload | null
   action:
     | {
         type: 'sender_policy_set' | 'sender_policy_removed'
@@ -584,6 +1235,7 @@ function normalizeInboxAnalysisRequestContext(
   component: string | null
   reason: string | null
   phase: OperationsInboxAnalysisRequestContext['phase'] | null
+  agentId: string | null
 } {
   return {
     source: typeof value?.source === 'string' && value.source.trim() ? value.source.trim() : null,
@@ -591,6 +1243,8 @@ function normalizeInboxAnalysisRequestContext(
       typeof value?.component === 'string' && value.component.trim() ? value.component.trim() : null,
     reason: typeof value?.reason === 'string' && value.reason.trim() ? value.reason.trim() : null,
     phase: value?.phase || null,
+    agentId:
+      typeof value?.agentId === 'string' && value.agentId.trim() ? value.agentId.trim() : null,
   }
 }
 
@@ -601,6 +1255,7 @@ function contextParams(value: OperationsInboxAnalysisRequestContext | undefined)
     request_component: context.component,
     request_reason: context.reason,
     request_phase: context.phase,
+    request_agent_id: context.agentId,
   }
 }
 
@@ -611,10 +1266,14 @@ type CachedInboxAnalysisEntry<T> = {
 
 const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_TTL_MS = 1000 * 60 * 10
 const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_STORAGE_PREFIX = 'gmail.inbox.analysis.v1'
+const GMAIL_RUNTIME_SUMMARY_CLIENT_CACHE_TTL_MS = 15 * 1000
+const GMAIL_RUNTIME_SUMMARY_STORAGE_PREFIX = 'gmail.runtime.summary.v1'
 
 const gmailCleanupRuntimeGlobal = globalThis as typeof globalThis & {
   __gmailInboxAnalysisClientCache?: Map<string, CachedInboxAnalysisEntry<unknown>>
   __gmailInboxAnalysisClientInflight?: Map<string, Promise<unknown>>
+  __gmailRuntimeSummaryClientCache?: Map<string, CachedInboxAnalysisEntry<unknown>>
+  __gmailRuntimeSummaryClientInflight?: Map<string, Promise<unknown>>
 }
 
 const gmailInboxAnalysisClientCache =
@@ -630,15 +1289,223 @@ if (!gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight) {
   gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight = gmailInboxAnalysisClientInflight
 }
 
+const gmailRuntimeSummaryClientCache =
+  gmailCleanupRuntimeGlobal.__gmailRuntimeSummaryClientCache ||
+  new Map<string, CachedInboxAnalysisEntry<unknown>>()
+if (!gmailCleanupRuntimeGlobal.__gmailRuntimeSummaryClientCache) {
+  gmailCleanupRuntimeGlobal.__gmailRuntimeSummaryClientCache = gmailRuntimeSummaryClientCache
+}
+
+const gmailRuntimeSummaryClientInflight =
+  gmailCleanupRuntimeGlobal.__gmailRuntimeSummaryClientInflight || new Map<string, Promise<unknown>>()
+if (!gmailCleanupRuntimeGlobal.__gmailRuntimeSummaryClientInflight) {
+  gmailCleanupRuntimeGlobal.__gmailRuntimeSummaryClientInflight = gmailRuntimeSummaryClientInflight
+}
+
+function cleanupClusterIdentitySource(cluster: {
+  clusterId: string
+  canonicalClusterId?: string | null
+  legacyClusterIds?: string[] | null
+  sourceClusterIds?: string[] | null
+}): CleanupClusterIdentitySource {
+  return {
+    clusterId: cluster.clusterId,
+    canonicalClusterId: cluster.canonicalClusterId ?? cluster.clusterId,
+    legacyClusterIds: Array.isArray(cluster.legacyClusterIds) ? cluster.legacyClusterIds : [],
+    sourceClusterIds: Array.isArray(cluster.sourceClusterIds) ? cluster.sourceClusterIds : [],
+  }
+}
+
+function normalizeWorkflowString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function uniqueWorkflowClusterIds(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(values.map((value) => normalizeWorkflowString(value)).filter(Boolean))
+  )
+}
+
+function normalizeReviewUnitKey(params: {
+  subsetSource?: string | null
+  subsetValue?: string | null
+  reviewUnitKey?: string | null
+}): string | null {
+  const direct = normalizeWorkflowString(params.reviewUnitKey)
+  if (direct) return direct
+  return params.subsetSource === 'review_unit' ? normalizeWorkflowString(params.subsetValue) || null : null
+}
+
+function canonicalClusterIdFromIdentity(params: {
+  requestedClusterId: string
+  explicitCanonicalClusterId?: string | null
+  identity: ReturnType<typeof resolveCleanupClusterIdentity>
+}): string {
+  return (
+    normalizeWorkflowString(params.identity.canonicalDescriptor?.canonicalClusterId) ||
+    normalizeWorkflowString(params.identity.canonicalClusterId) ||
+    normalizeWorkflowString(params.explicitCanonicalClusterId) ||
+    normalizeWorkflowString(params.requestedClusterId)
+  )
+}
+
+function normalizedCleanupClusterIdentity(params: {
+  clusterId: string
+  canonicalClusterId?: string | null
+  legacyClusterIds?: string[] | null
+  sourceClusterIds?: string[] | null
+}) {
+  const requestedClusterId = normalizeWorkflowString(params.clusterId)
+  const explicitCanonicalClusterId = normalizeWorkflowString(params.canonicalClusterId) || null
+  const legacyClusterIds = uniqueWorkflowClusterIds(params.legacyClusterIds ?? [])
+  const sourceClusterIds = uniqueWorkflowClusterIds(params.sourceClusterIds ?? [])
+  const identitySources =
+    explicitCanonicalClusterId || legacyClusterIds.length > 0 || sourceClusterIds.length > 0
+      ? [
+          cleanupClusterIdentitySource({
+            clusterId: explicitCanonicalClusterId || requestedClusterId,
+            canonicalClusterId: explicitCanonicalClusterId,
+            legacyClusterIds,
+            sourceClusterIds,
+          }),
+        ]
+      : []
+  const identity = resolveCleanupClusterIdentity(requestedClusterId, identitySources)
+  const canonicalClusterId = canonicalClusterIdFromIdentity({
+    requestedClusterId,
+    explicitCanonicalClusterId,
+    identity,
+  })
+
+  return {
+    ...identity,
+    canonicalClusterId,
+    legacyClusterIds: uniqueWorkflowClusterIds([
+      ...legacyClusterIds,
+      ...identity.legacyClusterIds,
+      identity.matchedDescriptorAliasKind === 'legacy' ? requestedClusterId : null,
+    ]),
+    sourceClusterIds: uniqueWorkflowClusterIds([
+      ...sourceClusterIds,
+      ...identity.sourceClusterIds,
+      identity.matchedDescriptorAliasKind === 'source' ||
+      identity.matchedDescriptorAliasKind === 'transitional_surface'
+        ? requestedClusterId
+        : null,
+    ]),
+  }
+}
+
+export function normalizeGmailCleanupWorkflowTarget(params: {
+  clusterId: string
+  canonicalClusterId?: string | null
+  legacyClusterIds?: string[] | null
+  sourceClusterIds?: string[] | null
+  clusterType: string
+  title: string
+  query: string
+  requestedClusterId?: string | null
+  subsetSource?: string | null
+  subsetValue?: string | null
+  reviewUnitKey?: string | null
+}): GmailNormalizedWorkflowTarget | null {
+  const requestedClusterId =
+    normalizeWorkflowString(params.requestedClusterId) || normalizeWorkflowString(params.clusterId)
+  const clusterType = normalizeWorkflowString(params.clusterType)
+  const title = normalizeWorkflowString(params.title)
+  const query = normalizeWorkflowString(params.query)
+  if (!requestedClusterId || !clusterType || !title || !query) return null
+
+  const identity = normalizedCleanupClusterIdentity({
+    clusterId: requestedClusterId,
+    canonicalClusterId: params.canonicalClusterId,
+    legacyClusterIds: params.legacyClusterIds,
+    sourceClusterIds: params.sourceClusterIds,
+  })
+
+  return {
+    identity: {
+      canonicalClusterId: canonicalClusterIdFromIdentity({
+        requestedClusterId,
+        explicitCanonicalClusterId: params.canonicalClusterId,
+        identity,
+      }),
+      reviewUnitKey: normalizeReviewUnitKey({
+        subsetSource: params.subsetSource,
+        subsetValue: params.subsetValue,
+        reviewUnitKey: params.reviewUnitKey,
+      }),
+    },
+    metadata: {
+      clusterType,
+      title,
+      query,
+    },
+    compat: {
+      requestedClusterId,
+      legacyClusterIds: identity.legacyClusterIds,
+      sourceClusterIds: identity.sourceClusterIds,
+    },
+  }
+}
+
+export function buildGmailCleanupWorkflowClusterPayload(params: {
+  cluster: GmailCleanupClusterRef
+  requestedClusterId?: string | null
+  subsetSource?: string | null
+  subsetValue?: string | null
+  reviewUnitKey?: string | null
+}): GmailCleanupWorkflowClusterPayload | null {
+  const workflowTarget = normalizeGmailCleanupWorkflowTarget({
+    clusterId: params.cluster.clusterId,
+    canonicalClusterId: params.cluster.canonicalClusterId,
+    legacyClusterIds: params.cluster.legacyClusterIds,
+    sourceClusterIds: params.cluster.sourceClusterIds,
+    clusterType: params.cluster.clusterType,
+    title: params.cluster.title,
+    query: params.cluster.query,
+    requestedClusterId: params.requestedClusterId,
+    subsetSource: params.subsetSource,
+    subsetValue: params.subsetValue,
+    reviewUnitKey: params.reviewUnitKey,
+  })
+  if (!workflowTarget) return null
+
+  return {
+    clusterId: workflowTarget.identity.canonicalClusterId,
+    canonicalClusterId: workflowTarget.identity.canonicalClusterId,
+    reviewUnitKey: workflowTarget.identity.reviewUnitKey,
+    legacyClusterIds: workflowTarget.compat.legacyClusterIds,
+    sourceClusterIds: workflowTarget.compat.sourceClusterIds,
+    clusterType: workflowTarget.metadata.clusterType,
+    title: workflowTarget.metadata.title,
+    query: workflowTarget.metadata.query,
+  }
+}
+
+export function gmailCleanupWorkflowTargetsEqual(
+  left: GmailNormalizedWorkflowTarget | null | undefined,
+  right: GmailNormalizedWorkflowTarget | null | undefined
+): boolean {
+  if (!left || !right) return false
+  return (
+    left.identity.canonicalClusterId === right.identity.canonicalClusterId &&
+    left.identity.reviewUnitKey === right.identity.reviewUnitKey
+  )
+}
+
 function clusterCacheSignature(cluster: GmailCleanupClusterRef): string {
   return [
-    cluster.clusterId,
+    cluster.canonicalClusterId || cluster.clusterId,
+    ...(cluster.legacyClusterIds || []).slice().sort(),
     cluster.clusterType,
     cluster.title,
     cluster.query,
     cluster.whySelected || '',
     cluster.riskNote || '',
     cluster.safetyNote || '',
+    cluster.senderCount ?? '',
+    cluster.messageCount ?? '',
     cluster.estimatedCount ?? '',
   ].join('::')
 }
@@ -663,6 +1530,10 @@ function messageOverridesSignature(value: Record<string, 'include' | 'exclude'>)
 
 function clientInboxAnalysisStorageKey(cacheKey: string): string {
   return `${GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_STORAGE_PREFIX}:${cacheKey}`
+}
+
+function clientRuntimeSummaryStorageKey(cacheKey: string): string {
+  return `${GMAIL_RUNTIME_SUMMARY_STORAGE_PREFIX}:${cacheKey}`
 }
 
 function readPersistedClientInboxAnalysisCache<T>(cacheKey: string): T | null {
@@ -709,17 +1580,68 @@ function writeClientInboxAnalysisCache<T>(cacheKey: string, data: T): T {
   return data
 }
 
+function readClientRuntimeSummaryCache<T>(cacheKey: string): T | null {
+  const cached = gmailRuntimeSummaryClientCache.get(cacheKey)
+  if (cached && cached.expiresAtMs > Date.now()) {
+    return cached.data as T
+  }
+  if (cached) {
+    gmailRuntimeSummaryClientCache.delete(cacheKey)
+  }
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(clientRuntimeSummaryStorageKey(cacheKey))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as CachedInboxAnalysisEntry<T> | null
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.expiresAtMs !== 'number') return null
+    if (parsed.expiresAtMs <= Date.now()) {
+      window.localStorage.removeItem(clientRuntimeSummaryStorageKey(cacheKey))
+      return null
+    }
+    gmailRuntimeSummaryClientCache.set(cacheKey, parsed as CachedInboxAnalysisEntry<unknown>)
+    return parsed.data
+  } catch {
+    return null
+  }
+}
+
+function writeClientRuntimeSummaryCache<T>(cacheKey: string, data: T): T {
+  const entry = {
+    expiresAtMs: Date.now() + GMAIL_RUNTIME_SUMMARY_CLIENT_CACHE_TTL_MS,
+    data,
+  }
+  gmailRuntimeSummaryClientCache.set(cacheKey, entry)
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(clientRuntimeSummaryStorageKey(cacheKey), JSON.stringify(entry))
+    } catch {
+      // Ignore localStorage quota failures; the in-memory cache remains the primary fast path.
+    }
+  }
+  return data
+}
+
 async function requestCachedInboxAnalysis<T>(params: {
+  action:
+    | 'mailbox_intelligence'
+    | 'mailbox_pressure_trend'
+    | 'sender_distribution'
+    | 'sender_workspace'
+    | 'confirmation_preview'
   cacheKey: string
   body: Record<string, unknown>
   errorMessage: string
   signal?: AbortSignal
 }): Promise<{ ok: true; data: T } | { ok: false; error: string; aborted?: true }> {
-  const action =
-    typeof params.body.action === 'string' && params.body.action.trim()
-      ? params.body.action.trim()
-      : ''
+  const action = typeof params.action === 'string' && params.action.trim() ? params.action.trim() : ''
   if (!action) {
+    console.warn(
+      `[gmail-cleanup][inbox-analysis-client-guard] ${JSON.stringify({
+        blocked: true,
+        reason: 'missing_action',
+        cache_key: params.cacheKey,
+      })}`
+    )
     return { ok: false, error: 'Inbox analysis action is required before requesting Gmail analysis.' }
   }
 
@@ -740,7 +1662,10 @@ async function requestCachedInboxAnalysis<T>(params: {
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
         signal: params.signal,
-        body: JSON.stringify(params.body),
+        body: JSON.stringify({
+          ...params.body,
+          action,
+        }),
       })
 
       const payload = (await res.json().catch(() => null)) as
@@ -854,18 +1779,52 @@ export function readGmailCleanupWorkflowDraft(params: {
   agentId: string
   sessionId: string | null
   clusterId: string
+  canonicalClusterId?: string | null
+  legacyClusterIds?: string[] | null
   snapshotVersion?: string | null
 }): GmailCleanupWorkflowDraft | null {
-  const sessionDraft = readStoredWorkflowDraft(gmailCleanupWorkflowDraftStorageKey(params))
+  const identity = normalizedCleanupClusterIdentity({
+    clusterId: params.clusterId,
+    canonicalClusterId: params.canonicalClusterId,
+    legacyClusterIds: params.legacyClusterIds,
+  })
+  const identityKeys = listCleanupClusterIdentityKeys(identity)
+  const primaryClusterId = identity.canonicalClusterId || params.clusterId
+  const sessionDraft = readStoredWorkflowDraft(
+    gmailCleanupWorkflowDraftStorageKey({
+      agentId: params.agentId,
+      sessionId: params.sessionId,
+      clusterId: primaryClusterId,
+    })
+  )
   if (draftMatchesSnapshot(sessionDraft, params.snapshotVersion)) return sessionDraft
 
   const fallbackDraft = readStoredWorkflowDraft(
     gmailCleanupWorkflowDraftClusterFallbackStorageKey({
       agentId: params.agentId,
-      clusterId: params.clusterId,
+      clusterId: primaryClusterId,
     })
   )
   if (draftMatchesSnapshot(fallbackDraft, params.snapshotVersion)) return fallbackDraft
+
+  for (const legacyClusterId of identityKeys.slice(1)) {
+    const legacySessionDraft = readStoredWorkflowDraft(
+      gmailCleanupWorkflowDraftStorageKey({
+        agentId: params.agentId,
+        sessionId: params.sessionId,
+        clusterId: legacyClusterId,
+      })
+    )
+    if (draftMatchesSnapshot(legacySessionDraft, params.snapshotVersion)) return legacySessionDraft
+
+    const legacyFallbackDraft = readStoredWorkflowDraft(
+      gmailCleanupWorkflowDraftClusterFallbackStorageKey({
+        agentId: params.agentId,
+        clusterId: legacyClusterId,
+      })
+    )
+    if (draftMatchesSnapshot(legacyFallbackDraft, params.snapshotVersion)) return legacyFallbackDraft
+  }
 
   return null
 }
@@ -875,19 +1834,47 @@ export function writeGmailCleanupWorkflowDraft(
     agentId: string
     sessionId: string | null
     clusterId: string
+    canonicalClusterId?: string | null
+    legacyClusterIds?: string[] | null
     snapshotVersion?: string | null
   },
   draft: GmailCleanupWorkflowDraft
 ) {
   if (typeof window === 'undefined') return
-  const sessionKey = gmailCleanupWorkflowDraftStorageKey(params)
+  const identity = normalizedCleanupClusterIdentity({
+    clusterId: params.clusterId,
+    canonicalClusterId: params.canonicalClusterId,
+    legacyClusterIds: params.legacyClusterIds,
+  })
+  const identityKeys = listCleanupClusterIdentityKeys(identity)
+  const primaryClusterId = identity.canonicalClusterId || params.clusterId
+  const sessionKey = gmailCleanupWorkflowDraftStorageKey({
+    agentId: params.agentId,
+    sessionId: params.sessionId,
+    clusterId: primaryClusterId,
+  })
   const fallbackKey = gmailCleanupWorkflowDraftClusterFallbackStorageKey({
     agentId: params.agentId,
-    clusterId: params.clusterId,
+    clusterId: primaryClusterId,
   })
   if (!gmailCleanupWorkflowDraftHasActiveContent(draft)) {
     window.localStorage.removeItem(sessionKey)
     window.localStorage.removeItem(fallbackKey)
+    for (const legacyClusterId of identityKeys.slice(1)) {
+      window.localStorage.removeItem(
+        gmailCleanupWorkflowDraftStorageKey({
+          agentId: params.agentId,
+          sessionId: params.sessionId,
+          clusterId: legacyClusterId,
+        })
+      )
+      window.localStorage.removeItem(
+        gmailCleanupWorkflowDraftClusterFallbackStorageKey({
+          agentId: params.agentId,
+          clusterId: legacyClusterId,
+        })
+      )
+    }
     return
   }
   const payload = JSON.stringify({
@@ -896,21 +1883,66 @@ export function writeGmailCleanupWorkflowDraft(
   })
   window.localStorage.setItem(sessionKey, payload)
   window.localStorage.setItem(fallbackKey, payload)
+  for (const legacyClusterId of identityKeys.slice(1)) {
+    window.localStorage.removeItem(
+      gmailCleanupWorkflowDraftStorageKey({
+        agentId: params.agentId,
+        sessionId: params.sessionId,
+        clusterId: legacyClusterId,
+      })
+    )
+    window.localStorage.removeItem(
+      gmailCleanupWorkflowDraftClusterFallbackStorageKey({
+        agentId: params.agentId,
+        clusterId: legacyClusterId,
+      })
+    )
+  }
 }
 
 export function clearGmailCleanupWorkflowDraft(params: {
   agentId: string
   sessionId: string | null
   clusterId: string
+  canonicalClusterId?: string | null
+  legacyClusterIds?: string[] | null
 }) {
   if (typeof window === 'undefined') return
-  window.localStorage.removeItem(gmailCleanupWorkflowDraftStorageKey(params))
+  const identity = normalizedCleanupClusterIdentity({
+    clusterId: params.clusterId,
+    canonicalClusterId: params.canonicalClusterId,
+    legacyClusterIds: params.legacyClusterIds,
+  })
+  const identityKeys = listCleanupClusterIdentityKeys(identity)
+  const primaryClusterId = identity.canonicalClusterId || params.clusterId
+  window.localStorage.removeItem(
+    gmailCleanupWorkflowDraftStorageKey({
+      agentId: params.agentId,
+      sessionId: params.sessionId,
+      clusterId: primaryClusterId,
+    })
+  )
   window.localStorage.removeItem(
     gmailCleanupWorkflowDraftClusterFallbackStorageKey({
       agentId: params.agentId,
-      clusterId: params.clusterId,
+      clusterId: primaryClusterId,
     })
   )
+  for (const legacyClusterId of identityKeys.slice(1)) {
+    window.localStorage.removeItem(
+      gmailCleanupWorkflowDraftStorageKey({
+        agentId: params.agentId,
+        sessionId: params.sessionId,
+        clusterId: legacyClusterId,
+      })
+    )
+    window.localStorage.removeItem(
+      gmailCleanupWorkflowDraftClusterFallbackStorageKey({
+        agentId: params.agentId,
+        clusterId: legacyClusterId,
+      })
+    )
+  }
 }
 
 export function clearSenderFromGmailCleanupWorkflowDrafts(params: {
@@ -1029,25 +2061,52 @@ function senderWorkspaceCacheKey(params: {
   allClusters: GmailCleanupClusterRef[]
   analysisScope: OperationsAnalysisScope
   cacheVersion: string
+  includeClusterSenderKeys: boolean
   page: number
   pageSize: number
   search: string
   filter: GmailSenderWorkspaceFilter
   sort: GmailSenderWorkspaceSort
   direction: GmailSenderWorkspaceSortDirection
+  semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  previewEvidenceSenderKey?: string | null
 }): string {
+  const semanticFocusSignature = params.semanticFocus
+    ? [
+        params.semanticFocus.family,
+        params.semanticFocus.kind,
+        params.semanticFocus.subtypeKey || 'none',
+        params.semanticFocus.surfacedSubtypeKeys.slice().sort().join(',') || 'none',
+      ].join(':')
+    : 'none'
   return [
     'sender_workspace',
     params.analysisScope,
     params.cacheVersion,
     clusterCacheSignature(params.selectedCluster),
     ...sortedClusterCacheSignatures(params.allClusters),
+    params.includeClusterSenderKeys ? 'with_cluster_sender_keys' : 'without_cluster_sender_keys',
     String(params.page),
     String(params.pageSize),
     params.search,
     params.filter,
     params.sort,
     params.direction,
+    semanticFocusSignature,
+    params.previewEvidenceSenderKey || 'no-preview-evidence-sender',
+  ].join('|||')
+}
+
+function senderDistributionCacheKey(params: {
+  selectedCluster: GmailCleanupClusterRef
+  analysisScope: OperationsAnalysisScope
+  cacheVersion: string
+}): string {
+  return [
+    'sender_distribution',
+    params.analysisScope,
+    params.cacheVersion,
+    clusterCacheSignature(params.selectedCluster),
   ].join('|||')
 }
 
@@ -1092,6 +2151,73 @@ export function readCachedGmailMailboxIntelligence(params: {
         cacheVersion,
       })
     )
+  )
+}
+
+export function readCachedGmailPressureTrend(params: {
+  clusters: GmailCleanupClusterRef[]
+  cacheVersion?: string | null
+  pressureWindow: GmailPressureTrendWindow
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
+}): GmailPressureTrendData | null {
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const pressureStart =
+    typeof params.pressureStart === 'string' && params.pressureStart.trim()
+      ? params.pressureStart.trim()
+      : null
+  const pressureEnd =
+    typeof params.pressureEnd === 'string' && params.pressureEnd.trim()
+      ? params.pressureEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
+  const cacheKey = pressureTrendCacheKey({
+    clusters: params.clusters,
+    cacheVersion,
+    pressureWindow: params.pressureWindow,
+    pressureStart,
+    pressureEnd,
+    timeZone,
+  })
+  return (
+    readClientInboxAnalysisCache<GmailPressureTrendData>(cacheKey) ||
+    readPersistedClientInboxAnalysisCache<GmailPressureTrendData>(cacheKey)
+  )
+}
+
+export function primeCachedGmailPressureTrend(params: {
+  clusters: GmailCleanupClusterRef[]
+  cacheVersion?: string | null
+  pressureWindow: GmailPressureTrendWindow
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
+  data: GmailPressureTrendData
+}): GmailPressureTrendData {
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const pressureStart =
+    typeof params.pressureStart === 'string' && params.pressureStart.trim()
+      ? params.pressureStart.trim()
+      : null
+  const pressureEnd =
+    typeof params.pressureEnd === 'string' && params.pressureEnd.trim()
+      ? params.pressureEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
+
+  return writeClientInboxAnalysisCache(
+    pressureTrendCacheKey({
+      clusters: params.clusters,
+      cacheVersion,
+      pressureWindow: params.pressureWindow,
+      pressureStart,
+      pressureEnd,
+      timeZone,
+    }),
+    params.data
   )
 }
 
@@ -1152,12 +2278,15 @@ export function readCachedGmailSenderWorkspace(params: {
   allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
+  includeClusterSenderKeys?: boolean
   page?: number
   pageSize?: number
   search?: string | null
   filter?: GmailSenderWorkspaceFilter
   sort?: GmailSenderWorkspaceSort
   direction?: GmailSenderWorkspaceSortDirection
+  semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  previewEvidenceSenderKey?: string | null
 }): GmailSenderWorkspaceData | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
@@ -1167,17 +2296,21 @@ export function readCachedGmailSenderWorkspace(params: {
   const filter = params.filter ?? 'all'
   const sort = params.sort ?? 'message_count'
   const direction = params.direction ?? 'desc'
+  const includeClusterSenderKeys = params.includeClusterSenderKeys === true
   const cacheKey = senderWorkspaceCacheKey({
     selectedCluster: params.selectedCluster,
     allClusters: params.allClusters,
     analysisScope,
     cacheVersion,
+    includeClusterSenderKeys,
     page,
     pageSize,
     search,
     filter,
     sort,
     direction,
+    semanticFocus: params.semanticFocus ?? null,
+    previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
   })
   return (
     readClientInboxAnalysisCache<GmailSenderWorkspaceData>(cacheKey) ||
@@ -1185,24 +2318,62 @@ export function readCachedGmailSenderWorkspace(params: {
   )
 }
 
+export function readCachedGmailSenderDistribution(params: {
+  selectedCluster: GmailCleanupClusterRef
+  analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
+}): GmailSenderDistributionData | null {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const cacheKey = senderDistributionCacheKey({
+    selectedCluster: params.selectedCluster,
+    analysisScope,
+    cacheVersion,
+  })
+  return (
+    readClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey) ||
+    readPersistedClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey)
+  )
+}
+
 export async function fetchGmailMailboxIntelligence(params: {
   clusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
+  initialPressureWindow?: GmailPressureTrendWindow
+  initialPressureStart?: string | null
+  initialPressureEnd?: string | null
+  initialTimeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
 }): Promise<{ ok: true; data: GmailMailboxIntelligenceData } | { ok: false; error: string; aborted?: true }> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const initialPressureStart =
+    typeof params.initialPressureStart === 'string' && params.initialPressureStart.trim()
+      ? params.initialPressureStart.trim()
+      : null
+  const initialPressureEnd =
+    typeof params.initialPressureEnd === 'string' && params.initialPressureEnd.trim()
+      ? params.initialPressureEnd.trim()
+      : null
+  const initialTimeZone =
+    typeof params.initialTimeZone === 'string' && params.initialTimeZone.trim()
+      ? params.initialTimeZone.trim()
+      : null
   return requestCachedInboxAnalysis<GmailMailboxIntelligenceData>({
+    action: 'mailbox_intelligence',
     cacheKey: mailboxIntelligenceCacheKey({
       clusters: params.clusters,
       analysisScope,
       cacheVersion,
     }),
     body: {
-      action: 'mailbox_intelligence',
       analysis_scope: analysisScope,
       cache_version: params.cacheVersion ?? null,
+      initial_pressure_window: params.initialPressureWindow ?? null,
+      initial_pressure_start: initialPressureStart,
+      initial_pressure_end: initialPressureEnd,
+      initial_time_zone: initialTimeZone,
       clusters: params.clusters.map((cluster) => ({
         cluster_id: cluster.clusterId,
         cluster_type: cluster.clusterType,
@@ -1241,6 +2412,7 @@ export async function fetchGmailPressureTrend(params: {
     typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
 
   return requestCachedInboxAnalysis<GmailPressureTrendData>({
+    action: 'mailbox_pressure_trend',
     cacheKey: pressureTrendCacheKey({
       clusters: params.clusters,
       cacheVersion,
@@ -1250,7 +2422,6 @@ export async function fetchGmailPressureTrend(params: {
       timeZone,
     }),
     body: {
-      action: 'mailbox_pressure_trend',
       cache_version: params.cacheVersion ?? null,
       pressure_window: params.pressureWindow,
       pressure_start: pressureStart,
@@ -1277,12 +2448,15 @@ export async function fetchGmailSenderWorkspace(params: {
   allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
+  includeClusterSenderKeys?: boolean
   page?: number
   pageSize?: number
   search?: string | null
   filter?: GmailSenderWorkspaceFilter
   sort?: GmailSenderWorkspaceSort
   direction?: GmailSenderWorkspaceSortDirection
+  semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  previewEvidenceSenderKey?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
 }): Promise<{ ok: true; data: GmailSenderWorkspaceData } | { ok: false; error: string; aborted?: true }> {
@@ -1294,48 +2468,168 @@ export async function fetchGmailSenderWorkspace(params: {
   const sort = params.sort ?? 'message_count'
   const direction = params.direction ?? 'desc'
   const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const includeClusterSenderKeys = params.includeClusterSenderKeys === true
 
   return requestCachedInboxAnalysis<GmailSenderWorkspaceData>({
+    action: 'sender_workspace',
     cacheKey: senderWorkspaceCacheKey({
       selectedCluster: params.selectedCluster,
       allClusters: params.allClusters,
       analysisScope,
       cacheVersion,
+      includeClusterSenderKeys,
       page,
       pageSize,
       search,
       filter,
       sort,
       direction,
+      semanticFocus: params.semanticFocus ?? null,
+      previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
     }),
     body: {
-      action: 'sender_workspace',
       analysis_scope: analysisScope,
       cache_version: params.cacheVersion ?? null,
       selected_cluster: {
         cluster_id: params.selectedCluster.clusterId,
+        canonical_cluster_id:
+          typeof params.selectedCluster.canonicalClusterId === 'string' &&
+          params.selectedCluster.canonicalClusterId.trim()
+            ? params.selectedCluster.canonicalClusterId.trim()
+            : undefined,
+        legacy_cluster_ids:
+          Array.isArray(params.selectedCluster.legacyClusterIds) &&
+          params.selectedCluster.legacyClusterIds.length > 0
+            ? params.selectedCluster.legacyClusterIds
+            : undefined,
         cluster_type: params.selectedCluster.clusterType,
         title: params.selectedCluster.title,
         query: params.selectedCluster.query,
         why_selected: params.selectedCluster.whySelected ?? undefined,
         risk_note: params.selectedCluster.riskNote ?? undefined,
         safety_note: params.selectedCluster.safetyNote ?? undefined,
+        sender_count:
+          typeof params.selectedCluster.senderCount === 'number' &&
+          Number.isFinite(params.selectedCluster.senderCount)
+            ? Math.max(0, Math.round(params.selectedCluster.senderCount))
+            : undefined,
+        message_count:
+          typeof params.selectedCluster.messageCount === 'number' &&
+          Number.isFinite(params.selectedCluster.messageCount)
+            ? Math.max(0, Math.round(params.selectedCluster.messageCount))
+            : undefined,
+        estimated_count:
+          typeof params.selectedCluster.estimatedCount === 'number' &&
+          Number.isFinite(params.selectedCluster.estimatedCount)
+            ? Math.max(0, Math.round(params.selectedCluster.estimatedCount))
+            : undefined,
       },
       clusters: params.allClusters.map((cluster) => ({
         cluster_id: cluster.clusterId,
+        canonical_cluster_id:
+          typeof cluster.canonicalClusterId === 'string' && cluster.canonicalClusterId.trim()
+            ? cluster.canonicalClusterId.trim()
+            : undefined,
+        legacy_cluster_ids:
+          Array.isArray(cluster.legacyClusterIds) && cluster.legacyClusterIds.length > 0
+            ? cluster.legacyClusterIds
+            : undefined,
         cluster_type: cluster.clusterType,
         title: cluster.title,
         query: cluster.query,
+        sender_count:
+          typeof cluster.senderCount === 'number' && Number.isFinite(cluster.senderCount)
+            ? Math.max(0, Math.round(cluster.senderCount))
+            : undefined,
+        message_count:
+          typeof cluster.messageCount === 'number' && Number.isFinite(cluster.messageCount)
+            ? Math.max(0, Math.round(cluster.messageCount))
+            : undefined,
+        estimated_count:
+          typeof cluster.estimatedCount === 'number' && Number.isFinite(cluster.estimatedCount)
+            ? Math.max(0, Math.round(cluster.estimatedCount))
+            : undefined,
       })),
       page,
       page_size: pageSize,
+      include_cluster_sender_keys: includeClusterSenderKeys,
       search,
       filter,
       sort,
       direction,
+      preview_evidence_sender_key:
+        typeof params.previewEvidenceSenderKey === 'string' && params.previewEvidenceSenderKey.trim()
+          ? params.previewEvidenceSenderKey.trim()
+          : null,
+      semantic_focus: params.semanticFocus
+        ? {
+            family: params.semanticFocus.family,
+            kind: params.semanticFocus.kind,
+            subtype_key: params.semanticFocus.subtypeKey,
+            surfaced_subtype_keys: params.semanticFocus.surfacedSubtypeKeys,
+          }
+        : null,
       ...contextParams(params.requestContext),
     },
     errorMessage: 'Failed to load sender workspace.',
+    signal: params.signal,
+  })
+}
+
+export async function fetchGmailSenderDistribution(params: {
+  selectedCluster: GmailCleanupClusterRef
+  analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
+  requestContext?: OperationsInboxAnalysisRequestContext
+  signal?: AbortSignal
+}): Promise<{ ok: true; data: GmailSenderDistributionData } | { ok: false; error: string; aborted?: true }> {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+
+  return requestCachedInboxAnalysis<GmailSenderDistributionData>({
+    action: 'sender_distribution',
+    cacheKey: senderDistributionCacheKey({
+      selectedCluster: params.selectedCluster,
+      analysisScope,
+      cacheVersion,
+    }),
+    body: {
+      analysis_scope: analysisScope,
+      cache_version: params.cacheVersion ?? null,
+      selected_cluster: {
+        cluster_id: params.selectedCluster.clusterId,
+        canonical_cluster_id:
+          typeof params.selectedCluster.canonicalClusterId === 'string' &&
+          params.selectedCluster.canonicalClusterId.trim()
+            ? params.selectedCluster.canonicalClusterId.trim()
+            : undefined,
+        legacy_cluster_ids:
+          Array.isArray(params.selectedCluster.legacyClusterIds) &&
+          params.selectedCluster.legacyClusterIds.length > 0
+            ? params.selectedCluster.legacyClusterIds
+            : undefined,
+        source_cluster_ids:
+          Array.isArray(params.selectedCluster.sourceClusterIds) &&
+          params.selectedCluster.sourceClusterIds.length > 0
+            ? params.selectedCluster.sourceClusterIds
+            : undefined,
+        cluster_type: params.selectedCluster.clusterType,
+        title: params.selectedCluster.title,
+        query: params.selectedCluster.query,
+        sender_count:
+          typeof params.selectedCluster.senderCount === 'number' &&
+          Number.isFinite(params.selectedCluster.senderCount)
+            ? Math.max(0, Math.round(params.selectedCluster.senderCount))
+            : undefined,
+        message_count:
+          typeof params.selectedCluster.messageCount === 'number' &&
+          Number.isFinite(params.selectedCluster.messageCount)
+            ? Math.max(0, Math.round(params.selectedCluster.messageCount))
+            : undefined,
+      },
+      ...contextParams(params.requestContext),
+    },
+    errorMessage: 'Failed to load Sender Distribution.',
     signal: params.signal,
   })
 }
@@ -1354,6 +2648,7 @@ export async function fetchGmailConfirmationPreview(params: {
   const cacheVersion = params.cacheVersion?.trim() || 'default'
 
   return requestCachedInboxAnalysis<GmailConfirmationPreviewData>({
+    action: 'confirmation_preview',
     cacheKey: confirmationPreviewCacheKey({
       selectedCluster: params.selectedCluster,
       allClusters: params.allClusters,
@@ -1363,7 +2658,6 @@ export async function fetchGmailConfirmationPreview(params: {
       messageOverrides,
     }),
     body: {
-      action: 'confirmation_preview',
       analysis_scope: analysisScope,
       cache_version: params.cacheVersion ?? null,
       selected_cluster: {
@@ -1415,23 +2709,47 @@ export async function fetchGmailMonitoringSummary(params: {
 export async function fetchGmailDecisionManagementSummary(params: {
   agentId: string
 }): Promise<{ ok: true; data: GmailDecisionManagementSummaryData } | { ok: false; error: string }> {
+  const cacheKey = ['decision_management', params.agentId.trim()].join('::')
+  const cached = readClientRuntimeSummaryCache<GmailDecisionManagementSummaryData>(cacheKey)
+  if (cached) {
+    return { ok: true, data: cached }
+  }
+
+  const inflight = gmailRuntimeSummaryClientInflight.get(cacheKey)
+  if (inflight) {
+    return (await inflight) as
+      | { ok: true; data: GmailDecisionManagementSummaryData }
+      | { ok: false; error: string }
+  }
+
   const query = new URLSearchParams({
     agent_id: params.agentId,
     view: 'decision_management',
   })
 
-  const res = await fetch(`/api/runtime/gmail-memory?${query.toString()}`, {
-    method: 'GET',
-    cache: 'no-store',
-  })
-  const payload = (await res.json().catch(() => null)) as
-    | { ok?: boolean; error?: string; data?: GmailDecisionManagementSummaryData }
-    | null
+  const request = (async (): Promise<
+    { ok: true; data: GmailDecisionManagementSummaryData } | { ok: false; error: string }
+  > => {
+    const res = await fetch(`/api/runtime/gmail-memory?${query.toString()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    })
+    const payload = (await res.json().catch(() => null)) as
+      | { ok?: boolean; error?: string; data?: GmailDecisionManagementSummaryData }
+      | null
 
-  if (!res.ok || !payload?.ok || !payload.data) {
-    return { ok: false, error: payload?.error || 'Failed to load Decision Management summary.' }
+    if (!res.ok || !payload?.ok || !payload.data) {
+      return { ok: false, error: payload?.error || 'Failed to load Decision Management summary.' }
+    }
+    return { ok: true, data: writeClientRuntimeSummaryCache(cacheKey, payload.data) }
+  })()
+
+  gmailRuntimeSummaryClientInflight.set(cacheKey, request as Promise<unknown>)
+  try {
+    return await request
+  } finally {
+    gmailRuntimeSummaryClientInflight.delete(cacheKey)
   }
-  return { ok: true, data: payload.data }
 }
 
 export async function persistGmailCleanupMemoryEvent(

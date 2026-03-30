@@ -2,6 +2,11 @@ import type {
   GmailCleanupDiscoveryData,
   GmailMailboxProfile,
 } from '@/lib/integrations/gmail/inboxAnalysis'
+import type {
+  GmailMailboxIntelligenceData,
+  GmailSenderWorkspaceData,
+} from '@/lib/runtime/gmailCleanupWorkspace'
+import type { OperationsSelectedClusterRailFamily } from '@/lib/runtime/operationsWorkspace'
 import {
   applyRuntimeSuggestionStatuses,
   deriveRuntimeSuggestionPromptContext,
@@ -92,6 +97,8 @@ export type RuntimeCleanupCluster = {
   title: string
   query: string
   why_selected: string
+  sender_count: number
+  message_count: number
   estimated_count: number
   sample_preview: Array<{
     message_id: string
@@ -151,6 +158,8 @@ export type RuntimeCleanupPlan = {
 }
 
 export type RuntimeMailboxProfile = GmailMailboxProfile
+export type RuntimeMailboxIntelligence = GmailMailboxIntelligenceData
+export type RuntimeSenderOverview = Record<string, GmailSenderWorkspaceData>
 
 export type RuntimeCleanupStrategyItem = {
   title: string
@@ -179,6 +188,7 @@ export type AssembleGmailRuntimeStateParams = {
   latestRuntimeArchiveEvidence: RuntimeArchiveEvidence | null
   runtimeSuggestionHistory: RuntimeSuggestionHistory
   cleanupDiscoveryData?: GmailCleanupDiscoveryData | null
+  selectedClusterRailFamily?: OperationsSelectedClusterRailFamily | null
 }
 
 export type AssembledGmailRuntimeState = {
@@ -191,6 +201,9 @@ export type AssembledGmailRuntimeState = {
   runtimeBatchSuggestions: RuntimeBatchSuggestions | null
   runtimeCleanupPlan: RuntimeCleanupPlan | null
   runtimeMailboxProfile: RuntimeMailboxProfile | null
+  runtimeMailboxIntelligence: RuntimeMailboxIntelligence | null
+  runtimeSenderOverview: RuntimeSenderOverview | null
+  runtimeSelectedClusterRailFamily: OperationsSelectedClusterRailFamily | null
   runtimeCleanupStrategy: RuntimeCleanupStrategy | null
   runtimeSuggestionSets: RuntimeSuggestionSet[]
   runtimeSuggestionPromptContext: RuntimeSuggestionPromptContext
@@ -729,15 +742,17 @@ function deriveRuntimeCleanupPlan(params: {
       const messageIds = cluster.sample_preview
         .map((item) => item.message_id.trim())
         .filter(Boolean)
-      return {
-        cluster_id: cluster.cluster_id,
-        cluster_type: cluster.cluster_type,
-        title: cluster.title,
-        query: cluster.query,
-        why_selected: cluster.why_selected,
-        estimated_count: cluster.estimated_count,
-        sample_preview: cluster.sample_preview,
-        risk_note: cluster.risk_note,
+          return {
+            cluster_id: cluster.cluster_id,
+            cluster_type: cluster.cluster_type,
+            title: cluster.title,
+            query: cluster.query,
+            why_selected: cluster.why_selected,
+            sender_count: cluster.sender_count ?? 0,
+            message_count: cluster.message_count ?? cluster.estimated_count,
+            estimated_count: cluster.estimated_count,
+            sample_preview: cluster.sample_preview,
+            risk_note: cluster.risk_note,
         safety_note: cluster.safety_note,
         ...(cluster.indexed_signal_window
           ? { indexed_signal_window: cluster.indexed_signal_window }
@@ -964,6 +979,10 @@ export function assembleGmailRuntimeState(
     currentSender: currentBatchSender,
   })
   const runtimeMailboxProfile = params.cleanupDiscoveryData?.mailbox_profile || null
+  const runtimeMailboxIntelligence =
+    params.cleanupDiscoveryData?.mailbox_intelligence_snapshot || null
+  const runtimeSenderOverview = params.cleanupDiscoveryData?.sender_overview_snapshot || null
+  const runtimeSelectedClusterRailFamily = params.selectedClusterRailFamily || null
 
   const runtimeBatchSuggestions = deriveRuntimeBatchSuggestions({
     runtimeActiveBatch,
@@ -1046,6 +1065,9 @@ export function assembleGmailRuntimeState(
     runtimeBatchSuggestions,
     runtimeCleanupPlan,
     runtimeMailboxProfile,
+    runtimeMailboxIntelligence,
+    runtimeSenderOverview,
+    runtimeSelectedClusterRailFamily,
     runtimeCleanupStrategy,
     runtimeSuggestionSets,
     runtimeSuggestionPromptContext,

@@ -88,7 +88,7 @@ export default function DashboardLayout({ children }: Props) {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--app-bg)] text-white">
-      <header className="automata-topbar sticky top-0 z-40 border-b border-white/5">
+      <header className="automata-topbar sticky top-0 z-40 border-b border-slate-500/35 shadow-[0_10px_30px_rgba(2,6,23,0.2)]">
         <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
           <div className="flex flex-wrap items-center gap-3 py-3.5 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-6">
             <Link href="/dashboard" className="flex items-center gap-2.5 text-white">
@@ -99,7 +99,7 @@ export default function DashboardLayout({ children }: Props) {
             </Link>
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3 md:hidden">
-              <p className="max-w-[8rem] truncate text-sm text-gray-300 sm:max-w-xs">
+              <p className="max-w-[8rem] truncate text-sm text-slate-200 sm:max-w-xs">
                 {email || 'Loading...'}
               </p>
               <button
@@ -127,7 +127,7 @@ export default function DashboardLayout({ children }: Props) {
             </nav>
 
             <div className="hidden min-w-0 items-center justify-end gap-2 sm:gap-3 md:flex">
-              <p className="max-w-[10rem] truncate text-sm text-gray-300 lg:max-w-xs">
+              <p className="max-w-[10rem] truncate text-sm text-slate-200 lg:max-w-xs">
                 {email || 'Loading...'}
               </p>
               <button

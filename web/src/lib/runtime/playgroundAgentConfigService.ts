@@ -2,6 +2,13 @@ import type { getSupabaseAdmin } from '@/lib/supabase'
 
 type SupabaseAdminClient = Awaited<ReturnType<typeof getSupabaseAdmin>>
 
+const PLAYGROUND_AGENT_CONFIG_CACHE_TTL_MS = 1000 * 60 * 5
+
+type CachedPlaygroundAgentConfigEntry = {
+  expiresAtMs: number
+  data: LoadedPlaygroundAgentConfig
+}
+
 type AgentLookupRow = {
   id: string
   user_id: string | null
@@ -25,6 +32,17 @@ export type LoadedPlaygroundAgentConfig = {
   crawlDomains: string[]
 }
 
+const playgroundAgentConfigGlobal = globalThis as typeof globalThis & {
+  __playgroundAgentConfigCache?: Map<string, CachedPlaygroundAgentConfigEntry>
+}
+
+const playgroundAgentConfigCache =
+  playgroundAgentConfigGlobal.__playgroundAgentConfigCache || new Map<string, CachedPlaygroundAgentConfigEntry>()
+
+if (!playgroundAgentConfigGlobal.__playgroundAgentConfigCache) {
+  playgroundAgentConfigGlobal.__playgroundAgentConfigCache = playgroundAgentConfigCache
+}
+
 export async function loadPlaygroundAgentConfig(params: {
   supabase: SupabaseAdminClient
   agentId: string
@@ -32,6 +50,13 @@ export async function loadPlaygroundAgentConfig(params: {
   | { ok: true; data: LoadedPlaygroundAgentConfig }
   | { ok: false; error: unknown | null }
 > {
+  const cacheKey = params.agentId.trim()
+  const now = Date.now()
+  const cached = cacheKey ? playgroundAgentConfigCache.get(cacheKey) || null : null
+  if (cached && cached.expiresAtMs > now) {
+    return { ok: true, data: cached.data }
+  }
+
   const { data: agent, error } = await params.supabase
     .from('agents')
     .select(
@@ -41,6 +66,9 @@ export async function loadPlaygroundAgentConfig(params: {
     .single()
 
   if (error || !agent) {
+    if (cached?.data) {
+      return { ok: true, data: cached.data }
+    }
     return { ok: false, error: error ?? null }
   }
 
@@ -66,14 +94,22 @@ export async function loadPlaygroundAgentConfig(params: {
         .filter(Boolean)
     : []
 
+  const loaded = {
+    agent: typedAgent,
+    summary,
+    ragSources,
+    crawlDomains,
+  } satisfies LoadedPlaygroundAgentConfig
+
+  if (cacheKey) {
+    playgroundAgentConfigCache.set(cacheKey, {
+      expiresAtMs: now + PLAYGROUND_AGENT_CONFIG_CACHE_TTL_MS,
+      data: loaded,
+    })
+  }
+
   return {
     ok: true,
-    data: {
-      agent: typedAgent,
-      summary,
-      ragSources,
-      crawlDomains,
-    },
+    data: loaded,
   }
 }
-

@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification pass)_
+_Last updated: 2026-03-30 (subscription Sender Overview load stability accepted • 7d recovery preserved • cleanup-group restructuring still open)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -12,9 +12,231 @@ _Last updated: 2026-03-16 (PM v8 review • Gmail archive execution verification
 
 ## 🔥 Current Focus (This Week)
 
----
+----
+
+### Sender Overview 7d Rail Bootstrap Recovery
+- [x] Prove whether `7d` was honestly empty or falsely empty under current product contract
+- [x] Isolate the zero-cluster introduction point to selected-cluster rail bootstrap snapshot reuse
+- [x] Reject persisted scoped snapshots when:
+  - expired
+  - behind indexed coverage
+  - empty despite indexed coverage showing non-zero cluster potential
+- [x] Fall through to read-only scoped discovery for rejected unpublished scopes
+- [x] Prove live runtime `7d` recovery for:
+  - `subscription-senders`
+  - `protected-trusted-senders`
+  - `needs-review-senders`
+  - `historical-out-of-inbox-senders`
+- [x] Keep Smart Sync, mailbox-index recovery, artifact publication, and Slice 2 promotion untouched in this lane
+- [x] Record the accepted tenant truth:
+  - `7d` should show daily bars now
+  - prior `comparison-only` / `outside-timeframe` state was false-empty
+- [x] Record accepted closeout boundary:
+  - sparse `2–3` visible day bars are not a blocker for this lane
+  - explicit zero-day bar rendering is separate presentation/product work
+  - later `subscription-senders` load-stability follow-up is tracked and accepted separately
+
+### Subscription-Senders Sender Overview Load Stability
+- [x] Separate cold initial review-page bootstrap from timeframe-switch behavior in proof
+- [x] Identify why first entry was still triggering heavy `/api/agents/playground` runtime rehydrate
+- [x] Restore stable first-entry Sender Overview loading for `subscription-senders`
+- [x] Preserve faster warm timeframe switching behavior
+- [x] Reuse persisted scoped snapshot truth for default Sender Overview workspace loads on:
+  - `60d`
+  - `90d`
+  - `365d`
+- [x] Remove `rejected_candidate_count_mismatch` from the accepted default overview path
+- [x] Restore the accepted `7d` fallback contract after the intermediate regression:
+  - rejected `empty_with_index_potential` `7d` snapshots must fall through to fresh read-only scoped discovery
+  - `7d` must not terminate as `unavailable_scope` when fresh indexed truth exists
+- [x] Prove final accepted live behavior for:
+  - `subscription-senders`
+  - at least one structural cleanup group
+- [x] Accept as non-blocking for this lane:
+  - sparse daily-bar density when recent activity is honestly sparse
+  - future product/presentation decisions about zero-activity day rendering
+
+### Gmail Phase 1 Baseline Lock
+- [x] Restore published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555`
+- [x] Record `full-mailbox-20260326012615971` as a diagnostic semantic-refinement variant, not the adopted freeze candidate
+- [x] Implement Rebuild A structural preview seeding fix for `no_inbox_rows` structural senders
+- [x] Run and publish Rebuild A as `full-mailbox-20260326221425010`
+- [x] Promote the accepted Gmail Phase 1 artifact baseline to `full-mailbox-20260326221425010`
+- [ ] Before any future Gmail rebuild, reconcile `web/src/lib/integrations/gmail/gmailSenderProfile.ts` with the accepted baseline decision so the rejected March 26 subtype behavior is not republished by accident
+- [ ] Complete Phase 1B UI work against the accepted rebuilt baseline artifact instead of reopening Gmail artifact refinement
+
+### Operations Runtime Hot-Path Guidance
+- [x] Record that the artifact-backed architecture remained broadly correct during the Supabase pressure incident
+- [x] Record the actual root cause as:
+  - unnecessary `OperationsRuntimeContext` rehydrate triggers
+  - timeout-prone preferred-cluster cleanup snapshot lookup in `runtimeStateService`
+- [x] Remove the warm cached remount rehydrate trigger regression
+- [x] Remove focus / visibility rehydrate triggers when no change-driven reason exists
+- [x] Fix preferred-cluster snapshot timeout behavior with cache-first scoped lookup in `runtimeStateService`
+- [x] Add supporting `agent_events` cleanup-snapshot lookup indexes
+- [x] Keep cache / versioned rail-family reuse as the selected-cluster bootstrap strategy for repeated preferred-cluster rehydrates
+- [x] Stay on the upgraded Supabase tier for now
+- [ ] For any future runtime hot-path change, capture before / after timing for:
+  - total rehydrate
+  - `cleanup_plan_ms`
+  - `selected_cluster_rail_family_load_ms`
+  - `preferred_cluster_review_bootstrap_ms`
+- [ ] Require warm-path validation on repeated rehydrates, not just cold-load validation
+- [ ] Keep treating `/api/agents/playground` and `agent_events` cleanup snapshot lookup as hot-path dependencies in runtime review and rollout decisions
+- [ ] Re-evaluate the Supabase tier only after repeated preferred-cluster warm-path timings stay stable
+
+### Current Accepted Product State
+- [x] Accept Sender Overview timeframe behavior as correct in the current product
+- [x] Accept Sender Overview broader-scope chart recovery when scoped discovery data exists
+- [x] Record that honest `1W` comparison-only remains valid only when fresh scoped discovery truly excludes the cluster
+- [x] Record that this tenant's `7d` Sender Overview rails should show daily bars now
+- [x] Record that stale empty persisted scoped snapshots are invalid when indexed coverage shows non-zero cluster potential
+- [x] Record that the `24`-month historical cutoff is expected bounded-backfill behavior
+- [x] Accept current `subscription-senders` UI / productization validation
+- [x] Keep `subscription-senders` as one cleanup group in the current artifact-backed model
+- [x] Record that no taxonomy split shipped in the current pass
+- [ ] Plan cleanup-group restructuring into smaller artifact-defined groups as separate open work
+
+### Cleanup-Group Slice 2 Stabilization Guardrail
+- [x] Restore backward compatibility for legacy published `semantic_rollup` payloads missing nested Slice 2 cleanup-group fields
+- [x] Ensure artifact/runtime read paths do not throw when `semantic_rollup.surface` is absent
+- [x] Re-stabilize Sender Overview loads for legacy cleanup groups on the live artifact-backed path
+- [x] Expand live route verification to `needs-review-senders` and `historical-out-of-inbox-senders` alongside the initial sampled cleanup groups
+- [ ] Keep forward Slice 2 regrouping/promotion rollout paused until the compatibility fix is accepted and preserved through follow-up validation
+
+### Subscription-Senders Split-Readiness Evaluation
+- [x] Complete the evaluation-only split-readiness memo against `full-mailbox-20260327004328180`
+- [x] Record that `subscription-senders` is not split-ready yet
+- [x] Record that semantic blockers remain primary and operator evidence is still too thin to strengthen a split case
+- [x] Open a separate `subscription-senders` semantic-improvement planning thread
+- [x] Complete the narrow Phase 3 semantic-improvement implementation against the local resolver baseline
+- [x] Prove that gains came only from the `123` clear-family target pool
+- [x] Prove that weak-history and mixed populations stayed unresolved
+- [x] Prove that no already-resolved subtype churn/regression occurred
+- [x] Prove that offer anti-regression held
+- [ ] Open a new `subscription-senders` semantic rebuild/publication planning thread
+- [ ] In that thread, define how to rebuild/publish the improved semantic truth
+- [ ] In that thread, define post-rebuild validation against the locked baseline
+- [ ] In that thread, decide whether a new split-readiness evaluation is needed after publication
+- [ ] Keep that next thread narrow:
+  - not a taxonomy-split implementation thread
+  - not a UI thread
+  - not another broad semantic tuning thread
+
+### Gmail Phase 1B — Sender Overview + Runtime Reliability (ACTIVE)
+- [ ] Browser-verify Decision Card preview behavior on the rebuilt structural-evidence baseline
+- [x] Ensure preview works for high-volume structural senders (e.g., oliver@curativemushrooms.com, support@curativemushrooms.com)
+- [ ] Verify subtype → sender list linkage across multiple cleanup groups (subscription, protected, dormant)
+- [ ] Validate sender list results remain consistent and believable relative to subtype hierarchy
+- [ ] Improve sender-row readability and semantic labeling in Sender Overview
+- [ ] Improve active subtype focus clarity (highlighting + messaging)
+- [ ] Keep current subtype hierarchy and denominator logic intact (no redesign)
+- [ ] Defer pagination until preview reliability and sender-list trust are stable
+- [ ] Defer performance optimization (full-cluster materialization) until UI is finalized
+
+Note: Phase 1B prioritizes usability and decision reliability over perfect artifact alignment.
+
+## 🚀 Phase L2.4 — Semantic Visualization + Cleanup Taxonomy Lock (CURRENT)
+
+Goal:
+- lock the semantic presentation and cleanup-group refinement plan before the next rebuild
+- keep the current artifact-backed 8-group model stable while truth/presentation issues are resolved
+
+### L2.4.1 — Sender Overview Semantic Visualization Truth
+- [ ] Redesign the Sender Overview semantic row so percentages, counts, and bar widths use explicit and matching denominators
+- [ ] Make visible-subset vs full-group semantics obvious anywhere top buckets are shown
+- [ ] Ensure semantic cards communicate whether they show full-group share, relative comparison, or filtered/resolved-only subsets
+- [ ] Remove any presentation that makes tiny shares look visually dominant
+
+### L2.4.2 — Cleanup-Group Refinement Planning
+- [ ] Review the current 8 cleanup groups using the new semantic rollups
+- [ ] Decide which groups remain final, which need re-thresholding, and which are merge/split candidates
+- [ ] Separate durable semantic buckets from umbrella buckets and internal fallback-only states at the group level
+- [ ] Lock the cleanup-group refinement plan before any new artifact rebuild
+
+### L2.4.3 — Final Rebuild Preparation
+- [ ] Keep rebuilds paused while taxonomy, rollups, and cleanup-group semantics are still moving
+- [ ] Complete semantic visualization redesign and cleanup-group refinement first
+- [ ] Run one final rebuild only after the plan is locked
+- [ ] Validate the rebuilt artifact against the 8-group source-of-truth expectations and semantic rollup outputs
+
+Baseline note:
+- For Gmail Phase 1 operational work, treat `full-mailbox-20260327004328180` as the current reference artifact.
+- Do not use `full-mailbox-20260326012615971` as the rebuild/freeze candidate.
+
+## 🚀 Phase L — Sender Surface Unification (PRIMARY)
+
+Goal:
+- Implement ONE unified sender card system with TWO modes (Overview + Decision)
+- Ensure in-place transition (overlay) with zero context loss
+
+### L1 — Unified Sender Card Foundation
+- [ ] Define shared data contract for sender card (identity, signals, categories, proof, impact)
+- [ ] Ensure same card renders in both Overview and Decision modes (no duplicate components)
+
+### L2 — Sender Overview (Overview Mode)
+- [ ] Clean top section hierarchy (counts, mix, activity, explanation)
+- [ ] Improve sender list rows (key signals + quick context)
+- [ ] Add clear group explanation (what/why/expected action)
+
+### L3 — Decision Mode (Overlay)
+- [ ] Implement overlay/focus state for Decision Mode (no navigation)
+- [ ] Add 4 decision actions on card (Keep All / Keep Some / Archive All / Not Sure)
+- [ ] Add progress + auto-advance (Show 1 → decide → next)
+
+### L4 — Transitions & Flow
+- [ ] Click sender → open Decision Mode on that sender
+- [ ] “Start Guided Review” → start from first sender
+- [ ] Exit Decision Mode → return to same scroll position
+
+### L5 — Protected / Trusted Senders Group
+- [ ] Add Protected/Trusted cluster in Cleanup Groups
+- [ ] Surface why senders are protected (signals)
+- [ ] Allow override decisions within this group
+
+### L6 — UX Polish
+- [ ] Reduce clutter / competing sections on Sender Overview
+- [ ] Ensure no context switching anywhere in flow
+- [ ] Validate “slippery slide” from explore → decide → complete
+
+## 🚨 Phase: Runtime Stabilization (Completed)
+
+- [x] Disable passive discovery rebuilds
+- [x] Disable passive mailbox-index sync
+- [x] Block initial-paint heavy inbox-analysis routes
+- [x] Add heavy-action safety layer
+- [x] Optimize manual regeneration (skip sync)
+- [x] Add discovery row cache
+- [x] Move snapshot save off critical path
+- [x] Optimize runtime wrapper (skip preload)
+- [x] Restore Cleanup Groups safe initial render without reopening blocked initial-paint heavy fetches
+- [x] Restore Decision Mode first-click reliability
+- [x] Restore Sender Overview first-open recovery under containment
+- [x] Restore Mailbox Intelligence first-open recovery under containment
+
+Runtime-loading note:
+- Cold first-open on Sender Overview and some Mailbox Intelligence seed-miss cases is still slower because recovery resolves through deferred safe fetches.
+- Warm loads are fast again once runtime/cached state exists.
+- Keep the current loading containment intact; treat any future cold-open optimization as a separate performance pass.
+
+## 🎯 Next Phase: Product Work (Sender Overview Data Truth)
+
+NOTE:
+This work is now superseded by Phase L (Sender Surface Unification). Keep items below only if directly supporting Phase L.
+
+- [ ] Improve usefulness of sender-global category mix
+- [ ] Improve dominant-pattern usefulness
+- [ ] Create more actionable sender breakdowns beyond broad labels like `Updates` / `Promotions`
+- [ ] Keep the current loading containment intact while iterating on Sender Overview truth/presentation
+
+- [ ] Resume Sender Decision UI work
+- [ ] Improve sender category clarity
+- [ ] Add category provenance UI
+- [ ] Add exclusion reason visibility
+- [ ] Improve decision confidence UX
 
 ```
+- [ ] Unify Sender Overview and Decision Mode into one card system (see Phase L)
 - 🚀 Sender Decision System Build (NEW — PRIMARY PRIORITY)
   - [ ] Build Sender Decision Mode (Tinder-style flow)
   - [ ] Implement single-sender review card system
@@ -800,3 +1022,26 @@ Next Phase (PM v9):
 - Gamification + reward system integration
 - AI learning layer (post-decision intelligence)
 - Cross-page UX consistency pass
+
+---
+
+## Gmail Artifact Refresh Recovery Follow-Up - March 29, 2026
+
+Completed:
+
+- [x] Replace raw `building_version` lock checks with one authoritative artifact-build liveness gate.
+- [x] Make stale/orphaned artifact-build reclaim idempotent and safe under concurrent requests.
+- [x] Update both publication state and linked `gmail_artifact_jobs` rows on stale-build reclaim.
+- [x] Add deterministic proof for the exact stale-lock scenario:
+  - old plan skipped with `refresh_skipped_existing_build_in_progress`
+  - new logic reclaims and re-plans refresh in the same sync-completion flow
+- [x] Remove the finalize-stage `push(...rows)` stack-overflow crash that was blocking publication after reclaim.
+- [x] Fix non-promoted cleanup-group semantic surface metrics so artifact validation no longer blocks full-mailbox publication.
+- [x] Re-publish the mailbox artifact and verify runtime reads the new version end-to-end.
+
+Still next:
+
+- [ ] Add a small persisted/auditable mailbox-index refresh-hint trail so live incremental artifact replay can be proven from stored sync facts instead of inferred message rows.
+- [ ] Add an earlier heartbeat/progress update inside long `loading_published_artifact` incremental refresh phases so genuinely live work is easier to distinguish from stalls during artifact reads.
+- [ ] Add regression coverage for cleanup-group surface decisions so non-promoted groups cannot emit actionable review-unit metrics with an empty `review_unit_plan`.
+- [ ] Keep follow-up scope limited to mailbox-index/artifact-refresh behavior; do not mix in Cleanup Groups Slice 2 rollout or sender-overview redesign work here.

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   InboxHealthGauge,
@@ -12,7 +12,11 @@ import {
   fetchGmailDecisionManagementSummary,
   fetchGmailMailboxIntelligence,
   fetchGmailPressureTrend,
+  gmailCleanupWorkflowDraftHasActiveContent,
+  primeCachedGmailPressureTrend,
+  readGmailCleanupWorkflowDraft,
   readCachedGmailMailboxIntelligence,
+  readCachedGmailPressureTrend,
   readLatestCachedGmailMailboxIntelligence,
   type GmailCleanupClusterRef,
   type GmailMailboxIntelligenceData,
@@ -20,14 +24,19 @@ import {
   type GmailPressureTrendWindow,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
+  recommendArtifactCleanupGroupForUi,
+  recommendRuntimeCleanupGroupForUi,
+  type CleanupGroupRecommendationReason,
+} from '@/lib/runtime/cleanupGroupPresentation'
+import {
   serializeOperationsQuery,
   type OperationsAnalysisScope,
 } from '@/lib/runtime/operationsWorkspace'
 
 type LoadState =
-  | { status: 'idle' | 'loading'; data: null; error: null }
-  | { status: 'ready'; data: GmailMailboxIntelligenceData; error: null }
-  | { status: 'error'; data: null; error: string }
+  | { status: 'idle' | 'loading'; seedKey: string | null; data: null; error: null }
+  | { status: 'ready'; seedKey: string; data: GmailMailboxIntelligenceData; error: null }
+  | { status: 'error'; seedKey: string; data: null; error: string }
 
 type PressureTrendLoadState =
   | { status: 'idle'; data: null; error: null; requestKey: null }
@@ -69,6 +78,27 @@ type PressureTrendSelection = {
   end: string | null
 }
 
+type PressureTrendSeed = PressureTrendSelection & {
+  timeZone: string
+  requestKey: string
+}
+
+type PressureTrendSeedCandidate = {
+  data: GmailPressureTrendData
+  source: 'cached_intelligence' | 'runtime_intelligence' | 'mailbox_intelligence_fetch'
+}
+
+type PressureTrendSeedDecision =
+  | {
+      usable: true
+      candidate: PressureTrendSeedCandidate
+      requestKey: string
+    }
+  | {
+      usable: false
+      reason: string
+    }
+
 type MailboxHealthIntelligence = {
   score: number
   state: string
@@ -94,6 +124,17 @@ type MailboxHealthIntelligence = {
   nextActionMode: 'approve_queue' | 'resume_work' | 'open_group' | 'refresh'
 }
 
+function workflowClusterIdFromRuntimeCluster(cluster: GmailCleanupClusterRef): string {
+  return cluster.canonicalClusterId || cluster.clusterId
+}
+
+function workflowClusterIdFromArtifactCluster(
+  cluster: GmailMailboxIntelligenceData['cleanup_groups'][number] | null | undefined
+): string | null {
+  if (!cluster) return null
+  return cluster.canonical_cluster_id || cluster.cluster_id
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -113,6 +154,19 @@ function safeBrowserTimeZone(): string {
   } catch {
     return 'UTC'
   }
+}
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+function isTransientInboxAnalysisGuardError(value: string | null | undefined): boolean {
+  return (
+    typeof value === 'string' &&
+    (/already running/i.test(value) || /just requested/i.test(value) || /wait briefly/i.test(value))
+  )
 }
 
 function dateInputFormatter(timeZone: string): Intl.DateTimeFormat {
@@ -216,6 +270,112 @@ function pressureTrendRangeDetail(data: GmailPressureTrendData): string {
   return data.window.limited_by_indexed_coverage
     ? `${base} · adjusted to available indexed history`
     : base
+}
+
+function readyPressureTrendState(
+  data: GmailPressureTrendData,
+  requestKey: string
+): PressureTrendLoadState {
+  return {
+    status: 'ready',
+    data,
+    error: null,
+    requestKey,
+  }
+}
+
+function pressureTrendSelectionsMatch(
+  left: PressureTrendSelection,
+  right: PressureTrendSelection
+): boolean {
+  return left.window === right.window && left.start === right.start && left.end === right.end
+}
+
+function pressureTrendSeedDecision(params: {
+  candidates: Array<PressureTrendSeedCandidate | null>
+  selection: PressureTrendSelection
+  defaultSelection: PressureTrendSelection
+  timeZone: string
+  requestKey: string
+}): PressureTrendSeedDecision {
+  if (!pressureTrendSelectionsMatch(params.selection, params.defaultSelection)) {
+    return { usable: false, reason: 'non_default_selection' }
+  }
+
+  let sawCandidate = false
+  let sawTimeZoneMismatch = false
+  let sawWindowMismatch = false
+  let sawStartMismatch = false
+  let sawEndMismatch = false
+
+  for (const candidate of params.candidates) {
+    if (!candidate?.data) continue
+    sawCandidate = true
+
+    if (candidate.data.source !== 'gmail_index_cache') {
+      continue
+    }
+    if (candidate.data.window.key !== params.selection.window) {
+      sawWindowMismatch = true
+      continue
+    }
+
+    const requestedStart = candidate.data.window.requested_start || null
+    const requestedEnd = candidate.data.window.requested_end || null
+    if (requestedStart !== params.selection.start) {
+      sawStartMismatch = true
+      continue
+    }
+    if (requestedEnd !== params.selection.end) {
+      sawEndMismatch = true
+      continue
+    }
+    if (candidate.data.time_zone !== params.timeZone) {
+      sawTimeZoneMismatch = true
+      continue
+    }
+
+    return {
+      usable: true,
+      candidate,
+      requestKey: params.requestKey,
+    }
+  }
+
+  if (!sawCandidate) {
+    return { usable: false, reason: 'seed_absent' }
+  }
+  if (sawTimeZoneMismatch) {
+    return { usable: false, reason: 'seed_time_zone_mismatch' }
+  }
+  if (sawWindowMismatch) {
+    return { usable: false, reason: 'seed_window_mismatch' }
+  }
+  if (sawStartMismatch) {
+    return { usable: false, reason: 'seed_start_mismatch' }
+  }
+  if (sawEndMismatch) {
+    return { usable: false, reason: 'seed_end_mismatch' }
+  }
+  return { usable: false, reason: 'seed_untrusted' }
+}
+
+function buildPressureTrendRequestKey(params: {
+  cacheVersion: string | null
+  timeZone: string
+  selection: PressureTrendSelection
+  clusters: GmailCleanupClusterRef[]
+}): string {
+  return [
+    params.cacheVersion || 'default',
+    params.timeZone,
+    params.selection.window,
+    params.selection.start || 'none',
+    params.selection.end || 'none',
+    ...params.clusters.map((cluster) =>
+      [cluster.clusterId, cluster.clusterType, cluster.title, cluster.query].join('::')
+    ),
+  ].join('|||')
 }
 
 function chartPressureTrend(data: GmailPressureTrendData): HealthTrendSignal {
@@ -457,6 +617,7 @@ function buildMailboxHealthIntelligence(params: {
   workflowProgress: LocalWorkflowProgress
   managedSenderCount: number
   nextCluster: CleanupGroupSummary
+  nextClusterReason: CleanupGroupRecommendationReason
   resumeCluster: CleanupGroupSummary
 }): MailboxHealthIntelligence {
   const totalSenders = Math.max(params.data.whole_mailbox.sender_count, 1)
@@ -492,8 +653,12 @@ function buildMailboxHealthIntelligence(params: {
         ? 'Too many senders still lack decisions'
         : protectedSenders > Math.max(10, Math.round(cleanupSenders * 0.15))
           ? 'Protected senders are slowing safe cleanup'
-          : params.nextCluster && params.nextCluster.share_pct >= 30
-            ? `${params.nextCluster.title} is driving most sender noise`
+          : params.nextCluster && params.nextClusterReason === 'small_quick_win'
+            ? `${params.nextCluster.title} is the quickest place to start`
+            : params.nextCluster && params.nextClusterReason === 'high_impact_manageable'
+              ? `${params.nextCluster.title} is the biggest manageable primary action lane`
+              : params.nextCluster && params.nextClusterReason === 'backlog'
+                ? `${params.nextCluster.title} is the clearest backlog pass`
             : remainingUndecidedSenders > 0
               ? 'Decision coverage is improving, but not complete'
               : 'Every indexed sender currently has a decision'
@@ -545,7 +710,9 @@ function buildMailboxHealthIntelligence(params: {
     nextActionMode = 'resume_work'
     recommendedIntervention = `Resume ${params.resumeCluster.title}`
     interventionWhyBest =
-      params.nextCluster && params.nextCluster.cluster_id !== params.resumeCluster.cluster_id
+      params.nextCluster &&
+      workflowClusterIdFromArtifactCluster(params.nextCluster) !==
+        workflowClusterIdFromArtifactCluster(params.resumeCluster)
         ? `This beats opening ${params.nextCluster.title} because unfinished work already has momentum and raises decision coverage faster than restarting on a new group.`
         : 'This beats starting over because the unfinished work already has context and saved decisions attached to it.'
     expectedImpact = `Continue work on ${params.resumeCluster.sender_count.toLocaleString()} senders with ~${params.resumeCluster.message_count.toLocaleString()} supporting messages, raising decision coverage once those senders are approved.`
@@ -555,9 +722,11 @@ function buildMailboxHealthIntelligence(params: {
     nextActionMode = 'open_group'
     recommendedIntervention = `Open ${params.nextCluster.title}`
     interventionWhyBest =
-      params.nextCluster.share_pct >= 30
-        ? `This beats smaller groups because ${params.nextCluster.title} contains the largest unresolved sender block in the current cleanup universe.`
-        : `This is the strongest remaining sender-first opportunity in the current snapshot.`
+      params.nextClusterReason === 'small_quick_win'
+        ? `This beats the heavier safety / coverage lanes because ${params.nextCluster.title} should give you momentum fast without opening an overwhelming review set.`
+        : params.nextClusterReason === 'backlog'
+          ? `This is the clearest remaining backlog pass without dropping straight into the safety / coverage lanes.`
+          : `This is the strongest manageable sender-first opportunity in the current snapshot.`
     expectedImpact = `Resolve ${params.nextCluster.sender_count.toLocaleString()} senders and improve decision coverage across the indexed sender universe, with ~${params.nextCluster.message_count.toLocaleString()} supporting messages showing likely impact.`
     impactConfidence =
       'Medium confidence. The cleanliness gain comes from deciding those senders; message reduction is secondary and depends on how many of them are archive-safe.'
@@ -570,8 +739,12 @@ function buildMailboxHealthIntelligence(params: {
         ? `Inbox health is low because only ${managedSenders.toLocaleString()} of ${totalSenders.toLocaleString()} indexed senders currently have committed decisions. A clean inbox means each sender has a decision, even if many messages are intentionally kept.`
         : protectedSenders > Math.max(10, Math.round(cleanupSenders * 0.15))
           ? 'Protected senders keep cleanup safe, but they also slow progress until ambiguous senders are reviewed carefully.'
-          : params.nextCluster && params.nextCluster.share_pct >= 30
-            ? `${params.nextCluster.title} is the largest unresolved sender block right now, so it is setting the pace for inbox pressure more than any smaller group.`
+          : params.nextCluster && params.nextClusterReason === 'small_quick_win'
+            ? `${params.nextCluster.title} is the fastest low-friction starting point right now, which makes it the best way to create momentum before touching the backlog or safety / coverage lanes.`
+            : params.nextCluster && params.nextClusterReason === 'high_impact_manageable'
+              ? `${params.nextCluster.title} balances sender workload and message impact better than the heavier safety / coverage lanes, so it is the best manageable primary action lane right now.`
+              : params.nextCluster && params.nextClusterReason === 'backlog'
+                ? 'Backlog is the clearest remaining path because the smaller primary action lanes are exhausted and safety / coverage lanes should not be the default start.'
             : remainingUndecidedSenders > 0
               ? `${remainingUndecidedSenders.toLocaleString()} indexed senders still lack committed decisions, so coverage is improving but the inbox is not yet fully clean.`
               : 'Decision coverage is complete, so any remaining health drag now comes from execution friction and pressure trend.'
@@ -628,7 +801,18 @@ function buildMailboxHealthIntelligence(params: {
       : nextActionMode === 'resume_work'
         ? `${params.resumeCluster?.sender_count.toLocaleString() || '0'} senders already have momentum in this unfinished group, backed by ~${params.resumeCluster?.message_count.toLocaleString() || '0'} supporting messages. Finishing it raises decision coverage faster than starting over.`
         : nextActionMode === 'open_group'
-          ? `${params.nextCluster?.sender_count.toLocaleString() || '0'} senders create the biggest open decision-coverage gap right now, with ~${params.nextCluster?.message_count.toLocaleString() || '0'} supporting messages behind them.`
+          ? `${
+              params.nextClusterReason === 'small_quick_win'
+                ? `${params.nextCluster?.sender_count.toLocaleString() || '0'} senders make this the quickest low-friction primary action lane to start, backed by ~${params.nextCluster?.message_count.toLocaleString() || '0'} supporting messages.`
+                : params.nextClusterReason === 'backlog'
+                  ? `${params.nextCluster?.sender_count.toLocaleString() || '0'} senders sit in the main backlog lane, backed by ~${params.nextCluster?.message_count.toLocaleString() || '0'} supporting messages.`
+                  : `${params.nextCluster?.sender_count.toLocaleString() || '0'} senders make this the biggest manageable primary action lane right now, backed by ~${params.nextCluster?.message_count.toLocaleString() || '0'} supporting messages.`
+            }${
+              workflowClusterIdFromArtifactCluster(params.nextCluster) ===
+              'semantic.marketing_subscriptions'
+                ? ' Start with offer campaigns for fast cleanup, then review product updates for selective keep decisions.'
+                : ''
+            }`
           : 'The dashboard needs a refreshed recommendation set before work can continue.'
 
   const progressStatus =
@@ -696,12 +880,18 @@ export default function OperationsIntelligencePage() {
       }),
     [browserTimeZone, runtime.analysisScope, searchParams]
   )
+  const defaultPressureTrendSelection = useMemo(
+    () => legacyScopeToPressureTrendSelection(runtime.analysisScope, browserTimeZone),
+    [browserTimeZone, runtime.analysisScope]
+  )
   const query = serializeOperationsQuery(runtime.sessionId || requestedSessionId, runtime.analysisScope)
   const cacheVersion = runtime.data?.runtime_cleanup_plan?.generated_at || null
   const clusters = useMemo<GmailCleanupClusterRef[]>(
     () =>
       (runtime.data?.runtime_cleanup_plan?.clusters || []).map((cluster) => ({
         clusterId: cluster.cluster_id,
+        canonicalClusterId: cluster.canonical_cluster_id,
+        legacyClusterIds: cluster.legacy_cluster_ids || [],
         clusterType: cluster.cluster_type,
         title: cluster.title,
         query: cluster.query,
@@ -709,6 +899,10 @@ export default function OperationsIntelligencePage() {
         riskNote: cluster.risk_note,
         safetyNote: cluster.safety_note,
         estimatedCount: cluster.estimated_count,
+        surfaceTier: cluster.surface_tier || null,
+        surfaceKind: cluster.surface_kind || null,
+        surfaceVisibility: cluster.surface_visibility || null,
+        topLevelRank: cluster.top_level_rank ?? null,
       })),
     [runtime.data?.runtime_cleanup_plan?.clusters]
   )
@@ -733,7 +927,67 @@ export default function OperationsIntelligencePage() {
         : null,
     [clusters, runtime.analysisScope]
   )
-  const [state, setState] = useState<LoadState>({ status: 'idle', data: null, error: null })
+  const trustedRuntimeIntelligence = useMemo(() => {
+    const runtimeIntelligence = runtime.data?.runtime_mailbox_intelligence
+    const freshnessStatus = runtime.data?.runtime_mailbox_profile?.freshness?.status
+    if (clusters.length === 0 || !runtimeIntelligence) return null
+    if (runtimeIntelligence.analysis_scope !== runtime.analysisScope) return null
+    if (runtimeIntelligence.source !== 'gmail_index_cache') return null
+    if (freshnessStatus !== 'fresh' && freshnessStatus !== 'cached') return null
+    return runtimeIntelligence
+  }, [
+    clusters.length,
+    runtime.analysisScope,
+    runtime.data?.runtime_mailbox_intelligence,
+    runtime.data?.runtime_mailbox_profile?.freshness?.status,
+  ])
+  const cachedPressureTrend = useMemo(
+    () =>
+      clusters.length > 0
+        ? readCachedGmailPressureTrend({
+            clusters,
+            cacheVersion,
+            pressureWindow: pressureTrendSelection.window,
+            pressureStart: pressureTrendSelection.start,
+            pressureEnd: pressureTrendSelection.end,
+            timeZone: browserTimeZone,
+          })
+        : null,
+    [browserTimeZone, cacheVersion, clusters, pressureTrendSelection]
+  )
+  const pressureTrendRequestKey = useMemo(
+    () =>
+      buildPressureTrendRequestKey({
+        cacheVersion,
+        timeZone: browserTimeZone,
+        selection: pressureTrendSelection,
+        clusters,
+      }),
+    [browserTimeZone, cacheVersion, clusters, pressureTrendSelection]
+  )
+  const mailboxIntelligenceSeedKey = useMemo(
+    () =>
+      [
+        runtime.analysisScope,
+        cacheVersion || 'default',
+        ...clusters.map((cluster) =>
+          [
+            cluster.clusterId,
+            cluster.clusterType,
+            cluster.title,
+            cluster.query,
+            cluster.estimatedCount ?? '',
+          ].join('::')
+        ),
+      ].join('|||'),
+    [cacheVersion, clusters, runtime.analysisScope]
+  )
+  const [state, setState] = useState<LoadState>({
+    status: 'idle',
+    seedKey: null,
+    data: null,
+    error: null,
+  })
   const [pressureTrendState, setPressureTrendState] = useState<PressureTrendLoadState>({
     status: 'idle',
     data: null,
@@ -770,64 +1024,335 @@ export default function OperationsIntelligencePage() {
       scroll: false,
     })
   }
-
-  const pressureTrendRequestKey = useMemo(
-    () =>
-      [
-        cacheVersion || 'default',
-        browserTimeZone,
-        pressureTrendSelection.window,
-        pressureTrendSelection.start || 'none',
-        pressureTrendSelection.end || 'none',
-        ...clusters.map((cluster) =>
-          [cluster.clusterId, cluster.clusterType, cluster.title, cluster.query].join('::')
-        ),
-      ].join('|||'),
+  const currentMailboxIntelligenceState = useMemo<LoadState>(() => {
+    if (state.seedKey !== mailboxIntelligenceSeedKey) {
+      return {
+        status: 'idle',
+        seedKey: mailboxIntelligenceSeedKey,
+        data: null,
+        error: null,
+      }
+    }
+    return state
+  }, [mailboxIntelligenceSeedKey, state])
+  const mailboxIntelligenceRequestStateRef = useRef<LoadState>(currentMailboxIntelligenceState)
+  useEffect(() => {
+    mailboxIntelligenceRequestStateRef.current = currentMailboxIntelligenceState
+  }, [currentMailboxIntelligenceState])
+  const pressureTrendSeedRef = useRef<PressureTrendSeed>({
+    window: pressureTrendSelection.window,
+    start: pressureTrendSelection.start,
+    end: pressureTrendSelection.end,
+    timeZone: browserTimeZone,
+    requestKey: pressureTrendRequestKey,
+  })
+  const pressureTrendInitialPaintLogRef = useRef<string | null>(null)
+  const isPressureTrendInitialPaintPhase =
+    pressureTrendState.status === 'idle' && !cachedPressureTrend
+  const resolvedIntelligence =
+    cachedIntelligence ||
+    trustedRuntimeIntelligence ||
+    (currentMailboxIntelligenceState.status === 'ready'
+      ? currentMailboxIntelligenceState.data
+      : latestStableIntelligence)
+  const resolvedPressureTrendState = useMemo<PressureTrendLoadState>(
+    () => {
+      if (cachedPressureTrend) {
+        return readyPressureTrendState(cachedPressureTrend, pressureTrendRequestKey)
+      }
+      const seedDecision = pressureTrendSeedDecision({
+        candidates: [
+          cachedIntelligence?.initial_pressure_trend
+            ? {
+                data: cachedIntelligence.initial_pressure_trend,
+                source: 'cached_intelligence',
+              }
+            : null,
+          trustedRuntimeIntelligence?.initial_pressure_trend
+            ? {
+                data: trustedRuntimeIntelligence.initial_pressure_trend,
+                source: 'runtime_intelligence',
+              }
+            : null,
+          currentMailboxIntelligenceState.status === 'ready' &&
+          currentMailboxIntelligenceState.data.initial_pressure_trend
+            ? {
+                data: currentMailboxIntelligenceState.data.initial_pressure_trend,
+                source: 'mailbox_intelligence_fetch',
+              }
+            : null,
+        ],
+        selection: pressureTrendSelection,
+        defaultSelection: defaultPressureTrendSelection,
+        timeZone: browserTimeZone,
+        requestKey: pressureTrendRequestKey,
+      })
+      if (seedDecision.usable) {
+        return readyPressureTrendState(seedDecision.candidate.data, seedDecision.requestKey)
+      }
+      return pressureTrendState
+    },
     [
       browserTimeZone,
-      cacheVersion,
-      clusters,
-      pressureTrendSelection.end,
-      pressureTrendSelection.start,
-      pressureTrendSelection.window,
+      cachedIntelligence,
+      cachedPressureTrend,
+      defaultPressureTrendSelection,
+      pressureTrendRequestKey,
+      pressureTrendSelection,
+      pressureTrendState,
+      currentMailboxIntelligenceState,
+      trustedRuntimeIntelligence,
+    ]
+  )
+  const initialPressureTrendSeedDecision = useMemo(
+    () => {
+      const candidates = [
+        cachedIntelligence?.initial_pressure_trend
+          ? {
+              data: cachedIntelligence.initial_pressure_trend,
+              source: 'cached_intelligence' as const,
+            }
+          : null,
+        trustedRuntimeIntelligence?.initial_pressure_trend
+          ? {
+              data: trustedRuntimeIntelligence.initial_pressure_trend,
+              source: 'runtime_intelligence' as const,
+            }
+          : null,
+        currentMailboxIntelligenceState.status === 'ready' &&
+        currentMailboxIntelligenceState.data.initial_pressure_trend
+          ? {
+              data: currentMailboxIntelligenceState.data.initial_pressure_trend,
+              source: 'mailbox_intelligence_fetch' as const,
+            }
+          : null,
+      ]
+
+      if (
+        trustedRuntimeIntelligence &&
+        !trustedRuntimeIntelligence.initial_pressure_trend &&
+        !cachedIntelligence?.initial_pressure_trend &&
+        !(
+          currentMailboxIntelligenceState.status === 'ready' &&
+          currentMailboxIntelligenceState.data.initial_pressure_trend
+        )
+      ) {
+        return { usable: false, reason: 'seed_absent_in_runtime_mailbox_intelligence' } satisfies PressureTrendSeedDecision
+      }
+
+      return pressureTrendSeedDecision({
+        candidates,
+        selection: pressureTrendSelection,
+        defaultSelection: defaultPressureTrendSelection,
+        timeZone: browserTimeZone,
+        requestKey: pressureTrendRequestKey,
+      })
+    },
+    [
+      browserTimeZone,
+      cachedIntelligence,
+      defaultPressureTrendSelection,
+      pressureTrendRequestKey,
+      pressureTrendSelection,
+      currentMailboxIntelligenceState,
+      trustedRuntimeIntelligence,
     ]
   )
 
   useEffect(() => {
-    let cancelled = false
-    if (clusters.length === 0 || cachedIntelligence) return
+    pressureTrendSeedRef.current = {
+      window: pressureTrendSelection.window,
+      start: pressureTrendSelection.start,
+      end: pressureTrendSelection.end,
+      timeZone: browserTimeZone,
+      requestKey: pressureTrendRequestKey,
+    }
+  }, [
+    browserTimeZone,
+    pressureTrendRequestKey,
+    pressureTrendSelection.end,
+    pressureTrendSelection.start,
+    pressureTrendSelection.window,
+  ])
 
-    void fetchGmailMailboxIntelligence({
+  useEffect(() => {
+    if (!isPressureTrendInitialPaintPhase) return
+    if (clusters.length === 0) return
+    if (pressureTrendInitialPaintLogRef.current === pressureTrendRequestKey) return
+
+    if (initialPressureTrendSeedDecision.usable) {
+      console.info('pressure_trend_initial_paint_seed_applied', {
+        source: initialPressureTrendSeedDecision.candidate.source,
+        request_key: pressureTrendRequestKey,
+        window: pressureTrendSelection.window,
+        start: pressureTrendSelection.start,
+        end: pressureTrendSelection.end,
+        time_zone: browserTimeZone,
+      })
+      pressureTrendInitialPaintLogRef.current = pressureTrendRequestKey
+      return
+    }
+
+    console.info(
+      `pressure_trend_initial_paint_seed_skipped_reason: ${initialPressureTrendSeedDecision.reason}`,
+      {
+        request_key: pressureTrendRequestKey,
+        window: pressureTrendSelection.window,
+        start: pressureTrendSelection.start,
+        end: pressureTrendSelection.end,
+        time_zone: browserTimeZone,
+      }
+    )
+    pressureTrendInitialPaintLogRef.current = pressureTrendRequestKey
+  }, [
+    browserTimeZone,
+    clusters.length,
+    initialPressureTrendSeedDecision,
+    isPressureTrendInitialPaintPhase,
+    pressureTrendRequestKey,
+    pressureTrendSelection.end,
+    pressureTrendSelection.start,
+    pressureTrendSelection.window,
+  ])
+
+  useEffect(() => {
+    if (!initialPressureTrendSeedDecision.usable) return
+
+    primeCachedGmailPressureTrend({
       clusters,
-      analysisScope: runtime.analysisScope,
       cacheVersion,
-      requestContext: {
-        source: 'operations_intelligence_page',
-        component: 'mailbox_intelligence_dashboard',
-        reason: 'primary_dashboard_load',
-        phase: 'initial_paint',
-      },
-    }).then((result) => {
+      pressureWindow: pressureTrendSelection.window,
+      pressureStart: pressureTrendSelection.start,
+      pressureEnd: pressureTrendSelection.end,
+      timeZone: browserTimeZone,
+      data: initialPressureTrendSeedDecision.candidate.data,
+    })
+  }, [
+    browserTimeZone,
+    cacheVersion,
+    clusters,
+    initialPressureTrendSeedDecision,
+    pressureTrendSelection.end,
+    pressureTrendSelection.start,
+    pressureTrendSelection.window,
+  ])
+
+  useEffect(() => {
+    if (clusters.length === 0) return
+    if (cachedIntelligence || trustedRuntimeIntelligence || latestStableIntelligence) return
+    const requestState = mailboxIntelligenceRequestStateRef.current
+    if (requestState.seedKey === mailboxIntelligenceSeedKey && requestState.status !== 'idle') {
+      return
+    }
+
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
       if (cancelled) return
-      if (!result.ok) {
-        setState((current) =>
-          current.status === 'ready' ? current : { status: 'error', data: null, error: result.error }
-        )
+      const loadingState: LoadState = {
+        status: 'loading',
+        seedKey: mailboxIntelligenceSeedKey,
+        data: null,
+        error: null,
+      }
+      mailboxIntelligenceRequestStateRef.current = loadingState
+      setState(loadingState)
+
+      let attempt = 0
+      while (!cancelled) {
+        const result = await fetchGmailMailboxIntelligence({
+          clusters,
+          analysisScope: runtime.analysisScope,
+          cacheVersion,
+          initialPressureWindow: pressureTrendSelection.window,
+          initialPressureStart: pressureTrendSelection.start,
+          initialPressureEnd: pressureTrendSelection.end,
+          initialTimeZone: browserTimeZone,
+          requestContext: {
+            source: 'operations_intelligence_page',
+            component: 'mailbox_intelligence',
+            reason: 'mailbox_intelligence_seed_miss',
+            phase: 'deferred',
+          },
+        })
+
+        if (cancelled || (!result.ok && result.aborted)) return
+        if (!result.ok) {
+          if (attempt < 20 && isTransientInboxAnalysisGuardError(result.error)) {
+            attempt += 1
+            await delayMs(1200)
+            continue
+          }
+          const errorState: LoadState = {
+            status: 'error',
+            seedKey: mailboxIntelligenceSeedKey,
+            data: null,
+            error: result.error,
+          }
+          mailboxIntelligenceRequestStateRef.current = errorState
+          setState(errorState)
+          return
+        }
+        const readyState: LoadState = {
+          status: 'ready',
+          seedKey: mailboxIntelligenceSeedKey,
+          data: result.data,
+          error: null,
+        }
+        mailboxIntelligenceRequestStateRef.current = readyState
+        setState(readyState)
         return
       }
-      setState({ status: 'ready', data: result.data, error: null })
-    })
+    })()
 
     return () => {
       cancelled = true
     }
-  }, [cacheVersion, cachedIntelligence, clusters, runtime.analysisScope])
+  }, [
+    browserTimeZone,
+    cacheVersion,
+    cachedIntelligence,
+    clusters,
+    latestStableIntelligence,
+    mailboxIntelligenceSeedKey,
+    pressureTrendSelection.end,
+    pressureTrendSelection.start,
+    pressureTrendSelection.window,
+    runtime.analysisScope,
+    trustedRuntimeIntelligence,
+  ])
 
   useEffect(() => {
     if (clusters.length === 0) return
+    if (cachedPressureTrend) return
+    if (resolvedPressureTrendState.status === 'ready' && resolvedPressureTrendState.requestKey === pressureTrendRequestKey) {
+      return
+    }
+    if (!resolvedIntelligence) return
+
+    const shouldSkipFetchForInitialPaintSeed =
+      isPressureTrendInitialPaintPhase && initialPressureTrendSeedDecision.usable
+    if (shouldSkipFetchForInitialPaintSeed) return
 
     const controller = new AbortController()
     let cancelled = false
+    const allowRequestAbort = !isPressureTrendInitialPaintPhase
+    const fetchReason =
+      isPressureTrendInitialPaintPhase && !initialPressureTrendSeedDecision.usable
+        ? initialPressureTrendSeedDecision.reason
+        : !isPressureTrendInitialPaintPhase
+          ? 'interactive_window_change'
+          : null
+
+    if (fetchReason && isPressureTrendInitialPaintPhase) {
+      console.info(`pressure_trend_initial_paint_fetch_required_reason: ${fetchReason}`, {
+        request_key: pressureTrendRequestKey,
+        window: pressureTrendSelection.window,
+        start: pressureTrendSelection.start,
+        end: pressureTrendSelection.end,
+        time_zone: browserTimeZone,
+      })
+    }
 
     void fetchGmailPressureTrend({
       clusters,
@@ -839,10 +1364,12 @@ export default function OperationsIntelligencePage() {
       requestContext: {
         source: 'operations_intelligence_page',
         component: 'pressure_trend',
-        reason: 'pressure_trend_window_change',
-        phase: 'interactive',
+        reason: isPressureTrendInitialPaintPhase
+          ? 'pressure_trend_initial_paint_seed_miss'
+          : 'pressure_trend_window_change',
+        phase: isPressureTrendInitialPaintPhase ? 'deferred' : 'interactive',
       },
-      signal: controller.signal,
+      signal: allowRequestAbort ? controller.signal : undefined,
     }).then((result) => {
       if (cancelled || (!result.ok && result.aborted)) return
       if (!result.ok) {
@@ -864,59 +1391,52 @@ export default function OperationsIntelligencePage() {
 
     return () => {
       cancelled = true
-      controller.abort()
+      if (allowRequestAbort) controller.abort()
     }
   }, [
     browserTimeZone,
     cacheVersion,
+    cachedPressureTrend,
     clusters,
     pressureTrendSelection.end,
     pressureTrendSelection.start,
     pressureTrendSelection.window,
     pressureTrendRequestKey,
+    initialPressureTrendSeedDecision,
+    isPressureTrendInitialPaintPhase,
+    resolvedPressureTrendState,
+    resolvedIntelligence,
   ])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !agentId) return
 
     const syncProgress = () => {
-      const prefix = ['gmail.cleanup.workflow.v2', agentId, runtime.sessionId || requestedSessionId || 'none'].join(':')
       let decidedSenderCount = 0
       let startedClusterCount = 0
       let latestClusterId: string | null = null
       let latestStage: string | null = null
       let latestUpdatedAt = 0
 
-      for (let index = 0; index < window.localStorage.length; index += 1) {
-        const key = window.localStorage.key(index)
-        if (!key || !key.startsWith(`${prefix}:`)) continue
+      for (const cluster of clusters) {
+        const draft = readGmailCleanupWorkflowDraft({
+          agentId,
+          sessionId: runtime.sessionId || requestedSessionId || null,
+          clusterId: cluster.clusterId,
+          canonicalClusterId: cluster.canonicalClusterId,
+          legacyClusterIds: cluster.legacyClusterIds,
+          snapshotVersion: cacheVersion,
+        })
+        if (!gmailCleanupWorkflowDraftHasActiveContent(draft)) continue
 
-        try {
-          const raw = window.localStorage.getItem(key)
-          if (!raw) continue
-          const parsed = JSON.parse(raw) as {
-            senderPolicies?: Record<string, unknown>
-            currentStage?: string
-            updatedAt?: number
-          }
-          const senderPolicies =
-            parsed.senderPolicies && typeof parsed.senderPolicies === 'object'
-              ? Object.keys(parsed.senderPolicies).length
-              : 0
-          const updatedAt = typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
-          const clusterId = key.split(':').at(-1) || null
+        const senderPolicies = Object.keys(draft.senderPolicies || {}).length
+        startedClusterCount += 1
+        decidedSenderCount += senderPolicies
 
-          if (senderPolicies > 0 || updatedAt > 0) {
-            startedClusterCount += 1
-            decidedSenderCount += senderPolicies
-          }
-          if (updatedAt >= latestUpdatedAt) {
-            latestUpdatedAt = updatedAt
-            latestClusterId = clusterId
-            latestStage = typeof parsed.currentStage === 'string' ? parsed.currentStage : null
-          }
-        } catch {
-          continue
+        if (draft.updatedAt >= latestUpdatedAt) {
+          latestUpdatedAt = draft.updatedAt
+          latestClusterId = workflowClusterIdFromRuntimeCluster(cluster)
+          latestStage = draft.currentStage
         }
       }
 
@@ -935,7 +1455,7 @@ export default function OperationsIntelligencePage() {
       window.removeEventListener('storage', syncProgress)
       window.removeEventListener('focus', syncProgress)
     }
-  }, [agentId, requestedSessionId, runtime.sessionId])
+  }, [agentId, cacheVersion, clusters, requestedSessionId, runtime.sessionId])
 
   useEffect(() => {
     if (!agentId) return
@@ -965,7 +1485,7 @@ export default function OperationsIntelligencePage() {
         const recentRestoreCount = result.data.recent_decision_activity.filter((activity) => {
           const source = activity.destination_source.toLowerCase()
           const reason = activity.destination_reason?.toLowerCase() || ''
-          return source.includes('restore') || reason.includes('restore')
+          return source.includes('restore') || source.includes('reversed') || reason.includes('restore')
         }).length
 
         setManagementSignals({
@@ -994,7 +1514,7 @@ export default function OperationsIntelligencePage() {
 
   if (runtime.loading && !runtime.data) {
     return (
-      <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
+      <section className="app-surface-card-subtle rounded-2xl p-4 text-sm text-gray-300">
         Loading Mailbox Intelligence…
       </section>
     )
@@ -1010,51 +1530,37 @@ export default function OperationsIntelligencePage() {
 
   if (clusters.length === 0) {
     return (
-      <section className="rounded-2xl border border-gray-800 bg-gray-950/45 p-4 text-sm text-gray-300">
+      <section className="app-surface-card-subtle rounded-2xl p-4 text-sm text-gray-300">
         No cleanup groups are available yet. Refresh cleanup analysis to populate Mailbox Intelligence.
       </section>
     )
   }
 
-  const resolvedIntelligence =
-    cachedIntelligence || (state.status === 'ready' ? state.data : latestStableIntelligence)
-
-  if (state.status === 'error' && !resolvedIntelligence) {
+  if (currentMailboxIntelligenceState.status === 'error' && !resolvedIntelligence) {
     return (
       <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-4 text-sm text-rose-100">
-        {state.error}
+        {currentMailboxIntelligenceState.error}
       </section>
     )
   }
 
   if (!resolvedIntelligence) {
     const pendingApprovals = runtime.data?.runtime_approval_queue_summary?.pending || 0
-    const sortedRuntimeClusters = clusters
-      .slice()
-      .sort((left, right) => (right.estimatedCount || 0) - (left.estimatedCount || 0) || left.title.localeCompare(right.title))
-    const nextRuntimeCluster = sortedRuntimeClusters[0] || null
+    const nextRuntimeCluster = recommendRuntimeCleanupGroupForUi({
+      groups: clusters,
+      latestClusterId: workflowProgress.latestClusterId,
+    }).group
     const nextRuntimeActionHref = nextRuntimeCluster
       ? `/agents/${agentId}/operations/clusters${query}${query ? '&' : '?'}focus_cluster=${encodeURIComponent(nextRuntimeCluster.clusterId)}`
       : null
-    const resumeStage =
-      workflowProgress.latestStage === 'confirmation' ? 'confirmation' : 'senders'
+    const resumeStage = workflowProgress.latestStage === 'decision' ? 'decision' : 'overview'
     const resumeRuntimeHref =
       workflowProgress.latestClusterId
-        ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(workflowProgress.latestClusterId)}&stage=${resumeStage}`
+        ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(workflowProgress.latestClusterId)}${resumeStage === 'decision' ? '&mode=decision' : ''}`
         : null
 
     return (
       <div className="space-y-4">
-        <section className="app-page-header app-page-header-hero rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Mailbox Intelligence</p>
-          <h1 className="mt-2 text-2xl font-semibold text-white">
-            Sender-first Gmail cleanup mission control
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-300">
-            Know inbox health, sender decision coverage, the main bottleneck, the next move, and the impact that move should create.
-          </p>
-        </section>
-
         <MailboxIntelligenceLoadingState
           pendingApprovals={pendingApprovals}
           startedClusterCount={workflowProgress.startedClusterCount}
@@ -1068,28 +1574,31 @@ export default function OperationsIntelligencePage() {
   }
 
   const pendingApprovals = runtime.data?.runtime_approval_queue_summary?.pending || 0
-  const nextCluster =
-    resolvedIntelligence.cleanup_groups
-      .slice()
-      .sort((left, right) => right.sender_count - left.sender_count || right.share_pct - left.share_pct)[0] ||
-    null
+  const nextClusterRecommendation = recommendArtifactCleanupGroupForUi({
+    groups: resolvedIntelligence.cleanup_groups,
+    latestClusterId: workflowProgress.latestClusterId,
+  })
+  const nextCluster = nextClusterRecommendation.group
   const resumeCluster =
     workflowProgress.latestClusterId &&
-    resolvedIntelligence.cleanup_groups.find((cluster) => cluster.cluster_id === workflowProgress.latestClusterId)
-      ? resolvedIntelligence.cleanup_groups.find((cluster) => cluster.cluster_id === workflowProgress.latestClusterId) || null
+    resolvedIntelligence.cleanup_groups.find(
+      (cluster) => workflowClusterIdFromArtifactCluster(cluster) === workflowProgress.latestClusterId
+    )
+      ? resolvedIntelligence.cleanup_groups.find(
+          (cluster) => workflowClusterIdFromArtifactCluster(cluster) === workflowProgress.latestClusterId
+        ) || null
       : null
-  const resumeStage =
-    workflowProgress.latestStage === 'confirmation' ? 'confirmation' : 'senders'
+  const resumeStage = workflowProgress.latestStage === 'decision' ? 'decision' : 'overview'
   const trend = healthTrend(resolvedIntelligence)
-  const resolvedPressureTrendState: PressureTrendLoadState =
+  const displayedPressureTrendState: PressureTrendLoadState =
     clusters.length === 0
       ? { status: 'idle', data: null, error: null, requestKey: null }
-      : pressureTrendState
+      : resolvedPressureTrendState
   const pressureTrendLoading =
-    clusters.length > 0 && resolvedPressureTrendState.requestKey !== pressureTrendRequestKey
+    clusters.length > 0 && displayedPressureTrendState.requestKey !== pressureTrendRequestKey
   const pressureTrendData =
-    !pressureTrendLoading && resolvedPressureTrendState.status === 'ready'
-      ? resolvedPressureTrendState.data
+    !pressureTrendLoading && displayedPressureTrendState.status === 'ready'
+      ? displayedPressureTrendState.data
       : null
   const pressureTrendSummary = pressureTrendData ? chartPressureTrend(pressureTrendData) : null
   const customRangeMin = dateInputValueFromIso(
@@ -1107,31 +1616,25 @@ export default function OperationsIntelligencePage() {
     workflowProgress,
     managedSenderCount: managementSignals.managedSenderCount,
     nextCluster,
+    nextClusterReason: nextClusterRecommendation.reason,
     resumeCluster,
   })
   const confirmationClusterId =
-    workflowProgress.latestClusterId || resumeCluster?.cluster_id || nextCluster?.cluster_id || null
+    workflowProgress.latestClusterId ||
+    workflowClusterIdFromArtifactCluster(resumeCluster) ||
+    workflowClusterIdFromArtifactCluster(nextCluster) ||
+    null
   const nextActionHref =
     healthIntelligence.nextActionMode === 'approve_queue' && confirmationClusterId
-      ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(confirmationClusterId)}&stage=confirmation`
+      ? `/agents/${agentId}/operations/management${query}`
       : healthIntelligence.nextActionMode === 'resume_work' && resumeCluster
-      ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(resumeCluster.cluster_id)}&stage=${resumeStage}`
+      ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(workflowClusterIdFromArtifactCluster(resumeCluster) || resumeCluster.cluster_id)}${resumeStage === 'decision' ? '&mode=decision' : ''}`
       : healthIntelligence.nextActionMode === 'open_group' && nextCluster
-        ? `/agents/${agentId}/operations/clusters${query}${query ? '&' : '?'}focus_cluster=${encodeURIComponent(nextCluster.cluster_id)}`
+        ? `/agents/${agentId}/operations/clusters${query}${query ? '&' : '?'}focus_cluster=${encodeURIComponent(workflowClusterIdFromArtifactCluster(nextCluster) || nextCluster.cluster_id)}`
         : null
 
   return (
     <div className="space-y-4">
-      <section className="app-page-header app-page-header-hero rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5">
-        <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Mailbox Intelligence</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">
-          Sender-first Gmail cleanup mission control
-        </h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-300">
-          Know inbox health, sender decision coverage, the main bottleneck, the next move, and the impact that move should create.
-        </p>
-      </section>
-
       <InboxHealthGauge
         score={healthIntelligence.score}
         healthState={healthIntelligence.state}
@@ -1176,7 +1679,7 @@ export default function OperationsIntelligencePage() {
         nextCluster={
           nextCluster
             ? {
-                clusterId: nextCluster.cluster_id,
+                clusterId: workflowClusterIdFromArtifactCluster(nextCluster) || nextCluster.cluster_id,
                 title: nextCluster.title,
                 senderCount: nextCluster.sender_count,
                 sharePct: nextCluster.share_pct,
@@ -1188,18 +1691,20 @@ export default function OperationsIntelligencePage() {
           resumeCluster
             ? {
                 title: resumeCluster.title,
-                stageLabel: resumeStage === 'confirmation' ? 'Confirmation' : 'Sender Decisions',
-                href: `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(resumeCluster.cluster_id)}&stage=${resumeStage}`,
+                stageLabel: resumeStage === 'decision' ? 'Decision Mode' : 'Sender Overview',
+                href: `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(workflowClusterIdFromArtifactCluster(resumeCluster) || resumeCluster.cluster_id)}${resumeStage === 'decision' ? '&mode=decision' : ''}`,
               }
             : null
         }
         nextActionHref={nextActionHref}
-        approvalHref={confirmationClusterId ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(confirmationClusterId)}&stage=confirmation` : null}
+        approvalHref={confirmationClusterId ? `/agents/${agentId}/operations/management${query}` : null}
       />
 
       <MailboxIntelligenceDashboard
         data={resolvedIntelligence}
         openGroupsHref={`/agents/${agentId}/operations/clusters${query}`}
+        recommendedCleanupGroup={nextCluster}
+        recommendedCleanupGroupReason={nextClusterRecommendation.reason}
         managementSignals={{
           approvalsWaiting: pendingApprovals,
           archiveVerificationCount: managementSignals.archiveVerificationCount,
@@ -1208,7 +1713,7 @@ export default function OperationsIntelligencePage() {
           customRuleCount: managementSignals.customRuleCount,
           recentRestoreCount: managementSignals.recentRestoreCount,
         }}
-        approvalHref={confirmationClusterId ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(confirmationClusterId)}&stage=confirmation` : null}
+        approvalHref={confirmationClusterId ? `/agents/${agentId}/operations/management${query}` : null}
         managementHref={`/agents/${agentId}/operations/management${query}`}
         pressureTrend={pressureTrendSummary}
         pressureTrendSeries={pressureTrendData?.series || null}
@@ -1217,8 +1722,8 @@ export default function OperationsIntelligencePage() {
         pressureTrendSelection={pressureTrendSelection}
         pressureTrendLoading={pressureTrendLoading}
         pressureTrendError={
-          !pressureTrendLoading && resolvedPressureTrendState.status === 'error'
-            ? resolvedPressureTrendState.error
+          !pressureTrendLoading && displayedPressureTrendState.status === 'error'
+            ? displayedPressureTrendState.error
             : null
         }
         pressureTrendRangeDetail={

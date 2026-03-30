@@ -1,6 +1,12 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 
-export type SurfaceCardTone = 'default' | 'subtle' | 'accent' | 'success' | 'warning' | 'danger'
+export type SurfaceCardTone =
+  | 'default'
+  | 'subtle'
+  | 'accent'
+  | 'success'
+  | 'warning'
+  | 'danger'
 
 type SurfaceCardClassOptions = {
   tone?: SurfaceCardTone

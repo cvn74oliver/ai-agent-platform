@@ -1,0 +1,16 @@
+alter table public.gmail_mailbox_index_state
+  add column if not exists active_run_id text,
+  add column if not exists active_run_mode text,
+  add column if not exists active_run_trigger text,
+  add column if not exists active_requested_max_messages integer,
+  add column if not exists active_started_at timestamptz,
+  add column if not exists active_heartbeat_at timestamptz,
+  add column if not exists last_completed_at timestamptz,
+  add column if not exists last_completed_mode text,
+  add column if not exists last_rows_before integer,
+  add column if not exists last_rows_after integer,
+  add column if not exists last_growth_delta integer,
+  add column if not exists last_processed_messages integer,
+  add column if not exists last_upserted_messages integer,
+  add column if not exists last_deleted_messages integer,
+  add column if not exists last_failure_reason text;

@@ -1,3 +1,22 @@
+import type {
+  GmailCanonicalSenderCategoryLabel,
+  GmailCleanupGroupSurfaceKind,
+  GmailCleanupGroupSurfaceTier,
+  GmailCleanupGroupSurfaceVisibility,
+  GmailCategorySummarySource,
+  GmailDominantCategoryConfidence,
+  GmailMailboxIntelligenceData,
+  GmailResolvedSemanticFamily,
+  GmailResolvedSemanticPattern,
+  GmailSenderCategoryDistributionEntry,
+  GmailSenderCategoryProfileMode,
+  GmailOperatorProfileFamily,
+  GmailOperatorProfileMode,
+  GmailOperatorProfileSource,
+  GmailSenderPatternMixEntry,
+  GmailSenderWorkspaceData,
+} from '@/lib/runtime/gmailCleanupWorkspace'
+
 export type ChatMessage = {
   role: 'user' | 'assistant'
   content: string
@@ -8,7 +27,16 @@ export type OperationsInboxAnalysisRequestContext = {
   component?: string
   reason?: string
   phase?: 'initial_paint' | 'interactive' | 'deferred' | 'fallback'
+  agentId?: string
 }
+
+type OperationsInboxAnalysisAction =
+  | 'review_query_cluster'
+  | 'browse_query_cluster'
+  | 'sender_index_signals'
+  | 'load_message_snippets'
+  | 'load_message_preview'
+  | 'cleanup_group_intelligence'
 
 const OPERATIONS_BROWSER_CACHE_TTL_MS = 12_000
 const OPERATIONS_SIGNALS_CACHE_TTL_MS = 12_000
@@ -61,6 +89,49 @@ function normalizeInboxAnalysisRequestContext(
     reason: typeof value?.reason === 'string' && value.reason.trim() ? value.reason.trim() : null,
     phase: value?.phase || null,
   }
+}
+
+function normalizeOperationsInboxAnalysisAction(
+  value: unknown
+): OperationsInboxAnalysisAction | null {
+  switch (value) {
+    case 'review_query_cluster':
+    case 'browse_query_cluster':
+    case 'sender_index_signals':
+    case 'load_message_snippets':
+    case 'load_message_preview':
+    case 'cleanup_group_intelligence':
+      return value
+    default:
+      return null
+  }
+}
+
+async function postOperationsInboxAnalysis(params: {
+  action: OperationsInboxAnalysisAction | null | undefined
+  body: Record<string, unknown>
+  signal?: AbortSignal
+}): Promise<Response | null> {
+  const action = normalizeOperationsInboxAnalysisAction(params.action)
+  if (!action) {
+    console.warn(
+      `[operations][inbox-analysis-client-guard] ${JSON.stringify({
+        blocked: true,
+        reason: 'missing_action',
+      })}`
+    )
+    return null
+  }
+
+  return fetch('/api/integrations/gmail/inbox-analysis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: params.signal,
+    body: JSON.stringify({
+      ...params.body,
+      action,
+    }),
+  })
 }
 
 const opsGlobal = globalThis as typeof globalThis & {
@@ -231,6 +302,16 @@ export function analysisScopeLabel(scope: OperationsAnalysisScope): string {
   return scope
 }
 
+export function analysisScopeControlLabel(scope: OperationsAnalysisScope): string {
+  if (scope === '7d') return '1W'
+  if (scope === '30d') return '1M'
+  if (scope === '60d') return '2M'
+  if (scope === '90d') return '1Q'
+  if (scope === '180d') return '6M'
+  if (scope === '365d') return '1Y'
+  return 'All indexed'
+}
+
 export function analysisScopeDays(scope: OperationsAnalysisScope): number | null {
   if (scope === 'all_indexed') return null
   const parsed = Number.parseInt(scope.replace('d', ''), 10)
@@ -243,6 +324,17 @@ export function analysisScopeWindowLabel(
   if (scope === 'all_indexed') return 'All indexed'
   if (typeof scope === 'number') return `${scope}d`
   return scope
+}
+
+export function getNextBroaderAnalysisScope(
+  scope: OperationsAnalysisScope
+): OperationsAnalysisScope | null {
+  const normalized = normalizeOperationsAnalysisScope(scope)
+  const currentIndex = OPERATIONS_ANALYSIS_SCOPE_OPTIONS.indexOf(normalized)
+  if (currentIndex < 0 || currentIndex >= OPERATIONS_ANALYSIS_SCOPE_OPTIONS.length - 1) {
+    return null
+  }
+  return OPERATIONS_ANALYSIS_SCOPE_OPTIONS[currentIndex + 1]
 }
 
 export function deriveOperationsIntelligenceCacheVersion(
@@ -275,10 +367,14 @@ export function deriveOperationsIntelligenceCacheVersion(
 
 export type RuntimeCleanupPlanCluster = {
   cluster_id: string
+  canonical_cluster_id: string
+  legacy_cluster_ids: string[]
   cluster_type: string
   title: string
   query: string
   why_selected: string
+  sender_count: number
+  message_count: number
   estimated_count: number
   sample_preview: Array<{
     message_id: string
@@ -298,6 +394,10 @@ export type RuntimeCleanupPlanCluster = {
   }>
   risk_note: string
   safety_note: string
+  surface_tier?: GmailCleanupGroupSurfaceTier | null
+  surface_kind?: GmailCleanupGroupSurfaceKind | null
+  surface_visibility?: GmailCleanupGroupSurfaceVisibility | null
+  top_level_rank?: number | null
   indexed_signal_window?: {
     count_last_30d: number
     count_last_90d: number
@@ -612,8 +712,33 @@ export type OperationsSenderIndexSignalsData = {
     human_probability: number | null
     first_seen: string | null
     last_seen: string | null
+    category_distribution: GmailSenderCategoryDistributionEntry[]
+    categorized_message_count: number
+    uncategorized_message_count: number
+    multi_category_message_count: number
+    dominant_category: GmailCanonicalSenderCategoryLabel | null
+    dominant_category_confidence: GmailDominantCategoryConfidence | null
+    category_profile_mode: GmailSenderCategoryProfileMode
+    category_summary: string
+    category_summary_source: GmailCategorySummarySource
     category_mix: Array<{ category: string; count: number }>
-    pattern_mix: Array<{ pattern: string; count: number }>
+    semantic_family: GmailResolvedSemanticFamily
+    semantic_pattern: GmailResolvedSemanticPattern
+    /** @deprecated Use `semantic_pattern.pattern_class` and decomposition metadata. */
+    dominant_pattern: string
+    pattern_mix: GmailSenderPatternMixEntry[]
+    /** @deprecated Use `semantic_family.family`. */
+    operator_profile_family: GmailOperatorProfileFamily
+    /** @deprecated Use `semantic_family.resolution`. */
+    operator_profile_mode: GmailOperatorProfileMode
+    /** @deprecated Use `semantic_family.confidence`. */
+    operator_profile_confidence: GmailDominantCategoryConfidence | null
+    /** @deprecated Use `semantic_family` metadata. */
+    operator_profile_summary: string
+    /** @deprecated Use `semantic_family` metadata. */
+    operator_profile_reasons: string[]
+    /** @deprecated Use `semantic_family.provenance`. */
+    operator_profile_source: GmailOperatorProfileSource
     exactness: 'indexed_exact'
   }>
   indexed_message_count: number
@@ -677,7 +802,7 @@ export type OperationsCleanupGroupIntelligenceData = {
     label: string
     count: number
   }>
-  activity_timeline_granularity: 'week' | 'month'
+  activity_timeline_granularity: 'day' | 'week' | 'month'
   category_breakdown: Array<{
     label: string
     count: number
@@ -730,6 +855,39 @@ export type RuntimeCleanupStrategy = {
   }>
 }
 
+export type OperationsSelectedClusterRailFamilyScopeState =
+  | 'ready'
+  | 'outside_timeframe'
+  | 'unavailable_scope'
+
+export type OperationsSelectedClusterRailFamilyScopeEntry = {
+  scope: OperationsAnalysisScope
+  cluster_id: string
+  cluster_title: string | null
+  artifact_version: string | null
+  state: OperationsSelectedClusterRailFamilyScopeState
+  visible_cluster_count: number
+  timeline:
+    | {
+        granularity: 'day' | 'week' | 'month'
+        items: Array<{ label: string; count: number }>
+      }
+    | null
+  signal:
+    | {
+        message_count: number
+        dominant_sender: string | null
+        semantic_resolution_distribution: GmailSenderWorkspaceData['analytics']['semantic_resolution_distribution']
+      }
+    | null
+}
+
+export type OperationsSelectedClusterRailFamily = {
+  cluster_id: string
+  cluster_title: string | null
+  scopes: OperationsSelectedClusterRailFamilyScopeEntry[]
+}
+
 export type OperationsRuntimeData = {
   session_id?: string
   runtime_evidence?: unknown | null
@@ -742,12 +900,16 @@ export type OperationsRuntimeData = {
   runtime_approval_queue_summary?: RuntimeApprovalQueueSummary | null
   runtime_approval_queue_items?: RuntimeApprovalQueueItem[] | null
   runtime_mailbox_profile?: RuntimeMailboxProfile | null
+  runtime_mailbox_intelligence?: GmailMailboxIntelligenceData | null
+  runtime_sender_overview?: Record<string, GmailSenderWorkspaceData> | null
+  runtime_selected_cluster_rail_family?: OperationsSelectedClusterRailFamily | null
   runtime_cleanup_strategy?: RuntimeCleanupStrategy | null
 }
 
 export type OperationsRuntimeResponse = {
   ok?: boolean
   error?: string
+  reason?: string
   data?: OperationsRuntimeData
 }
 
@@ -799,6 +961,7 @@ export async function fetchOperationsRuntimeSnapshot(params: {
   sessionId?: string | null
   analysisScope?: OperationsAnalysisScope
   forceMailboxProfileRefresh?: boolean
+  preferredClusterId?: string | null
 }): Promise<OperationsRuntimeResponse> {
   const res = await fetch('/api/agents/playground', {
     method: 'POST',
@@ -811,6 +974,10 @@ export async function fetchOperationsRuntimeSnapshot(params: {
       request_mode: 'playground',
       analysis_scope: normalizeOperationsAnalysisScope(params.analysisScope),
       refresh_mailbox_profile: params.forceMailboxProfileRefresh === true,
+      preferred_cluster_id:
+        typeof params.preferredClusterId === 'string' && params.preferredClusterId.trim()
+          ? params.preferredClusterId.trim()
+          : null,
     }),
   })
   return (await res.json()) as OperationsRuntimeResponse
@@ -889,11 +1056,9 @@ export async function fetchOperationsQueryClusterReviewData(params: {
   const requestPromise = (async (): Promise<
     { ok: true; data: OperationsQueryClusterReviewData } | { ok: false; error: string }
   > => {
-    const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'review_query_cluster',
+    const res = await postOperationsInboxAnalysis({
+      action: 'review_query_cluster',
+      body: {
         cluster_id: params.clusterId,
         cluster_type: params.clusterType,
         title: params.title,
@@ -907,8 +1072,14 @@ export async function fetchOperationsQueryClusterReviewData(params: {
         request_component: requestContext.component,
         request_reason: requestContext.reason,
         request_phase: requestContext.phase,
-      }),
+      },
     })
+    if (!res) {
+      return {
+        ok: false,
+        error: 'Inbox analysis action is required before requesting Gmail analysis.',
+      }
+    }
 
     const payload = (await res.json().catch(() => null)) as
       | { ok?: boolean; error?: string; data?: OperationsQueryClusterReviewData }
@@ -1062,11 +1233,9 @@ export async function fetchOperationsQueryClusterMessagesBrowser(params: {
     | { ok: false; error: string }
   > => {
     const startedAt = Date.now()
-    const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'browse_query_cluster',
+    const res = await postOperationsInboxAnalysis({
+      action: 'browse_query_cluster',
+      body: {
         cluster_id: params.clusterId,
         cluster_type: params.clusterType,
         title: params.title,
@@ -1083,8 +1252,14 @@ export async function fetchOperationsQueryClusterMessagesBrowser(params: {
         request_component: requestContext.component,
         request_reason: requestContext.reason,
         request_phase: requestContext.phase,
-      }),
+      },
     })
+    if (!res) {
+      return {
+        ok: false,
+        error: 'Inbox analysis action is required before requesting Gmail analysis.',
+      }
+    }
 
     const payload = (await res.json().catch(() => null)) as
       | { ok?: boolean; error?: string; data?: OperationsQueryClusterBrowserData }
@@ -1235,18 +1410,22 @@ export async function fetchOperationsSenderIndexSignals(params: {
   const requestPromise = (async (): Promise<
     { ok: true; data: OperationsSenderIndexSignalsData } | { ok: false; error: string }
   > => {
-    const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'sender_index_signals',
+    const res = await postOperationsInboxAnalysis({
+      action: 'sender_index_signals',
+      body: {
         senders: normalizedSenders,
         request_source: requestContext.source,
         request_component: requestContext.component,
         request_reason: requestContext.reason,
         request_phase: requestContext.phase,
-      }),
+      },
     })
+    if (!res) {
+      return {
+        ok: false,
+        error: 'Inbox analysis action is required before requesting Gmail analysis.',
+      }
+    }
 
     const payload = (await res.json().catch(() => null)) as
       | { ok?: boolean; error?: string; data?: OperationsSenderIndexSignalsData }
@@ -1377,18 +1556,22 @@ export async function fetchOperationsMessageSnippets(params: {
   const requestPromise = (async (): Promise<
     { ok: true; data: OperationsMessageSnippetsData } | { ok: false; error: string }
   > => {
-    const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'load_message_snippets',
+    const res = await postOperationsInboxAnalysis({
+      action: 'load_message_snippets',
+      body: {
         message_ids: normalizedMessageIds,
         request_source: requestContext.source,
         request_component: requestContext.component,
         request_reason: requestContext.reason,
         request_phase: requestContext.phase,
-      }),
+      },
     })
+    if (!res) {
+      return {
+        ok: false,
+        error: 'Inbox analysis action is required before requesting Gmail analysis.',
+      }
+    }
 
     const payload = (await res.json().catch(() => null)) as
       | { ok?: boolean; error?: string; data?: OperationsMessageSnippetsData }
@@ -1505,18 +1688,22 @@ export async function fetchOperationsMessagePreview(params: {
   const requestPromise = (async (): Promise<
     { ok: true; data: OperationsMessagePreviewData } | { ok: false; error: string }
   > => {
-    const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'load_message_preview',
+    const res = await postOperationsInboxAnalysis({
+      action: 'load_message_preview',
+      body: {
         message_id: messageId,
         request_source: requestContext.source,
         request_component: requestContext.component,
         request_reason: requestContext.reason,
         request_phase: requestContext.phase,
-      }),
+      },
     })
+    if (!res) {
+      return {
+        ok: false,
+        error: 'Inbox analysis action is required before requesting Gmail analysis.',
+      }
+    }
 
     const payload = (await res.json().catch(() => null)) as
       | { ok?: boolean; error?: string; data?: OperationsMessagePreviewData }
@@ -1660,11 +1847,9 @@ export async function fetchOperationsCleanupGroupIntelligence(params: {
     | { ok: true; data: OperationsCleanupGroupIntelligenceData }
     | { ok: false; error: string }
   > => {
-    const res = await fetch('/api/integrations/gmail/inbox-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'cleanup_group_intelligence',
+    const res = await postOperationsInboxAnalysis({
+      action: 'cleanup_group_intelligence',
+      body: {
         analysis_scope: normalizeOperationsAnalysisScope(params.analysisScope),
         cache_version: params.cacheVersion?.trim() || undefined,
         clusters,
@@ -1672,8 +1857,14 @@ export async function fetchOperationsCleanupGroupIntelligence(params: {
         request_component: requestContext.component,
         request_reason: requestContext.reason,
         request_phase: requestContext.phase,
-      }),
+      },
     })
+    if (!res) {
+      return {
+        ok: false,
+        error: 'Inbox analysis action is required before requesting Gmail analysis.',
+      }
+    }
 
     const payload = (await res.json().catch(() => null)) as
       | { ok?: boolean; error?: string; data?: OperationsCleanupGroupIntelligenceData }

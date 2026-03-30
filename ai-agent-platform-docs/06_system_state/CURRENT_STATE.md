@@ -5,7 +5,148 @@ Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
 
----
+## 🚀 March 30 — Cleanup Groups Rediscovery Lane Complete
+
+### What changed
+
+- Cleanup Groups rediscovery / artifact-driven restructure is now complete for the scoped roadmap.
+- The canonical cleanup-group runtime model is live.
+- Cleanup Groups UI now uses the canonical lane-first structure in production.
+- Workflow integration is live across Intelligence, Review, memory persistence, destination execution, and Management reopen handling.
+- Alias / canonical hardening is complete and the compatibility window remains intentionally open.
+- The future canonical-publish artifact switch is prepared, but remains default-off and was not activated in this lane.
+
+### Current accepted state
+
+- Cleanup Groups Phases A through E are complete.
+- Canonical runtime cleanup-group identity is now the live workflow contract.
+- Lane-first Cleanup Groups UI is live.
+- Workflow integration is live.
+- No sender membership drift occurred during the migration lane.
+- No hard URL normalization shipped as part of this lane.
+- No artifact rebuild or canonical-publish activation shipped as part of this lane.
+
+### Explicit boundary
+
+- This migration lane is complete for the approved scope.
+- Deferred as separate future slices:
+  - Cleanup Groups card-compression / summary-first UI refinement
+  - any later alias-retirement decision after the compatibility window
+  - any later activation of the prepared canonical-publish artifact switch
+
+## 🚀 March 30 — Cleanup Groups Rediscovery Phase C Complete
+
+### What changed
+
+- Cleanup Groups UI now renders from the canonical lane-first structure.
+- The live page now uses the locked lane order:
+  - `Action`
+  - `Backlog`
+  - `Coverage`
+  - `Secondary`
+  - `Context`
+- The rollout-1 surfaced canonical set is now live:
+  - `semantic.marketing_subscriptions`
+  - `structural.backlog`
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `secondary.system_notifications`
+  - `context.historical`
+- `Secondary` and `Context` are collapsed by default.
+- Review units remain nested inside parent groups.
+- The live audit harness now validates the canonical cleanup-group runtime contract and still verifies legacy/transitional compatibility.
+
+### Current accepted state
+
+- Cleanup Groups Phase C is complete.
+- Cleanup Groups now uses the canonical lane-first structure in UI.
+- Secondary/context default collapse is live.
+- Canonical cleanup-group ids are now the surfaced UI contract.
+- No sender membership drift occurred.
+- No hard URL normalization shipped in this phase.
+
+### Explicit boundary
+
+- This lane shipped the Cleanup Groups UI migration only.
+- It did **not** ship:
+  - workflow integration across Intelligence / Review / Management
+  - canonical persistence / management reopen integration
+  - card-compression / expand-collapse refinement
+  - new query systems
+  - sender membership changes
+- Phase D is workflow integration.
+- Card-compression / detail-collapse refinement remains a future UI follow-on slice after workflow integration.
+
+## 🚀 March 30 — Cleanup Groups Rediscovery Phase A Complete
+
+### What changed
+
+- Cleanup Groups now has a single canonical registry in `web/src/lib/runtime/gmailCleanupClusterIdentity.ts`.
+- The registry now owns:
+  - canonical ids
+  - alias mappings
+  - lane
+  - group type
+  - surfaced status
+  - display priority
+  - primary-entry eligibility
+- The cleanup-cluster resolver now returns canonical descriptor metadata alongside the existing runtime-compatible identity fields.
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts` received only the minimal type-safe identity propagation support required for Phase A.
+
+### Current accepted state
+
+- Cleanup Groups Phase A is complete.
+- Canonical registry ownership is centralized and no second registry was introduced.
+- Alias layer support now exists for rollout-1 normalization.
+- No sender membership drift occurred.
+- No Cleanup Groups UI behavior changed yet.
+- No workflow behavior changed yet.
+- No URL behavior changed yet.
+
+### Explicit boundary
+
+- This lane established the canonical registry and alias layer only.
+- It did **not** ship:
+  - runtime canonical-write normalization
+  - UI migration
+  - workflow integration changes
+  - review-unit rendering changes
+  - artifact rebuild work
+- Phase B is runtime identity normalization.
+
+## 🚀 March 30 — Shared Analysis Rail Phase 1 Foundation Complete
+
+### What changed
+
+- Sender Overview now has a shared tabbed analysis rail shell with:
+  - `Time Context`
+  - `Sender Distribution`
+- `review/page.tsx` now owns the shared workflow-subset contract as page-session normalized truth for:
+  - chart context
+  - workflow list integration
+  - guided Decision Mode handoff
+- `review/page.tsx` also remains the only owner of active rail tab state and no-rehydrate safeguards.
+- `GmailCleanupComponents.tsx` stayed presentation-only.
+
+### Current accepted state
+
+- Shared Analysis Rail Phase 1 foundation is complete.
+- The tabbed rail shell exists and is live.
+- Sender Distribution is still placeholder-only by design in this phase.
+- No backend/API/query changes were made in this lane.
+- No page-wide rehydrate behavior was introduced.
+- Current Time Context rendering and timeframe-chip behavior remain unchanged.
+- Current workflow list, contributor/focused-sender behavior, guided Decision Mode behavior, and the existing contributor chart below the rail remain unchanged.
+
+### Explicit boundary
+
+- This lane established the rail foundation only.
+- It did **not** ship:
+  - Sender Distribution chart logic
+  - distribution ranking behavior
+  - timeframe-driven workflow behavior changes
+  - backend or persistence work
+- Phase 2 is the actual Sender Distribution chart implementation on top of this foundation.
 
 ## 🚀 March 30 — Subscription-Senders Sender Overview Load Stability Accepted
 

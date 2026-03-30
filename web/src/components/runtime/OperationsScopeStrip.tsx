@@ -1,6 +1,4 @@
 import Link from 'next/link'
-import { surfaceCardClassName } from '@/components/ui/surface-card'
-
 export type OperationsScopeStripItem = {
   label: string
   value: string
@@ -15,21 +13,21 @@ export function OperationsScopeStrip(props: {
   items: OperationsScopeStripItem[]
 }) {
   return (
-    <section className={surfaceCardClassName({ className: 'rounded-2xl p-3 space-y-3' })}>
+    <section className="app-surface-card app-surface-rail-card rounded-2xl p-3 space-y-3">
       <div className="space-y-1">
-        <p className="text-[11px] uppercase tracking-wide text-gray-400">{props.title}</p>
-        <p className="text-[12px] text-gray-400">{props.subtitle}</p>
+        <p className="text-[11px] uppercase tracking-wide text-slate-300">{props.title}</p>
+        <p className="text-[12px] text-slate-200">{props.subtitle}</p>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {props.items.map((item) => {
           const classes = item.active
             ? 'app-surface-card-accent border-cyan-800/60'
-            : 'app-surface-card border-gray-800 bg-gray-950/45 hover:border-gray-700 hover:bg-gray-900/40'
+            : 'app-surface-card-tile hover:border-cyan-700/45 hover:bg-[linear-gradient(180deg,rgba(28,38,53,0.96),rgba(17,24,35,0.96))]'
           const content = (
             <div className={`min-w-[220px] rounded-xl border p-3 space-y-1 ${classes}`}>
-              <p className="text-[10px] uppercase tracking-wide text-gray-500">{item.label}</p>
-              <p className="text-base font-semibold text-gray-100">{item.value}</p>
-              <p className="text-[11px] leading-5 text-gray-400">{item.subtitle}</p>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">{item.label}</p>
+              <p className="text-base font-semibold text-slate-50">{item.value}</p>
+              <p className="text-[11px] leading-5 text-slate-200">{item.subtitle}</p>
             </div>
           )
 

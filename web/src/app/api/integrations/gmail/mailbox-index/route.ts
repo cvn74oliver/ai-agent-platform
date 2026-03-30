@@ -1,6 +1,11 @@
 import { after, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import {
+  finishHeavyAction,
+  logHeavyActionEvent,
+  tryStartHeavyAction,
+} from '@/lib/runtime/heavyActionSafety'
+import {
   clampGmailMailboxIndexMaxMessages,
   GMAIL_OPERATOR_BACKFILL_INTENT,
   normalizeGmailOperatorBackfillWindowMonths,
@@ -17,10 +22,31 @@ import {
   primeAcceptedSmartSyncRunForTenant,
   syncGmailMailboxIndexForTenant,
 } from '@/lib/integrations/gmail/gmailMailboxIndexer'
+import {
+  refreshPublishedGmailArtifactsIncrementally,
+  type GmailArtifactIncrementalRefreshHint,
+} from '@/lib/integrations/gmail/gmailArtifactIncrementalUpdater'
+import { runGmailFullMailboxArtifactBuild } from '@/lib/integrations/gmail/gmailArtifactBuildRunner'
+import {
+  loadGmailArtifactPublicationStatesForTenant,
+  reconcileGmailArtifactBuildLiveness,
+  updateGmailArtifactPublicationFreshness,
+  type GmailArtifactAnalysisScope,
+  type GmailArtifactBuildLivenessResult,
+  type GmailArtifactFreshnessState,
+  type GmailArtifactPublicationRow,
+  type GmailArtifactRefreshStrategy,
+} from '@/lib/integrations/gmail/gmailArtifactStore'
+
+const MAILBOX_INDEX_MANUAL_ACTION_COOLDOWN_MS = 15 * 1000
+const INCREMENTAL_REFRESH_MAX_CHANGED_MESSAGES = 2_000
+const INCREMENTAL_REFRESH_MAX_AFFECTED_SENDERS = 500
 
 type AuthContext =
   | { ok: true; supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>; tenantId: string }
   | { ok: false; response: NextResponse }
+
+type MailboxIndexSyncResult = Awaited<ReturnType<typeof syncGmailMailboxIndexForTenant>>
 
 type MailboxIndexExecutionState =
   | 'idle'
@@ -29,6 +55,398 @@ type MailboxIndexExecutionState =
   | 'completed'
   | 'completed_no_growth'
   | 'failed'
+
+type ArtifactRefreshScopeTarget = {
+  analysisScope: GmailArtifactAnalysisScope
+  publication: GmailArtifactPublicationRow | null
+  buildLiveness: GmailArtifactBuildLivenessResult
+}
+
+type ArtifactRefreshExecutionPlan = {
+  analysisScope: GmailArtifactAnalysisScope
+  action: 'none' | 'incremental' | 'full_rebuild'
+  decisionState: GmailArtifactFreshnessState
+  reason: string
+  refreshStrategy: GmailArtifactRefreshStrategy | null
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function mailboxSyncProducedArtifactDrift(result: MailboxIndexSyncResult): boolean {
+  if (!result.ok || ('deferred' in result && result.deferred)) return false
+  return Boolean(
+    result.rows_after !== result.rows_before ||
+      result.processed_messages > 0 ||
+      result.upserted_messages > 0 ||
+      result.deleted_messages > 0
+  )
+}
+
+async function buildArtifactRefreshScopeTargets(params: {
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
+  tenantId: string
+  publications: GmailArtifactPublicationRow[]
+  logPrefix: string
+}): Promise<ArtifactRefreshScopeTarget[]> {
+  const targets =
+    params.publications.length > 0
+      ? params.publications.map((publication) => ({
+          analysisScope: publication.analysis_scope,
+          publication,
+        }))
+      : [
+          {
+            analysisScope: 'all_indexed' as GmailArtifactAnalysisScope,
+            publication: null,
+          },
+        ]
+
+  return Promise.all(
+    targets.map(async (target) => {
+      const buildLiveness = await reconcileGmailArtifactBuildLiveness({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: target.analysisScope,
+        publication: target.publication,
+        logPrefix: `${params.logPrefix}/artifact-build-liveness`,
+      })
+
+      return {
+        analysisScope: target.analysisScope,
+        publication: buildLiveness.publication,
+        buildLiveness,
+      }
+    })
+  )
+}
+
+function chooseArtifactRefreshPlanForScope(params: {
+  target: ArtifactRefreshScopeTarget
+  result: MailboxIndexSyncResult
+  hint: GmailArtifactIncrementalRefreshHint | null
+}): ArtifactRefreshExecutionPlan {
+  const publication = params.target.buildLiveness.publication
+  const hasPublishedBaseline = Boolean(normalizeText(publication?.published_version))
+  const buildInProgress = params.target.buildLiveness.build_is_live
+  const syncProducedDrift = mailboxSyncProducedArtifactDrift(params.result)
+
+  if (!hasPublishedBaseline) {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: buildInProgress ? 'none' : 'full_rebuild',
+      decisionState: buildInProgress ? 'refresh_skipped' : 'full_rebuild_required',
+      reason: buildInProgress
+        ? 'refresh_skipped_missing_baseline_while_build_in_progress'
+        : 'missing_published_baseline',
+      refreshStrategy: 'full_rebuild',
+    }
+  }
+
+  if (!syncProducedDrift) {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'none',
+      decisionState: 'fresh',
+      reason: 'sync_completed_without_artifact_drift',
+      refreshStrategy: publication?.refresh_strategy ?? null,
+    }
+  }
+
+  if (buildInProgress) {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'none',
+      decisionState: 'refresh_skipped',
+      reason: 'refresh_skipped_existing_build_in_progress',
+      refreshStrategy:
+        params.result.effective_mode === 'incremental' ? 'incremental' : 'full_rebuild',
+    }
+  }
+
+  if (params.result.effective_mode !== 'incremental') {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'full_rebuild',
+      decisionState: 'full_rebuild_required',
+      reason:
+        params.result.trigger === 'operator_backfill'
+          ? 'operator_backfill_completed_requires_full_rebuild'
+          : 'non_incremental_sync_requires_full_rebuild',
+      refreshStrategy: 'full_rebuild',
+    }
+  }
+
+  if (params.result.used_fallback_full_scan) {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'full_rebuild',
+      decisionState: 'full_rebuild_required',
+      reason: 'incremental_sync_used_fallback_full_scan',
+      refreshStrategy: 'full_rebuild',
+    }
+  }
+
+  if (params.result.terminal_reason === 'incremental_sync_degraded') {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'full_rebuild',
+      decisionState: 'full_rebuild_required',
+      reason: 'incremental_sync_degraded_requires_full_rebuild',
+      refreshStrategy: 'full_rebuild',
+    }
+  }
+
+  if (!params.hint) {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'full_rebuild',
+      decisionState: 'full_rebuild_required',
+      reason: 'incremental_sync_missing_refresh_hint',
+      refreshStrategy: 'full_rebuild',
+    }
+  }
+
+  if (
+    params.hint.changed_messages.length === 0 ||
+    params.hint.affected_sender_keys.length === 0
+  ) {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'none',
+      decisionState: 'refresh_skipped',
+      reason: 'refresh_skipped_no_incremental_scope_delta',
+      refreshStrategy: 'incremental',
+    }
+  }
+
+  if (
+    params.hint.changed_messages.length > INCREMENTAL_REFRESH_MAX_CHANGED_MESSAGES ||
+    params.hint.affected_sender_keys.length > INCREMENTAL_REFRESH_MAX_AFFECTED_SENDERS
+  ) {
+    return {
+      analysisScope: params.target.analysisScope,
+      action: 'full_rebuild',
+      decisionState: 'full_rebuild_required',
+      reason: 'incremental_delta_exceeded_incremental_threshold',
+      refreshStrategy: 'full_rebuild',
+    }
+  }
+
+  return {
+    analysisScope: params.target.analysisScope,
+    action: 'incremental',
+    decisionState: 'refresh_pending',
+    reason: 'eligible_incremental_sync_delta',
+    refreshStrategy: 'incremental',
+  }
+}
+
+function toPublicMailboxIndexResult<T extends Record<string, unknown>>(result: T): T {
+  const next = { ...result }
+  delete next.artifact_refresh_hint
+  return next
+}
+
+async function transitionArtifactPublicationFreshness(params: {
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  currentPublication: GmailArtifactPublicationRow | null
+  nextState: GmailArtifactFreshnessState
+  reason: string
+  refreshStrategy?: GmailArtifactRefreshStrategy | null
+  refreshRequestedAt?: string | null
+  refreshStartedAt?: string | null
+  refreshCompletedAt?: string | null
+  refreshJobId?: string | null
+  refreshSyncRunId?: string | null
+  logPrefix: string
+}): Promise<GmailArtifactPublicationRow> {
+  const nextPublication = await updateGmailArtifactPublicationFreshness({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    analysisScope: params.analysisScope,
+    freshnessState: params.nextState,
+    freshnessReason: params.reason,
+    refreshStrategy: params.refreshStrategy,
+    refreshRequestedAt: params.refreshRequestedAt,
+    refreshStartedAt: params.refreshStartedAt,
+    refreshCompletedAt: params.refreshCompletedAt,
+    refreshJobId: params.refreshJobId,
+    refreshSyncRunId: params.refreshSyncRunId,
+  })
+
+  console.info(
+    `${params.logPrefix}/freshness ${JSON.stringify({
+      tenant_id: params.tenantId,
+      analysis_scope: params.analysisScope,
+      previous_state: params.currentPublication?.freshness_state ?? null,
+      freshness_state: nextPublication.freshness_state,
+      freshness_reason: nextPublication.freshness_reason,
+      refresh_strategy: nextPublication.refresh_strategy,
+      refresh_requested_at: nextPublication.refresh_requested_at,
+      refresh_started_at: nextPublication.refresh_started_at,
+      refresh_completed_at: nextPublication.refresh_completed_at,
+      refresh_job_id: nextPublication.refresh_job_id,
+      refresh_sync_run_id: nextPublication.refresh_sync_run_id,
+      published_version: nextPublication.published_version,
+      building_version: nextPublication.building_version,
+    })}`
+  )
+
+  return nextPublication
+}
+
+async function refreshArtifactsAfterCompletedSync(params: {
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
+  tenantId: string
+  result: MailboxIndexSyncResult
+  logPrefix: string
+}): Promise<void> {
+  const result = params.result
+  if (!result.ok || ('deferred' in result && result.deferred)) return
+
+  const refreshHint =
+    result.effective_mode === 'incremental' ? result.artifact_refresh_hint ?? null : null
+  const decisionAt = new Date().toISOString()
+  const publications = await loadGmailArtifactPublicationStatesForTenant({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+  })
+  const scopeTargets = await buildArtifactRefreshScopeTargets({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    publications,
+    logPrefix: `${params.logPrefix}/artifact-refresh`,
+  })
+  const plans = scopeTargets.map((target) =>
+    chooseArtifactRefreshPlanForScope({
+      target,
+      result,
+      hint: refreshHint,
+    })
+  )
+
+  console.info(
+    `${params.logPrefix}/artifact-refresh ${JSON.stringify({
+      tenant_id: params.tenantId,
+      sync_run_id: result.run_id,
+      effective_mode: result.effective_mode,
+      trigger: result.trigger,
+      rows_before: result.rows_before,
+      rows_after: result.rows_after,
+      growth_delta: result.growth_delta,
+      processed_messages: result.processed_messages,
+      upserted_messages: result.upserted_messages,
+      deleted_messages: result.deleted_messages,
+      changed_message_count: refreshHint?.changed_messages.length ?? 0,
+      affected_sender_count: refreshHint?.affected_sender_keys.length ?? 0,
+      build_liveness: scopeTargets.map((target) => ({
+        analysis_scope: target.analysisScope,
+        build_is_live: target.buildLiveness.build_is_live,
+        reclaim_applied: target.buildLiveness.reclaim_applied,
+        reclaim_reason: target.buildLiveness.reclaim_reason,
+        liveness_status: target.buildLiveness.status,
+      })),
+      plans: plans.map((plan) => ({
+        analysis_scope: plan.analysisScope,
+        action: plan.action,
+        freshness_state: plan.decisionState,
+        refresh_strategy: plan.refreshStrategy,
+        reason: plan.reason,
+      })),
+    })}`
+  )
+
+  for (const target of scopeTargets) {
+    const plan = plans.find((entry) => entry.analysisScope === target.analysisScope)
+    if (!plan) continue
+
+    let publication = target.publication
+    if (mailboxSyncProducedArtifactDrift(result) || !normalizeText(publication?.published_version)) {
+      publication = await transitionArtifactPublicationFreshness({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: target.analysisScope,
+        currentPublication: publication,
+        nextState: 'stale',
+        reason: 'sync_completed_artifact_refresh_required',
+        refreshStrategy: plan.refreshStrategy,
+        refreshRequestedAt: decisionAt,
+        refreshSyncRunId: result.run_id,
+        logPrefix: `${params.logPrefix}/artifact-refresh`,
+      })
+    }
+
+    publication = await transitionArtifactPublicationFreshness({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: target.analysisScope,
+      currentPublication: publication,
+      nextState: plan.decisionState,
+      reason: plan.reason,
+      refreshStrategy: plan.refreshStrategy,
+      refreshRequestedAt: decisionAt,
+      refreshCompletedAt: plan.decisionState === 'fresh' ? decisionAt : undefined,
+      refreshSyncRunId: result.run_id,
+      logPrefix: `${params.logPrefix}/artifact-refresh`,
+    })
+
+    try {
+      if (plan.action === 'incremental' && refreshHint) {
+        const refreshResult = await refreshPublishedGmailArtifactsIncrementally({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          hint: refreshHint,
+          analysisScopes: [plan.analysisScope],
+          logPrefix: `${params.logPrefix}/artifact-refresh`,
+        })
+        console.info(
+          `${params.logPrefix}/artifact-refresh ${JSON.stringify({
+            tenant_id: params.tenantId,
+            sync_run_id: result.run_id,
+            analysis_scope: plan.analysisScope,
+            action: plan.action,
+            ok: refreshResult.ok,
+            scopes: refreshResult.scopes,
+          })}`
+        )
+      } else if (plan.action === 'full_rebuild') {
+        const buildResult = await runGmailFullMailboxArtifactBuild({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          analysisScope: plan.analysisScope,
+        })
+        console.info(
+          `${params.logPrefix}/artifact-refresh ${JSON.stringify({
+            tenant_id: params.tenantId,
+            sync_run_id: result.run_id,
+            analysis_scope: plan.analysisScope,
+            action: plan.action,
+            ok: true,
+            artifact_version: buildResult.artifact_version,
+            job_id: buildResult.job_id,
+            processed_sender_count: buildResult.processed_sender_count,
+            processed_message_count: buildResult.processed_message_count,
+            processed_cluster_count: buildResult.processed_cluster_count,
+          })}`
+        )
+      }
+    } catch (error) {
+      console.error(
+        `${params.logPrefix}/artifact-refresh ${JSON.stringify({
+          tenant_id: params.tenantId,
+          sync_run_id: result.run_id,
+          analysis_scope: plan.analysisScope,
+          action: plan.action,
+          error: error instanceof Error ? error.message : String(error),
+        })}`
+      )
+    }
+  }
+}
 
 function isAuthFailureReason(value: string | null | undefined): boolean {
   return (
@@ -299,14 +717,20 @@ export async function GET() {
     const auth = await resolveAuthContext()
     if (!auth.ok) return auth.response
 
-    const state = await loadGmailMailboxIndexState({
-      supabase: auth.supabase,
-      tenantId: auth.tenantId,
-    })
-    const coverage = await loadGmailMailboxIndexCoverageForTenant({
-      supabase: auth.supabase,
-      tenantId: auth.tenantId,
-    })
+    const [state, coverage, publications] = await Promise.all([
+      loadGmailMailboxIndexState({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+      }),
+      loadGmailMailboxIndexCoverageForTenant({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+      }),
+      loadGmailArtifactPublicationStatesForTenant({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+      }),
+    ])
     const { data: gmailConnectionRow, error: gmailConnectionError } = await auth.supabase
       .from('integration_connections')
       .select('tenant_id')
@@ -321,6 +745,10 @@ export async function GET() {
       hasGmailConnection,
       state,
     })
+    const primaryPublication =
+      publications.find((publication) => publication.analysis_scope === 'all_indexed') ??
+      publications[0] ??
+      null
     const historicalBackfill = buildHistoricalBackfillSummary(state)
     const syncHealth =
       executionState === 'failed' || executionState === 'stalled'
@@ -364,6 +792,36 @@ export async function GET() {
         usable_with_cached_index: indexedCount > 0,
         last_index_duration_ms: state?.last_index_duration_ms ?? null,
         has_gmail_connection: hasGmailConnection,
+        artifact_refresh: primaryPublication
+          ? {
+              analysis_scope: primaryPublication.analysis_scope,
+              freshness_state: primaryPublication.freshness_state,
+              freshness_reason: primaryPublication.freshness_reason,
+              refresh_strategy: primaryPublication.refresh_strategy,
+              refresh_requested_at: primaryPublication.refresh_requested_at,
+              refresh_started_at: primaryPublication.refresh_started_at,
+              refresh_completed_at: primaryPublication.refresh_completed_at,
+              refresh_job_id: primaryPublication.refresh_job_id,
+              refresh_sync_run_id: primaryPublication.refresh_sync_run_id,
+              published_version: primaryPublication.published_version,
+              building_version: primaryPublication.building_version,
+              build_status: primaryPublication.build_status,
+            }
+          : null,
+        artifact_publications: publications.map((publication) => ({
+          analysis_scope: publication.analysis_scope,
+          freshness_state: publication.freshness_state,
+          freshness_reason: publication.freshness_reason,
+          refresh_strategy: publication.refresh_strategy,
+          refresh_requested_at: publication.refresh_requested_at,
+          refresh_started_at: publication.refresh_started_at,
+          refresh_completed_at: publication.refresh_completed_at,
+          refresh_job_id: publication.refresh_job_id,
+          refresh_sync_run_id: publication.refresh_sync_run_id,
+          published_version: publication.published_version,
+          building_version: publication.building_version,
+          build_status: publication.build_status,
+        })),
         state,
         status_error: null,
         connection_error: gmailConnectionError ? gmailConnectionError.message : null,
@@ -377,6 +835,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const requestStartedAt = Date.now()
     const auth = await resolveAuthContext()
     if (!auth.ok) return auth.response
 
@@ -394,6 +853,26 @@ export async function POST(req: Request) {
       typeof body?.max_messages === 'number' ? body.max_messages : null
     )
     const trigger = normalizeGmailMailboxIndexTrigger(body?.trigger, requestedMode)
+    const heavyActionKey = ['mailbox_index_manual_action', auth.tenantId].join('::')
+    const logHeavyMailboxIndexAction = (params: {
+      blockedBy: 'already_running' | 'cooldown_active' | null
+      outcome: string
+      extra?: Record<string, unknown>
+    }) => {
+      logHeavyActionEvent({
+        category: 'mailbox_index',
+        route: '/api/integrations/gmail/mailbox-index',
+        action: trigger,
+        triggerSource: typeof body?.trigger === 'string' ? body.trigger.trim() || null : null,
+        requestMode: mode,
+        tenantId: auth.tenantId,
+        agentId: null,
+        blockedBy: params.blockedBy,
+        durationMs: Date.now() - requestStartedAt,
+        outcome: params.outcome,
+        extra: params.extra,
+      })
+    }
     if (trigger === 'operator_backfill' && operatorIntent !== GMAIL_OPERATOR_BACKFILL_INTENT) {
       console.warn(
         '[integrations/gmail/mailbox-index] operator_backfill_rejected_missing_explicit_intent',
@@ -432,59 +911,116 @@ export async function POST(req: Request) {
       trigger === 'smart_sync' || trigger === 'operator_backfill'
         ? true
         : !(trigger === 'manual_full_reindex' && mode === 'full') && requestedBackground
-    const runId = crypto.randomUUID()
-    const currentState = await loadGmailMailboxIndexState({
-      supabase: auth.supabase,
-      tenantId: auth.tenantId,
+    const guard = tryStartHeavyAction({
+      key: heavyActionKey,
+      cooldownMs: MAILBOX_INDEX_MANUAL_ACTION_COOLDOWN_MS,
     })
-    if (trigger !== 'manual_full_reindex' && isManualFullRunActive(currentState)) {
-      return NextResponse.json({
-        ok: true,
-        deferred: true,
-        reason: 'manual_full_run_active',
-        data: {
-          execution_state: 'running',
-          active_run: buildActiveRunSummary(currentState),
+    if (!guard.ok) {
+      logHeavyMailboxIndexAction({
+        blockedBy: guard.reason,
+        outcome: 'blocked',
+        extra: {
+          retry_after_ms: guard.retryAfterMs,
+          requested_mode: requestedMode,
+          effective_mode: mode,
+          background,
         },
       })
-    }
-    if (isMailboxIndexRunActive(currentState)) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'A mailbox index run is already in progress for this tenant.',
-          reason: 'already_running',
-          data: {
-            execution_state: 'running',
-            active_run: buildActiveRunSummary(currentState),
-          },
+          error:
+            guard.reason === 'already_running'
+              ? 'A mailbox index action is already running for this tenant.'
+              : 'A mailbox index action was started moments ago. Please wait briefly before trying again.',
+          reason: guard.reason,
+          retry_after_ms: guard.retryAfterMs,
         },
         { status: 409 }
       )
     }
-    if (
-      trigger === 'operator_backfill' &&
-      isHistoricalBackfillWindowComplete({
-        state: currentState,
-        requestedWindowMonths: requestedBackfillWindowMonths,
+    const runId = crypto.randomUUID()
+    try {
+      const currentState = await loadGmailMailboxIndexState({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
       })
-    ) {
-      return NextResponse.json({
-        ok: true,
-        complete: true,
-        reason: 'historical_window_complete',
-        data: {
-          trigger,
-          requested_mode: mode,
-          effective_mode: mode,
-          execution_state: buildExecutionState(currentState),
-          historical_backfill: buildHistoricalBackfillSummary(currentState),
-          requested_backfill_window_months: requestedBackfillWindowMonths,
-        },
-      })
-    }
+      if (trigger !== 'manual_full_reindex' && isManualFullRunActive(currentState)) {
+        logHeavyMailboxIndexAction({
+          blockedBy: 'already_running',
+          outcome: 'manual_full_run_active',
+          extra: {
+            requested_mode: requestedMode,
+            effective_mode: mode,
+            background,
+          },
+        })
+        return NextResponse.json({
+          ok: true,
+          deferred: true,
+          reason: 'manual_full_run_active',
+          data: {
+            execution_state: 'running',
+            active_run: buildActiveRunSummary(currentState),
+          },
+        })
+      }
+      if (isMailboxIndexRunActive(currentState)) {
+        logHeavyMailboxIndexAction({
+          blockedBy: 'already_running',
+          outcome: 'already_running',
+          extra: {
+            requested_mode: requestedMode,
+            effective_mode: mode,
+            background,
+          },
+        })
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'A mailbox index run is already in progress for this tenant.',
+            reason: 'already_running',
+            data: {
+              execution_state: 'running',
+              active_run: buildActiveRunSummary(currentState),
+            },
+          },
+          { status: 409 }
+        )
+      }
+      if (
+        trigger === 'operator_backfill' &&
+        isHistoricalBackfillWindowComplete({
+          state: currentState,
+          requestedWindowMonths: requestedBackfillWindowMonths,
+        })
+      ) {
+        logHeavyMailboxIndexAction({
+          blockedBy: null,
+          outcome: 'historical_window_complete',
+          extra: {
+            requested_mode: requestedMode,
+            effective_mode: mode,
+            background,
+            requested_backfill_window_months: requestedBackfillWindowMonths,
+          },
+        })
+        return NextResponse.json({
+          ok: true,
+          complete: true,
+          reason: 'historical_window_complete',
+          data: {
+            trigger,
+            requested_mode: mode,
+            effective_mode: mode,
+            execution_state: buildExecutionState(currentState),
+            historical_backfill: buildHistoricalBackfillSummary(currentState),
+            requested_backfill_window_months: requestedBackfillWindowMonths,
+          },
+        })
+      }
 
-    if (background) {
+      if (background) {
       let acceptedRunData:
         | {
             run_id: string
@@ -503,117 +1039,178 @@ export async function POST(req: Request) {
           }
         | null = null
 
-      if (trigger === 'smart_sync') {
-        const acceptedRun = await primeAcceptedSmartSyncRunForTenant({
-          supabase: auth.supabase,
-          tenantId: auth.tenantId,
-          runId,
-          maxMessages,
-          currentState,
-        })
-        acceptedRunData = {
-          run_id: acceptedRun.run_id,
-          mode: acceptedRun.effective_mode,
-          requested_mode: acceptedRun.requested_mode,
-          effective_mode: acceptedRun.effective_mode,
-          trigger,
-          background: true,
-          max_messages: maxMessages,
-          execution_state: 'running',
-          rows_before: acceptedRun.rows_before,
-          resume_checkpoint: acceptedRun.resume_checkpoint,
-          started_from_checkpoint: acceptedRun.started_from_checkpoint,
-        }
-      } else if (trigger === 'operator_backfill') {
-        const acceptedRun = await primeAcceptedOperatorBackfillRunForTenant({
-          supabase: auth.supabase,
-          tenantId: auth.tenantId,
-          runId,
-          maxMessages,
-          backfillWindowMonths: requestedBackfillWindowMonths,
-          currentState,
-        })
-        acceptedRunData = {
-          run_id: acceptedRun.run_id,
-          mode: acceptedRun.effective_mode,
-          requested_mode: acceptedRun.requested_mode,
-          effective_mode: acceptedRun.effective_mode,
-          trigger,
-          background: true,
-          max_messages: maxMessages,
-          execution_state: 'running',
-          rows_before: acceptedRun.rows_before,
-          resume_checkpoint: acceptedRun.resume_checkpoint,
-          started_from_checkpoint: acceptedRun.started_from_checkpoint,
-          backfill_window_months: acceptedRun.backfill_window_months ?? null,
-          backfill_cutoff_at: acceptedRun.backfill_cutoff_at ?? null,
-        }
-      }
-
-      after(async () => {
-        try {
-          await syncGmailMailboxIndexForTenant({
+        if (trigger === 'smart_sync') {
+          const acceptedRun = await primeAcceptedSmartSyncRunForTenant({
             supabase: auth.supabase,
             tenantId: auth.tenantId,
-            mode,
-            maxMessages,
-            allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
-            backfillWindowMonths:
-              trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
-            logPrefix: '[integrations/gmail/mailbox-index/background]',
             runId,
-            trigger,
+            maxMessages,
+            currentState,
           })
-        } catch (error) {
-          console.error('[integrations/gmail/mailbox-index] background sync failed:', error)
-        }
-      })
-
-      return NextResponse.json(
-        {
-          ok: true,
-          accepted: true,
-          data: acceptedRunData ?? {
-            run_id: runId,
-            mode,
-            requested_mode: mode,
-            effective_mode: mode,
+          acceptedRunData = {
+            run_id: acceptedRun.run_id,
+            mode: acceptedRun.effective_mode,
+            requested_mode: acceptedRun.requested_mode,
+            effective_mode: acceptedRun.effective_mode,
             trigger,
             background: true,
             max_messages: maxMessages,
             execution_state: 'running',
+            rows_before: acceptedRun.rows_before,
+            resume_checkpoint: acceptedRun.resume_checkpoint,
+            started_from_checkpoint: acceptedRun.started_from_checkpoint,
+          }
+        } else if (trigger === 'operator_backfill') {
+          const acceptedRun = await primeAcceptedOperatorBackfillRunForTenant({
+            supabase: auth.supabase,
+            tenantId: auth.tenantId,
+            runId,
+            maxMessages,
+            backfillWindowMonths: requestedBackfillWindowMonths,
+            currentState,
+          })
+          acceptedRunData = {
+            run_id: acceptedRun.run_id,
+            mode: acceptedRun.effective_mode,
+            requested_mode: acceptedRun.requested_mode,
+            effective_mode: acceptedRun.effective_mode,
+            trigger,
+            background: true,
+            max_messages: maxMessages,
+            execution_state: 'running',
+            rows_before: acceptedRun.rows_before,
+            resume_checkpoint: acceptedRun.resume_checkpoint,
+            started_from_checkpoint: acceptedRun.started_from_checkpoint,
+            backfill_window_months: acceptedRun.backfill_window_months ?? null,
+            backfill_cutoff_at: acceptedRun.backfill_cutoff_at ?? null,
+          }
+        }
+
+        after(async () => {
+          try {
+            const result = await syncGmailMailboxIndexForTenant({
+              supabase: auth.supabase,
+              tenantId: auth.tenantId,
+              mode,
+              maxMessages,
+              allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
+              backfillWindowMonths:
+                trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
+              logPrefix: '[integrations/gmail/mailbox-index/background]',
+              runId,
+              trigger,
+            })
+            await refreshArtifactsAfterCompletedSync({
+              supabase: auth.supabase,
+              tenantId: auth.tenantId,
+              result,
+              logPrefix: '[integrations/gmail/mailbox-index/background]',
+            })
+          } catch (error) {
+            console.error('[integrations/gmail/mailbox-index] background sync failed:', error)
+          }
+        })
+
+        logHeavyMailboxIndexAction({
+          blockedBy: null,
+          outcome: 'accepted',
+          extra: {
+            requested_mode: requestedMode,
+            effective_mode: mode,
+            background: true,
+            max_messages: maxMessages,
+            run_id: acceptedRunData?.run_id || runId,
+            rows_before: acceptedRunData?.rows_before ?? null,
+            backfill_window_months: acceptedRunData?.backfill_window_months ?? null,
           },
+        })
+        return NextResponse.json(
+          {
+            ok: true,
+            accepted: true,
+            data: acceptedRunData ?? {
+              run_id: runId,
+              mode,
+              requested_mode: mode,
+              effective_mode: mode,
+              trigger,
+              background: true,
+              max_messages: maxMessages,
+              execution_state: 'running',
+            },
+          },
+          { status: 202 }
+        )
+      }
+
+      const result = await syncGmailMailboxIndexForTenant({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+        mode,
+        maxMessages,
+        allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
+        backfillWindowMonths:
+          trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
+        logPrefix: '[integrations/gmail/mailbox-index]',
+        runId,
+        trigger,
+      })
+
+      if (!result.ok) {
+        logHeavyMailboxIndexAction({
+          blockedBy: result.reason === 'already_running' ? 'already_running' : null,
+          outcome: 'failed',
+          extra: {
+            requested_mode: requestedMode,
+            effective_mode: mode,
+            background: false,
+            max_messages: maxMessages,
+            reason: result.reason,
+          },
+        })
+        return NextResponse.json(
+          {
+            ok: false,
+            error: result.error,
+            reason: result.reason,
+            data: toPublicMailboxIndexResult(result),
+          },
+          { status: result.reason === 'already_running' ? 409 : 400 }
+        )
+      }
+
+      after(async () => {
+        await refreshArtifactsAfterCompletedSync({
+          supabase: auth.supabase,
+          tenantId: auth.tenantId,
+          result,
+          logPrefix: '[integrations/gmail/mailbox-index]',
+        })
+      })
+
+      logHeavyMailboxIndexAction({
+        blockedBy: null,
+        outcome: 'completed',
+        extra: {
+          requested_mode: requestedMode,
+          effective_mode: mode,
+          background: false,
+          max_messages: maxMessages,
+          processed_messages: result.processed_messages,
+          upserted_messages: result.upserted_messages,
+          deleted_messages: result.deleted_messages,
+          rows_before: result.rows_before,
+          rows_after: result.rows_after,
+          growth_delta: result.growth_delta,
         },
-        { status: 202 }
-      )
+      })
+      return NextResponse.json({ ok: true, data: toPublicMailboxIndexResult(result) })
+    } finally {
+      finishHeavyAction({
+        key: heavyActionKey,
+        cooldownMs: MAILBOX_INDEX_MANUAL_ACTION_COOLDOWN_MS,
+      })
     }
-
-    const result = await syncGmailMailboxIndexForTenant({
-      supabase: auth.supabase,
-      tenantId: auth.tenantId,
-      mode,
-      maxMessages,
-      allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
-      backfillWindowMonths:
-        trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
-      logPrefix: '[integrations/gmail/mailbox-index]',
-      runId,
-      trigger,
-    })
-
-    if (!result.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: result.error,
-          reason: result.reason,
-          data: result,
-        },
-        { status: result.reason === 'already_running' ? 409 : 400 }
-      )
-    }
-
-    return NextResponse.json({ ok: true, data: result })
   } catch (error) {
     console.error('[integrations/gmail/mailbox-index] POST failed:', error)
     return NextResponse.json({ error: 'Unexpected error while indexing mailbox.' }, { status: 500 })

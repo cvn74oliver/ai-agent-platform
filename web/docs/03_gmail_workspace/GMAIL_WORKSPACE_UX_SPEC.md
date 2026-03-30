@@ -375,31 +375,39 @@ Create 5 new rules
 
 Purpose:
 
-Allow the user to select a **cluster of senders** to review.
+Allow the user to select the **next cleanup group of senders** to review.
 
 Groups are always **sender clusters**.
 
 Never message clusters.
 
-Each group shows:
+The page should first answer:
 
-- Number of senders
-- Total message count
-- Risk level
-- AI explanation
+- what this page helps decide
+- what progress already exists
+- what the next recommended move is
 
-Example:
+Each group card then shows:
 
-Retail Promotions
-245 senders
-12,800 messages
-Low risk
-
-Explanation:
-
-"These senders appear to be marketing emails from retail brands."
+- workload
+- impact
+- why this group exists
+- optional startability guidance
+- collapsed supporting detail
 
 Clicking a group enters the **Sender Decision Workspace**.
+
+Cleanup Groups should use:
+
+- a strong workspace-family hero
+- three visual sections
+- recommendation logic that does not default to the largest group
+
+The three sections are:
+
+1. Start Here
+2. Reduce Backlog
+3. Exceptions & Coverage
 
 ---
 

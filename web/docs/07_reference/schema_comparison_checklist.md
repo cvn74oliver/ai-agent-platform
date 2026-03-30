@@ -318,6 +318,7 @@ This checklist must be followed for:
 
 ## 🧱 System Reliability Principle
 
+
 Schema correctness is a **first-class system dependency**.
 
 If schema and code diverge:
@@ -330,3 +331,120 @@ This is critical for:
 - Backfill continuation
 - Smart Sync correctness
 - Runtime decision systems
+
+---
+
+## 🏁 PM v11 Turnover Addendum — Schema Discipline (March 26, 2026)
+
+### Current Phase Context
+
+We are in **Phase 1B (UI + runtime reliability)**.
+
+Implication:
+- Schema work is **not the active focus**.
+- Do NOT introduce new migrations to solve UI/runtime issues.
+- Rebuilds are **expensive (≈30 minutes)** and must be reserved for proven artifact-layer needs.
+
+---
+
+### When to Use This Checklist (Now)
+
+Use this checklist ONLY when:
+
+- A root cause is confirmed at the **schema/artifact layer**, or
+- A new field is **strictly required** to unblock decision workflow, or
+- A migration is needed to **prevent data loss or corruption**
+
+Do NOT use this checklist for:
+- preview issues
+- sender list mismatches
+- UI behavior problems
+- performance tuning (unless schema-bound)
+
+---
+
+### ⚠️ Current System Reality (Hybrid Truth)
+
+- **Artifact layer (published)**
+  - stable, persisted, authoritative for summaries
+- **Runtime layer (live)**
+  - recomputed for interaction (sender lists, previews)
+
+Therefore:
+- Top counts (hierarchy) come from artifacts
+- Bottom lists (focused results) may be runtime-derived
+
+Schema changes will NOT automatically align these layers.
+
+---
+
+### 🚨 Do-Not-Rebuild Rule (Critical)
+
+Before running ANY migration or rebuild, confirm:
+
+1. The issue is NOT caused by:
+   - runtime query path
+   - batching limits
+   - preview selection/fallback
+   - UI interpretation
+
+2. The issue CAN be proven in the schema snapshot itself
+
+If both are not true:
+→ **DO NOT PROCEED WITH MIGRATION**
+
+---
+
+### Minimal Rebuild Scope Rule
+
+If a rebuild is required, it must include:
+
+- Only the fields needed for the fix
+- No taxonomy changes unless explicitly required
+- No UI changes bundled into the migration
+- No “while we’re here” additions
+
+Goal:
+
+```text
+Fix the problem → nothing else
+```
+
+---
+
+### Pre-Rebuild Validation (NEW)
+
+Before triggering a rebuild:
+
+- [ ] Reproduce the issue in UI
+- [ ] Confirm issue persists after refresh / warm load
+- [ ] Check runtime logs for query failures or fallbacks
+- [ ] Confirm whether data exists but is not surfaced
+- [ ] Verify snapshot schema vs expected fields
+- [ ] Confirm this cannot be fixed at runtime layer
+
+Only after all checks pass:
+→ proceed with this checklist
+
+---
+
+### Strategic Note
+
+Schema is now **stable enough for Phase 1**.
+
+Future schema work should focus on:
+- persisted sender-level subtype membership (later phase)
+- performance optimization (later phase)
+
+NOT on:
+- improving UI clarity
+- fixing preview bugs
+- aligning counts in the current hybrid model
+
+---
+
+### Final Rule
+
+> Do not reach for schema changes when the problem is in runtime or UI.
+
+---

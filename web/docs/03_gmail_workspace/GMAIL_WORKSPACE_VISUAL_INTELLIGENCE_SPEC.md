@@ -337,17 +337,29 @@ The number itself must carry the visual weight.
 
 Required visuals:
 
-### Candidate Cluster Distribution
+### Hero Signal Row
 
-Donut chart showing the proportion of senders in each cluster.
+Four count-first signal cards:
 
-### Message Volume by Cluster
+- Cleanup groups in scope
+- Groups with saved work
+- Groups still to review
+- Senders in cleanup scope
 
-Bar chart showing message counts per cluster.
+### Goal / Progress Module
 
-### Risk Signals
+One dominant goal module that includes:
 
-Small alert chart showing clusters with protection flags.
+- Cleanup selection goal
+- group-started coverage counter
+- real progress bar
+- bottom guidance row with progress summary and next-step instruction
+
+### Recommendation + Comparison Support
+
+Use compact structured surfaces, not charts, to help the operator choose the next group.
+
+Cleanup Groups should not require charts in the current phase.
 
 ---
 

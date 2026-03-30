@@ -320,3 +320,121 @@ Failure to follow these rules results in:
 - significant time loss
 
 This rule overrides all convenience-based decisions during development.
+
+---
+
+## 🏁 PM v11 Turnover Addendum — Operational Workflow State (March 26, 2026)
+
+### Current Execution Phase
+
+The system has transitioned from:
+- architecture + data construction
+
+to:
+- **product usability and runtime reliability (Phase 1B)**
+
+This is a critical shift in how the PM → Codex loop should operate.
+
+---
+
+### Updated Execution Priority Model
+
+From this point forward, the execution order is:
+
+1. **Fix runtime interaction issues**
+   - sender list behavior
+   - decision card reliability
+   - preview loading
+
+2. **Fix UI truth and readability**
+   - hierarchy clarity
+   - labeling
+   - user understanding
+
+3. **ONLY THEN consider artifact changes**
+   - and only if a blocking issue is proven at the artifact layer
+
+---
+
+### What Has Changed In Workflow Behavior
+
+Previously:
+- heavy focus on artifact rebuilding
+- multiple rebuild loops
+- mixed debugging across layers
+
+Now:
+- artifact baseline is frozen (`full-mailbox-20260325230627555`)
+- most issues are **runtime or UI-layer issues**, not artifact issues
+
+PM must assume:
+
+```text
+If something looks wrong → it is NOT automatically an artifact problem
+```
+
+---
+
+### New Execution Rule (Critical)
+
+Before sending any Codex task, PM must classify the issue as one of:
+
+- Artifact-layer problem
+- Runtime/data-access problem
+- UI/presentation problem
+
+Only then:
+- write the instruction
+- keep scope isolated to that layer
+
+This prevents multi-layer debugging loops.
+
+---
+
+### Interaction-First Validation Rule
+
+A feature is NOT complete when:
+- data looks correct
+
+A feature is complete only when:
+- user can interact with it end-to-end
+- no blockers appear during real use
+
+Example:
+- subtype hierarchy was “correct” before
+- but clicking revealed empty results and backend failures
+
+This rule is now mandatory.
+
+---
+
+### Current Known Runtime Risks
+
+- Subtype focus uses full-cluster materialization (~10–15s cold load)
+- Preview selection is inconsistent for high-volume senders
+- Sender-level truth is partially runtime-derived
+
+These are **known and accepted for Phase 1B**, not immediate rebuild triggers.
+
+---
+
+### Immediate Focus For Next PM
+
+1. Decision-card preview reliability
+2. Sender list + subtype interaction trust
+3. Sender Overview clarity and usability
+
+DO NOT:
+- re-open artifact design
+- chase perfect subtype coverage
+- optimize performance prematurely
+
+---
+
+### Final Operational Directive
+
+> Build a system that works for a user before making it perfect for the machine.
+
+This is now the governing rule for all PM decisions moving forward.
+
+---

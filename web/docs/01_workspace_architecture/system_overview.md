@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 16, 2026_
+_Last Updated: March 24, 2026_
 
 ---
 
@@ -49,6 +49,67 @@ This separation ensures:
 - Reduced hallucination risk
 - Controlled rate-limit usage
 - Clear feature-domain isolation
+
+### ⚙️ Runtime Containment Layer (March 2026)
+
+Current runtime architecture now enforces a strict separation between:
+- passive browsing
+- manual heavy operations
+
+Passive browsing:
+- uses cached runtime / saved snapshot state only
+- does not automatically trigger:
+  - full-mailbox scans
+  - cleanup discovery rebuilds
+  - mailbox-index sync
+
+Manual heavy operations:
+- require explicit user action
+- run behind server-side guards
+- use single-flight + cooldown protection to prevent duplicate starts
+
+Architectural additions introduced during stabilization:
+- `heavyActionSafety` guard layer for manual runtime refresh / sync flows
+- bounded discovery row cache for repeated manual cleanup regeneration
+- regeneration optimization pipeline that:
+  - skips inline sync
+  - skips inline sender-stats recompute
+  - moves snapshot persistence off the critical path
+  - skips unnecessary wrapper preload work on forced regeneration
+
+Result:
+- normal navigation is no longer allowed to escalate into automatic full-mailbox work
+- heavy runtime operations remain available, but only as explicit, guarded operator actions
+
+First-open recovery under containment now follows this order:
+- runtime snapshot
+- cached snapshot
+- safe fallback content
+- deferred post-mount fetch only when needed
+
+This recovered route reliability without reopening unsafe passive heavy paths:
+- `Cleanup Groups` opens again from safe runtime/cached state
+- `Decision Mode` opens on first click again
+- `Sender Overview` no longer stalls indefinitely on first open
+- `Mailbox Intelligence` no longer hangs on first open
+
+Exact files changed for the recovery fix:
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- `web/src/lib/runtime/operationsWorkspace.ts`
+- `web/src/app/agents/[id]/operations/clusters/page.tsx`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/app/agents/[id]/operations/intelligence/page.tsx`
+
+Important architectural constraint preserved:
+- no unsafe passive initial-paint heavy inbox-analysis path was reintroduced
+
+Known remaining limitation:
+- cold first-open on `Sender Overview` and some `Mailbox Intelligence` seed-miss cases is still slower than warm navigation because recovery resolves through deferred safe fetches
+- warm loads are fast again once runtime/cached state is present
+
+Next product-phase direction:
+- resume Sender Overview data usefulness / truth work
+- queue cold-open performance optimization as a separate later pass
 
 ### Gmail Cleanup Runtime Note (March 15, 2026)
 
@@ -1148,6 +1209,34 @@ Implemented in the current system:
 
 This means the platform is no longer only proving approval creation — it is now proving end-to-end approval + execute for at least one real Gmail write action.
 
+### 6A) Gmail Workspace Canonical Engine Pattern (March 24, 2026)
+
+Gmail Workspace data access is now architecture-locked as the reference engine pattern for future workspaces.
+
+Permanent Gmail Workspace rules:
+
+- request-time Gmail Workspace routes read published artifacts only
+- request-time page loads never repair stale/missing truth by scanning the mailbox
+- Smart Sync / ingestion completion records freshness and triggers async artifact refresh
+- incremental refresh is preferred when eligible
+- full rebuild is fallback-only and must preserve parity with the proven incremental baseline
+- browser/runtime surfaces must reconcile to artifact-backed cluster truth, not partial client math or ad hoc mailbox-derived state
+
+Operational consequences:
+
+- Cleanup Groups, Sender Overview, Decision Mode, Mailbox Intelligence, and runtime rehydrate are all artifact-only request paths
+- the last safe `published_version` remains live while refresh is pending, running, failed, skipped, or marked full-rebuild-required
+- future workspaces should copy the same engine shape:
+  - ingest
+  - derive
+  - persist
+  - publish
+  - serve
+
+Canonical reference:
+
+- [gmail_workspace_canonical_engine_pattern.md](/Users/olivercarlin/Documents/ai-agent-platform/ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_workspace_canonical_engine_pattern.md)
+
 ### 7) Generic Runtime Scaffolding Standard
 The Gmail pilot now doubles as the reference implementation for a platform-wide runtime pattern.
 
@@ -1640,3 +1729,85 @@ Current build-stabilization finding:
 Implication:
 
 - Any deploy branch that includes imports of these runtime modules must ship the corresponding files together, or Vercel will fail during module resolution before the app reaches higher-level validation.
+
+---
+
+## Subscription Semantic Milestone - March 28, 2026
+
+Accepted subscription semantic Phase 3 outcome against `full-mailbox-20260327004328180`:
+
+- The narrow resolver-only pass improved the local semantic baseline from:
+  - `472 -> 481` resolved marketing subtype senders
+  - `59% -> 60%` resolved marketing subtype coverage
+  - `327 -> 318` unresolved promotional remainder
+  - `3% -> 5%` pattern clear share
+- The only intended gain population was the `123` clear-family unresolved marketing senders:
+  - `5` resolved to `product_marketing_update`
+  - `4` resolved to `editorial_newsletter`
+  - `0` resolved to `offer_campaign`
+  - `0` resolved outside the target pool
+- Guardrails held:
+  - weak-history stayed unresolved (`183 -> 0` resolved)
+  - mixed stayed unresolved (`21 -> 0` resolved)
+  - already-resolved subtype preservation was exact (`472 / 472`)
+  - offer anti-regression held (`0 / 9` target-pool gains)
+
+Architectural implication:
+
+- The current local semantic truth is improved, but publication truth has not yet moved.
+- Headline persistence is still allowed to remain `provisional` because rebuild/publication and rollup-contract work stayed out of scope.
+- The next thread should be a narrow planning thread for subscription semantic rebuild/publication planning only:
+  - plan how to rebuild/publish the improved semantic truth
+  - define post-rebuild validation against the locked baseline
+  - decide whether a new split-readiness evaluation is needed after publication
+- It should explicitly not be:
+  - a taxonomy-split implementation thread
+  - a UI thread
+  - another broad semantic tuning thread
+
+---
+
+## 🏁 PM v11 Turnover — Gmail Phase 1B (UI + Runtime Reliability)
+
+**State at handoff (March 26, 2026):**
+- Gmail artifact baseline is frozen at `full-mailbox-20260325230627555`.
+- Sender Overview now renders a **hierarchical semantic tree** (family → subtype → remainder) with correct denominators.
+- Subtype click → sender list linkage is **operational**.
+- Empty-result (`safe_partial`) bug is fixed.
+
+### What is stable (do not reopen)
+- Artifact contract (`semantic_rollup`) and congruence across summary/header.
+- Cleanup groups and sender coverage.
+- Expandable hierarchy and denominator rules.
+
+### Known limitations (expected for Phase 1)
+1. **Count divergence (by design for now)**
+   - Top (artifact) vs bottom (runtime) counts may differ.
+   - UI treats artifact count as primary and surfaces divergence.
+2. **Focused-load performance**
+   - Uses `full_cluster_materialization` on cold loads (~10–15s).
+   - Warm loads are acceptable.
+3. **Decision-card preview reliability (critical bug)**
+   - Some high-volume senders show no preview due to weak fallback selection.
+
+### Immediate next work (strict order)
+1. **Decision-card preview reliability fix** (no rebuild)
+2. **Sender Overview row-level polish** (readability + hierarchy clarity)
+3. **Subtype focus UX clarity** (highlighting, messaging)
+4. **Defer performance optimization** (until UI is stable)
+
+### Architectural note
+Current system merges:
+- **Artifact truth (group-level, frozen)**
+- **Runtime truth (sender-level, recomputed)**
+
+Full alignment would require **persisted per-sender subtype membership**, intentionally deferred beyond Phase 1.
+
+### Operating rule for next PM
+- Favor **usable workflow** over perfect data.
+- Avoid reopening artifact design unless it blocks decisions.
+- Continue Sniper Method: small passes, single surface, validate, move on.
+
+PM v11 complete.
+
+---

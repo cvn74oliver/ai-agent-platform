@@ -226,3 +226,111 @@ Change Management Rules:
 - Session state may feed downstream agent configuration or training pipelines
 
 These extensions must not break current append-only and version-safe guarantees.
+
+---
+
+## 🏁 PM v11 Turnover Addendum — Clarify System Context (March 26, 2026)
+
+### Current Relevance
+
+The Phase 1 Clarify system is **stable and not part of the current active problem space**.
+
+It is considered:
+- ✅ architecturally correct
+- ✅ production-ready for Phase 1
+- ⚠️ not currently under active iteration
+
+---
+
+### Relationship to Current Work (Gmail Workspace)
+
+Current system focus (Gmail Phase 1B) is:
+- Sender Overview
+- Decision Mode
+- Runtime reliability
+- Preview evidence
+
+The Clarify system is **upstream infrastructure**, not part of the current runtime/UI issues.
+
+It should NOT be modified during current passes unless:
+- a direct bug is discovered in Guided Setup
+- or a dependency explicitly requires it
+
+---
+
+### Key Guarantees (Do Not Break)
+
+The Clarify system enforces:
+
+1. **Append-only clarification responses**
+2. **Version-safe prompt retrieval**
+3. **Separation of prompt truth vs session state**
+4. **Deterministic session restoration across reloads**
+
+These guarantees must remain intact.
+
+---
+
+### ⚠️ Common Misuse Risk
+
+Future PMs or Codex sessions may incorrectly attempt to:
+
+- reuse Clarify storage patterns for runtime systems
+- mix session-state logic into operational workflows
+- treat Clarify as a general-purpose state engine
+
+This is incorrect.
+
+Clarify is:
+- a **setup-stage interaction system**
+- not a runtime decision system
+
+---
+
+### Strategic Placement in Platform
+
+Clarify belongs to:
+
+```text
+Agent Setup Phase → Guided Setup → Clarification → Persisted Context
+```
+
+NOT:
+
+```text
+Operational Phase → Gmail Workspace → Sender Decisions
+```
+
+---
+
+### Future Extension (Deferred)
+
+The Clarify system may later support:
+
+- AI-assisted answer suggestions
+- response completeness scoring
+- auto-generated clarifications based on missing configuration
+- integration into LLM fine-tuning pipelines
+
+These are **future enhancements**, not part of Phase 1B.
+
+---
+
+### PM Guidance
+
+For the next PM:
+
+- Do NOT revisit this system during current Gmail work
+- Do NOT expand scope into setup flows
+- Only return here if:
+  - onboarding breaks
+  - or Guided Setup becomes part of active product work
+
+---
+
+### Final Note
+
+> The Clarify system is complete enough.
+> Focus on making the operational system usable before expanding setup intelligence.
+
+---

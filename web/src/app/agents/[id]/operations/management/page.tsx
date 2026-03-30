@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   clearSenderFromGmailCleanupWorkflowDrafts,
   fetchGmailDecisionManagementSummary,
@@ -11,7 +11,6 @@ import {
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
   normalizeOperationsAnalysisScope,
-  serializeOperationsQuery,
 } from '@/lib/runtime/operationsWorkspace'
 
 type LoadState =
@@ -19,196 +18,724 @@ type LoadState =
   | { status: 'ready'; data: GmailDecisionManagementSummaryData; error: null }
   | { status: 'error'; data: null; error: string }
 
-type DestinationSummary = GmailDecisionManagementSummaryData['destination_summaries'][number]
 type SenderProfile = GmailDecisionManagementSummaryData['sender_profiles'][number]
+type BucketFilter = 'ALL' | 'ARCHIVE' | 'CUSTOM_RULE' | 'QUARANTINE' | 'KEEP'
+type BucketKey = Exclude<BucketFilter, 'ALL'>
+type ExecutionKind =
+  | 'protected_no_action'
+  | 'deferred_review'
+  | 'pending_refinement'
+  | 'ready_to_push'
+  | 'push_requested'
+  | 'verified_applied'
+  | 'sync_mismatch_or_failed'
+  | 'reversed'
+type ExecutionLane = 'active_work' | 'waiting' | 'applied' | 'stored' | 'quiet'
 
-function destinationCardTone(state: GmailDecisionManagementSummaryData['destination_summaries'][number]['state']) {
-  if (state === 'KEEP') return 'border-emerald-900/45 bg-emerald-950/15 text-emerald-100'
-  if (state === 'ARCHIVE') return 'border-cyan-900/45 bg-cyan-950/15 text-cyan-100'
-  if (state === 'QUARANTINE') return 'border-amber-900/45 bg-amber-950/15 text-amber-100'
-  if (state === 'UNSUBSCRIBE') return 'border-fuchsia-900/45 bg-fuchsia-950/15 text-fuchsia-100'
-  return 'border-violet-900/45 bg-violet-950/15 text-violet-100'
+function normalizeBucketFilter(value: string | null): BucketFilter {
+  return value === 'ARCHIVE' || value === 'CUSTOM_RULE' || value === 'QUARANTINE' || value === 'KEEP'
+    ? value
+    : 'ALL'
 }
 
-function executionTone(state: GmailDecisionManagementSummaryData['sender_profiles'][number]['execution_state']) {
-  if (state === 'succeeded') return 'border-emerald-700/60 bg-emerald-950/25 text-emerald-100'
-  if (state === 'failed') return 'border-rose-700/60 bg-rose-950/25 text-rose-100'
-  if (state === 'deferred') return 'border-amber-700/60 bg-amber-950/25 text-amber-100'
-  if (state === 'pending') return 'border-cyan-700/60 bg-cyan-950/25 text-cyan-100'
-  return 'border-gray-700 bg-gray-950/50 text-gray-200'
+function buildManagementHref(params: {
+  agentId: string
+  sessionId: string | null
+  analysisScope: string | null | undefined
+  bucket?: BucketFilter | null
+}): string {
+  const search = new URLSearchParams()
+  if (params.sessionId) search.set('playground_session_id', params.sessionId)
+  if (params.analysisScope && params.analysisScope !== '365d') {
+    search.set('analysis_scope', params.analysisScope)
+  }
+  if (params.bucket && params.bucket !== 'ALL') search.set('bucket', params.bucket)
+  const query = search.toString()
+  return `/agents/${params.agentId}/operations/management${query ? `?${query}` : ''}`
 }
 
-function executionLabel(state: GmailDecisionManagementSummaryData['sender_profiles'][number]['execution_state']) {
-  if (state === 'not_applicable') return 'Not applicable'
-  if (state === 'pending') return 'Pending'
-  if (state === 'succeeded') return 'Succeeded'
-  if (state === 'failed') return 'Failed'
-  return 'Deferred'
-}
-
-function archiveExecutionSummary(
-  profile: GmailDecisionManagementSummaryData['sender_profiles'][number]
-) {
-  if (profile.execution_state === 'succeeded') {
-    return 'Archive execution was confirmed against Gmail Inbox state.'
+function buildReviewHref(params: {
+  agentId: string
+  sessionId: string | null
+  analysisScope: string | null | undefined
+  mode?: 'overview' | 'decision'
+}): string {
+  const search = new URLSearchParams()
+  if (params.sessionId) search.set('playground_session_id', params.sessionId)
+  if (params.analysisScope && params.analysisScope !== '365d') {
+    search.set('analysis_scope', normalizeOperationsAnalysisScope(params.analysisScope))
   }
-  if (profile.execution_state === 'pending') {
-    return 'Archive execution has been committed and is waiting for verification.'
-  }
-  if (profile.execution_state === 'failed') {
-    return 'Archive execution did not complete successfully and needs intervention.'
-  }
-  if (profile.execution_state === 'deferred') {
-    return 'Archive execution was requested, but Inbox removal is not fully confirmed yet.'
-  }
-  return 'No Inbox-visible archive execution was required for this sender.'
+  if (params.mode === 'decision') search.set('mode', 'decision')
+  const query = search.toString()
+  return `/agents/${params.agentId}/operations/review${query ? `?${query}` : ''}`
 }
 
 function formatDateTime(value: string | null | undefined): string {
-  if (!value) return 'No recorded change yet'
+  if (!value) return 'No recorded change'
   const parsed = Date.parse(value)
   if (!Number.isFinite(parsed)) return value
   return new Date(parsed).toLocaleString()
 }
 
-function titleForDestinationState(state: DestinationSummary['state']): string {
-  if (state === 'KEEP') return 'Keep'
-  if (state === 'ARCHIVE') return 'Archive'
-  if (state === 'QUARANTINE') return 'Quarantine'
-  if (state === 'UNSUBSCRIBE') return 'Unsubscribe'
-  return 'Custom Rule'
+function pluralize(value: number, singular: string, plural = `${singular}s`): string {
+  return `${value.toLocaleString()} ${value === 1 ? singular : plural}`
 }
 
-function destinationBucketContext(summary: DestinationSummary, profiles: SenderProfile[]): string {
-  const succeeded = profiles.filter((profile) => profile.execution_state === 'succeeded').length
-  const deferred = profiles.filter((profile) => profile.execution_state === 'deferred').length
-  const pending = profiles.filter((profile) => profile.execution_state === 'pending').length
-  const failed = profiles.filter((profile) => profile.execution_state === 'failed').length
-
-  if (summary.state === 'ARCHIVE') {
-    if (failed > 0) {
-      return `${failed.toLocaleString()} archive destinations need manual follow-up.`
-    }
-    if (deferred + pending > 0) {
-      return `${(deferred + pending).toLocaleString()} archive destinations are still waiting on verified Inbox removal.`
-    }
-    if (succeeded > 0) {
-      return `${succeeded.toLocaleString()} archive destinations have verified Gmail execution.`
-    }
-    return 'Archive destinations are ready for verified execution tracking.'
-  }
-
-  if (summary.state === 'KEEP') {
-    return 'Keep is a stored sender preference in Phase 1, so Gmail execution is intentionally not applicable.'
-  }
-  if (summary.state === 'QUARANTINE') {
-    return 'Quarantine stays as a stored caution state for now while downstream execution remains deferred.'
-  }
-  if (summary.state === 'UNSUBSCRIBE') {
-    return 'Unsubscribe stays as committed intent until the unsubscribe executor arrives in a later phase.'
-  }
-  return 'Custom Rule holds sender-specific intent until rule authoring and automation arrive in a later phase.'
+function senderSignalLabel(
+  value: SenderProfile['trust_signals'] extends infer T
+    ? T extends { sender_signal: infer U }
+      ? U
+      : never
+    : never
+): string | null {
+  if (value === 'likely_machine_generated') return 'Likely machine generated'
+  if (value === 'likely_human') return 'Likely human'
+  if (value === 'uncertain') return 'Needs verification'
+  return null
 }
 
-function managementPriority(profile: SenderProfile): number {
-  if (profile.execution_state === 'failed') return 0
-  if (profile.execution_state === 'deferred') return 1
-  if (profile.execution_state === 'pending') return 2
-  if (profile.destination_state === 'CUSTOM_RULE') return 3
-  if (profile.destination_state === 'UNSUBSCRIBE') return 4
-  if (profile.destination_state === 'QUARANTINE') return 5
-  if (profile.execution_state === 'succeeded') return 6
+function supportingMessageCount(profile: SenderProfile): number {
+  return profile.trust_signals?.cleanup_group_message_count || profile.execution_message_count || 0
+}
+
+function destinationBadge(profile: SenderProfile): { label: string; className: string } {
+  if (profile.destination_state === 'KEEP') {
+    return {
+      label: 'Keep',
+      className: 'border-emerald-900/45 bg-emerald-950/20 text-emerald-100',
+    }
+  }
+  if (profile.destination_state === 'ARCHIVE') {
+    return {
+      label: 'Archive',
+      className: 'border-cyan-900/45 bg-cyan-950/20 text-cyan-100',
+    }
+  }
+  if (profile.destination_state === 'CUSTOM_RULE') {
+    return {
+      label: 'Custom Rule',
+      className: 'border-violet-900/45 bg-violet-950/20 text-violet-100',
+    }
+  }
+  return {
+    label: 'Quarantine',
+    className: 'border-amber-900/45 bg-amber-950/20 text-amber-100',
+  }
+}
+
+function executionPresentation(profile: SenderProfile): {
+  kind: ExecutionKind
+  lane: ExecutionLane
+  label: string
+  detail: string
+  actionSummary: string
+  className: string
+  canPushArchive: boolean
+  canRestoreArchive: boolean
+  canReopen: boolean
+} {
+  if (profile.destination_state === 'KEEP') {
+    return {
+      kind: 'protected_no_action',
+      lane: 'quiet',
+      label: 'Protected',
+      detail:
+        'Stored destination only. Keep remains visible in summary, filters, and sender profile management without competing as active work.',
+      actionSummary: 'Quiet managed state. Reopen only if this sender should return to Decisions.',
+      className: 'border-emerald-900/45 bg-emerald-950/10 text-emerald-100',
+      canPushArchive: false,
+      canRestoreArchive: false,
+      canReopen: true,
+    }
+  }
+
+  if (profile.destination_state === 'QUARANTINE') {
+    return {
+      kind: 'deferred_review',
+      lane: 'stored',
+      label: 'Deferred Review',
+      detail:
+        'Stored destination only. This sender is intentionally parked for later review and does not change Gmail in this slice.',
+      actionSummary:
+        'Controlled deferral. Reopen when you want this sender back in Decision Mode for a new decision.',
+      className: 'border-amber-900/45 bg-amber-950/10 text-amber-100',
+      canPushArchive: false,
+      canRestoreArchive: false,
+      canReopen: true,
+    }
+  }
+
+  if (profile.destination_state === 'CUSTOM_RULE') {
+    const refinedReady = profile.execution_source === 'ready_to_push'
+    const pushRequested = profile.execution_source === 'push_requested' || profile.execution_state === 'pending'
+    const applied = profile.execution_source === 'verified_applied' && profile.execution_state === 'succeeded'
+    const reversed = profile.execution_source === 'reversed' && profile.execution_state === 'succeeded'
+    const mismatch =
+      profile.execution_source === 'sync_mismatch_or_failed' ||
+      profile.execution_state === 'failed'
+
+    if (applied) {
+      return {
+        kind: 'verified_applied',
+        lane: 'applied',
+        label: 'Verified Applied',
+        detail: 'A legacy downstream action exists for this sender and was verified after execution.',
+        actionSummary:
+          'This state is already applied. Reopen only if you intend to supersede the managed destination.',
+        className: 'border-emerald-900/45 bg-emerald-950/10 text-emerald-100',
+        canPushArchive: false,
+        canRestoreArchive: false,
+        canReopen: true,
+      }
+    }
+    if (reversed) {
+      return {
+        kind: 'reversed',
+        lane: 'applied',
+        label: 'Reversed',
+        detail:
+          'A previous external action was reversed. The sender remains managed until you explicitly reopen it.',
+        actionSummary:
+          'Reopen returns the sender to Decision Mode while preserving the management history.',
+        className: 'border-slate-700 bg-slate-950/35 text-slate-100',
+        canPushArchive: false,
+        canRestoreArchive: false,
+        canReopen: true,
+      }
+    }
+    if (pushRequested) {
+      return {
+        kind: 'push_requested',
+        lane: 'waiting',
+        label: 'Push Requested',
+        detail: 'A legacy downstream push is in progress for this sender.',
+        actionSummary: 'No new action is available while this sender waits on external execution or verification.',
+        className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
+        canPushArchive: false,
+        canRestoreArchive: false,
+        canReopen: false,
+      }
+    }
+    if (mismatch) {
+      return {
+        kind: 'sync_mismatch_or_failed',
+        lane: 'active_work',
+        label: 'Needs Attention',
+        detail: profile.execution_warning || 'Execution and sync truth need follow-up before this sender is trusted again.',
+        actionSummary: 'This is a valid managed state, but its execution history needs operator attention.',
+        className: 'border-rose-900/45 bg-rose-950/10 text-rose-100',
+        canPushArchive: false,
+        canRestoreArchive: false,
+        canReopen: true,
+      }
+    }
+    if (refinedReady) {
+      return {
+        kind: 'ready_to_push',
+        lane: 'stored',
+        label: 'Ready After Refinement',
+        detail:
+          'Refinement history exists, but Gmail action remains outside slice 1. This sender stays managed until the refinement flow ships.',
+        actionSummary: 'No Gmail action is available in this slice even when refinement metadata exists.',
+        className: 'border-violet-900/45 bg-violet-950/10 text-violet-100',
+        canPushArchive: false,
+        canRestoreArchive: false,
+        canReopen: true,
+      }
+    }
+    return {
+      kind: 'pending_refinement',
+      lane: 'stored',
+      label: 'Pending Refinement',
+      detail:
+        'Stored destination only. This is an intentional managed state while category-level refinement remains out of scope for slice 1.',
+      actionSummary:
+        'No Gmail action is available yet. The next step is later refinement, not another decision or immediate execution.',
+      className: 'border-violet-900/45 bg-violet-950/10 text-violet-100',
+      canPushArchive: false,
+      canRestoreArchive: false,
+      canReopen: true,
+    }
+  }
+
+  const readyToPush =
+    profile.execution_source === 'ready_to_push' ||
+    (profile.execution_state === 'deferred' && !profile.execution_source)
+  const pushRequested = profile.execution_source === 'push_requested' || profile.execution_state === 'pending'
+  const applied = profile.execution_source === 'verified_applied' && profile.execution_state === 'succeeded'
+  const reversed = profile.execution_source === 'reversed' && profile.execution_state === 'succeeded'
+  const mismatch =
+    profile.execution_source === 'sync_mismatch_or_failed' || profile.execution_state === 'failed'
+
+  if (applied) {
+    return {
+      kind: 'verified_applied',
+      lane: 'applied',
+      label: 'Verified Applied',
+      detail: 'Gmail Inbox state has been verified for this archive destination.',
+      actionSummary:
+        'Restore is available here in Management because this is where Gmail mutations are controlled and verified.',
+      className: 'border-emerald-900/45 bg-emerald-950/10 text-emerald-100',
+      canPushArchive: false,
+      canRestoreArchive: true,
+      canReopen: false,
+    }
+  }
+  if (reversed) {
+    return {
+      kind: 'reversed',
+      lane: 'applied',
+      label: 'Reversed',
+      detail:
+        'Inbox restore has been verified. The sender remains managed until you reopen it for a new decision.',
+      actionSummary: 'You can push again later or reopen this sender back into Decision Mode.',
+      className: 'border-slate-700 bg-slate-950/35 text-slate-100',
+      canPushArchive: true,
+      canRestoreArchive: false,
+      canReopen: true,
+    }
+  }
+  if (pushRequested) {
+    return {
+      kind: 'push_requested',
+      lane: 'waiting',
+      label: 'Push Requested',
+      detail: 'Archive push is in progress and waiting on Gmail execution or verification.',
+      actionSummary: 'This sender is waiting on Gmail. New archive actions stay locked until verification finishes.',
+      className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
+      canPushArchive: false,
+      canRestoreArchive: false,
+      canReopen: false,
+    }
+  }
+  if (mismatch) {
+    return {
+      kind: 'sync_mismatch_or_failed',
+      lane: 'active_work',
+      label: 'Needs Attention',
+      detail: profile.execution_warning || 'Archive execution did not fully verify against Gmail state.',
+      actionSummary:
+        'Management is the place to retry or reopen because Gmail changes only happen from this surface.',
+      className: 'border-rose-900/45 bg-rose-950/10 text-rose-100',
+      canPushArchive: true,
+      canRestoreArchive: false,
+      canReopen: true,
+    }
+  }
+  if (readyToPush) {
+    return {
+      kind: 'ready_to_push',
+      lane: 'active_work',
+      label: 'Ready to Push',
+      detail: 'Stored destination only. Gmail will change only after an explicit Management push.',
+      actionSummary:
+        'Push to Gmail is the execution step. Decision Mode stored the destination earlier but did not mutate Gmail.',
+      className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
+      canPushArchive: true,
+      canRestoreArchive: false,
+      canReopen: true,
+    }
+  }
+  return {
+    kind: 'ready_to_push',
+    lane: 'active_work',
+    label: 'Ready to Push',
+    detail: 'Stored destination only. Gmail will change only after an explicit Management push.',
+    actionSummary:
+      'Push to Gmail is the execution step. Decision Mode stored the destination earlier but did not mutate Gmail.',
+    className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
+    canPushArchive: true,
+    canRestoreArchive: false,
+    canReopen: true,
+  }
+}
+
+type DecoratedProfile = {
+  profile: SenderProfile
+  destination: ReturnType<typeof destinationBadge>
+  execution: ReturnType<typeof executionPresentation>
+  supportingMessages: number
+}
+
+function decorateProfile(profile: SenderProfile): DecoratedProfile {
+  return {
+    profile,
+    destination: destinationBadge(profile),
+    execution: executionPresentation(profile),
+    supportingMessages: supportingMessageCount(profile),
+  }
+}
+
+function groupPriority(item: DecoratedProfile): number {
+  if (item.execution.kind === 'sync_mismatch_or_failed') return 0
+  if (item.execution.kind === 'ready_to_push') return 1
+  if (item.execution.kind === 'push_requested') return 2
+  if (item.execution.kind === 'verified_applied') return 3
+  if (item.execution.kind === 'reversed') return 4
+  if (item.execution.kind === 'pending_refinement') return 5
+  if (item.execution.kind === 'deferred_review') return 6
   return 7
 }
 
-function managementPriorityLabel(profile: SenderProfile): string {
-  if (profile.execution_state === 'failed') return 'Needs attention'
-  if (profile.execution_state === 'deferred') return 'Follow up'
-  if (profile.execution_state === 'pending') return 'In progress'
-  if (profile.destination_state === 'CUSTOM_RULE') return 'Future rule work'
-  if (profile.destination_state === 'UNSUBSCRIBE') return 'Future unsubscribe work'
-  if (profile.destination_state === 'QUARANTINE') return 'Future quarantine work'
-  if (profile.execution_state === 'succeeded') return 'Executed'
-  return 'Managed'
+function sortDecoratedProfiles(items: DecoratedProfile[]): DecoratedProfile[] {
+  return [...items].sort((left, right) => {
+    const priority = groupPriority(left) - groupPriority(right)
+    if (priority !== 0) return priority
+    return Date.parse(right.profile.last_action_timestamp) - Date.parse(left.profile.last_action_timestamp)
+  })
 }
 
-function loadingSkeleton(className: string) {
-  return <div className={`animate-pulse rounded-2xl bg-gray-800/70 ${className}`} />
+function sumSupportingMessages(items: DecoratedProfile[]): number {
+  return items.reduce((total, item) => total + item.supportingMessages, 0)
+}
+
+function countByKind(items: DecoratedProfile[], kind: ExecutionKind): number {
+  return items.filter((item) => item.execution.kind === kind).length
+}
+
+function actionFootnote(item: DecoratedProfile): string {
+  if (item.execution.canPushArchive) {
+    return 'Push to Gmail is the only action here that changes Gmail in slice 1.'
+  }
+  if (item.execution.canRestoreArchive) {
+    return 'Restore will return verified archive changes back into Inbox while keeping the sender managed.'
+  }
+  if (item.profile.destination_state === 'CUSTOM_RULE') {
+    return 'Valid managed state. Gmail action stays unavailable until the later refinement slice ships.'
+  }
+  if (item.profile.destination_state === 'QUARANTINE') {
+    return 'Deferred on purpose. Reopen when this sender needs another decision pass.'
+  }
+  if (item.profile.destination_state === 'KEEP') {
+    return 'Quiet managed state. Keep stays visible in summary and filters without becoming active work.'
+  }
+  if (item.execution.kind === 'push_requested') {
+    return 'Waiting on Gmail execution or verification before more actions become available.'
+  }
+  return 'No additional action is available right now.'
+}
+
+const nestedSurfaceClass = 'app-surface-card-nested'
+const insetSurfaceClass = 'app-surface-card-inset'
+const insetPillClass = 'app-surface-card-tile'
+const quietSecondaryActionClass =
+  'app-surface-card-tile text-gray-200 hover:border-cyan-700/60 hover:text-cyan-100'
+
+function SectionHeader(props: { title: string; subtitle: string }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="text-lg font-semibold text-white">{props.title}</p>
+        <p className="mt-1 text-sm text-gray-400">{props.subtitle}</p>
+      </div>
+    </div>
+  )
+}
+
+function SummaryCard(props: {
+  title: string
+  value: string
+  detail: string
+  className: string
+}) {
+  return (
+    <div className={`${nestedSurfaceClass} rounded-2xl p-4 ${props.className}`}>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">{props.title}</p>
+      <p className="mt-2 text-2xl font-semibold text-white">{props.value}</p>
+      <p className="mt-2 text-xs leading-5 text-gray-300">{props.detail}</p>
+    </div>
+  )
+}
+
+function LaneCard(props: {
+  title: string
+  value: string
+  detail: string
+  className: string
+}) {
+  return (
+    <div className={`${nestedSurfaceClass} rounded-2xl p-4 ${props.className}`}>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">{props.title}</p>
+      <p className="mt-2 text-lg font-semibold text-white">{props.value}</p>
+      <p className="mt-2 text-xs leading-5 text-gray-300">{props.detail}</p>
+    </div>
+  )
+}
+
+function SenderRow(props: {
+  item: DecoratedProfile
+  onPushArchive: (profile: SenderProfile) => Promise<void>
+  onRestoreArchive: (profile: SenderProfile) => Promise<void>
+  onReopen: (profile: SenderProfile) => Promise<void>
+  pushingSenderKey: string | null
+  restoringSenderKey: string | null
+  reopeningSenderKey: string | null
+}) {
+  const { item } = props
+  const { profile, destination, execution } = item
+  const isPushing = props.pushingSenderKey === profile.sender_key
+  const isRestoring = props.restoringSenderKey === profile.sender_key
+  const isReopening = props.reopeningSenderKey === profile.sender_key
+  const signalLabel = senderSignalLabel(profile.trust_signals?.sender_signal ?? null)
+  const supportingSummary =
+    item.supportingMessages > 0 ? pluralize(item.supportingMessages, 'cleanup-group message') : null
+  const totalSenderSummary =
+    profile.trust_signals?.total_sender_messages != null
+      ? pluralize(profile.trust_signals.total_sender_messages, 'total sender message')
+      : null
+  const unreadSummary =
+    profile.trust_signals?.unread_count != null
+      ? pluralize(profile.trust_signals.unread_count, 'unread message')
+      : null
+  const detailSummary =
+    profile.trust_signals?.category_summary ||
+    profile.trust_signals?.dominant_pattern ||
+    profile.trust_signals?.protected_hint ||
+    null
+
+  return (
+    <article className="app-surface-card rounded-2xl p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-base font-semibold text-white">{profile.sender}</p>
+          <p className="mt-1 text-xs text-gray-500">Last changed {formatDateTime(profile.last_action_timestamp)}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
+            {profile.domain ? (
+              <span className={`${insetPillClass} rounded-full px-2.5 py-1`}>
+                {profile.domain}
+              </span>
+            ) : null}
+            {supportingSummary ? (
+              <span className={`${insetPillClass} rounded-full px-2.5 py-1`}>
+                {supportingSummary}
+              </span>
+            ) : null}
+            {totalSenderSummary ? (
+              <span className={`${insetPillClass} rounded-full px-2.5 py-1`}>
+                {totalSenderSummary}
+              </span>
+            ) : null}
+            {unreadSummary ? (
+              <span className={`${insetPillClass} rounded-full px-2.5 py-1`}>
+                {unreadSummary}
+              </span>
+            ) : null}
+            {signalLabel ? (
+              <span className={`${insetPillClass} rounded-full px-2.5 py-1`}>
+                {signalLabel}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Destination</span>
+          <span className={`rounded-full border px-2.5 py-1 text-xs ${destination.className}`}>
+            {destination.label}
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Execution</span>
+          <span className={`rounded-full border px-2.5 py-1 text-xs ${execution.className}`}>
+            {execution.label}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_1.15fr_0.95fr]">
+        <div className={`${nestedSurfaceClass} rounded-xl p-3`}>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">Destination state</p>
+          <p className="mt-2 text-sm text-gray-200">
+            {profile.destination_reason || `${destination.label} is the active managed destination for this sender.`}
+          </p>
+          {detailSummary ? <p className="mt-2 text-xs leading-5 text-gray-400">{detailSummary}</p> : null}
+        </div>
+        <div className={`${nestedSurfaceClass} rounded-xl p-3`}>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">Execution / sync truth</p>
+          <p className="mt-2 text-sm text-gray-200">{execution.detail}</p>
+          {profile.execution_message_count ? (
+            <p className="mt-2 text-xs text-gray-400">
+              Last verified execution touched {pluralize(profile.execution_message_count, 'message')}.
+            </p>
+          ) : null}
+          {profile.trust_signals?.requires_verification &&
+          profile.trust_signals.verification_reasons.length > 0 ? (
+            <p className="mt-2 text-xs leading-5 text-gray-400">
+              Verification context: {profile.trust_signals.verification_reasons.join(', ')}.
+            </p>
+          ) : null}
+          {profile.execution_warning ? (
+            <p className="mt-2 text-xs leading-5 text-gray-400">{profile.execution_warning}</p>
+          ) : null}
+        </div>
+        <div className={`${nestedSurfaceClass} rounded-xl p-3`}>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">Available actions</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {execution.canPushArchive ? (
+              <button
+                type="button"
+                disabled={isPushing || isRestoring || isReopening}
+                onClick={() => void props.onPushArchive(profile)}
+                className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isPushing ? 'Pushing…' : 'Push to Gmail'}
+              </button>
+            ) : null}
+            {execution.canRestoreArchive ? (
+              <button
+                type="button"
+                disabled={isPushing || isRestoring || isReopening}
+                onClick={() => void props.onRestoreArchive(profile)}
+                className="rounded-full border border-amber-700/50 bg-amber-950/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:border-amber-600/70 hover:bg-amber-950/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRestoring ? 'Restoring…' : 'Restore'}
+              </button>
+            ) : null}
+            {execution.canReopen ? (
+              <button
+                type="button"
+                disabled={isPushing || isRestoring || isReopening}
+                onClick={() => void props.onReopen(profile)}
+                className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {isReopening ? 'Reopening…' : 'Reopen in Decisions'}
+              </button>
+            ) : null}
+            {!execution.canPushArchive && !execution.canRestoreArchive && !execution.canReopen ? (
+              <span className={`${insetPillClass} rounded-full px-4 py-2 text-sm text-gray-400`}>
+                No action available right now
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-gray-400">{actionFootnote(item)}</p>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function SenderGroup(props: {
+  title: string
+  subtitle: string
+  items: DecoratedProfile[]
+  onPushArchive: (profile: SenderProfile) => Promise<void>
+  onRestoreArchive: (profile: SenderProfile) => Promise<void>
+  onReopen: (profile: SenderProfile) => Promise<void>
+  pushingSenderKey: string | null
+  restoringSenderKey: string | null
+  reopeningSenderKey: string | null
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="app-surface-card rounded-2xl p-4">
+        <p className="text-sm font-semibold text-white">{props.title}</p>
+        <p className="mt-1 text-sm text-gray-400">{props.subtitle}</p>
+      </div>
+      <div className="space-y-3">
+        {props.items.map((item) => (
+          <SenderRow
+            key={item.profile.sender_key}
+            item={item}
+            onPushArchive={props.onPushArchive}
+            onRestoreArchive={props.onRestoreArchive}
+            onReopen={props.onReopen}
+            pushingSenderKey={props.pushingSenderKey}
+            restoringSenderKey={props.restoringSenderKey}
+            reopeningSenderKey={props.reopeningSenderKey}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function OperationsDecisionManagementPage() {
   const params = useParams()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const agentId = typeof params?.id === 'string' ? params.id : ''
-  const query = serializeOperationsQuery(
-    searchParams.get('playground_session_id'),
-    normalizeOperationsAnalysisScope(searchParams.get('analysis_scope'))
-  )
+  const sessionId = searchParams.get('playground_session_id')
+  const analysisScope = normalizeOperationsAnalysisScope(searchParams.get('analysis_scope'))
+  const bucket = normalizeBucketFilter(searchParams.get('bucket'))
+
   const [state, setState] = useState<LoadState>({ status: 'loading', data: null, error: null })
   const [actionNote, setActionNote] = useState<string | null>(null)
-  const [clearingSenderKey, setClearingSenderKey] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [pushingSenderKey, setPushingSenderKey] = useState<string | null>(null)
   const [restoringSenderKey, setRestoringSenderKey] = useState<string | null>(null)
+  const [reopeningSenderKey, setReopeningSenderKey] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!agentId) return
-    let cancelled = false
-    void fetchGmailDecisionManagementSummary({ agentId }).then((result) => {
-      if (cancelled) return
-      if (!result.ok) {
-        setState({ status: 'error', data: null, error: result.error })
-        return
-      }
-      setState({ status: 'ready', data: result.data, error: null })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [agentId])
-
-  const reload = async () => {
+  const reload = useCallback(async () => {
     const result = await fetchGmailDecisionManagementSummary({ agentId })
     if (!result.ok) {
       setState({ status: 'error', data: null, error: result.error })
       return
     }
     setState({ status: 'ready', data: result.data, error: null })
-  }
+  }, [agentId])
 
-  const clearDestinationState = async (senderKey: string, sender: string) => {
-    setClearingSenderKey(senderKey)
+  useEffect(() => {
+    if (!agentId) return
+    void reload()
+  }, [agentId, reload])
+
+  const pushArchive = async (profile: SenderProfile) => {
+    setPushingSenderKey(profile.sender_key)
     setActionNote(null)
+    setActionError(null)
     try {
-      const result = await persistGmailCleanupMemoryEvent({
-        agentId,
-        sessionId: searchParams.get('playground_session_id'),
-        cluster: null,
-        action: {
-          type: 'destination_state_clear',
-          senderKey,
-          sender,
-          reason:
-            'Destination state was cleared from the management scaffold so the sender can be reviewed again.',
-        },
+      const res = await fetch('/api/runtime/gmail-destinations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'push_archive',
+          agentId,
+          sessionId,
+          senderKey: profile.sender_key,
+          sender: profile.sender,
+          analysisScope,
+        }),
       })
-      if (!result.ok) {
-        setActionNote(result.error)
+      const payload = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean
+            error?: string
+            data?: {
+              sender_key: string
+              sender: string
+              archive_execution: {
+                status: 'pending' | 'succeeded' | 'failed' | 'deferred' | 'not_applicable'
+                message_count: number
+                warning?: string | null
+              }
+            }
+          }
+        | null
+
+      if (!res.ok || !payload?.ok || !payload.data) {
+        setActionError(payload?.error || 'Failed to push this archive sender to Gmail.')
         return
       }
-      clearSenderFromGmailCleanupWorkflowDrafts({
-        agentId,
-        senderKey,
-        sessionId: searchParams.get('playground_session_id'),
-      })
-      setActionNote(`${sender} was removed from the active destination layer. Any external Gmail reversal still requires a future restore surface.`)
+
+      const execution = payload.data.archive_execution
+      if (execution.status === 'succeeded') {
+        setActionNote(
+          `${profile.sender} archive is now verified in Gmail for ${execution.message_count.toLocaleString()} messages.`
+        )
+      } else if (execution.status === 'pending') {
+        setActionNote(`${profile.sender} archive push has been requested and is still in progress.`)
+      } else {
+        setActionError(
+          `${profile.sender} needs attention: ${execution.warning || 'Archive execution could not be fully verified.'}`
+        )
+      }
       await reload()
     } finally {
-      setClearingSenderKey(null)
+      setPushingSenderKey(null)
     }
   }
 
-  const restoreArchiveDestination = async (senderKey: string, sender: string) => {
-    setRestoringSenderKey(senderKey)
+  const restoreArchive = async (profile: SenderProfile) => {
+    setRestoringSenderKey(profile.sender_key)
     setActionNote(null)
+    setActionError(null)
     try {
       const res = await fetch('/api/runtime/gmail-destinations', {
         method: 'POST',
@@ -216,9 +743,9 @@ export default function OperationsDecisionManagementPage() {
         body: JSON.stringify({
           action: 'restore_archive',
           agentId,
-          sessionId: searchParams.get('playground_session_id'),
-          senderKey,
-          sender,
+          sessionId,
+          senderKey: profile.sender_key,
+          sender: profile.sender,
         }),
       })
       const payload = (await res.json().catch(() => null)) as
@@ -232,34 +759,24 @@ export default function OperationsDecisionManagementPage() {
                 status: 'pending' | 'succeeded' | 'failed' | 'deferred' | 'not_applicable'
                 message_count: number
                 warning?: string | null
-                cleared_destination_state: boolean
               }
             }
           }
         | null
 
       if (!res.ok || !payload?.ok || !payload.data) {
-        setActionNote(payload?.error || 'Failed to restore Inbox state for this archive sender.')
+        setActionError(payload?.error || 'Failed to restore this archive sender.')
         return
       }
 
       const restore = payload.data.restore_execution
-      if (restore.status === 'succeeded' && restore.cleared_destination_state) {
-        clearSenderFromGmailCleanupWorkflowDrafts({
-          agentId,
-          senderKey,
-          sessionId: searchParams.get('playground_session_id'),
-        })
+      if (restore.status === 'succeeded') {
         setActionNote(
-          `${sender} was restored to Inbox for ~${restore.message_count.toLocaleString()} messages and removed from the active archive destination layer.`
-        )
-      } else if (restore.status === 'failed') {
-        setActionNote(
-          `${sender} restore needs attention: ${restore.warning || 'Inbox restore could not be completed.'}`
+          `${profile.sender} was restored in Gmail for ${restore.message_count.toLocaleString()} messages. The archive destination remains managed until you reopen it.`
         )
       } else {
-        setActionNote(
-          `${sender} restore is still in follow-up: ${restore.warning || 'Inbox restore could not be fully confirmed yet.'}`
+        setActionError(
+          `${profile.sender} restore needs attention: ${restore.warning || 'Inbox restore could not be fully verified.'}`
         )
       }
       await reload()
@@ -268,47 +785,46 @@ export default function OperationsDecisionManagementPage() {
     }
   }
 
+  const reopenSender = async (profile: SenderProfile) => {
+    setReopeningSenderKey(profile.sender_key)
+    setActionNote(null)
+    setActionError(null)
+    try {
+      const result = await persistGmailCleanupMemoryEvent({
+        agentId,
+        sessionId,
+        cluster: profile.cluster,
+        action: {
+          type: 'destination_state_clear',
+          senderKey: profile.sender_key,
+          sender: profile.sender,
+          reason:
+            'Sender was explicitly reopened from Management so it can return to the decision queue.',
+        },
+      })
+
+      if (!result.ok) {
+        setActionError(result.error)
+        return
+      }
+
+      clearSenderFromGmailCleanupWorkflowDrafts({
+        agentId,
+        senderKey: profile.sender_key,
+        sessionId,
+      })
+      setActionNote(`${profile.sender} was reopened and will be eligible in Sender Decisions again.`)
+      await reload()
+    } finally {
+      setReopeningSenderKey(null)
+    }
+  }
+
   if (state.status === 'loading') {
     return (
-      <div className="space-y-4">
-        <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5 space-y-4">
-          <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
-              Decision Management Dashboard
-            </p>
-            <h1 className="text-2xl font-semibold text-white">Loading committed sender states…</h1>
-            <p className="max-w-3xl text-sm text-gray-300">
-              Preparing destination buckets, execution truth, and the current sender management layer.
-            </p>
-          </div>
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            {loadingSkeleton('h-56')}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              {loadingSkeleton('h-28')}
-              {loadingSkeleton('h-28')}
-            </div>
-          </div>
-        </section>
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="rounded-2xl border border-gray-800 bg-gray-950/35 p-4">
-              {loadingSkeleton('h-24')}
-            </div>
-          ))}
-        </section>
-        <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/35 p-5 space-y-3">
-            {loadingSkeleton('h-8 w-48')}
-            {loadingSkeleton('h-28')}
-            {loadingSkeleton('h-28')}
-          </div>
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/35 p-5 space-y-3">
-            {loadingSkeleton('h-8 w-56')}
-            {loadingSkeleton('h-24')}
-            {loadingSkeleton('h-24')}
-          </div>
-        </section>
-      </div>
+      <section className="app-surface-card-subtle rounded-2xl p-5 text-sm text-gray-300">
+        Loading Management control center…
+      </section>
     )
   }
 
@@ -320,637 +836,588 @@ export default function OperationsDecisionManagementPage() {
     )
   }
 
-  const archiveExecutionAttentionProfiles = state.data.sender_profiles.filter(
+  const senderProfiles = state.data.sender_profiles.filter(
     (profile) =>
-      profile.destination_state === 'ARCHIVE' &&
-      (profile.execution_state === 'failed' ||
-        profile.execution_state === 'deferred' ||
-        profile.execution_state === 'pending')
+      profile.destination_state === 'KEEP' ||
+      profile.destination_state === 'ARCHIVE' ||
+      profile.destination_state === 'CUSTOM_RULE' ||
+      profile.destination_state === 'QUARANTINE'
   )
-  const senderProfiles = state.data.sender_profiles
-  const executionCounts = senderProfiles.reduce(
-    (counts, profile) => {
-      counts[profile.execution_state] += 1
-      return counts
-    },
-    {
-      not_applicable: 0,
-      pending: 0,
-      succeeded: 0,
-      failed: 0,
-      deferred: 0,
-    } as Record<SenderProfile['execution_state'], number>
-  )
-  const largestBucket =
-    state.data.destination_summaries
-      .slice()
-      .sort((left, right) => right.sender_count - left.sender_count)[0] || null
-  const futureIntentProfiles = senderProfiles.filter((profile) =>
-    profile.destination_state === 'QUARANTINE' ||
-    profile.destination_state === 'UNSUBSCRIBE' ||
-    profile.destination_state === 'CUSTOM_RULE'
-  )
-  const restoreReadyCount = senderProfiles.filter(
-    (profile) => profile.destination_state === 'ARCHIVE' && profile.execution_state === 'succeeded'
-  ).length
-  const managedProfiles = senderProfiles
-    .slice()
-    .sort((left, right) => {
-      const priorityDelta = managementPriority(left) - managementPriority(right)
-      if (priorityDelta !== 0) return priorityDelta
-      return Date.parse(right.last_action_timestamp) - Date.parse(left.last_action_timestamp)
-    })
-  const bucketProfiles = new Map<DestinationSummary['state'], SenderProfile[]>()
-  for (const summary of state.data.destination_summaries) {
-    bucketProfiles.set(summary.state, [])
-  }
-  for (const profile of senderProfiles) {
-    bucketProfiles.set(profile.destination_state, [
-      ...(bucketProfiles.get(profile.destination_state) || []),
-      profile,
-    ])
+
+  const decoratedProfiles = senderProfiles.map(decorateProfile)
+  const profilesByBucket: Record<BucketKey, DecoratedProfile[]> = {
+    ARCHIVE: sortDecoratedProfiles(
+      decoratedProfiles.filter((item) => item.profile.destination_state === 'ARCHIVE')
+    ),
+    CUSTOM_RULE: sortDecoratedProfiles(
+      decoratedProfiles.filter((item) => item.profile.destination_state === 'CUSTOM_RULE')
+    ),
+    QUARANTINE: sortDecoratedProfiles(
+      decoratedProfiles.filter((item) => item.profile.destination_state === 'QUARANTINE')
+    ),
+    KEEP: sortDecoratedProfiles(decoratedProfiles.filter((item) => item.profile.destination_state === 'KEEP')),
   }
 
-  const nextAction = (() => {
-    if (archiveExecutionAttentionProfiles.length > 0) {
-      const failedCount = archiveExecutionAttentionProfiles.filter(
-        (profile) => profile.execution_state === 'failed'
-      ).length
-      return {
-        title:
-          failedCount > 0
-            ? 'Resolve archive execution warnings'
-            : 'Follow up deferred archive execution',
-        detail:
-          failedCount > 0
-            ? `${failedCount.toLocaleString()} archive destinations need intervention before this layer can be treated as fully executed.`
-            : `${archiveExecutionAttentionProfiles.length.toLocaleString()} archive destinations still need execution confirmation or follow-up.`,
-        payoff:
-          'Closing these gaps makes the post-confirmation layer trustworthy and easier to manage later.',
-      }
-    }
-    if (futureIntentProfiles.length > 0) {
-      return {
-        title: 'Review stored future-intent destinations',
-        detail: `${futureIntentProfiles.length.toLocaleString()} senders are managed as quarantine, unsubscribe, or custom-rule intent until later-phase execution arrives.`,
-        payoff:
-          'You can keep using this dashboard as the source of truth without losing where those senders should go next.',
-      }
-    }
-    if (largestBucket && largestBucket.sender_count > 0) {
-      return {
-        title: `Keep an eye on ${largestBucket.label.toLowerCase()}`,
-        detail: `${largestBucket.sender_count.toLocaleString()} managed senders currently live in the largest destination bucket.`,
-        payoff: 'This gives you the clearest view of where committed sender state is accumulating.',
-      }
-    }
-    return {
-      title: 'Approve the first confirmation set',
-      detail:
-        'No destination states have been committed yet, so this dashboard will fill in as soon as approved senders land here.',
-      payoff: 'The management layer becomes the durable home for committed sender states and later adjustments.',
-    }
-  })()
+  const archiveReadyItems = profilesByBucket.ARCHIVE.filter((item) => item.execution.kind === 'ready_to_push')
+  const archiveWaitingItems = profilesByBucket.ARCHIVE.filter((item) => item.execution.kind === 'push_requested')
+  const archiveAppliedItems = profilesByBucket.ARCHIVE.filter(
+    (item) => item.execution.kind === 'verified_applied'
+  )
+  const archiveAttentionItems = profilesByBucket.ARCHIVE.filter(
+    (item) => item.execution.kind === 'sync_mismatch_or_failed'
+  )
+  const archiveReversedItems = profilesByBucket.ARCHIVE.filter((item) => item.execution.kind === 'reversed')
 
-  const attentionCards = (() => {
-    const cards: Array<{
-      title: string
-      tone: string
-      value: string
-      detail: string
-      senders: string[]
-    }> = []
+  const customPendingItems = profilesByBucket.CUSTOM_RULE.filter(
+    (item) => item.execution.kind === 'pending_refinement'
+  )
+  const customLegacyItems = profilesByBucket.CUSTOM_RULE.filter(
+    (item) => item.execution.kind !== 'pending_refinement'
+  )
+  const quarantineDeferredItems = profilesByBucket.QUARANTINE.filter(
+    (item) => item.execution.kind === 'deferred_review'
+  )
 
-    if (archiveExecutionAttentionProfiles.length > 0) {
-      cards.push({
-        title: 'Archive follow-up',
-        tone: 'border-amber-900/45 bg-amber-950/12 text-amber-100',
-        value: `${archiveExecutionAttentionProfiles.length.toLocaleString()} senders`,
-        detail:
-          'These archive destinations are still pending, deferred, or failed. Review warnings here before treating the state as fully executed.',
-        senders: archiveExecutionAttentionProfiles.slice(0, 3).map((profile) => profile.sender),
-      })
-    } else {
-      cards.push({
-        title: 'Archive follow-up',
-        tone: 'border-emerald-900/45 bg-emerald-950/12 text-emerald-100',
-        value: 'No urgent blockers',
-        detail:
-          'Archive destinations are either verified, not applicable, or absent right now.',
-        senders: [],
-      })
-    }
+  const totalManagedCount = decoratedProfiles.length
+  const totalManagedMessages = sumSupportingMessages(decoratedProfiles)
+  const archiveReadyCount = archiveReadyItems.length
+  const archiveWaitingCount = archiveWaitingItems.length
+  const archiveAppliedCount = archiveAppliedItems.length
+  const archiveNeedsAttentionCount = archiveAttentionItems.length
+  const archiveReversedCount = archiveReversedItems.length
+  const customPendingCount = customPendingItems.length
+  const quarantineCount = profilesByBucket.QUARANTINE.length
+  const keepCount = profilesByBucket.KEEP.length
+  const readyArchiveMessages = sumSupportingMessages(archiveReadyItems) + sumSupportingMessages(archiveAttentionItems)
 
-    if (restoreReadyCount > 0) {
-      cards.push({
-        title: 'Restore-ready archive states',
-        tone: 'border-cyan-900/45 bg-cyan-950/12 text-cyan-100',
-        value: `${restoreReadyCount.toLocaleString()} senders`,
-        detail:
-          'These archive destinations were verified and can be restored from this dashboard if the operator changes course.',
-        senders: managedProfiles
-          .filter(
-            (profile) =>
-              profile.destination_state === 'ARCHIVE' && profile.execution_state === 'succeeded'
-          )
-          .slice(0, 3)
-          .map((profile) => profile.sender),
-      })
-    } else {
-      cards.push({
-        title: 'Restore-ready archive states',
-        tone: 'border-gray-800 bg-gray-950/35 text-gray-200',
-        value: 'None yet',
-        detail:
-          'Verified archive destinations will surface here once there is real Inbox state to restore.',
-        senders: [],
-      })
-    }
-
-    cards.push({
-      title: 'Future-intent destinations',
-      tone: 'border-fuchsia-900/45 bg-fuchsia-950/12 text-fuchsia-100',
-      value: `${futureIntentProfiles.length.toLocaleString()} senders`,
-      detail:
-        'Custom Rule, Unsubscribe, and Quarantine stay visible here as committed intent until later-phase executors arrive.',
-      senders: futureIntentProfiles.slice(0, 3).map((profile) => profile.sender),
-    })
-
-    return cards
-  })()
+  const visibleSections =
+    bucket === 'ALL'
+      ? (['ARCHIVE', 'CUSTOM_RULE', 'QUARANTINE'] as const)
+      : bucket === 'KEEP'
+        ? ([] as const)
+        : ([bucket] as const)
 
   return (
     <div className="space-y-4">
-      <header className="app-page-header app-page-header-hero rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/30 to-gray-950/45 p-5 space-y-5">
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-4">
-            <div className="max-w-3xl space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
-                Decision Management Dashboard
-              </p>
-              <h1 className="text-2xl font-semibold text-white">
-                Post-confirmation home for committed sender states
-              </h1>
-              <p className="text-sm text-gray-300">
-                See what is already managed, what still needs attention, what actually executed, and
-                where follow-up belongs next.
-              </p>
-            </div>
-            <div className="grid gap-3 xl:grid-cols-[0.82fr_0.82fr_1.36fr]">
-              <article className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">
-                  Current posture
-                </p>
-                <p className="mt-2 text-lg font-semibold text-white">
-                  {senderProfiles.length > 0
-                    ? `${senderProfiles.length.toLocaleString()} senders are now under destination management`
-                    : 'No senders are managed yet'}
-                </p>
-                <p className="mt-2 text-sm text-gray-300">
-                  {largestBucket && largestBucket.sender_count > 0
-                    ? `${titleForDestinationState(largestBucket.state)} is the largest bucket with ${largestBucket.sender_count.toLocaleString()} senders.`
-                    : 'Approve a confirmation set to start building durable sender states here.'}
-                </p>
-              </article>
-              <article className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">
-                  Main checkpoint
-                </p>
-                <p className="mt-2 text-lg font-semibold text-white">
-                  {archiveExecutionAttentionProfiles.length > 0
-                    ? 'Archive execution still needs follow-up'
-                    : futureIntentProfiles.length > 0
-                      ? 'Future-intent destinations are parked safely'
-                      : 'Execution truth is currently stable'}
-                </p>
-                <p className="mt-2 text-sm text-gray-300">
-                  {archiveExecutionAttentionProfiles.length > 0
-                    ? `${archiveExecutionAttentionProfiles.length.toLocaleString()} archive destinations still need verification or manual attention.`
-                    : futureIntentProfiles.length > 0
-                      ? `${futureIntentProfiles.length.toLocaleString()} senders are intentionally stored for later execution work.`
-                      : 'No current execution blockers are surfacing above the managed destination layer.'}
-                </p>
-              </article>
-              <article className="rounded-2xl border border-cyan-900/45 bg-cyan-950/10 p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300">Do next</p>
-                <p className="mt-2 text-lg font-semibold text-white">{nextAction.title}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Why now</p>
-                    <p className="mt-1 text-sm text-gray-300">{nextAction.detail}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Expected payoff</p>
-                    <p className="mt-1 text-sm text-gray-300">{nextAction.payoff}</p>
-                  </div>
-                </div>
-              </article>
-            </div>
+      <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Management</p>
+            <h1 className="text-2xl font-semibold text-white">Execution and sync control center</h1>
+            <p className="max-w-3xl text-sm text-gray-300">
+              Decisions are already stored. Management is where you see what can act now, what is stored for later, what Gmail has already applied, and where attention is needed.
+            </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <article className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Managed senders</p>
-              <p className="mt-2 text-4xl font-semibold text-white">
-                {senderProfiles.length.toLocaleString()}
-              </p>
-              <p className="mt-2 text-sm text-gray-300">
-                Supporting message context stays secondary at{' '}
-                {state.data.destination_summaries
-                  .reduce((sum, summary) => sum + summary.supporting_message_count, 0)
-                  .toLocaleString()}{' '}
-                messages.
-              </p>
-            </article>
-            <article className="rounded-2xl border border-gray-800 bg-gray-950/55 p-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Execution truth</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="text-2xl font-semibold text-white">
-                    {executionCounts.succeeded.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400">Executed successfully</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold text-white">
-                    {(executionCounts.deferred + executionCounts.pending + executionCounts.failed).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400">Need follow-up or verification</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold text-white">
-                    {executionCounts.not_applicable.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400">Stored state only</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold text-white">
-                    {restoreReadyCount.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400">Restore-ready archive senders</p>
-                </div>
-              </div>
-            </article>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={buildReviewHref({ agentId, sessionId, analysisScope })}
+              className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+            >
+              Sender Overview
+            </Link>
+            <Link
+              href={buildReviewHref({ agentId, sessionId, analysisScope, mode: 'decision' })}
+              className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+            >
+              Decision Mode
+            </Link>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Link
-            href={`/agents/${agentId}/operations/review?stage=confirmation${query ? `&${query.slice(1)}` : ''}`}
-            className="rounded-full border border-gray-700 bg-gray-900/40 px-3 py-1.5 text-gray-200 hover:border-cyan-700/60 hover:text-cyan-100"
-          >
-            Back to Confirmation
-          </Link>
-          <Link
-            href={`/agents/${agentId}/operations/history${query}`}
-            className="rounded-full border border-gray-700 bg-gray-900/40 px-3 py-1.5 text-gray-200 hover:border-cyan-700/60 hover:text-cyan-100"
-          >
-            Open legacy history
-          </Link>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          <SummaryCard
+            title="Managed senders"
+            value={totalManagedCount.toLocaleString()}
+            detail={
+              totalManagedMessages > 0
+                ? `${pluralize(totalManagedMessages, 'cleanup-group message')} represented across all managed destinations.`
+                : 'Managed sender count across all current destinations.'
+            }
+            className="border-[var(--app-border-muted)]"
+          />
+          <SummaryCard
+            title="Archive ready now"
+            value={archiveReadyCount.toLocaleString()}
+            detail={
+              readyArchiveMessages > 0
+                ? `${pluralize(readyArchiveMessages, 'message')} can change Gmail from Management now.`
+                : 'Ready archive work stays here until you explicitly push it.'
+            }
+            className="border-cyan-900/45 bg-cyan-950/10"
+          />
+          <SummaryCard
+            title="Custom Rules pending"
+            value={customPendingCount.toLocaleString()}
+            detail="Valid managed state only. These senders are waiting on later refinement, not Gmail execution."
+            className="border-violet-900/45 bg-violet-950/10"
+          />
+          <SummaryCard
+            title="Quarantined"
+            value={quarantineCount.toLocaleString()}
+            detail="Deferred on purpose. These senders remain parked until you reopen them for another decision."
+            className="border-amber-900/45 bg-amber-950/10"
+          />
+          <SummaryCard
+            title="Archive applied"
+            value={archiveAppliedCount.toLocaleString()}
+            detail="These archive destinations have verified Gmail application and can be restored from here."
+            className="border-emerald-900/45 bg-emerald-950/10"
+          />
+          <SummaryCard
+            title="Keep protected"
+            value={keepCount.toLocaleString()}
+            detail="Quiet managed context only. Keep appears in summary, filters, and sender profiles."
+            className="border-emerald-900/35 bg-emerald-950/8"
+          />
         </div>
+
+        <div className="grid gap-3 xl:grid-cols-5">
+          <LaneCard
+            title="Act now"
+            value={pluralize(archiveReadyCount + archiveNeedsAttentionCount, 'sender')}
+            detail={
+              archiveNeedsAttentionCount > 0
+                ? `${archiveNeedsAttentionCount.toLocaleString()} need follow-up and ${archiveReadyCount.toLocaleString()} are ready to push.`
+                : `${archiveReadyCount.toLocaleString()} archive senders are ready to push right now.`
+            }
+            className="border-cyan-900/35 bg-cyan-950/8"
+          />
+          <LaneCard
+            title="Waiting on Gmail"
+            value={pluralize(archiveWaitingCount, 'sender')}
+            detail="Push requested states stay here until Gmail execution or verification resolves."
+            className="border-sky-900/35 bg-sky-950/8"
+          />
+          <LaneCard
+            title="Stored for later"
+            value={pluralize(customPendingCount + quarantineCount, 'sender')}
+            detail="Custom Rules and Quarantine are managed destinations with no Gmail mutation path in slice 1."
+            className="border-violet-900/25 bg-violet-950/8"
+          />
+          <LaneCard
+            title="Already applied"
+            value={pluralize(archiveAppliedCount, 'sender')}
+            detail="Verified archive work lives here until you restore or leave it as applied history."
+            className="border-emerald-900/25 bg-emerald-950/8"
+          />
+          <LaneCard
+            title="Quiet managed"
+            value={pluralize(keepCount, 'sender')}
+            detail="Keep remains a real destination state, but it stays out of the primary work buckets."
+            className="border-[var(--app-border-muted)]"
+          />
+        </div>
+
+        <div className="rounded-2xl border border-cyan-900/45 bg-cyan-950/15 p-4">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Execution trust</p>
+          <p className="mt-2 text-sm text-gray-200">
+            Gmail mutation happens only here in the Archive bucket. Decision Mode stored sender destinations earlier, but no Gmail action occurs until you press <span className="font-semibold text-white">Push to Gmail</span> from Management.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {(['ALL', 'ARCHIVE', 'CUSTOM_RULE', 'QUARANTINE', 'KEEP'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                router.replace(
+                  buildManagementHref({
+                    agentId,
+                    sessionId,
+                    analysisScope,
+                    bucket: value,
+                  }),
+                  { scroll: false }
+                )
+              }}
+              className={`rounded-full border px-3 py-1.5 text-xs ${
+                bucket === value
+                  ? 'border-cyan-700/60 bg-cyan-950/20 text-cyan-100'
+                  : `${insetSurfaceClass} text-gray-300 hover:border-cyan-700/40 hover:text-cyan-100`
+              }`}
+            >
+              {value === 'ALL'
+                ? 'All active work'
+                : value === 'CUSTOM_RULE'
+                  ? 'Custom Rules'
+                  : value === 'KEEP'
+                    ? 'Keep (quiet)'
+                    : value.charAt(0) + value.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
+
         {actionNote ? (
-          <div className="rounded-2xl border border-cyan-900/45 bg-cyan-950/12 p-3 text-sm text-cyan-100">
+          <div className="rounded-2xl border border-cyan-900/45 bg-cyan-950/20 p-3 text-sm text-cyan-100">
             {actionNote}
           </div>
         ) : null}
-      </header>
+        {actionError ? (
+          <div className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-3 text-sm text-rose-100">
+            {actionError}
+          </div>
+        ) : null}
+      </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {state.data.destination_summaries.map((summary) => (
-          (() => {
-            const profilesInBucket = bucketProfiles.get(summary.state) || []
-            const isLargest = largestBucket?.state === summary.state && summary.sender_count > 0
-            return (
-          <article
-            key={summary.state}
-            className={`rounded-2xl border p-4 ${destinationCardTone(summary.state)}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-[11px] uppercase tracking-[0.24em] opacity-80">{summary.label}</p>
-              {isLargest ? (
-                <span className="rounded-full border border-white/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em]">
-                  Largest bucket
-                </span>
+      <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="app-surface-card rounded-2xl p-5 space-y-4">
+          <SectionHeader
+            title="How to read Management"
+            subtitle="This page separates durable sender intent from actual Gmail truth so operators can act with confidence."
+          />
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">Destination truth</p>
+              <p className="mt-2 text-sm text-gray-200">
+                Keep, Archive, Custom Rule, or Quarantine. This is the stored managed state created during decisions.
+              </p>
+            </div>
+            <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">Execution / sync truth</p>
+              <p className="mt-2 text-sm text-gray-200">
+                Ready, waiting, verified, needs attention, reversed, pending refinement, deferred review, or protected.
+              </p>
+            </div>
+            <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">Available actions</p>
+              <p className="mt-2 text-sm text-gray-200">
+                Archive can push or restore here. Stored-only states can reopen into Decision Mode. Keep stays intentionally quiet.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="app-surface-card rounded-2xl p-5 space-y-4">
+          <SectionHeader
+            title="Current operating picture"
+            subtitle="A calm view of what needs action now versus what is safely stored for later."
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-rose-900/35 bg-rose-950/8 p-4">
+              <p className="text-[10px] uppercase tracking-wide text-rose-300">Needs attention</p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {archiveNeedsAttentionCount.toLocaleString()}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-gray-300">
+                Archive senders whose Gmail execution needs retry, verification, or deliberate reopening.
+              </p>
+            </div>
+            <div className="app-surface-card-inset rounded-2xl p-4">
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Reversed archive</p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {archiveReversedCount.toLocaleString()}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-gray-300">
+                Restored archive work remains visible here until you reopen or push it again later.
+              </p>
+            </div>
+          </div>
+          <p className="text-sm leading-6 text-gray-300">
+            Custom Rules and Quarantine are intentionally stored-only in slice 1. They are managed states, not broken states, and they remain visible so you can decide when to refine or reopen them later.
+          </p>
+        </div>
+      </section>
+
+      {visibleSections.map((section) => {
+        const items = profilesByBucket[section]
+
+        if (section === 'ARCHIVE') {
+          return (
+            <section key={section} className="app-surface-card rounded-2xl p-5 space-y-4">
+              <SectionHeader
+                title="Archive bucket"
+                subtitle="This is the only slice-1 bucket that can change Gmail. Push, verification, restore, and reopen all live here."
+              />
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <SummaryCard
+                  title="Senders"
+                  value={items.length.toLocaleString()}
+                  detail="Archive destinations currently managed in this workspace."
+                  className="border-[var(--app-border-muted)]"
+                />
+                <SummaryCard
+                  title="Message impact"
+                  value={sumSupportingMessages(items).toLocaleString()}
+                  detail="Cleanup-group messages represented by archive decisions."
+                  className="border-[var(--app-border-muted)]"
+                />
+                <SummaryCard
+                  title="Needs action"
+                  value={(archiveReadyCount + archiveNeedsAttentionCount).toLocaleString()}
+                  detail={`${archiveReadyCount.toLocaleString()} ready to push · ${archiveNeedsAttentionCount.toLocaleString()} need attention`}
+                  className="border-cyan-900/35 bg-cyan-950/8"
+                />
+                <SummaryCard
+                  title="Waiting"
+                  value={archiveWaitingCount.toLocaleString()}
+                  detail="Archive pushes waiting on Gmail execution or verification."
+                  className="border-sky-900/35 bg-sky-950/8"
+                />
+                <SummaryCard
+                  title="Applied / reversed"
+                  value={`${archiveAppliedCount.toLocaleString()} / ${archiveReversedCount.toLocaleString()}`}
+                  detail="Verified archive applications and verified restores."
+                  className="border-emerald-900/25 bg-emerald-950/8"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-cyan-900/45 bg-cyan-950/15 p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Pre-push safety preview</p>
+                <p className="mt-2 text-sm text-gray-200">
+                  {readyArchiveMessages > 0
+                    ? `${pluralize(readyArchiveMessages, 'cleanup-group message')} are currently behind archive work that can act from this page. Nothing touches Gmail until you explicitly push from Management.`
+                    : 'There is no ready archive work to push right now. Verified or deferred states remain visible here for control and audit.'}
+                </p>
+              </div>
+
+              {archiveAttentionItems.length > 0 || archiveReadyItems.length > 0 ? (
+                <SenderGroup
+                  title="Action needed now"
+                  subtitle="These senders are either ready to push or need operator attention before archive execution can be trusted."
+                  items={[...archiveAttentionItems, ...archiveReadyItems]}
+                  onPushArchive={pushArchive}
+                  onRestoreArchive={restoreArchive}
+                  onReopen={reopenSender}
+                  pushingSenderKey={pushingSenderKey}
+                  restoringSenderKey={restoringSenderKey}
+                  reopeningSenderKey={reopeningSenderKey}
+                />
               ) : null}
-            </div>
-            <div className="mt-4 flex items-end gap-2">
-              <p className="text-4xl font-semibold">{summary.sender_count.toLocaleString()}</p>
-              <p className="pb-1 text-xs uppercase tracking-[0.18em] opacity-70">senders</p>
-            </div>
-            <p className="mt-2 text-xs opacity-80">
-              {summary.supporting_message_count.toLocaleString()} supporting messages
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-              <span className="rounded-full border border-white/15 bg-black/10 px-2.5 py-1">
-                {summary.state === 'ARCHIVE'
-                  ? `${profilesInBucket.filter((profile) => profile.execution_state === 'succeeded').length.toLocaleString()} executed`
-                  : `${profilesInBucket.filter((profile) => profile.execution_state === 'not_applicable').length.toLocaleString()} stored`}
-              </span>
-              {summary.state === 'ARCHIVE' ? (
-                <span className="rounded-full border border-white/15 bg-black/10 px-2.5 py-1">
-                  {(profilesInBucket.filter(
-                    (profile) =>
-                      profile.execution_state === 'deferred' ||
-                      profile.execution_state === 'pending' ||
-                      profile.execution_state === 'failed'
-                  ).length).toLocaleString()}{' '}
-                  need follow-up
-                </span>
-              ) : (
-                <span className="rounded-full border border-white/15 bg-black/10 px-2.5 py-1">
-                  Phase 1 stored intent
-                </span>
-              )}
-            </div>
-            <p className="mt-4 text-sm opacity-90">{summary.summary}</p>
-            <p className="mt-3 text-sm opacity-90">{destinationBucketContext(summary, profilesInBucket)}</p>
-            <p className="mt-4 text-[11px] uppercase tracking-[0.18em] opacity-70">
-              {summary.latest_destination_timestamp
-                ? `Latest change ${formatDateTime(summary.latest_destination_timestamp)}`
-                : 'No sender committed yet'}
-            </p>
-          </article>
-            )
-          })()
-        ))}
-      </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <article className="rounded-2xl border border-gray-800 bg-gray-950/35 p-5 space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">
-              Attention and execution status
-            </p>
-            <h2 className="mt-2 text-lg font-semibold text-white">
-              What needs operator attention now
-            </h2>
-            <p className="mt-2 text-sm text-gray-300">
-              This layer highlights execution truth, follow-up pressure, and the sender states that
-              matter most before you scan the full management list.
-            </p>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-3">
-            {attentionCards.map((card) => (
-              <article key={card.title} className={`rounded-2xl border p-4 ${card.tone}`}>
-                <p className="text-[10px] uppercase tracking-[0.2em] opacity-80">{card.title}</p>
-                <p className="mt-2 text-lg font-semibold">{card.value}</p>
-                <p className="mt-2 text-sm opacity-90">{card.detail}</p>
-                {card.senders.length > 0 ? (
-                  <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-                    {card.senders.map((sender) => (
-                      <span
-                        key={sender}
-                        className="rounded-full border border-white/15 bg-black/10 px-2.5 py-1"
-                      >
-                        {sender}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
-        </article>
+              {archiveWaitingItems.length > 0 ? (
+                <SenderGroup
+                  title="Waiting on Gmail"
+                  subtitle="Archive requests have been sent and are waiting on execution or verification."
+                  items={archiveWaitingItems}
+                  onPushArchive={pushArchive}
+                  onRestoreArchive={restoreArchive}
+                  onReopen={reopenSender}
+                  pushingSenderKey={pushingSenderKey}
+                  restoringSenderKey={restoringSenderKey}
+                  reopeningSenderKey={reopeningSenderKey}
+                />
+              ) : null}
 
-        <div className="space-y-4">
-          <article className="rounded-2xl border border-gray-800 bg-gray-950/35 p-5 space-y-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">
-                Recent decision activity
+              {archiveAppliedItems.length > 0 ? (
+                <SenderGroup
+                  title="Already applied"
+                  subtitle="These archive destinations have verified Gmail application and can be restored from this control center."
+                  items={archiveAppliedItems}
+                  onPushArchive={pushArchive}
+                  onRestoreArchive={restoreArchive}
+                  onReopen={reopenSender}
+                  pushingSenderKey={pushingSenderKey}
+                  restoringSenderKey={restoringSenderKey}
+                  reopeningSenderKey={reopeningSenderKey}
+                />
+              ) : null}
+
+              {archiveReversedItems.length > 0 ? (
+                <SenderGroup
+                  title="Reversed"
+                  subtitle="Archive restores are verified, but the sender remains managed until you reopen it or push again later."
+                  items={archiveReversedItems}
+                  onPushArchive={pushArchive}
+                  onRestoreArchive={restoreArchive}
+                  onReopen={reopenSender}
+                  pushingSenderKey={pushingSenderKey}
+                  restoringSenderKey={restoringSenderKey}
+                  reopeningSenderKey={reopeningSenderKey}
+                />
+              ) : null}
+
+              {items.length === 0 ? (
+                <div className={`${insetSurfaceClass} rounded-2xl border-dashed p-4 text-sm text-gray-400`}>
+                  No senders are currently in Archive.
+                </div>
+              ) : null}
+            </section>
+          )
+        }
+
+        if (section === 'CUSTOM_RULE') {
+          return (
+            <section key={section} className="app-surface-card rounded-2xl p-5 space-y-4">
+              <SectionHeader
+                title="Custom Rules bucket"
+                subtitle="These senders are intentionally pending. Management keeps them visible and trustworthy without pretending execution is available yet."
+              />
+              <div className="grid gap-3 md:grid-cols-3">
+                <SummaryCard
+                  title="Senders"
+                  value={items.length.toLocaleString()}
+                  detail="Managed senders routed into the Custom Rule path."
+                  className="border-[var(--app-border-muted)]"
+                />
+                <SummaryCard
+                  title="Message impact"
+                  value={sumSupportingMessages(items).toLocaleString()}
+                  detail="Cleanup-group messages represented by stored Custom Rule intent."
+                  className="border-[var(--app-border-muted)]"
+                />
+                <SummaryCard
+                  title="Pending refinement"
+                  value={customPendingCount.toLocaleString()}
+                  detail="Valid managed state only. Gmail action remains unavailable in slice 1."
+                  className="border-violet-900/35 bg-violet-950/8"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-violet-900/45 bg-violet-950/15 p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-violet-300">What comes next</p>
+                <p className="mt-2 text-sm text-gray-200">
+                  Custom Rules are stored here on purpose. The later refinement pass will turn this bucket into a rule-definition workflow, but this slice keeps the state visible without shipping that editor yet.
+                </p>
+              </div>
+
+              {customPendingItems.length > 0 ? (
+                <SenderGroup
+                  title="Awaiting refinement"
+                  subtitle="These senders are safely stored and waiting for the future refinement step."
+                  items={customPendingItems}
+                  onPushArchive={pushArchive}
+                  onRestoreArchive={restoreArchive}
+                  onReopen={reopenSender}
+                  pushingSenderKey={pushingSenderKey}
+                  restoringSenderKey={restoringSenderKey}
+                  reopeningSenderKey={reopeningSenderKey}
+                />
+              ) : null}
+
+              {customLegacyItems.length > 0 ? (
+                <SenderGroup
+                  title="Existing execution history"
+                  subtitle="Legacy or non-slice-1 execution states remain visible here so the sender history stays understandable."
+                  items={customLegacyItems}
+                  onPushArchive={pushArchive}
+                  onRestoreArchive={restoreArchive}
+                  onReopen={reopenSender}
+                  pushingSenderKey={pushingSenderKey}
+                  restoringSenderKey={restoringSenderKey}
+                  reopeningSenderKey={reopeningSenderKey}
+                />
+              ) : null}
+
+              {items.length === 0 ? (
+                <div className={`${insetSurfaceClass} rounded-2xl border-dashed p-4 text-sm text-gray-400`}>
+                  No senders are currently pending in Custom Rules.
+                </div>
+              ) : null}
+            </section>
+          )
+        }
+
+        return (
+          <section key={section} className="app-surface-card rounded-2xl p-5 space-y-4">
+            <SectionHeader
+              title="Quarantine bucket"
+              subtitle="Quarantine is controlled deferral. These senders remain managed and visible without taking Gmail action in this slice."
+            />
+            <div className="grid gap-3 md:grid-cols-3">
+              <SummaryCard
+                title="Senders"
+                value={items.length.toLocaleString()}
+                detail="Managed senders currently deferred for later review."
+                className="border-[var(--app-border-muted)]"
+              />
+              <SummaryCard
+                title="Message impact"
+                value={sumSupportingMessages(items).toLocaleString()}
+                detail="Cleanup-group messages represented by deferred quarantine decisions."
+                className="border-[var(--app-border-muted)]"
+              />
+              <SummaryCard
+                title="Deferred review"
+                value={quarantineDeferredItems.length.toLocaleString()}
+                detail="No Gmail action runs here. Reopen when you want this sender back in Decisions."
+                className="border-amber-900/35 bg-amber-950/8"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-amber-900/45 bg-amber-950/15 p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-amber-300">Controlled deferral</p>
+              <p className="mt-2 text-sm text-gray-200">
+                Quarantine means the sender has been deliberately parked for later review. It is a managed state, not a forgotten state, and reopening remains available whenever you want another decision pass.
               </p>
-              <h2 className="mt-2 text-lg font-semibold text-white">Latest destination changes</h2>
-              <p className="mt-2 text-sm text-gray-300">
-                Recent committed state changes stay visible here so you can see what just moved into
-                management without scanning the full sender list.
-              </p>
             </div>
-            <div className="space-y-2">
-              {state.data.recent_decision_activity.length > 0 ? (
-                state.data.recent_decision_activity.map((activity) => (
-                  <article
-                    key={activity.id}
-                    className="rounded-xl border border-gray-800 bg-gray-900/35 p-3 text-sm text-gray-300"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-white">
-                          {activity.sender} {'->'} {titleForDestinationState(activity.destination_state)}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-400">
-                          {formatDateTime(activity.destination_timestamp)} ·{' '}
-                          {activity.destination_source.replace(/_/g, ' ')}
-                        </p>
-                      </div>
-                      {activity.execution_state ? (
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${executionTone(activity.execution_state)}`}
-                        >
-                          {executionLabel(activity.execution_state)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-2 text-sm text-gray-300">
-                      {activity.execution_warning ||
-                        activity.destination_reason ||
-                        'Destination state recorded from confirmation approval.'}
-                    </p>
-                  </article>
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed border-gray-800 bg-gray-950/30 p-4 text-sm text-gray-400">
-                  Recent destination activity will appear here after the first confirmed approval.
-                </div>
-              )}
-            </div>
-          </article>
 
-          <article className="rounded-2xl border border-gray-800 bg-gray-950/35 p-5 space-y-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">AI rule recommendations</p>
-              <h2 className="mt-2 text-lg font-semibold text-white">Future intelligence layer</h2>
-            </div>
-            <p className="text-sm text-gray-300">{state.data.recommendation_summary.summary}</p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-gray-800 bg-gray-900/35 p-3">
-                <p className="text-sm font-medium text-white">Rule recommendations</p>
-                <p className="mt-2 text-sm text-gray-400">
-                  This area will propose reusable rules from repeated sender decisions and committed
-                  destination patterns.
-                </p>
-              </div>
-              <div className="rounded-xl border border-gray-800 bg-gray-900/35 p-3">
-                <p className="text-sm font-medium text-white">Automation suggestions</p>
-                <p className="mt-2 text-sm text-gray-400">
-                  Later phases will surface safe automation ideas once enough sender-state history is
-                  available.
-                </p>
-              </div>
-              <div className="rounded-xl border border-gray-800 bg-gray-900/35 p-3">
-                <p className="text-sm font-medium text-white">Sender-pattern actions</p>
-                <p className="mt-2 text-sm text-gray-400">
-                  Expect future intelligence to connect repeated archive, keep, and caution patterns
-                  into guided follow-up actions.
-                </p>
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
+            {quarantineDeferredItems.length > 0 ? (
+              <SenderGroup
+                title="Deferred review"
+                subtitle="These senders are intentionally waiting for later review and can be reopened at any time."
+                items={quarantineDeferredItems}
+                onPushArchive={pushArchive}
+                onRestoreArchive={restoreArchive}
+                onReopen={reopenSender}
+                pushingSenderKey={pushingSenderKey}
+                restoringSenderKey={restoringSenderKey}
+                reopeningSenderKey={reopeningSenderKey}
+              />
+            ) : null}
 
-      <section className="rounded-2xl border border-gray-800 bg-gray-950/35 p-5 space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">
-              Sender management list
-            </p>
-            <h2 className="mt-2 text-lg font-semibold text-white">Committed sender states</h2>
-            <p className="mt-2 text-sm text-gray-300">
-              Sender identity leads. Destination state is the primary management truth. Execution
-              state stays visible as supporting context for what actually changed in Gmail.
+            {items.length === 0 ? (
+              <div className={`${insetSurfaceClass} rounded-2xl border-dashed p-4 text-sm text-gray-400`}>
+                No senders are currently deferred in Quarantine.
+              </div>
+            ) : null}
+          </section>
+        )
+      })}
+
+      {bucket === 'KEEP' ? (
+        <section className="app-surface-card rounded-2xl p-5 space-y-4">
+          <SectionHeader
+            title="Keep filter"
+            subtitle="Keep remains a real managed destination, but it is intentionally quiet so it does not compete with Archive, Custom Rules, or Quarantine."
+          />
+          <div className="grid gap-3 md:grid-cols-3">
+            <SummaryCard
+              title="Protected senders"
+              value={profilesByBucket.KEEP.length.toLocaleString()}
+              detail="Managed senders with a Keep destination."
+              className="border-[var(--app-border-muted)]"
+            />
+            <SummaryCard
+              title="Message context"
+              value={sumSupportingMessages(profilesByBucket.KEEP).toLocaleString()}
+              detail="Cleanup-group messages represented by protected Keep decisions."
+              className="border-[var(--app-border-muted)]"
+            />
+            <SummaryCard
+              title="Quiet managed state"
+              value={countByKind(profilesByBucket.KEEP, 'protected_no_action').toLocaleString()}
+              detail="Keep stays visible in summary, filters, and sender rows without becoming active work."
+              className="border-emerald-900/35 bg-emerald-950/8"
+            />
+          </div>
+
+          <div className="rounded-2xl border border-emerald-900/35 bg-emerald-950/10 p-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-300">Quiet context</p>
+            <p className="mt-2 text-sm text-gray-200">
+              Keep is still managed so you can filter it, audit it, or reopen it later, but it remains intentionally out of the primary work sections.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 text-[11px] text-gray-400">
-            <span className="rounded-full border border-gray-700 bg-gray-950/60 px-3 py-1">
-              {managedProfiles.length.toLocaleString()} managed senders
-            </span>
-            <span className="rounded-full border border-gray-700 bg-gray-950/60 px-3 py-1">
-              {archiveExecutionAttentionProfiles.length.toLocaleString()} archive follow-ups
-            </span>
-          </div>
-        </div>
-        <div className="space-y-3">
-          {managedProfiles.length > 0 ? (
-            managedProfiles.map((profile) => (
-              <article
-                key={profile.sender_key}
-                className="rounded-2xl border border-gray-800 bg-gray-900/35 p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-semibold text-white">{profile.sender}</p>
-                      <span className="rounded-full border border-gray-700 bg-gray-950/60 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-gray-200">
-                        {titleForDestinationState(profile.destination_state)}
-                      </span>
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${executionTone(profile.execution_state)}`}
-                      >
-                        {executionLabel(profile.execution_state)}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-400">
-                      <span>{profile.domain || 'Unknown domain'}</span>
-                      <span>{managementPriorityLabel(profile)}</span>
-                      <span>{profile.destination_history.length.toLocaleString()} recorded state changes</span>
-                    </div>
-                  </div>
-                  <span className="rounded-full border border-gray-700 bg-gray-950/70 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-gray-200">
-                    {profile.destination_source.replace(/_/g, ' ')}
-                  </span>
-                </div>
 
-                <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">
-                        Destination context
-                      </p>
-                      <p className="mt-1 text-sm text-gray-300">
-                        {profile.destination_reason ||
-                          'Destination state recorded from confirmation approval.'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">
-                        Execution truth
-                      </p>
-                      <p className="mt-1 text-sm text-gray-300">
-                        {profile.destination_state === 'ARCHIVE'
-                          ? archiveExecutionSummary(profile)
-                          : profile.destination_state === 'KEEP'
-                            ? 'Keep remains a stored sender preference in Phase 1 and does not execute a Gmail change.'
-                            : 'This destination state is committed now and intentionally deferred beyond state tracking in Phase 1.'}
-                      </p>
-                    </div>
-                    {profile.execution_warning ? (
-                      <div className="rounded-xl border border-amber-900/45 bg-amber-950/15 p-3 text-sm text-amber-100">
-                        {profile.execution_warning}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    <div className="rounded-xl border border-gray-800 bg-gray-950/55 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">
-                        Last action
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-white">
-                        {formatDateTime(profile.last_action_timestamp)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-gray-800 bg-gray-950/55 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">
-                        Supporting context
-                      </p>
-                      <div className="mt-1 space-y-1 text-sm text-gray-300">
-                        {profile.execution_timestamp ? (
-                          <p>Execution updated {formatDateTime(profile.execution_timestamp)}</p>
-                        ) : null}
-                        {profile.execution_message_count != null ? (
-                          <p>{profile.execution_message_count.toLocaleString()} messages touched</p>
-                        ) : null}
-                        {profile.trust_signals?.sender_signal ? (
-                          <p>Signal {profile.trust_signals.sender_signal.replace(/_/g, ' ')}</p>
-                        ) : null}
-                        {profile.trust_signals?.requires_verification ? (
-                          <p>Verification still matters for this sender</p>
-                        ) : null}
-                        {!profile.execution_timestamp &&
-                        profile.execution_message_count == null &&
-                        !profile.trust_signals?.sender_signal &&
-                        !profile.trust_signals?.requires_verification ? (
-                          <p>No extra supporting context recorded yet.</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2 text-[11px] text-gray-400">
-                    <span>Latest destination change {formatDateTime(profile.destination_timestamp)}</span>
-                    {profile.execution_source ? (
-                      <span>Execution source {profile.execution_source.replace(/_/g, ' ')}</span>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={clearingSenderKey === profile.sender_key}
-                      onClick={() => void clearDestinationState(profile.sender_key, profile.sender)}
-                      className="rounded-full border border-gray-700 bg-gray-950/60 px-3 py-1.5 text-xs text-gray-200 hover:border-cyan-700/60 hover:text-cyan-100 disabled:opacity-50"
-                    >
-                      {clearingSenderKey === profile.sender_key ? 'Clearing…' : 'Remove destination state'}
-                    </button>
-                    {profile.destination_state === 'ARCHIVE' ? (
-                      <button
-                        type="button"
-                        disabled={restoringSenderKey === profile.sender_key}
-                        onClick={() => void restoreArchiveDestination(profile.sender_key, profile.sender)}
-                        className="rounded-full border border-amber-900/45 bg-amber-950/15 px-3 py-1.5 text-xs text-amber-100 hover:border-amber-700/60 disabled:opacity-50"
-                      >
-                        {restoringSenderKey === profile.sender_key ? 'Restoring Inbox…' : 'Restore Inbox'}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </article>
-            ))
+          {profilesByBucket.KEEP.length === 0 ? (
+            <div className={`${insetSurfaceClass} rounded-2xl border-dashed p-4 text-sm text-gray-400`}>
+              No senders are currently protected in Keep.
+            </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-gray-800 bg-gray-950/30 p-6 text-sm text-gray-400">
-              No sender destinations have been committed yet. Approving decisions from Confirmation
-              will turn this page into the durable home for managed sender states.
-            </div>
+            <SenderGroup
+              title="Protected senders"
+              subtitle="These senders are intentionally quiet managed state and can be reopened if you need a new decision."
+              items={profilesByBucket.KEEP}
+              onPushArchive={pushArchive}
+              onRestoreArchive={restoreArchive}
+              onReopen={reopenSender}
+              pushingSenderKey={pushingSenderKey}
+              restoringSenderKey={restoringSenderKey}
+              reopeningSenderKey={reopeningSenderKey}
+            />
           )}
-        </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   )
 }

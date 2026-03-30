@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 import {
   DEFAULT_OPERATIONS_ANALYSIS_SCOPE,
   OPERATIONS_ANALYSIS_SCOPE_OPTIONS,
+  analysisScopeControlLabel,
   analysisScopeLabel,
   normalizeOperationsAnalysisScope,
   serializeOperationsQuery,
@@ -38,24 +39,17 @@ function assistantSuggestedPrompts(pathname: string, reviewStage: string | null)
     ]
   }
   if (pathname.includes('/operations/review')) {
-    if (reviewStage === 'confirmation') {
+    if (reviewStage === 'decision') {
       return [
-        'What changes now versus later?',
-        'How many exact messages will archive now?',
-        'Which senders are still undecided?',
-      ]
-    }
-    if (reviewStage === 'exceptions' || reviewStage === 'rules' || reviewStage === 'monitoring') {
-      return [
-        'What is deferred out of this placeholder stage?',
-        'Where should I continue in the active Phase 1 flow?',
-        'Which sender filters should I use instead right now?',
+        'Why is this sender in the current cleanup group?',
+        'Show engagement/protection signals for this sender.',
+        'What Management bucket will this decision land in?',
       ]
     }
     return [
-      'Why is this sender in the current cleanup group?',
-      'Show engagement/protection signals for this sender.',
-      'How does this sender decision change Confirmation?',
+      'What does this cleanup group represent before I start decisions?',
+      'How many senders are already managed versus still eligible?',
+      'When should I leave Overview and enter Decision Mode?',
     ]
   }
   if (pathname.includes('/operations/clusters')) {
@@ -105,22 +99,13 @@ function buildAssistantContext(params: {
   const withScope = (text: string) => (scopeSuffix ? `${text} ${scopeSuffix}` : text)
 
   if (params.pathname.includes('/operations/review')) {
-    if (params.reviewStage === 'confirmation') {
+    if (params.reviewStage === 'decision') {
       return withScope(
-        'Current context: Confirmation. Focus on exact current-message impact, what changes now, and what remains future learned behavior.'
-      )
-    }
-    if (
-      params.reviewStage === 'exceptions' ||
-      params.reviewStage === 'rules' ||
-      params.reviewStage === 'monitoring'
-    ) {
-      return withScope(
-        'Current context: Phase 2+ placeholder. Focus on the active Phase 1 sender-first workflow, what has intentionally been deferred, and the safest next step back into Sender Decisions or Confirmation.'
+        'Current context: Decision Mode. Focus on one-sender-at-a-time classification, destination assignment, protection signals, and the correct Management bucket.'
       )
     }
     return withScope(
-      'Current context: Sender Decisions. Focus on sender-level review, message evidence, protection signals, and the safest next sender policy.'
+      'Current context: Sender Overview. Focus on cleanup-group orientation, sender scope, progress, and when to enter Decision Mode.'
     )
   }
   if (params.pathname.includes('/operations/intelligence')) {
@@ -162,6 +147,11 @@ function railItemClass(active: boolean): string {
     ? 'automata-workspace-nav-item automata-workspace-nav-item-active group relative block rounded-xl px-3.5 py-3.5'
     : 'automata-workspace-nav-item group relative block rounded-xl px-3.5 py-3.5'
 }
+
+const railInsetPanelClass = 'app-surface-rail-inset rounded-xl px-2.5 py-2 space-y-1.5'
+const railInputClass = 'app-surface-rail-inset w-full rounded-lg px-2 py-1.5 text-xs text-white'
+const railPromptChipClass =
+  'app-surface-card-tile rounded-lg px-2 py-1 text-[11px] text-slate-100 hover:border-cyan-700 hover:bg-[linear-gradient(180deg,rgba(24,41,58,0.98),rgba(15,25,38,0.98))] hover:text-cyan-200'
 
 const MAILBOX_INDEX_COUNT_FORMATTER = new Intl.NumberFormat('en-US')
 
@@ -396,18 +386,37 @@ function OperationsWorkspaceShellInner(props: {
     () => serializeOperationsQuery(props.sessionId, props.analysisScope),
     [props.analysisScope, props.sessionId]
   )
+  const reviewWorkflowScope = props.pathname.includes('/operations/review')
+    ? searchParams.get('workflow_scope')
+    : null
+  const reviewSupportsDetachedScope =
+    props.pathname.includes('/operations/review') &&
+    typeof props.clusterId === 'string' &&
+    props.clusterId.trim().length > 0
+  const normalizedReviewWorkflowScope =
+    reviewSupportsDetachedScope && reviewWorkflowScope
+      ? normalizeOperationsAnalysisScope(reviewWorkflowScope)
+      : null
+  const detachedReviewWorkflowScope =
+    normalizedReviewWorkflowScope && normalizedReviewWorkflowScope !== props.analysisScope
+      ? normalizedReviewWorkflowScope
+      : null
+  const visibleAnalysisScope = detachedReviewWorkflowScope || props.analysisScope
   const reviewHref = useCallback(
-    (stage: string) => {
+    (mode: string) => {
       const next = new URLSearchParams()
       if (props.sessionId) next.set('playground_session_id', props.sessionId)
       if (props.analysisScope !== DEFAULT_OPERATIONS_ANALYSIS_SCOPE) {
         next.set('analysis_scope', props.analysisScope)
       }
+      if (reviewWorkflowScope) {
+        next.set('workflow_scope', reviewWorkflowScope)
+      }
       if (props.clusterId) next.set('cluster_id', props.clusterId)
-      next.set('stage', stage)
+      if (mode !== 'overview') next.set('mode', mode)
       return `/agents/${props.agentId}/operations/review?${next.toString()}`
     },
-    [props.agentId, props.analysisScope, props.clusterId, props.sessionId]
+    [props.agentId, props.analysisScope, props.clusterId, props.sessionId, reviewWorkflowScope]
   )
   const items: RailItem[] = useMemo(
     () => [
@@ -426,20 +435,20 @@ function OperationsWorkspaceShellInner(props: {
         href: `/agents/${props.agentId}/operations/clusters${query}`,
       },
       {
-        key: 'senders',
+        key: 'sender_overview',
         section: 'workflow',
-        label: 'Sender Decisions',
-        caption: 'Drill into senders, analytics, and evidence',
-        href: reviewHref('senders'),
-        stage: 'senders',
+        label: 'Sender Overview',
+        caption: 'Orientation, scope, and progress before focused review',
+        href: reviewHref('overview'),
+        stage: 'overview',
       },
       {
-        key: 'confirmation',
+        key: 'decision_mode',
         section: 'workflow',
-        label: 'Confirmation',
-        caption: 'Approve archive-now work and saved later preferences',
-        href: reviewHref('confirmation'),
-        stage: 'confirmation',
+        label: 'Decision Mode',
+        caption: 'One sender at a time, four actions, no Gmail mutation',
+        href: reviewHref('decision'),
+        stage: 'decision',
       },
       {
         key: 'management',
@@ -508,9 +517,13 @@ function OperationsWorkspaceShellInner(props: {
   const shellGridClassName = isMailboxIntelligencePage
     ? 'grid grid-cols-1 gap-4 xl:grid-cols-[272px_minmax(0,1fr)] 2xl:grid-cols-[272px_minmax(0,1fr)_300px]'
     : 'grid grid-cols-1 gap-4 xl:grid-cols-[284px_minmax(0,1fr)_340px]'
+  const leftRailClassName =
+    'app-surface-card app-surface-rail rounded-2xl p-3.5 h-fit shadow-[0_24px_56px_rgba(2,6,23,0.3)]'
+  const centerFrameClassName =
+    'min-w-0 rounded-[30px] border border-slate-500/40 bg-[linear-gradient(180deg,rgba(16,22,33,0.64),rgba(10,15,23,0.78))] p-3 shadow-[0_24px_60px_rgba(2,6,23,0.28)] xl:p-4'
   const assistantRailClassName = isMailboxIntelligencePage
-    ? 'app-surface-card min-w-0 rounded-xl bg-gray-950/35 p-3 flex flex-col gap-2 xl:col-span-2 xl:h-auto 2xl:col-span-1 2xl:h-[calc(100vh-12rem)]'
-    : 'app-surface-card min-w-0 rounded-xl bg-gray-950/35 p-3 flex flex-col gap-2 h-[calc(100vh-12rem)]'
+    ? 'app-surface-card app-surface-rail min-w-0 rounded-2xl p-3 flex flex-col gap-2 shadow-[0_24px_56px_rgba(2,6,23,0.3)] xl:col-span-2 xl:h-auto 2xl:col-span-1 2xl:h-[calc(100vh-12rem)]'
+    : 'app-surface-card app-surface-rail min-w-0 rounded-2xl p-3 flex flex-col gap-2 shadow-[0_24px_56px_rgba(2,6,23,0.3)] h-[calc(100vh-12rem)]'
   const assistantRequestMode = isReviewPage ? 'playground_review_detail' : 'playground'
   const assistantScopeKey = `${assistantRequestMode}:${props.resultId || ''}:${props.clusterId || ''}`
 
@@ -559,23 +572,42 @@ function OperationsWorkspaceShellInner(props: {
         `${params.notePrefix} Refreshing cleanup analysis in the background while the current workspace stays visible.`
       )
 
-      await runtime.refreshRuntimeSnapshot({
+      const refreshResult = await runtime.refreshRuntimeSnapshot({
         force: true,
         silent: true,
         forceMailboxProfileRefresh: true,
         refreshReason: params.refreshReason,
       })
+      if (!refreshResult.ok) {
+        setRegeneratingClusters(false)
+        setPendingRegenerateBaseline(null)
+        setRegenerationStatusNote(
+          refreshResult.reason === 'already_running'
+            ? 'Cleanup analysis refresh is already running. Keeping the current snapshot visible until it completes.'
+            : refreshResult.reason === 'cooldown_active'
+              ? 'Cleanup analysis refresh was started moments ago. Please wait briefly before trying again.'
+              : refreshResult.error
+        )
+        return
+      }
 
       const maxAttempts = 30
       const pollDelayMs = 4000
       const poll = async (attempt: number): Promise<void> => {
         if (regeneratePollTokenRef.current !== token) return
 
-        await runtime.refreshRuntimeSnapshot({
+        const pollResult = await runtime.refreshRuntimeSnapshot({
           force: true,
           silent: true,
           refreshReason: 'background_regenerate_poll',
         })
+        if (!pollResult.ok) {
+          setRegeneratingClusters(false)
+          setRegenerationStatusNote(
+            pollResult.error || 'Background cleanup analysis refresh could not be confirmed yet.'
+          )
+          return
+        }
 
         const latestVersion = latestSnapshotVersionRef.current
         if (latestVersion && latestVersion !== baselineVersion) {
@@ -645,6 +677,27 @@ function OperationsWorkspaceShellInner(props: {
 
   const updateAnalysisScope = async (nextScope: OperationsAnalysisScope) => {
     const normalizedNext = normalizeOperationsAnalysisScope(nextScope)
+    if (reviewSupportsDetachedScope) {
+      if (normalizedNext === visibleAnalysisScope) return
+      setScopeUpdating(true)
+      setRegenerationStatusNote(
+        normalizedNext === props.analysisScope
+          ? `Review timeframe reset to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
+          : `Review timeframe set to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
+      )
+      const nextSearch = new URLSearchParams(searchParams.toString())
+      if (normalizedNext === props.analysisScope) {
+        nextSearch.delete('workflow_scope')
+      } else {
+        nextSearch.set('workflow_scope', normalizedNext)
+      }
+      const nextQuery = nextSearch.toString()
+      router.replace(nextQuery ? `${props.pathname}?${nextQuery}` : props.pathname)
+      setTimeout(() => {
+        setScopeUpdating(false)
+      }, 150)
+      return
+    }
     if (normalizedNext === props.analysisScope) return
     setScopeUpdating(true)
     setRegenerationStatusNote(`Analysis window set to ${analysisScopeLabel(normalizedNext)}. Applying scoped refresh…`)
@@ -662,6 +715,10 @@ function OperationsWorkspaceShellInner(props: {
   }
 
   useEffect(() => {
+    if (reviewSupportsDetachedScope) {
+      previousScopeRef.current = props.analysisScope
+      return
+    }
     if (previousScopeRef.current === props.analysisScope) return
     const previousScope = previousScopeRef.current
     previousScopeRef.current = props.analysisScope
@@ -675,6 +732,7 @@ function OperationsWorkspaceShellInner(props: {
   }, [
     beginBackgroundRegeneration,
     props.analysisScope,
+    reviewSupportsDetachedScope,
   ])
 
   const regenerateClusters = async () => {
@@ -1335,27 +1393,27 @@ function OperationsWorkspaceShellInner(props: {
 
   return (
     <div className={shellGridClassName}>
-      <aside className="app-surface-card rounded-2xl bg-gradient-to-b from-gray-950/65 to-gray-950/35 p-3.5 h-fit">
-        <div className="space-y-2.5 pb-3.5 border-b border-gray-800">
+      <aside className={leftRailClassName}>
+        <div className="space-y-2.5 pb-3.5 border-b border-slate-500/30">
           <p className="text-[11px] uppercase tracking-wide text-cyan-300">Operations Workspace</p>
-          <p className="text-[11px] text-gray-400 leading-snug">
+          <p className="text-[11px] leading-snug text-slate-200">
             Session-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.
           </p>
-          <div className="space-y-1.5 rounded border border-gray-800 bg-gray-950/50 p-2">
-            <p className="text-[9px] uppercase tracking-wide text-gray-500">Analysis window</p>
-            <select
-              value={props.analysisScope}
+          <div className="app-surface-rail-card space-y-1.5 rounded-xl p-2.5">
+            <p className="text-[9px] uppercase tracking-wide text-slate-300">Analysis window</p>
+              <select
+              value={visibleAnalysisScope}
               onChange={(event) =>
                 void updateAnalysisScope(
                   normalizeOperationsAnalysisScope(event.target.value)
                 )
               }
               disabled={scopeUpdating}
-              className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-100"
+              className={railInputClass}
             >
               {OPERATIONS_ANALYSIS_SCOPE_OPTIONS.map((scope) => (
                 <option key={scope} value={scope}>
-                  {analysisScopeLabel(scope)}
+                  {analysisScopeControlLabel(scope)}
                 </option>
               ))}
             </select>
@@ -1371,7 +1429,7 @@ function OperationsWorkspaceShellInner(props: {
             >
               {regeneratingClusters ? 'Refreshing cleanup analysis…' : 'Refresh cleanup analysis'}
             </button>
-            <p className="text-[10px] text-amber-200/80">
+            <p className="text-[10px] text-amber-200/90">
               Refreshing cleanup analysis does not increase indexed mailbox coverage.
             </p>
             <button
@@ -1430,11 +1488,17 @@ function OperationsWorkspaceShellInner(props: {
             >
               {runtime.manualMailboxReindexStarting ? 'Starting full mailbox reindex…' : 'Run full mailbox reindex'}
             </button>
-            <p className="text-[10px] text-gray-500">
-              Scope: {analysisScopeLabel(props.analysisScope)} · Last refresh:{' '}
+            <p className="text-[10px] text-slate-300">
+              View: {analysisScopeLabel(visibleAnalysisScope)} · Last refresh:{' '}
               {runtime.loadedAt ? new Date(runtime.loadedAt).toLocaleTimeString() : '—'}
             </p>
-            <p className="text-[10px] text-gray-500">
+            {detachedReviewWorkflowScope ? (
+              <p className="text-[10px] text-slate-300">
+                Runtime baseline: {analysisScopeLabel(props.analysisScope)} · Scope switching stays inside
+                the current review page.
+              </p>
+            ) : null}
+            <p className="text-[10px] text-slate-300">
               Effective discovery window:{' '}
               {effectiveDiscoveryWindow === 'all_indexed'
                 ? 'all indexed'
@@ -1442,11 +1506,11 @@ function OperationsWorkspaceShellInner(props: {
                   ? `${effectiveDiscoveryWindow}d`
                   : '—'}
             </p>
-            <p className="text-[10px] text-gray-500">
+            <p className="text-[10px] text-slate-300">
               Last regenerated: {lastRegeneratedAt ? new Date(lastRegeneratedAt).toLocaleTimeString() : '—'}
             </p>
             {runtime.lastRefreshReason ? (
-              <p className="text-[10px] text-gray-500">Reason: {runtime.lastRefreshReason}</p>
+              <p className="text-[10px] text-slate-300">Reason: {runtime.lastRefreshReason}</p>
             ) : null}
             {regenerationStatusNote ? (
               <p className="text-[10px] text-cyan-300">{regenerationStatusNote}</p>
@@ -1456,8 +1520,8 @@ function OperationsWorkspaceShellInner(props: {
                 Refreshing cleanup analysis in the background. Current cleanup groups stay visible until the new results are ready.
               </p>
             ) : null}
-            <div className="rounded border border-gray-800 bg-gray-950/45 px-2.5 py-2 space-y-1.5">
-              <p className="text-[10px] uppercase tracking-wide text-gray-500">Mailbox index</p>
+            <div className={railInsetPanelClass}>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Mailbox index</p>
               <p
                 className={`text-[11px] font-medium ${
                   mailboxIndexStatus.tone === 'cyan'
@@ -1468,13 +1532,13 @@ function OperationsWorkspaceShellInner(props: {
                         ? 'text-amber-300'
                         : mailboxIndexStatus.tone === 'rose'
                           ? 'text-rose-300'
-                          : 'text-gray-300'
+                          : 'text-slate-200'
                 }`}
               >
                 {mailboxIndexStatus.title}
               </p>
               {mailboxIndexStatus.lines.map((line, index) => (
-                <p key={`${index}-${line}`} className="text-[10px] leading-snug text-gray-400">
+                <p key={`${index}-${line}`} className="text-[10px] leading-snug text-slate-300">
                   {line}
                 </p>
               ))}
@@ -1500,10 +1564,10 @@ function OperationsWorkspaceShellInner(props: {
               ) : null}
             </div>
           </div>
-          <div className="rounded border border-gray-800 bg-gray-950/45 px-3 py-2.5 space-y-1.5">
-            <p className="text-[10px] uppercase tracking-wide text-gray-500">Post-confirmation home</p>
-            <p className="text-[11px] text-gray-300 leading-relaxed">
-              Decision Management is now the primary post-confirmation surface for committed sender states and execution truth. Pending Approvals and History remain available below as legacy audit routes only.
+          <div className="app-surface-rail-card rounded-xl px-3 py-2.5 space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">Control center</p>
+            <p className="text-[11px] leading-relaxed text-slate-200">
+              Management is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.
             </p>
           </div>
         </div>
@@ -1511,7 +1575,7 @@ function OperationsWorkspaceShellInner(props: {
         <div className="pt-3.5 space-y-4">
           {(['workflow', 'queue', 'tooling'] as const).map((section) => (
             <div key={section} className="space-y-2">
-              <p className="px-1 text-[10px] uppercase tracking-wide text-gray-500">
+              <p className="px-1 text-[10px] uppercase tracking-wide text-slate-300">
                 {sectionTitle(section)}
               </p>
               <div className="space-y-1.5">
@@ -1533,12 +1597,12 @@ function OperationsWorkspaceShellInner(props: {
                       <div className="space-y-1">
                         <p
                           className={`text-[12px] font-semibold leading-snug ${
-                            active ? 'text-cyan-100' : 'text-gray-200 group-hover:text-cyan-200'
+                            active ? 'text-cyan-100' : 'text-slate-100 group-hover:text-cyan-200'
                           }`}
                         >
                           {item.label}
                         </p>
-                        <p className="text-[11px] text-gray-500 leading-relaxed break-words">
+                        <p className="text-[11px] leading-relaxed break-words text-slate-300">
                           {item.caption}
                         </p>
                       </div>
@@ -1551,13 +1615,13 @@ function OperationsWorkspaceShellInner(props: {
         </div>
       </aside>
 
-      <section className="min-w-0">{props.children}</section>
+      <section className={centerFrameClassName}>{props.children}</section>
 
       <aside className={assistantRailClassName}>
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-cyan-300">AI Assistant</p>
-            <p className="text-[11px] text-gray-400">Contextual help (secondary)</p>
+            <p className="text-[11px] text-slate-200">Contextual help (secondary)</p>
           </div>
           {runtime.refreshing ? (
             <span className="text-[10px] text-cyan-300">Syncing…</span>
@@ -1565,9 +1629,9 @@ function OperationsWorkspaceShellInner(props: {
             <span className="text-[10px] text-rose-300">Sync issue</span>
           ) : null}
         </div>
-        <div className="flex-1 overflow-y-auto rounded border border-gray-800 bg-gray-950/55 p-2 space-y-2">
+        <div className="app-surface-rail-card flex-1 overflow-y-auto rounded-xl p-2.5 space-y-2">
           {assistantMessages.length === 0 ? (
-            <p className="text-xs text-gray-500 italic">
+            <p className="text-xs italic text-slate-300">
               Use the suggested prompts for this page, or ask any context-specific question.
             </p>
           ) : (
@@ -1577,8 +1641,10 @@ function OperationsWorkspaceShellInner(props: {
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[92%] rounded px-2 py-1.5 text-xs whitespace-pre-wrap ${
-                    message.role === 'user' ? 'bg-blue-700 text-white' : 'bg-gray-800 text-gray-100'
+                  className={`max-w-[92%] rounded-lg px-2.5 py-2 text-xs whitespace-pre-wrap shadow-[0_8px_18px_rgba(2,6,23,0.12)] ${
+                    message.role === 'user'
+                      ? 'border border-cyan-600/35 bg-cyan-800/80 text-white'
+                      : 'border border-slate-400/30 bg-[linear-gradient(180deg,rgba(26,35,49,0.98),rgba(16,22,33,0.98))] text-slate-100'
                   }`}
                 >
                   {message.content}
@@ -1587,22 +1653,22 @@ function OperationsWorkspaceShellInner(props: {
             ))
           )}
         </div>
-        <div className="rounded border border-gray-800 bg-gray-950/45 p-2 space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wide text-gray-500">Suggested prompts</p>
+        <div className="app-surface-rail-card rounded-xl p-2.5 space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wide text-slate-300">Suggested prompts</p>
           <div className="flex flex-wrap gap-1.5">
             {suggestedPrompts.map((prompt) => (
               <button
                 key={prompt}
                 type="button"
                 onClick={() => setAssistantInput(prompt)}
-                className="rounded border border-gray-700 bg-gray-900/65 px-2 py-1 text-[11px] text-gray-200 hover:border-cyan-700 hover:text-cyan-200"
+                className={railPromptChipClass}
               >
                 {prompt}
               </button>
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="app-surface-rail-card flex gap-2 rounded-xl p-2.5">
           <input
             value={assistantInput}
             onChange={(event) => setAssistantInput(event.target.value)}
@@ -1613,7 +1679,7 @@ function OperationsWorkspaceShellInner(props: {
               }
             }}
             placeholder="Ask AI about this page…"
-            className="flex-1 rounded border border-gray-700 bg-gray-900 px-2.5 py-2 text-xs text-white"
+            className="app-surface-rail-inset flex-1 rounded-lg px-2.5 py-2 text-xs text-white"
           />
           <button
             type="button"
@@ -1641,13 +1707,20 @@ export default function OperationsWorkspaceShell({ agentId, children }: Props) {
   const resultId = searchParams.get('result_id')
   const clusterId = searchParams.get('cluster_id')
   const historyTab = searchParams.get('tab')
-  const reviewStage = searchParams.get('stage')
+  const reviewStage = pathname.includes('/operations/review')
+    ? searchParams.get('mode') || 'overview'
+    : searchParams.get('mode') || searchParams.get('stage')
+  const preferredClusterId =
+    pathname.includes('/operations/review') && typeof clusterId === 'string' && clusterId.trim()
+      ? clusterId.trim()
+      : null
 
   return (
     <OperationsRuntimeProvider
       agentId={agentId}
       sessionId={sessionId}
       analysisScope={analysisScope}
+      preferredClusterId={preferredClusterId}
     >
       <OperationsWorkspaceShellInner
         agentId={agentId}

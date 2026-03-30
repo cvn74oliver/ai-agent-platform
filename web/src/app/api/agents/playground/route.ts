@@ -27,6 +27,11 @@ import {
 import { loadPlaygroundRagContext } from '@/lib/runtime/playgroundRagService'
 import { loadPlaygroundRuntimeState } from '@/lib/runtime/runtimeStateService'
 import {
+  finishHeavyAction,
+  logHeavyActionEvent,
+  tryStartHeavyAction,
+} from '@/lib/runtime/heavyActionSafety'
+import {
   normalizeOperationsAnalysisScope,
   type OperationsAnalysisScope,
 } from '@/lib/runtime/operationsWorkspace'
@@ -37,6 +42,8 @@ import {
   loadRecentReviewResults,
   loadRuntimeSuggestionHistory,
 } from '@/lib/runtime/stateLoaders'
+
+const MANUAL_RUNTIME_REFRESH_COOLDOWN_MS = 30 * 1000
 
 async function resolvePlaygroundSupabaseClient() {
   const hasAdminConfig = Boolean(
@@ -91,10 +98,15 @@ export async function POST(req: Request) {
       refresh_mailbox_profile?: boolean
       mailbox_profile_window_days?: 30 | 60
       analysis_scope?: OperationsAnalysisScope
+      preferred_cluster_id?: string
     }
     const normalizedRequest = normalizePlaygroundRequestBody(body)
     const forceMailboxProfileRefresh = body.refresh_mailbox_profile === true
     const mailboxProfileWindowDays = body.mailbox_profile_window_days === 60 ? 60 : 30
+    const preferredClusterId =
+      typeof body.preferred_cluster_id === 'string' && body.preferred_cluster_id.trim()
+        ? body.preferred_cluster_id.trim()
+        : null
     const analysisScope = normalizeOperationsAnalysisScope(
       typeof body.analysis_scope === 'string' && body.analysis_scope.trim()
         ? body.analysis_scope
@@ -331,19 +343,142 @@ export async function POST(req: Request) {
       )
     }
 
+    const manualRuntimeRefreshKey = forceMailboxProfileRefresh
+      ? ['manual_runtime_refresh', agent.id, analysisScope].join('::')
+      : null
+    let manualRuntimeRefreshStartedAt: number | null = null
+    if (manualRuntimeRefreshKey) {
+      const guard = tryStartHeavyAction({
+        key: manualRuntimeRefreshKey,
+        cooldownMs: MANUAL_RUNTIME_REFRESH_COOLDOWN_MS,
+      })
+      if (!guard.ok) {
+        logHeavyActionEvent({
+          category: 'runtime_refresh',
+          route: '/api/agents/playground',
+          action: 'manual_runtime_refresh',
+          triggerSource: sessionOrigin || null,
+          requestMode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
+          tenantId: null,
+          agentId: agent.id,
+          blockedBy: guard.reason,
+          durationMs: 0,
+          outcome: 'blocked',
+          extra: {
+            selected_analysis_scope: analysisScope,
+            retry_after_ms: guard.retryAfterMs,
+          },
+        })
+        const errorResponse = buildPlaygroundErrorResponse({
+          status: 409,
+          error:
+            guard.reason === 'already_running'
+              ? 'Cleanup analysis refresh is already running for this workspace.'
+              : 'Cleanup analysis refresh was started moments ago. Please wait briefly before trying again.',
+          reason: guard.reason,
+        })
+        logTiming({
+          rehydrateOnly,
+          status: errorResponse.status,
+          outcome: `manual_refresh_${guard.reason}`,
+        })
+        return NextResponse.json(errorResponse.body, { status: errorResponse.status })
+      }
+      manualRuntimeRefreshStartedAt = guard.startedAtMs
+      console.info(
+        `[playground][manual-regeneration] ${JSON.stringify({
+          event: 'started',
+          route: '/api/agents/playground',
+          request_mode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
+          selected_analysis_scope: analysisScope,
+          agent_id: agent.id,
+          trigger_source: sessionOrigin || null,
+        })}`
+      )
+    }
+
     const runtimeStateStartedAt = Date.now()
-    const { runtimeInputs, runtimeState, runtimeApprovalQueueSummary, runtimeApprovalQueueItems } =
-      await loadPlaygroundRuntimeState({
-      supabase,
-      agentId: agent.id,
-      isInboxCleanupIntent: deriveInboxCleanupIntent(lastUserMessageText),
-      agentUserId: typeof agent.user_id === 'string' ? agent.user_id : null,
-      sessionScopeId: responseSessionId || incomingSessionId || null,
-      forceMailboxProfileRefresh,
-      analysisScope,
-      requestMode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
-    })
+    let runtimeInputs
+    let runtimeState
+    let runtimeApprovalQueueSummary
+    let runtimeApprovalQueueItems
+    let manualCleanupRegenerationDiagnostics = null
+    try {
+      ;({
+        runtimeInputs,
+        runtimeState,
+        runtimeApprovalQueueSummary,
+        runtimeApprovalQueueItems,
+        manualCleanupRegenerationDiagnostics,
+      } = await loadPlaygroundRuntimeState({
+        supabase,
+        agentId: agent.id,
+        isInboxCleanupIntent: deriveInboxCleanupIntent(lastUserMessageText),
+        agentUserId: typeof agent.user_id === 'string' ? agent.user_id : null,
+        sessionScopeId: responseSessionId || incomingSessionId || null,
+        forceMailboxProfileRefresh,
+        analysisScope,
+        preferredClusterId,
+        requestMode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
+      }))
+    } finally {
+      if (manualRuntimeRefreshKey && manualRuntimeRefreshStartedAt != null) {
+        finishHeavyAction({
+          key: manualRuntimeRefreshKey,
+          cooldownMs: MANUAL_RUNTIME_REFRESH_COOLDOWN_MS,
+        })
+      }
+    }
     timing.runtime_state_ms = Date.now() - runtimeStateStartedAt
+
+    if (manualRuntimeRefreshStartedAt != null) {
+      const requestTotalMs = Date.now() - requestStartedAt
+      logHeavyActionEvent({
+        category: 'runtime_refresh',
+        route: '/api/agents/playground',
+        action: 'manual_runtime_refresh',
+        triggerSource: sessionOrigin || null,
+        requestMode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
+        tenantId: null,
+        agentId: agent.id,
+        blockedBy: null,
+        durationMs: Date.now() - manualRuntimeRefreshStartedAt,
+        outcome: 'completed',
+        extra: {
+          selected_analysis_scope: analysisScope,
+          cleanup_profile_status: runtimeState.runtimeMailboxProfile?.freshness?.status || null,
+          cleanup_cluster_count: runtimeState.runtimeCleanupPlan?.clusters.length || 0,
+          runtime_snapshot_generated_at: runtimeState.runtimeCleanupPlan?.generated_at || null,
+        },
+      })
+      console.info(
+        `[playground][manual-regeneration] ${JSON.stringify({
+          event: 'completed',
+          route: '/api/agents/playground',
+          request_mode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
+          selected_analysis_scope: analysisScope,
+          agent_id: agent.id,
+          request_total_ms: requestTotalMs,
+          runtime_state_ms: timing.runtime_state_ms,
+          cleanup_plan_ms: manualCleanupRegenerationDiagnostics?.cleanupPlanMs ?? null,
+          discovery_total_ms: manualCleanupRegenerationDiagnostics?.discoveryTotalMs ?? null,
+          wrapper_snapshot_preload_skipped:
+            manualCleanupRegenerationDiagnostics?.wrapperSnapshotPreloadSkipped ?? null,
+          wrapper_index_metadata_preload_skipped:
+            manualCleanupRegenerationDiagnostics?.wrapperIndexMetadataPreloadSkipped ?? null,
+          discovery_row_cache_hit:
+            manualCleanupRegenerationDiagnostics?.discoveryRowCacheHit ?? null,
+          indexed_rows_load_ms: manualCleanupRegenerationDiagnostics?.indexedRowsLoadMs ?? null,
+          index_sync_disabled_by_request:
+            manualCleanupRegenerationDiagnostics?.indexSyncDisabledByRequest ?? null,
+          snapshot_save_mode: manualCleanupRegenerationDiagnostics?.snapshotSaveMode ?? null,
+          final_runtime_assemble_ms:
+            manualCleanupRegenerationDiagnostics?.finalRuntimeAssembleMs ?? null,
+          cleanup_cluster_count: runtimeState.runtimeCleanupPlan?.clusters.length || 0,
+          cleanup_profile_status: runtimeState.runtimeMailboxProfile?.freshness?.status || null,
+        })}`
+      )
+    }
 
     const { runtimeEvidence, latestRuntimeQueryReviewEvidence, reviewResults } = runtimeInputs
 
@@ -356,6 +491,9 @@ export async function POST(req: Request) {
       runtimeBatchSuggestions,
       runtimeCleanupPlan,
       runtimeMailboxProfile,
+      runtimeMailboxIntelligence,
+      runtimeSenderOverview,
+      runtimeSelectedClusterRailFamily,
       runtimeCleanupStrategy,
       runtimeSuggestionSets,
       runtimeSuggestionPromptContext,
@@ -383,6 +521,9 @@ export async function POST(req: Request) {
       runtimeBatchSuggestions,
       runtimeCleanupPlan,
       runtimeMailboxProfile,
+      runtimeMailboxIntelligence,
+      runtimeSenderOverview,
+      runtimeSelectedClusterRailFamily,
       runtimeCleanupStrategy,
       runtimeActiveWorkItem,
       runtimeEvidenceBlocks,

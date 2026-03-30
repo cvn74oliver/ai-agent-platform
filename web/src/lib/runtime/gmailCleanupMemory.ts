@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  buildGmailCleanupWorkflowClusterPayload,
+  type GmailCleanupWorkflowClusterPayload,
+} from '@/lib/runtime/gmailCleanupWorkspace'
 import type {
   GmailDecisionManagementSummaryData,
   GmailCleanupMemoryWritePayload,
@@ -99,23 +103,43 @@ function defaultExecutionStateForDestination(
   state: GmailDestinationState
 ): {
   executionState: GmailDestinationExecutionState
+  executionSource: string
   executionWarning: string | null
 } {
   if (state === 'ARCHIVE') {
     return {
-      executionState: 'pending',
-      executionWarning: 'Archive execution has not been independently confirmed yet.',
+      executionState: 'deferred',
+      executionSource: 'ready_to_push',
+      executionWarning:
+        'Stored only. Push this archive destination from Management to apply Gmail changes.',
     }
   }
   if (state === 'KEEP') {
     return {
       executionState: 'not_applicable',
+      executionSource: 'protected_no_action',
       executionWarning: null,
+    }
+  }
+  if (state === 'CUSTOM_RULE') {
+    return {
+      executionState: 'deferred',
+      executionSource: 'pending_refinement',
+      executionWarning:
+        'Stored only. This sender needs refinement in Management before any Gmail action can run.',
+    }
+  }
+  if (state === 'QUARANTINE') {
+    return {
+      executionState: 'deferred',
+      executionSource: 'deferred_review',
+      executionWarning: 'Stored only. This sender remains deferred for later review in Management.',
     }
   }
   return {
     executionState: 'deferred',
-    executionWarning: 'Phase 1 stores this destination state, but its downstream executor is deferred.',
+    executionSource: 'deferred_phase_2',
+    executionWarning: 'Stored only. This destination remains deferred outside the current slice.',
   }
 }
 
@@ -154,6 +178,33 @@ function normalizeTrustSignals(value: unknown): GmailSenderDestinationTrustSigna
         : null,
     last_activity: normalizeText(value.last_activity) || null,
   }
+}
+
+function normalizeWorkflowClusterPayload(
+  value: unknown
+): GmailCleanupWorkflowClusterPayload | null {
+  if (
+    !isRecord(value) ||
+    typeof value.clusterId !== 'string' ||
+    typeof value.clusterType !== 'string' ||
+    typeof value.title !== 'string' ||
+    typeof value.query !== 'string'
+  ) {
+    return null
+  }
+
+  return buildGmailCleanupWorkflowClusterPayload({
+    cluster: {
+      clusterId: normalizeText(value.clusterId),
+      canonicalClusterId: normalizeText(value.canonicalClusterId) || null,
+      legacyClusterIds: normalizeStringArray(value.legacyClusterIds),
+      sourceClusterIds: normalizeStringArray(value.sourceClusterIds),
+      clusterType: normalizeText(value.clusterType),
+      title: normalizeText(value.title),
+      query: normalizeText(value.query),
+    },
+    reviewUnitKey: normalizeText(value.reviewUnitKey) || null,
+  })
 }
 
 function mergeTrustSignals(
@@ -219,6 +270,7 @@ function normalizeDestinationProfile(value: unknown): GmailSenderDestinationProf
     sender_key: senderKey,
     sender,
     domain: normalizeText(value.domain) || senderDomain(sender),
+    cluster: normalizeWorkflowClusterPayload(value.cluster),
     trust_signals: normalizeTrustSignals(value.trust_signals),
     destination_state: destinationState,
     destination_timestamp: destinationTimestamp,
@@ -473,6 +525,7 @@ async function persistGmailDestinationCommit(params: {
       sender_key: sender.senderKey,
       sender: sender.sender,
       domain,
+      cluster: params.cluster,
       trust_signals: mergedSignals,
       destination_state: sender.destinationState,
       destination_timestamp:
@@ -483,16 +536,8 @@ async function persistGmailDestinationCommit(params: {
       destination_reason: sender.reason || null,
       destination_history: nextHistory,
       execution_state: defaultExecution.executionState,
-      execution_timestamp:
-        defaultExecution.executionState === 'not_applicable' || defaultExecution.executionState === 'deferred'
-          ? createdAt
-          : null,
-      execution_source:
-        defaultExecution.executionState === 'not_applicable'
-          ? 'destination_commit'
-          : defaultExecution.executionState === 'deferred'
-            ? 'phase_1_destination_commit'
-            : null,
+      execution_timestamp: createdAt,
+      execution_source: defaultExecution.executionSource,
       execution_warning: defaultExecution.executionWarning,
       execution_message_count:
         defaultExecution.executionState === 'not_applicable'

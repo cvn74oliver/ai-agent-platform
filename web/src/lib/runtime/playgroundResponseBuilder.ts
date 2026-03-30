@@ -5,10 +5,13 @@ import type {
   RuntimeCleanupPlan,
   RuntimeCleanupStrategy,
   RuntimeEvidenceBlock,
+  RuntimeMailboxIntelligence,
   RuntimeMailboxProfile,
   RuntimeRecommendation,
   RuntimeReviewProposal,
+  RuntimeSenderOverview,
 } from '@/lib/runtime/gmailRuntimeAssembler'
+import type { OperationsSelectedClusterRailFamily } from '@/lib/runtime/operationsWorkspace'
 import type { RuntimeSuggestionSet } from '@/lib/runtime/suggestionLifecycle'
 import type {
   RuntimeArchiveEvidence,
@@ -49,6 +52,9 @@ export type PlaygroundRuntimeResponseData = {
   runtime_batch_suggestions?: RuntimeBatchSuggestions
   runtime_cleanup_plan?: RuntimeCleanupPlan
   runtime_mailbox_profile?: RuntimeMailboxProfile
+  runtime_mailbox_intelligence?: RuntimeMailboxIntelligence
+  runtime_sender_overview?: RuntimeSenderOverview
+  runtime_selected_cluster_rail_family?: OperationsSelectedClusterRailFamily | null
   runtime_cleanup_strategy?: RuntimeCleanupStrategy
   runtime_active_work_item?: RuntimeActiveWorkItem
   runtime_evidence_blocks?: RuntimeEvidenceBlock[]
@@ -65,6 +71,7 @@ export type PlaygroundRuntimeSuccessResponse = {
 export type PlaygroundRuntimeErrorResponse = {
   ok: false
   error: string
+  reason?: string
 }
 
 const ANALYZE_INBOX_ACTION: RuntimeProposalAction = {
@@ -171,6 +178,9 @@ export function buildPlaygroundRuntimeResponseData(params: {
   runtimeBatchSuggestions: RuntimeBatchSuggestions | null
   runtimeCleanupPlan: RuntimeCleanupPlan | null
   runtimeMailboxProfile: RuntimeMailboxProfile | null
+  runtimeMailboxIntelligence: RuntimeMailboxIntelligence | null
+  runtimeSenderOverview: RuntimeSenderOverview | null
+  runtimeSelectedClusterRailFamily: OperationsSelectedClusterRailFamily | null
   runtimeCleanupStrategy: RuntimeCleanupStrategy | null
   runtimeActiveWorkItem: RuntimeActiveWorkItem | null
   runtimeEvidenceBlocks: RuntimeEvidenceBlock[]
@@ -232,6 +242,18 @@ export function buildPlaygroundRuntimeResponseData(params: {
 
   if (params.runtimeMailboxProfile) {
     responseData.runtime_mailbox_profile = params.runtimeMailboxProfile
+  }
+
+  if (params.runtimeMailboxIntelligence) {
+    responseData.runtime_mailbox_intelligence = params.runtimeMailboxIntelligence
+  }
+
+  if (params.runtimeSenderOverview) {
+    responseData.runtime_sender_overview = params.runtimeSenderOverview
+  }
+
+  if (params.runtimeSelectedClusterRailFamily) {
+    responseData.runtime_selected_cluster_rail_family = params.runtimeSelectedClusterRailFamily
   }
 
   if (params.runtimeCleanupStrategy) {
@@ -298,12 +320,14 @@ export function buildPlaygroundOpenAiFailureResponse(params: {
 export function buildPlaygroundErrorResponse(params: {
   status: number
   error: string
+  reason?: string
 }): { status: number; body: PlaygroundRuntimeErrorResponse } {
   return {
     status: params.status,
     body: {
       ok: false,
       error: params.error,
+      ...(params.reason ? { reason: params.reason } : {}),
     },
   }
 }

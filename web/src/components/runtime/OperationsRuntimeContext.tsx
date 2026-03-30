@@ -45,6 +45,10 @@ type SnapshotRefreshOptions = {
   refreshReason?: string
 }
 
+type SnapshotRefreshResult =
+  | { ok: true }
+  | { ok: false; error: string; reason?: string | null }
+
 type TriggerManualReindexResult =
   | { ok: true; attached: boolean }
   | { ok: false; error: string }
@@ -88,7 +92,7 @@ type ContextValue = SnapshotStatus & {
   sessionId: string | null
   analysisScope: OperationsAnalysisScope
   lastRefreshReason: string | null
-  refreshRuntimeSnapshot: (options?: SnapshotRefreshOptions) => Promise<void>
+  refreshRuntimeSnapshot: (options?: SnapshotRefreshOptions) => Promise<SnapshotRefreshResult>
   triggerManualFullMailboxReindex: () => Promise<TriggerManualReindexResult>
   triggerSmartMailboxSync: () => Promise<TriggerSmartSyncResult>
   triggerMailboxBackfill: () => Promise<TriggerMailboxBackfillResult>
@@ -98,6 +102,11 @@ type ContextValue = SnapshotStatus & {
 type PersistedSnapshot = {
   loadedAt: number
   data: OperationsRuntimeData
+}
+
+type CachedMailboxIndexHealthEntry = {
+  expiresAtMs: number
+  data: MailboxIndexHealth
 }
 
 type MailboxIndexExecutionState =
@@ -349,25 +358,35 @@ function reconcileMailboxIndexHealthState(
 }
 
 async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
+  const nowMs = Date.now()
+  const cachedHealth = readCachedMailboxIndexHealth(nowMs)
+  if (cachedHealth) return cachedHealth
+  if (mailboxIndexHealthInflight) {
+    return mailboxIndexHealthInflight
+  }
+
   try {
-    const res = await fetch('/api/integrations/gmail/mailbox-index', {
-      method: 'GET',
-      cache: 'no-store',
-    })
-    const payload = (await res.json().catch(() => null)) as
-      | {
-          ok?: boolean
-          data?: Partial<MailboxIndexHealth>
-        }
-      | null
-    if (!res.ok || !payload?.ok || !payload.data) return null
-    const activeRunPayload =
-      payload.data.active_run && typeof payload.data.active_run === 'object' ? payload.data.active_run : null
-    const lastResultPayload =
-      payload.data.last_result && typeof payload.data.last_result === 'object'
-        ? payload.data.last_result
-        : null
-    return {
+    const request = (async (): Promise<MailboxIndexHealth | null> => {
+      const res = await fetch('/api/integrations/gmail/mailbox-index', {
+        method: 'GET',
+        cache: 'no-store',
+      })
+      const payload = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean
+            data?: Partial<MailboxIndexHealth>
+          }
+        | null
+      if (!res.ok || !payload?.ok || !payload.data) return null
+      const activeRunPayload =
+        payload.data.active_run && typeof payload.data.active_run === 'object'
+          ? payload.data.active_run
+          : null
+      const lastResultPayload =
+        payload.data.last_result && typeof payload.data.last_result === 'object'
+          ? payload.data.last_result
+          : null
+      const data: MailboxIndexHealth = {
       indexed_message_count:
         typeof payload.data.indexed_total_rows === 'number'
           ? payload.data.indexed_total_rows
@@ -587,38 +606,78 @@ async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
           ? payload.data.sync_health
           : null,
       usable_with_cached_index: payload.data.usable_with_cached_index === true,
+      }
+
+      mailboxIndexHealthCache = {
+        expiresAtMs: Date.now() + MAILBOX_INDEX_HEALTH_CACHE_TTL_MS,
+        data,
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(
+            MAILBOX_INDEX_HEALTH_STORAGE_KEY,
+            JSON.stringify(mailboxIndexHealthCache)
+          )
+        } catch {
+          // Ignore cache write failures; the in-memory cache remains the primary fast path.
+        }
+      }
+      return data
+    })()
+
+    mailboxIndexHealthInflight = request
+    return await request
+  } catch {
+    return null
+  } finally {
+    mailboxIndexHealthInflight = null
+  }
+}
+
+function readCachedMailboxIndexHealth(nowMs = Date.now()): MailboxIndexHealth | null {
+  if (mailboxIndexHealthCache && mailboxIndexHealthCache.expiresAtMs > nowMs) {
+    return mailboxIndexHealthCache.data
+  }
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(MAILBOX_INDEX_HEALTH_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as CachedMailboxIndexHealthEntry | null
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof parsed.expiresAtMs === 'number' &&
+      parsed.expiresAtMs > nowMs &&
+      parsed.data &&
+      typeof parsed.data === 'object'
+    ) {
+      mailboxIndexHealthCache = parsed
+      return parsed.data
     }
   } catch {
     return null
   }
+  return null
 }
 
 const OperationsRuntimeContext = createContext<ContextValue | null>(null)
 
-const STORAGE_PREFIX = 'operations.runtime.snapshot.v1'
-const INDEX_BOOTSTRAP_STORAGE_PREFIX = 'operations.mailbox-index.bootstrap.v1'
-const INDEX_RECOVERY_STORAGE_PREFIX = 'operations.mailbox-index.recovery.v1'
-const INDEX_BOOTSTRAP_COOLDOWN_MS = 10 * 60 * 1000
-const INDEX_RECOVERY_COOLDOWN_MS = 30 * 60 * 1000
+const STORAGE_PREFIX = 'operations.runtime.snapshot.v2'
+const MAILBOX_INDEX_HEALTH_STORAGE_KEY = 'operations.mailbox-index.health.v1'
+const MAILBOX_INDEX_HEALTH_CACHE_TTL_MS = 15 * 1000
 const MEMORY_CACHE = new Map<string, PersistedSnapshot>()
-const INDEX_BOOTSTRAP_MEMORY = new Map<string, number>()
-const INDEX_RECOVERY_MEMORY = new Map<string, number>()
-const OPERATOR_CONFIRMED_RUNTIME_RECOVERY_REASON = 'operator_confirmed_runtime_recovery'
+let mailboxIndexHealthCache: CachedMailboxIndexHealthEntry | null = null
+let mailboxIndexHealthInflight: Promise<MailboxIndexHealth | null> | null = null
 
 function buildStorageKey(
   agentId: string,
   sessionId: string | null,
-  analysisScope: OperationsAnalysisScope
+  analysisScope: OperationsAnalysisScope,
+  preferredClusterId?: string | null
 ): string {
-  return `${STORAGE_PREFIX}:${agentId}:${sessionId || 'none'}:${analysisScope}`
-}
-
-function buildIndexBootstrapKey(agentId: string, sessionId: string | null): string {
-  return `${INDEX_BOOTSTRAP_STORAGE_PREFIX}:${agentId}:${sessionId || 'none'}`
-}
-
-function buildIndexRecoveryKey(agentId: string, sessionId: string | null): string {
-  return `${INDEX_RECOVERY_STORAGE_PREFIX}:${agentId}:${sessionId || 'none'}`
+  return `${STORAGE_PREFIX}:${agentId}:${sessionId || 'none'}:${analysisScope}:${
+    preferredClusterId || 'none'
+  }`
 }
 
 function parsePersisted(value: string | null): PersistedSnapshot | null {
@@ -667,14 +726,11 @@ function mailboxIndexSnapshotChanged(
   return false
 }
 
-function isOperatorConfirmedRuntimeRecoveryReason(value: string | null | undefined): boolean {
-  return typeof value === 'string' && value.trim() === OPERATOR_CONFIRMED_RUNTIME_RECOVERY_REASON
-}
-
 export function OperationsRuntimeProvider(props: {
   agentId: string
   sessionId: string | null
   analysisScope: OperationsAnalysisScope
+  preferredClusterId?: string | null
   children: ReactNode
 }) {
   const sessionId = props.sessionId?.trim() ? props.sessionId.trim() : null
@@ -692,20 +748,15 @@ export function OperationsRuntimeProvider(props: {
     pendingSmartMailboxSyncRun: null,
     pendingOperatorMailboxBackfillRun: null,
   })
-  const requestInFlightRef = useRef<Promise<void> | null>(null)
+  const requestInFlightRef = useRef<{
+    key: string
+    promise: Promise<SnapshotRefreshResult>
+  } | null>(null)
+  const latestRequestKeyRef = useRef<string | null>(null)
   const lastRefreshReasonRef = useRef<string | null>(null)
-  const indexBootstrapInFlightRef = useRef(false)
   const storageKey = useMemo(
-    () => buildStorageKey(props.agentId, sessionId, analysisScope),
-    [analysisScope, props.agentId, sessionId]
-  )
-  const indexBootstrapKey = useMemo(
-    () => buildIndexBootstrapKey(props.agentId, sessionId),
-    [props.agentId, sessionId]
-  )
-  const indexRecoveryKey = useMemo(
-    () => buildIndexRecoveryKey(props.agentId, sessionId),
-    [props.agentId, sessionId]
+    () => buildStorageKey(props.agentId, sessionId, analysisScope, props.preferredClusterId),
+    [analysisScope, props.agentId, props.preferredClusterId, sessionId]
   )
 
   const refreshMailboxIndexHealth = useCallback(async (): Promise<MailboxIndexHealth | null> => {
@@ -717,114 +768,19 @@ export function OperationsRuntimeProvider(props: {
 
   const maybeBootstrapMailboxIndex = useCallback(
     async (health: MailboxIndexHealth | null) => {
-      if (!props.agentId.trim() || !health) return
-      if (health.requires_reconnect) return
-      if (health.indexed_message_count > 0) return
-      if (health.execution_state === 'running') return
-      if (indexBootstrapInFlightRef.current) return
-
-      let lastAttemptAt = INDEX_BOOTSTRAP_MEMORY.get(indexBootstrapKey) || 0
-      if (!lastAttemptAt && typeof window !== 'undefined') {
-        const stored = window.sessionStorage.getItem(indexBootstrapKey)
-        const parsed = stored ? Number(stored) : Number.NaN
-        if (Number.isFinite(parsed) && parsed > 0) {
-          lastAttemptAt = parsed
-          INDEX_BOOTSTRAP_MEMORY.set(indexBootstrapKey, parsed)
-        }
-      }
-      if (Date.now() - lastAttemptAt < INDEX_BOOTSTRAP_COOLDOWN_MS) return
-
-      indexBootstrapInFlightRef.current = true
-      const attemptedAt = Date.now()
-      INDEX_BOOTSTRAP_MEMORY.set(indexBootstrapKey, attemptedAt)
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(indexBootstrapKey, String(attemptedAt))
-      }
-
-      try {
-        const res = await fetch('/api/integrations/gmail/mailbox-index', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'incremental',
-            background: true,
-            max_messages: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
-            trigger: 'runtime_bootstrap',
-          }),
-        })
-        if (!res.ok) return
-
-        setTimeout(() => {
-          void refreshMailboxIndexHealth()
-        }, 3500)
-      } catch {
-        // Ignore bootstrap failures; normal refresh path remains fallback.
-      } finally {
-        indexBootstrapInFlightRef.current = false
-      }
+      void health
+      // Emergency stabilization: passive runtime loads must not auto-start mailbox indexing.
     },
-    [indexBootstrapKey, props.agentId, refreshMailboxIndexHealth]
+    []
   )
 
   const maybeRecoverDegradedIndexSync = useCallback(
     async (health: MailboxIndexHealth | null, refreshReason?: string | null) => {
-      if (!props.agentId.trim() || !health) return
-      if (health.requires_reconnect) return
-      if (health.sync_health !== 'degraded_usable') return
-      if (!health.usable_with_cached_index) return
-      if (health.execution_state === 'running') return
-      if (!isOperatorConfirmedRuntimeRecoveryReason(refreshReason)) {
-        console.info(
-          `[operations][mailbox-index/recovery] ${JSON.stringify({
-            event: 'auto_recovery_skipped',
-            reason: 'operator_confirmation_required',
-            refresh_reason: refreshReason ?? null,
-            indexed_message_count: health.indexed_message_count,
-            sync_health: health.sync_health,
-            usable_with_cached_index: health.usable_with_cached_index,
-          })}`
-        )
-        return
-      }
-
-      let lastAttemptAt = INDEX_RECOVERY_MEMORY.get(indexRecoveryKey) || 0
-      if (!lastAttemptAt && typeof window !== 'undefined') {
-        const stored = window.sessionStorage.getItem(indexRecoveryKey)
-        const parsed = stored ? Number(stored) : Number.NaN
-        if (Number.isFinite(parsed) && parsed > 0) {
-          lastAttemptAt = parsed
-          INDEX_RECOVERY_MEMORY.set(indexRecoveryKey, parsed)
-        }
-      }
-      if (Date.now() - lastAttemptAt < INDEX_RECOVERY_COOLDOWN_MS) return
-
-      const attemptedAt = Date.now()
-      INDEX_RECOVERY_MEMORY.set(indexRecoveryKey, attemptedAt)
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(indexRecoveryKey, String(attemptedAt))
-      }
-
-      try {
-        const res = await fetch('/api/integrations/gmail/mailbox-index', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'incremental',
-            background: true,
-            max_messages: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
-            trigger: 'runtime_recovery',
-          }),
-        })
-        if (!res.ok) return
-
-        setTimeout(() => {
-          void refreshMailboxIndexHealth()
-        }, 3500)
-      } catch {
-        // best-effort recovery path only
-      }
+      void health
+      void refreshReason
+      // Emergency stabilization: passive runtime loads must not auto-start mailbox recovery.
     },
-    [indexRecoveryKey, props.agentId, refreshMailboxIndexHealth]
+    []
   )
 
   const triggerManualFullMailboxReindex = useCallback(async (): Promise<TriggerManualReindexResult> => {
@@ -1025,14 +981,23 @@ export function OperationsRuntimeProvider(props: {
   )
 
   const refreshRuntimeSnapshot = useCallback(
-    async (options?: SnapshotRefreshOptions) => {
-      if (!props.agentId.trim()) return
-      if (requestInFlightRef.current) {
-        await requestInFlightRef.current
-        return
+    async (options?: SnapshotRefreshOptions): Promise<SnapshotRefreshResult> => {
+      if (!props.agentId.trim()) {
+        return { ok: false, error: 'Missing agent id.', reason: 'missing_agent_id' }
+      }
+      const requestKey = [
+        props.agentId,
+        sessionId || 'none',
+        analysisScope,
+        props.preferredClusterId || 'none',
+      ].join('::')
+      latestRequestKeyRef.current = requestKey
+      if (requestInFlightRef.current?.key === requestKey) {
+        await requestInFlightRef.current.promise
+        return { ok: true }
       }
 
-      const request = (async () => {
+      const request = (async (): Promise<SnapshotRefreshResult> => {
         setStatus((prev) => ({
           ...prev,
           loading: options?.silent ? prev.loading : !prev.data,
@@ -1041,15 +1006,23 @@ export function OperationsRuntimeProvider(props: {
         }))
 
         try {
+          const mailboxIndexHealthPromise =
+            options?.forceMailboxProfileRefresh === true
+              ? fetchMailboxIndexHealth()
+              : Promise.resolve(readCachedMailboxIndexHealth())
           const [payload, mailboxIndexHealth] = await Promise.all([
             fetchOperationsRuntimeSnapshot({
               agentId: props.agentId,
               sessionId,
               analysisScope,
               forceMailboxProfileRefresh: options?.forceMailboxProfileRefresh === true,
+              preferredClusterId: props.preferredClusterId,
             }),
-            fetchMailboxIndexHealth(),
+            mailboxIndexHealthPromise,
           ])
+          if (latestRequestKeyRef.current !== requestKey) {
+            return { ok: true }
+          }
           if (!payload.ok || !payload.data) {
             setStatus((prev) => {
               const nextStatus: SnapshotStatus = {
@@ -1063,7 +1036,11 @@ export function OperationsRuntimeProvider(props: {
                 ? reconcileMailboxIndexHealthState(nextStatus, mailboxIndexHealth)
                 : nextStatus
             })
-            return
+            return {
+              ok: false,
+              error: payload.error || 'Failed to load runtime snapshot.',
+              reason: payload.reason || null,
+            }
           }
           const runtimeData = payload.data as OperationsRuntimeData
           const loadedAt = Date.now()
@@ -1087,7 +1064,11 @@ export function OperationsRuntimeProvider(props: {
             (options?.forceMailboxProfileRefresh ? 'manual_regenerate' : null)
           void maybeBootstrapMailboxIndex(mailboxIndexHealth)
           void maybeRecoverDegradedIndexSync(mailboxIndexHealth, effectiveRefreshReason)
+          return { ok: true }
         } catch {
+          if (latestRequestKeyRef.current !== requestKey) {
+            return { ok: true }
+          }
           setStatus((prev) => ({
             ...prev,
             loading: false,
@@ -1095,19 +1076,29 @@ export function OperationsRuntimeProvider(props: {
             error: 'Failed to load runtime snapshot.',
             mailboxIndexHealth: prev.mailboxIndexHealth,
           }))
+          return {
+            ok: false,
+            error: 'Failed to load runtime snapshot.',
+            reason: null,
+          }
         }
       })()
 
-      requestInFlightRef.current = request
+      requestInFlightRef.current = {
+        key: requestKey,
+        promise: request,
+      }
       try {
         if (options?.refreshReason && options.refreshReason.trim()) {
           lastRefreshReasonRef.current = options.refreshReason.trim()
         } else if (options?.forceMailboxProfileRefresh) {
           lastRefreshReasonRef.current = 'manual_regenerate'
         }
-        await request
+        return await request
       } finally {
-        requestInFlightRef.current = null
+        if (requestInFlightRef.current?.key === requestKey) {
+          requestInFlightRef.current = null
+        }
       }
     },
     [
@@ -1116,6 +1107,7 @@ export function OperationsRuntimeProvider(props: {
       maybeRecoverDegradedIndexSync,
       persistSnapshot,
       props.agentId,
+      props.preferredClusterId,
       sessionId,
     ]
   )
@@ -1169,27 +1161,25 @@ export function OperationsRuntimeProvider(props: {
       return
     }
 
-    // Serve the latest stable snapshot immediately, then consult mailbox index health to
-    // decide whether a background runtime refresh is actually necessary.
-    void fetchMailboxIndexHealth().then((health) => {
-      if (!health) return
-      setStatus((prev) => reconcileMailboxIndexHealthState(prev, health))
-      void maybeBootstrapMailboxIndex(health)
-      void maybeRecoverDegradedIndexSync(health, null)
-      const cachedClusterCount =
-        cachedSnapshot?.data?.runtime_cleanup_plan?.clusters?.length ?? 0
-      if (cachedSnapshot && cachedClusterCount === 0 && health.indexed_message_count > 0) {
-        void refreshRuntimeSnapshot({
-          silent: true,
-          force: true,
-        })
-        return
-      }
-      if (!mailboxIndexSnapshotChanged(cachedSnapshot?.data || null, health)) return
+    const cachedHealth = readCachedMailboxIndexHealth()
+    if (!cachedHealth) return
+    setStatus((prev) => reconcileMailboxIndexHealthState(prev, cachedHealth))
+    void maybeBootstrapMailboxIndex(cachedHealth)
+    void maybeRecoverDegradedIndexSync(cachedHealth, null)
+    const cachedClusterCount =
+      cachedSnapshot?.data?.runtime_cleanup_plan?.clusters?.length ?? 0
+    if (cachedSnapshot && cachedClusterCount === 0 && cachedHealth.indexed_message_count > 0) {
       void refreshRuntimeSnapshot({
         silent: true,
         force: true,
       })
+      return
+    }
+    if (!mailboxIndexSnapshotChanged(cachedSnapshot?.data || null, cachedHealth)) return
+    void refreshRuntimeSnapshot({
+      silent: true,
+      force: true,
+      refreshReason: 'mailbox_index_snapshot_changed',
     })
   }, [
     maybeBootstrapMailboxIndex,
@@ -1204,7 +1194,8 @@ export function OperationsRuntimeProvider(props: {
       !status.manualMailboxReindexStarting &&
       !status.smartMailboxSyncStarting &&
       !status.operatorMailboxBackfillStarting &&
-      status.mailboxIndexHealth?.execution_state !== 'running'
+      !status.pendingSmartMailboxSyncRun &&
+      !status.pendingOperatorMailboxBackfillRun
     ) {
       return
     }
@@ -1216,9 +1207,10 @@ export function OperationsRuntimeProvider(props: {
     return () => window.clearInterval(pollId)
   }, [
     refreshMailboxIndexHealth,
-    status.mailboxIndexHealth?.execution_state,
     status.manualMailboxReindexStarting,
     status.operatorMailboxBackfillStarting,
+    status.pendingOperatorMailboxBackfillRun,
+    status.pendingSmartMailboxSyncRun,
     status.smartMailboxSyncStarting,
   ])
 

@@ -5,11 +5,51 @@ import {
   loadGmailMonitoringSummary,
   persistGmailCleanupMemory,
 } from '@/lib/runtime/gmailCleanupMemory'
-import type { GmailCleanupMemoryWritePayload } from '@/lib/runtime/gmailCleanupWorkspace'
+import {
+  buildGmailCleanupWorkflowClusterPayload,
+  type GmailCleanupMemoryWritePayload,
+} from '@/lib/runtime/gmailCleanupWorkspace'
 import { isUuid } from '@/lib/runtime/types'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((entry) => normalizeText(entry)).filter(Boolean)
+    : []
+}
+
+function normalizeCluster(
+  value: unknown
+): GmailCleanupMemoryWritePayload['cluster'] {
+  if (
+    !isRecord(value) ||
+    typeof value.clusterId !== 'string' ||
+    typeof value.clusterType !== 'string' ||
+    typeof value.title !== 'string' ||
+    typeof value.query !== 'string'
+  ) {
+    return null
+  }
+
+  return buildGmailCleanupWorkflowClusterPayload({
+    cluster: {
+      clusterId: normalizeText(value.clusterId),
+      canonicalClusterId: normalizeText(value.canonicalClusterId) || null,
+      legacyClusterIds: normalizeStringArray(value.legacyClusterIds),
+      sourceClusterIds: normalizeStringArray(value.sourceClusterIds),
+      clusterType: normalizeText(value.clusterType),
+      title: normalizeText(value.title),
+      query: normalizeText(value.query),
+    },
+    reviewUnitKey: normalizeText(value.reviewUnitKey) || null,
+  })
 }
 
 function parseBody(value: unknown): GmailCleanupMemoryWritePayload | null {
@@ -19,19 +59,7 @@ function parseBody(value: unknown): GmailCleanupMemoryWritePayload | null {
   const sessionId =
     typeof value.sessionId === 'string' && value.sessionId.trim() ? value.sessionId.trim() : null
 
-  const cluster =
-    isRecord(value.cluster) &&
-    typeof value.cluster.clusterId === 'string' &&
-    typeof value.cluster.clusterType === 'string' &&
-    typeof value.cluster.title === 'string' &&
-    typeof value.cluster.query === 'string'
-      ? {
-          clusterId: value.cluster.clusterId.trim(),
-          clusterType: value.cluster.clusterType.trim(),
-          title: value.cluster.title.trim(),
-          query: value.cluster.query.trim(),
-        }
-      : null
+  const cluster = normalizeCluster(value.cluster)
 
   if (!isRecord(value.action) || typeof value.action.type !== 'string') return null
 

@@ -377,22 +377,33 @@ If the repo structure changes materially, this section should be refreshed.
 │   │   │   ├── decision_storage_spec.md
 │   │   │   └── sender_surface_unification_spec.md
 │   │   ├── 04_sender_decision_ui
-│   │   │   ├── Cleanup_Groups_spec_phase_plan.md
-│   │   │   ├── decision_mode_animation_spec.md
-│   │   │   ├── decision_mode_component_map.md
-│   │   │   ├── decision_mode_full_build_spec.md
-│   │   │   ├── decision_mode_ui_final_build_spec.md
-│   │   │   ├── decision_ui_flow.md
-│   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
-│   │   │   ├── sender_decision_mode_spec.md
-│   │   │   ├── sender_distribution_chart_spec_Phase_2.md
-│   │   │   ├── SENDER_DISTRIBUTION_CHART_SPEC.md
-│   │   │   ├── sender_overview_card_target_spec.md
-│   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
-│   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
-│   │   │   ├── Shared_Rail_Analysis_spec.md
-│   │   │   ├── workspace_ui_structure.md
-│   │   │   └── workspace_ux_spec.md
+│   │   │   ├── 00_foundation
+│   │   │   │   ├── sender_overview_card_target_spec.md
+│   │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
+│   │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
+│   │   │   │   ├── workspace_ui_structure.md
+│   │   │   │   └── workspace_ux_spec.md
+│   │   │   ├── 01_analysis_rail
+│   │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
+│   │   │   │   ├── SHARED_ANALYSIS_RAIL_IMPLEMENTATION_PLAN.md
+│   │   │   │   └── Shared_Rail_Analysis_spec.md
+│   │   │   ├── 02_distribution_chart
+│   │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
+│   │   │   │   └── SENDER_DISTRIBUTION_CHART_SPEC.md
+│   │   │   ├── 03_time_context
+│   │   │   ├── 04_workflow_integration
+│   │   │   │   └── decision_ui_flow.md
+│   │   │   ├── 05_decision_mode
+│   │   │   │   ├── decision_mode_animation_spec.md
+│   │   │   │   ├── decision_mode_component_map.md
+│   │   │   │   ├── decision_mode_full_build_spec.md
+│   │   │   │   ├── decision_mode_ui_final_build_spec.md
+│   │   │   │   └── sender_decision_mode_spec.md
+│   │   │   ├── 06_cleanup_groups
+│   │   │   │   ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
+│   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
+│   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
+│   │   │   └── 07_archived_legacy
 │   │   ├── 05_management_execution
 │   │   │   ├── execution_queue_spec.md
 │   │   │   ├── execution_safety_preview.md

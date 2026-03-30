@@ -48,16 +48,36 @@
 │   │   │   ├── decision_engine_spec.md
 │   │   │   ├── decision_model_spec.md
 │   │   │   ├── decision_scoring_advanced.md
-│   │   │   └── decision_storage_spec.md
+│   │   │   ├── decision_storage_spec.md
+│   │   │   └── sender_surface_unification_spec.md
 │   │   ├── 04_sender_decision_ui
-│   │   │   ├── decision_mode_animation_spec.md
-│   │   │   ├── decision_mode_component_map.md
-│   │   │   ├── decision_mode_full_build_spec.md
-│   │   │   ├── decision_mode_ui_final_build_spec.md
-│   │   │   ├── decision_ui_flow.md
-│   │   │   ├── sender_decision_mode_spec.md
-│   │   │   ├── workspace_ui_structure.md
-│   │   │   └── workspace_ux_spec.md
+│   │   │   ├── 00_foundation
+│   │   │   │   ├── sender_overview_card_target_spec.md
+│   │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
+│   │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
+│   │   │   │   ├── workspace_ui_structure.md
+│   │   │   │   └── workspace_ux_spec.md
+│   │   │   ├── 01_analysis_rail
+│   │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
+│   │   │   │   ├── SHARED_ANALYSIS_RAIL_IMPLEMENTATION_PLAN.md
+│   │   │   │   └── Shared_Rail_Analysis_spec.md
+│   │   │   ├── 02_distribution_chart
+│   │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
+│   │   │   │   └── SENDER_DISTRIBUTION_CHART_SPEC.md
+│   │   │   ├── 03_time_context
+│   │   │   ├── 04_workflow_integration
+│   │   │   │   └── decision_ui_flow.md
+│   │   │   ├── 05_decision_mode
+│   │   │   │   ├── decision_mode_animation_spec.md
+│   │   │   │   ├── decision_mode_component_map.md
+│   │   │   │   ├── decision_mode_full_build_spec.md
+│   │   │   │   ├── decision_mode_ui_final_build_spec.md
+│   │   │   │   └── sender_decision_mode_spec.md
+│   │   │   ├── 06_cleanup_groups
+│   │   │   │   ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
+│   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
+│   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
+│   │   │   └── 07_archived_legacy
 │   │   ├── 05_management_execution
 │   │   │   ├── execution_queue_spec.md
 │   │   │   ├── execution_safety_preview.md
@@ -76,9 +96,19 @@
 │   │   ├── 09_reference
 │   │   │   ├── codex_safeguards.md
 │   │   │   ├── engineering_spec.md
+│   │   │   ├── gmail_artifact_refresh_and_sync_protocol.md
+│   │   │   ├── gmail_workspace_canonical_engine_pattern.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_acceptance.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.json
+│   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_rollout.md
+│   │   │   ├── gmail_workspace_data_access_stabilization_spec.md
+│   │   │   ├── gmail_workspace_full_mailbox_coverage_proof.json
 │   │   │   ├── gmail_workspace_system_index.md
 │   │   │   ├── implementation_phase_1.md
-│   │   │   └── performance_spec.md
+│   │   │   ├── performance_spec.md
+│   │   │   ├── sender_intelligence_system_build_plan.md
+│   │   │   └── sender_overview_semantic_rebuild_handoff.md
 │   │   └── 10_archive_legacy
 │   │       ├── legacy_cleanup_rebuild_plan.md
 │   │       └── legacy_product_flow_v2.md
@@ -128,6 +158,21 @@
 │   │   ├── CODEX_SESSION_START_PROMPT.md
 │   │   ├── CODEX_SOURCE_OF_TRUTH.md
 │   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+│   ├── 09_artifact_engine
+│   │   ├── ARTIFACT_ENGINE_BLUEPRINT.md
+│   │   ├── ARTIFACT_ENGINE_DECISIONS.md
+│   │   ├── ARTIFACT_ENGINE_TODO.md
+│   │   ├── ARTIFACT_REBUILD_PLAN.md
+│   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
+│   ├── 10_agent_architecture
+│   │   ├── AGENT_ARCHITECTURE_TODO.md
+│   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
+│   │   ├── MANAGER_AGENT_DECISION_MODEL.md
+│   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
+│   ├── 11_product_strategy
+│   │   └── PRODUCT_ROADMAP.md
+│   ├── 12_operating_model
+│   │   └── CLOSEOUT_CHECKLIST.md
 │   └── visuals
 │       ├── Agent Next Training Suggestion Prompt.png
 │       ├── Agent Playground.png
@@ -148,8 +193,10 @@
 │       ├── Review Timeline.png
 │       ├── Sender Decisions.png
 │       └── Settings Tab.png
+├── aligned-test.png
 ├── docs
 │   └── 01_ARCHITECT_CONTEXT.md
+├── mailbox-intelligence-first-load.png
 ├── package.json
 ├── project_structure.txt
 ├── supabase
@@ -164,7 +211,18 @@
 │   │   ├── 20260318013000_gmail_mailbox_index_yield_detail.sql
 │   │   ├── 20260318020000_gmail_mailbox_index_resume_checkpoint.sql
 │   │   ├── 20260318120000_gmail_mailbox_index_operator_backfill_checkpoint.sql
-│   │   └── 20260319113000_gmail_mailbox_index_backfill_window.sql
+│   │   ├── 20260319113000_gmail_mailbox_index_backfill_window.sql
+│   │   ├── 20260322110000_gmail_sender_stats_canonical_profile.sql
+│   │   ├── 20260322133000_gmail_sender_stats_operator_profile.sql
+│   │   ├── 20260322143000_gmail_artifact_publication_tables.sql
+│   │   ├── 20260322144000_gmail_sender_workspace_seed_tables.sql
+│   │   ├── 20260322145000_gmail_mailbox_intelligence_artifact_tables.sql
+│   │   ├── 20260322146000_gmail_preview_index_tables.sql
+│   │   ├── 20260322170000_gmail_full_mailbox_artifact_streaming.sql
+│   │   ├── 20260324010000_gmail_artifact_publication_freshness.sql
+│   │   ├── 20260325101500_gmail_cleanup_group_assignment_rollups.sql
+│   │   ├── 20260327101500_gmail_sender_workspace_semantic_focus_seed_rows.sql
+│   │   └── 20260329131500_agent_events_cleanup_snapshot_lookup_indexes.sql
 │   └── supabase
 └── web
     ├── automation
@@ -224,17 +282,53 @@
     │   │   │   ├── decision_engine_spec.md
     │   │   │   ├── decision_model_spec.md
     │   │   │   ├── decision_scoring_advanced.md
-    │   │   │   └── decision_storage_spec.md
+    │   │   │   ├── decision_storage_spec.md
+    │   │   │   └── sender_surface_unification_spec.md
     │   │   ├── 04_sender_decision_ui
+    │   │   │   ├── 00_foundation
+    │   │   │   │   ├── sender_overview_card_target_spec.md
+    │   │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
+    │   │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
+    │   │   │   │   ├── workspace_ui_structure.md
+    │   │   │   │   └── workspace_ux_spec.md
+    │   │   │   ├── 01_analysis_rail
+    │   │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
+    │   │   │   │   ├── SHARED_ANALYSIS_RAIL_IMPLEMENTATION_PLAN.md
+    │   │   │   │   └── Shared_Rail_Analysis_spec.md
+    │   │   │   ├── 02_distribution_chart
+    │   │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
+    │   │   │   │   └── SENDER_DISTRIBUTION_CHART_SPEC.md
+    │   │   │   ├── 03_time_context
+    │   │   │   ├── 04_workflow_integration
+    │   │   │   │   └── decision_ui_flow.md
+    │   │   │   ├── 05_decision_mode
+    │   │   │   │   ├── decision_mode_animation_spec.md
+    │   │   │   │   ├── decision_mode_component_map.md
+    │   │   │   │   ├── decision_mode_full_build_spec.md
+    │   │   │   │   ├── decision_mode_ui_final_build_spec.md
+    │   │   │   │   └── sender_decision_mode_spec.md
+    │   │   │   ├── 06_cleanup_groups
+    │   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
+    │   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
+    │   │   │   ├── 07_archived_legacy
     │   │   │   ├── build_decision_mode_dev_spec.md
+    │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
+    │   │   │   ├── Cleanup_Groups_spec_phase_plan.md
     │   │   │   ├── decision_mode_animation_spec.md
     │   │   │   ├── decision_mode_build_sequence.md
     │   │   │   ├── decision_mode_component_map.md
     │   │   │   ├── decision_mode_full_build_spec.md
     │   │   │   ├── decision_mode_ui_final_build_spec.md
     │   │   │   ├── decision_ui_flow.md
+    │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
     │   │   │   ├── sender_decision_mode_spec.md
     │   │   │   ├── sender_decision_ui_spec.md
+    │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
+    │   │   │   ├── SENDER_DISTRIBUTION_CHART_SPEC.md
+    │   │   │   ├── sender_overview_card_target_spec.md
+    │   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
+    │   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
+    │   │   │   ├── Shared_Rail_Analysis_spec.md
     │   │   │   ├── start_building_decision_mode_components.md
     │   │   │   ├── workspace_ui_structure.md
     │   │   │   └── workspace_ux_spec.md
@@ -257,9 +351,19 @@
     │   │   ├── 09_reference
     │   │   │   ├── codex_safeguards.md
     │   │   │   ├── engineering_spec.md
+    │   │   │   ├── gmail_artifact_refresh_and_sync_protocol.md
+    │   │   │   ├── gmail_workspace_canonical_engine_pattern.md
+    │   │   │   ├── gmail_workspace_data_access_stabilization_acceptance.md
+    │   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.json
+    │   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.md
+    │   │   │   ├── gmail_workspace_data_access_stabilization_rollout.md
+    │   │   │   ├── gmail_workspace_data_access_stabilization_spec.md
+    │   │   │   ├── gmail_workspace_full_mailbox_coverage_proof.json
     │   │   │   ├── gmail_workspace_system_index.md
     │   │   │   ├── implementation_phase_1.md
-    │   │   │   └── performance_spec.md
+    │   │   │   ├── performance_spec.md
+    │   │   │   ├── sender_intelligence_system_build_plan.md
+    │   │   │   └── sender_overview_semantic_rebuild_handoff.md
     │   │   ├── 10_archive_legacy
     │   │   │   ├── legacy_cleanup_rebuild_plan.md
     │   │   │   └── legacy_product_flow_v2.md
@@ -319,6 +423,7 @@
     │   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
     │   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
     │   │   ├── automation_map.md
+    │   │   ├── CLOSEOUT_CHECKLIST.md
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
     │   │   ├── schema_comparison_checklist.md
@@ -339,6 +444,21 @@
     │   │   ├── CODEX_SESSION_START_PROMPT.md
     │   │   ├── CODEX_SOURCE_OF_TRUTH.md
     │   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
+    │   ├── 09_artifact_engine
+    │   │   ├── ARTIFACT_ENGINE_BLUEPRINT.md
+    │   │   ├── ARTIFACT_ENGINE_DECISIONS.md
+    │   │   ├── ARTIFACT_ENGINE_TODO.md
+    │   │   ├── ARTIFACT_REBUILD_PLAN.md
+    │   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
+    │   ├── 10_agent_architecture
+    │   │   ├── AGENT_ARCHITECTURE_TODO.md
+    │   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
+    │   │   ├── MANAGER_AGENT_DECISION_MODEL.md
+    │   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
+    │   ├── 11_product_strategy
+    │   │   └── PRODUCT_ROADMAP.md
+    │   ├── 12_operating_model
+    │   │   └── CLOSEOUT_CHECKLIST.md
     │   └── visuals
     │       ├── Agent Next Training Suggestion Prompt.png
     │       ├── Agent Playground.png
@@ -348,6 +468,7 @@
     │       ├── Cleanup Groups.png
     │       ├── Confirmation.png
     │       ├── Dashboard.png
+    │       ├── Decision Mode.png
     │       ├── Executed Actions.png
     │       ├── Fine Tune Dataset Preview p1.png
     │       ├── Fine Tune Dataset Preview p2.png
@@ -358,6 +479,7 @@
     │       ├── PM_VISUAL_REFERENCE.md
     │       ├── Review Timeline.png
     │       ├── Sender Decisions.png
+    │       ├── Sender Overview.png
     │       └── Settings Tab.png
     ├── eslint.config.mjs
     ├── next-env.d.ts
@@ -374,8 +496,21 @@
     ├── README.md
     ├── scripts
     │   ├── codex-review-packet.mjs
+    │   ├── gmail-artifact-full-coverage-audit.mjs
+    │   ├── gmail-artifact-stale-build-recovery-audit.mjs
+    │   ├── gmail-cleanup-group-assignment-fixtures.mjs
+    │   ├── gmail-cleanup-group-live-audit.mjs
+    │   ├── gmail-subscription-senders-phase3-implementation-packet.mjs
+    │   ├── gmail-subscription-senders-remainder-decomposition-memo.mjs
+    │   ├── gmail-subscription-senders-semantic-audit.mjs
+    │   ├── gmail-subscription-senders-semantic-precision-audit.mjs
+    │   ├── gmail-workspace-data-access-acceptance.mjs
     │   ├── golden-path.mjs
-    │   └── playground-route-matrix.mjs
+    │   ├── playground-route-matrix.mjs
+    │   ├── runtime-selected-cluster-rail-family-fetch.sh
+    │   ├── runtime-selected-cluster-rail-family-probe.mjs
+    │   ├── selected-cluster-rail-family-snapshot-fixtures.mjs
+    │   └── ts-path-loader.mjs
     ├── src
     │   ├── app
     │   │   ├── agents
@@ -502,15 +637,30 @@
     │   │   ├── fine_tune_topics.ts
     │   │   ├── integrations
     │   │   │   └── gmail
+    │   │   │       ├── gmailArtifactBuildRunner.ts
+    │   │   │       ├── gmailArtifactFlags.ts
+    │   │   │       ├── gmailArtifactFullMailboxProjector.ts
+    │   │   │       ├── gmailArtifactIncrementalUpdater.ts
+    │   │   │       ├── gmailArtifactProjector.ts
+    │   │   │       ├── gmailArtifactStore.ts
     │   │   │       ├── gmailCleanupWorkspace.ts
     │   │   │       ├── gmailMailboxIndexConfig.ts
     │   │   │       ├── gmailMailboxIndexer.ts
+    │   │   │       ├── gmailPressureTrendArtifacts.ts
+    │   │   │       ├── gmailSemanticRollupContract.ts
+    │   │   │       ├── gmailSemanticRollups.ts
+    │   │   │       ├── gmailSenderProfile.ts
+    │   │   │       ├── gmailWorkspaceContracts.ts
     │   │   │       └── inboxAnalysis.ts
     │   │   ├── runtime
     │   │   │   ├── approvalSummary.ts
+    │   │   │   ├── cleanupGroupPresentation.ts
+    │   │   │   ├── gmailCleanupClusterIdentity.ts
     │   │   │   ├── gmailCleanupMemory.ts
     │   │   │   ├── gmailCleanupWorkspace.ts
     │   │   │   ├── gmailRuntimeAssembler.ts
+    │   │   │   ├── gmailSemanticPresentationPolicy.ts
+    │   │   │   ├── heavyActionSafety.ts
     │   │   │   ├── operationsAnalytics.ts
     │   │   │   ├── operationsWorkspace.ts
     │   │   │   ├── playgroundAgentConfigService.ts
@@ -567,4 +717,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-138 directories, 430 files
+162 directories, 556 files

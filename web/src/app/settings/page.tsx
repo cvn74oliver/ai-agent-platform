@@ -78,7 +78,7 @@ export default async function SettingsPage() {
               }
             />
 
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/55 p-5">
+            <SurfaceCard className="border-white/[0.05] bg-[var(--app-surface-nested)] p-5 shadow-[0_16px_40px_rgba(2,6,23,0.18)]">
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Available action</p>
               <p className="mt-2 text-lg font-semibold text-white">
                 {gmailConnected ? 'Reconnect or review Gmail access' : 'Connect Gmail to this workspace'}
@@ -92,7 +92,7 @@ export default async function SettingsPage() {
               >
                 {gmailConnected ? 'Reconnect Gmail' : 'Connect Gmail'}
               </a>
-            </div>
+            </SurfaceCard>
           </div>
         </SurfaceCard>
       </div>

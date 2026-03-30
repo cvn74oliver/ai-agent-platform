@@ -8,11 +8,13 @@ import {
   verifyGmailMessagesInboxStateForTenant,
 } from '@/lib/integrations/gmail/inboxAnalysis'
 import { resolveGmailSenderPolicyArchiveScopeForTenant } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
-import type {
-  GmailCleanupMemoryWritePayload,
-  GmailDestinationExecutionState,
-  GmailDestinationState,
-  GmailSenderPolicy,
+import {
+  buildGmailCleanupWorkflowClusterPayload,
+  type GmailCleanupWorkflowClusterPayload,
+  type GmailCleanupMemoryWritePayload,
+  type GmailDestinationExecutionState,
+  type GmailDestinationState,
+  type GmailSenderPolicy,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import { isUuid } from '@/lib/runtime/types'
 
@@ -51,18 +53,8 @@ type DestinationCommitRequest = {
   kind: 'commit'
   agentId: string
   sessionId: string | null
-  cluster: {
-    clusterId: string
-    clusterType: string
-    title: string
-    query: string
-  }
-  allClusters: Array<{
-    clusterId: string
-    clusterType: string
-    title: string
-    query: string
-  }>
+  cluster: GmailCleanupWorkflowClusterPayload
+  allClusters: GmailCleanupWorkflowClusterPayload[]
   analysisScope: string | null
   senderPolicies: Record<string, GmailSenderPolicy>
   messageOverrides: Record<string, 'include' | 'exclude'>
@@ -77,9 +69,16 @@ type RestoreArchiveRequest = {
   sender: string
 }
 
-type DestinationRequest = DestinationCommitRequest | RestoreArchiveRequest
+type PushArchiveRequest = {
+  kind: 'push_archive'
+  agentId: string
+  sessionId: string | null
+  senderKey: string
+  sender: string
+  analysisScope: string | null
+}
 
-type CommitSender = DestinationCommitRequest['senders'][number]
+type DestinationRequest = DestinationCommitRequest | RestoreArchiveRequest | PushArchiveRequest
 
 type ExecutionUpdateSender = {
   senderKey: string
@@ -96,15 +95,10 @@ type StoredDestinationProfile = {
   sender: string
   destinationState: GmailDestinationState
   executionState: GmailDestinationExecutionState
+  executionSource: string | null
   executionWarning: string | null
   executionMessageIds: string[]
-}
-
-type ArchiveExecutionSummary = {
-  status: GmailDestinationExecutionState
-  senderCount: number
-  messageCount: number
-  warning: string | null
+  cluster: GmailCleanupMemoryWritePayload['cluster']
 }
 
 function timingMs(startedAt: number): number {
@@ -117,48 +111,13 @@ function parseCommitRequest(value: Record<string, unknown>): DestinationCommitRe
 
   const sessionId = normalizeText(value.sessionId) || null
 
-  if (
-    !isRecord(value.cluster) ||
-    typeof value.cluster.clusterId !== 'string' ||
-    typeof value.cluster.clusterType !== 'string' ||
-    typeof value.cluster.title !== 'string' ||
-    typeof value.cluster.query !== 'string'
-  ) {
-    return null
-  }
-
-  const cluster = {
-    clusterId: value.cluster.clusterId.trim(),
-    clusterType: value.cluster.clusterType.trim(),
-    title: value.cluster.title.trim(),
-    query: value.cluster.query.trim(),
-  }
-  if (!cluster.clusterId || !cluster.clusterType || !cluster.title || !cluster.query) return null
+  const cluster = normalizeCluster(value.cluster)
+  if (!cluster) return null
 
   const allClusters = Array.isArray(value.allClusters)
     ? value.allClusters
-        .filter(
-          (
-            entry
-          ): entry is {
-            clusterId: string
-            clusterType: string
-            title: string
-            query: string
-          } =>
-            isRecord(entry) &&
-            typeof entry.clusterId === 'string' &&
-            typeof entry.clusterType === 'string' &&
-            typeof entry.title === 'string' &&
-            typeof entry.query === 'string'
-        )
-        .map((entry) => ({
-          clusterId: entry.clusterId.trim(),
-          clusterType: entry.clusterType.trim(),
-          title: entry.title.trim(),
-          query: entry.query.trim(),
-        }))
-        .filter((entry) => entry.clusterId && entry.clusterType && entry.title && entry.query)
+        .map((entry) => normalizeCluster(entry))
+        .filter((entry): entry is GmailCleanupWorkflowClusterPayload => entry != null)
     : []
 
   if (!Array.isArray(value.senders) || value.senders.length === 0) return null
@@ -238,8 +197,27 @@ function parseRestoreArchiveRequest(value: Record<string, unknown>): RestoreArch
   }
 }
 
+function parsePushArchiveRequest(value: Record<string, unknown>): PushArchiveRequest | null {
+  const agentId = normalizeText(value.agentId)
+  const senderKey = normalizeText(value.senderKey)
+  const sender = normalizeText(value.sender)
+  if (!agentId || !senderKey || !sender) return null
+
+  return {
+    kind: 'push_archive',
+    agentId,
+    sessionId: normalizeText(value.sessionId) || null,
+    senderKey,
+    sender,
+    analysisScope: normalizeText(value.analysisScope) || null,
+  }
+}
+
 function parseRequestBody(value: unknown): DestinationRequest | null {
   if (!isRecord(value)) return null
+  if (normalizeText(value.action) === 'push_archive') {
+    return parsePushArchiveRequest(value)
+  }
   if (normalizeText(value.action) === 'restore_archive') {
     return parseRestoreArchiveRequest(value)
   }
@@ -314,31 +292,6 @@ async function updateDestinationExecutionState(params: {
   }
 }
 
-async function clearDestinationState(params: {
-  supabase: AdminSupabase
-  agentId: string
-  sessionId: string | null
-  senderKey: string
-  sender: string
-  reason: string
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-  return persistGmailCleanupMemory({
-    supabase: params.supabase,
-    agentId: params.agentId,
-    payload: {
-      agentId: params.agentId,
-      sessionId: params.sessionId,
-      cluster: null,
-      action: {
-        type: 'destination_state_clear',
-        senderKey: params.senderKey,
-        sender: params.sender,
-        reason: params.reason,
-      },
-    },
-  })
-}
-
 function normalizeDestinationState(value: unknown): GmailDestinationState | null {
   return value === 'KEEP' ||
     value === 'ARCHIVE' ||
@@ -357,6 +310,33 @@ function normalizeExecutionState(value: unknown): GmailDestinationExecutionState
     value === 'deferred'
     ? value
     : null
+}
+
+function normalizeCluster(
+  value: unknown
+): GmailCleanupMemoryWritePayload['cluster'] {
+  if (
+    !isRecord(value) ||
+    typeof value.clusterId !== 'string' ||
+    typeof value.clusterType !== 'string' ||
+    typeof value.title !== 'string' ||
+    typeof value.query !== 'string'
+  ) {
+    return null
+  }
+
+  return buildGmailCleanupWorkflowClusterPayload({
+    cluster: {
+      clusterId: normalizeText(value.clusterId),
+      canonicalClusterId: normalizeText(value.canonicalClusterId) || null,
+      legacyClusterIds: normalizeStringArray(value.legacyClusterIds),
+      sourceClusterIds: normalizeStringArray(value.sourceClusterIds),
+      clusterType: normalizeText(value.clusterType),
+      title: normalizeText(value.title),
+      query: normalizeText(value.query),
+    },
+    reviewUnitKey: normalizeText(value.reviewUnitKey) || null,
+  })
 }
 
 async function loadStoredDestinationProfile(params: {
@@ -383,7 +363,7 @@ async function loadStoredDestinationProfile(params: {
   const senderKey = normalizeText(meta.sender_key)
   const sender = normalizeText(meta.sender)
   const destinationState = normalizeDestinationState(meta.destination_state)
-  const executionState = normalizeExecutionState(meta.execution_state) || 'pending'
+  const executionState = normalizeExecutionState(meta.execution_state) || 'deferred'
   if (!senderKey || !sender || !destinationState) return null
 
   return {
@@ -391,8 +371,10 @@ async function loadStoredDestinationProfile(params: {
     sender,
     destinationState,
     executionState,
+    executionSource: normalizeText(meta.execution_source) || null,
     executionWarning: normalizeText(meta.execution_warning) || null,
     executionMessageIds: normalizeStringArray(meta.execution_message_ids),
+    cluster: normalizeCluster(meta.cluster),
   }
 }
 
@@ -404,181 +386,65 @@ function countMatchingIds(ids: string[], set: Set<string>): number {
   return count
 }
 
-function buildArchiveExecutionUpdates(params: {
-  senders: CommitSender[]
-  messageIdsBySender: Record<string, string[]>
-  acceptedMessageIds: Set<string>
-  failedMessageIds: Set<string>
-  verifiedMessageIds: Set<string>
-  verificationWarning: string | null
-}): ExecutionUpdateSender[] {
-  return params.senders
-    .filter((sender) => sender.destinationState === 'ARCHIVE')
-    .map((sender) => {
-      const targetedMessageIds = params.messageIdsBySender[sender.senderKey] || []
-      if (targetedMessageIds.length === 0) {
-        return {
-          senderKey: sender.senderKey,
-          sender: sender.sender,
-          executionState: 'not_applicable',
-          executionSource: 'archive_scope_empty',
-          executionWarning: 'No inbox-visible messages still required archive at approval time.',
-          executionMessageCount: 0,
-          executionMessageIds: [],
-        }
-      }
-
-      const acceptedCount = countMatchingIds(targetedMessageIds, params.acceptedMessageIds)
-      const failedCount = countMatchingIds(targetedMessageIds, params.failedMessageIds)
-      const verifiedCount = countMatchingIds(targetedMessageIds, params.verifiedMessageIds)
-
-      if (verifiedCount === targetedMessageIds.length) {
-        return {
-          senderKey: sender.senderKey,
-          sender: sender.sender,
-          executionState: 'succeeded',
-          executionSource: 'archive_verified',
-          executionWarning: null,
-          executionMessageCount: verifiedCount,
-          executionMessageIds: targetedMessageIds,
-        }
-      }
-
-      if (acceptedCount === 0 && failedCount === targetedMessageIds.length) {
-        return {
-          senderKey: sender.senderKey,
-          sender: sender.sender,
-          executionState: 'failed',
-          executionSource: 'archive_request_failed',
-          executionWarning:
-            'Gmail could not apply the archive request for this sender. The destination state was saved, but Inbox removal did not complete.',
-          executionMessageCount: 0,
-          executionMessageIds: targetedMessageIds,
-        }
-      }
-
-      const deferredIntro =
-        verifiedCount > 0
-          ? `Confirmed archive for ${verifiedCount.toLocaleString()} of ${targetedMessageIds.length.toLocaleString()} targeted messages.`
-          : acceptedCount > 0
-            ? `Archive was requested for ${acceptedCount.toLocaleString()} messages, but inbox removal is not fully confirmed yet.`
-            : 'Archive execution still needs follow-up for this sender.'
-      const failedSuffix =
-        failedCount > 0
-          ? ` ${failedCount.toLocaleString()} messages were rejected during the Gmail archive request.`
-          : ''
-      const verificationSuffix = params.verificationWarning
-        ? ` ${params.verificationWarning}`
-        : ' Confirmed success will appear only after Inbox removal is verified.'
-
-      return {
-        senderKey: sender.senderKey,
-        sender: sender.sender,
-        executionState: 'deferred',
-        executionSource: 'archive_verification_pending',
-        executionWarning: `${deferredIntro}${failedSuffix}${verificationSuffix}`.trim(),
-        executionMessageCount: verifiedCount,
-        executionMessageIds: targetedMessageIds,
-      }
-    })
-}
-
-function summarizeArchiveExecution(updates: ExecutionUpdateSender[]): ArchiveExecutionSummary {
-  if (updates.length === 0) {
-    return {
-      status: 'not_applicable',
-      senderCount: 0,
-      messageCount: 0,
-      warning: null,
-    }
-  }
-
-  const statusCounts = updates.reduce<Record<GmailDestinationExecutionState, number>>(
-    (counts, update) => {
-      counts[update.executionState] = (counts[update.executionState] || 0) + 1
-      return counts
-    },
-    {
-      not_applicable: 0,
-      pending: 0,
-      succeeded: 0,
-      failed: 0,
-      deferred: 0,
-    }
-  )
-
-  const confirmedMessageCount = updates.reduce(
-    (total, update) => total + (update.executionMessageCount || 0),
-    0
-  )
-  const targetedMessageCount = updates.reduce(
-    (total, update) => total + (update.executionMessageIds?.length || 0),
-    0
-  )
-
-  if (statusCounts.not_applicable === updates.length) {
-    return {
-      status: 'not_applicable',
-      senderCount: 0,
-      messageCount: 0,
-      warning: 'No inbox-visible messages still required archive at approval time.',
-    }
-  }
-
-  if (statusCounts.succeeded + statusCounts.not_applicable === updates.length) {
-    return {
-      status: 'succeeded',
-      senderCount: statusCounts.succeeded,
-      messageCount: confirmedMessageCount,
-      warning:
-        statusCounts.not_applicable > 0
-          ? `${statusCounts.not_applicable.toLocaleString()} archive senders already had no inbox-visible messages left to change.`
-          : null,
-    }
-  }
-
-  if (statusCounts.failed === updates.length) {
-    return {
-      status: 'failed',
-      senderCount: updates.length,
-      messageCount: 0,
-      warning: updates[0]?.executionWarning || 'Archive execution failed for every selected sender.',
-    }
-  }
-
-  return {
-    status: 'deferred',
-    senderCount: updates.length,
-    messageCount: confirmedMessageCount,
-    warning:
-      `Archive execution is only partially confirmed. ${confirmedMessageCount.toLocaleString()} of ${targetedMessageCount.toLocaleString()} targeted messages have verified Inbox removal so far.` +
-      (updates.find((update) => update.executionWarning)?.executionWarning
-        ? ` ${updates.find((update) => update.executionWarning)?.executionWarning}`
-        : ''),
-  }
-}
-
 async function handleCommitRequest(
   supabase: AdminSupabase,
   body: DestinationCommitRequest
 ): Promise<NextResponse> {
+  const startedAt = Date.now()
+  const persistResult = await persistGmailCleanupMemory({
+    supabase,
+    agentId: body.agentId,
+    payload: {
+      agentId: body.agentId,
+      sessionId: body.sessionId,
+      cluster: body.cluster,
+      action: {
+        type: 'destination_commit',
+        senders: body.senders,
+      },
+    },
+  })
+
+  if (!persistResult.ok) {
+    return NextResponse.json({ ok: false, error: persistResult.error }, { status: 500 })
+  }
+
+  console.info(
+    `[runtime/gmail-destinations/timing] ${JSON.stringify({
+      action: 'commit_destinations_only',
+      agent_id: body.agentId,
+      committed_sender_count: body.senders.length,
+      duration_ms: timingMs(startedAt),
+    })}`
+  )
+
+  return NextResponse.json({
+    ok: true,
+    data: {
+      committed_sender_count: body.senders.length,
+      archive_execution: {
+        status: 'not_applicable',
+        sender_count: 0,
+        message_count: 0,
+        warning: 'Destination state was saved only. Push archive work from Management to execute Gmail changes.',
+      },
+    },
+  })
+}
+
+async function handlePushArchiveRequest(
+  supabase: AdminSupabase,
+  body: PushArchiveRequest
+): Promise<NextResponse> {
   const routeStartedAt = Date.now()
-  const persistPromise = (async () => {
+  const profilePromise = (async () => {
     const startedAt = Date.now()
-    const result = await persistGmailCleanupMemory({
+    const profile = await loadStoredDestinationProfile({
       supabase,
       agentId: body.agentId,
-      payload: {
-        agentId: body.agentId,
-        sessionId: body.sessionId,
-        cluster: body.cluster,
-        action: {
-          type: 'destination_commit',
-          senders: body.senders,
-        },
-      },
+      senderKey: body.senderKey,
     })
-    return { result, durationMs: timingMs(startedAt) }
+    return { profile, durationMs: timingMs(startedAt) }
   })()
   const tenantIdPromise = (async () => {
     const startedAt = Date.now()
@@ -589,27 +455,77 @@ async function handleCommitRequest(
     return { tenantId, durationMs: timingMs(startedAt) }
   })()
 
-  const { result: persistResult, durationMs: persistMs } = await persistPromise
+  const { profile, durationMs: profileLookupMs } = await profilePromise
 
-  if (!persistResult.ok) {
-    return NextResponse.json({ ok: false, error: persistResult.error }, { status: 500 })
+  if (!profile || profile.destinationState !== 'ARCHIVE') {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'An active archive destination profile is required before Gmail archive can run.',
+      },
+      { status: 404 }
+    )
   }
 
-  const archiveSenders = body.senders.filter((sender) => sender.destinationState === 'ARCHIVE')
-  const archivePolicies = Object.fromEntries(
-    Object.entries(body.senderPolicies).filter(([, policy]) => policy === 'archive')
-  )
-
-  if (archiveSenders.length === 0 || Object.keys(archivePolicies).length === 0) {
+  if (profile.executionState === 'pending' && profile.executionSource === 'push_requested') {
     return NextResponse.json({
       ok: true,
       data: {
-        committed_sender_count: body.senders.length,
+        sender_key: profile.senderKey,
+        sender: profile.sender,
         archive_execution: {
-          status: 'not_applicable',
-          sender_count: 0,
+          status: 'pending',
+          message_count: profile.executionMessageIds.length,
+          warning: profile.executionWarning,
+        },
+      },
+    })
+  }
+
+  if (profile.executionState === 'succeeded' && profile.executionSource === 'verified_applied') {
+    return NextResponse.json({
+      ok: true,
+      data: {
+        sender_key: profile.senderKey,
+        sender: profile.sender,
+        archive_execution: {
+          status: 'succeeded',
+          message_count: profile.executionMessageIds.length,
+          warning: profile.executionWarning,
+        },
+      },
+    })
+  }
+
+  if (!profile.cluster) {
+    const warning =
+      'This archive destination does not have enough stored cluster context to resolve a safe Gmail push scope.'
+    await updateDestinationExecutionState({
+      supabase,
+      agentId: body.agentId,
+      sessionId: body.sessionId,
+      cluster: null,
+      senders: [
+        {
+          senderKey: profile.senderKey,
+          sender: profile.sender,
+          executionState: 'failed',
+          executionSource: 'sync_mismatch_or_failed',
+          executionWarning: warning,
+          executionMessageCount: 0,
+          executionMessageIds: profile.executionMessageIds,
+        },
+      ],
+    })
+    return NextResponse.json({
+      ok: true,
+      data: {
+        sender_key: profile.senderKey,
+        sender: profile.sender,
+        archive_execution: {
+          status: 'failed',
           message_count: 0,
-          warning: null,
+          warning,
         },
       },
     })
@@ -618,142 +534,184 @@ async function handleCommitRequest(
   const { tenantId, durationMs: tenantLookupMs } = await tenantIdPromise
 
   if (!tenantId) {
-    const failedUpdates = archiveSenders.map<ExecutionUpdateSender>((sender) => ({
-      senderKey: sender.senderKey,
-      sender: sender.sender,
-      executionState: 'failed',
-      executionSource: 'archive_execution_unavailable',
-      executionWarning:
-        'Destination state was committed, but archive execution could not run because the Gmail tenant connection was unavailable.',
-      executionMessageCount: 0,
-      executionMessageIds: [],
-    }))
+    const warning =
+      'Archive push could not run because the Gmail tenant connection was unavailable.'
     await updateDestinationExecutionState({
       supabase,
       agentId: body.agentId,
       sessionId: body.sessionId,
-      cluster: body.cluster,
-      senders: failedUpdates,
+      cluster: profile.cluster,
+      senders: [
+        {
+          senderKey: profile.senderKey,
+          sender: profile.sender,
+          executionState: 'failed',
+          executionSource: 'sync_mismatch_or_failed',
+          executionWarning: warning,
+          executionMessageCount: 0,
+          executionMessageIds: profile.executionMessageIds,
+        },
+      ],
     })
     return NextResponse.json({
       ok: true,
       data: {
-        committed_sender_count: body.senders.length,
+        sender_key: profile.senderKey,
+        sender: profile.sender,
         archive_execution: {
           status: 'failed',
-          sender_count: archiveSenders.length,
           message_count: 0,
-          warning:
-            'Destination state was committed, but archive execution could not run because the Gmail tenant connection was unavailable.',
+          warning,
         },
       },
     })
   }
 
-  const accessContextPromise = (async () => {
-    const startedAt = Date.now()
-    const result = await loadGmailAccessContextForTenant({
-      supabase,
-      tenantId,
-      requireModifyScope: true,
-      logPrefix: '[runtime/gmail-destinations/archive-auth]',
-    })
-    return { result, durationMs: timingMs(startedAt) }
-  })()
-  const resolvedPromise = (async () => {
-    const startedAt = Date.now()
-    const result = await resolveGmailSenderPolicyArchiveScopeForTenant({
-      supabase,
-      tenantId,
-      analysisScope: normalizeMailboxProfileScope(body.analysisScope),
-      clusters:
-        body.allClusters.length > 0
-          ? body.allClusters.map((cluster) => ({
-              cluster_id: cluster.clusterId,
-              cluster_type: cluster.clusterType,
-              title: cluster.title,
-              query: cluster.query,
-            }))
-          : [
-              {
-                cluster_id: body.cluster.clusterId,
-                cluster_type: body.cluster.clusterType,
-                title: body.cluster.title,
-                query: body.cluster.query,
-              },
-            ],
-      selectedCluster: {
-        cluster_id: body.cluster.clusterId,
-        cluster_type: body.cluster.clusterType,
-        title: body.cluster.title,
-        query: body.cluster.query,
+  const resolutionStartedAt = Date.now()
+  const resolution = await resolveGmailSenderPolicyArchiveScopeForTenant({
+    supabase,
+    tenantId,
+    analysisScope: normalizeMailboxProfileScope(body.analysisScope),
+    clusters: [
+      {
+        cluster_id: profile.cluster.clusterId,
+        cluster_type: profile.cluster.clusterType,
+        title: profile.cluster.title,
+        query: profile.cluster.query,
       },
-      senderPolicies: archivePolicies,
-      messageOverrides: body.messageOverrides,
-    })
-    return { result, durationMs: timingMs(startedAt) }
-  })()
+    ],
+    selectedCluster: {
+      cluster_id: profile.cluster.clusterId,
+      cluster_type: profile.cluster.clusterType,
+      title: profile.cluster.title,
+      query: profile.cluster.query,
+    },
+    senderPolicies: {
+      [profile.senderKey]: 'archive',
+    },
+    messageOverrides: {},
+  })
+  const scopeResolutionMs = timingMs(resolutionStartedAt)
 
-  const [
-    { result: accessContext, durationMs: accessContextMs },
-    { result: resolved, durationMs: scopeResolutionMs },
-  ] = await Promise.all([accessContextPromise, resolvedPromise])
-
-  if (!resolved.ok) {
-    const failedUpdates = archiveSenders.map<ExecutionUpdateSender>((sender) => ({
-      senderKey: sender.senderKey,
-      sender: sender.sender,
-      executionState: 'failed',
-      executionSource: 'archive_scope_resolution_failed',
-      executionWarning: resolved.error,
-      executionMessageCount: 0,
-      executionMessageIds: [],
-    }))
+  if (!resolution.ok) {
     await updateDestinationExecutionState({
       supabase,
       agentId: body.agentId,
       sessionId: body.sessionId,
-      cluster: body.cluster,
-      senders: failedUpdates,
+      cluster: profile.cluster,
+      senders: [
+        {
+          senderKey: profile.senderKey,
+          sender: profile.sender,
+          executionState: 'failed',
+          executionSource: 'sync_mismatch_or_failed',
+          executionWarning: resolution.error,
+          executionMessageCount: 0,
+          executionMessageIds: profile.executionMessageIds,
+        },
+      ],
     })
     return NextResponse.json({
       ok: true,
       data: {
-        committed_sender_count: body.senders.length,
+        sender_key: profile.senderKey,
+        sender: profile.sender,
         archive_execution: {
           status: 'failed',
-          sender_count: archiveSenders.length,
           message_count: 0,
-          warning: resolved.error,
+          warning: resolution.error,
         },
       },
     })
   }
+
+  const targetedMessageIds = resolution.data.messageIdsBySender[profile.senderKey] || []
+
+  await updateDestinationExecutionState({
+    supabase,
+    agentId: body.agentId,
+    sessionId: body.sessionId,
+    cluster: profile.cluster,
+    senders: [
+      {
+        senderKey: profile.senderKey,
+        sender: profile.sender,
+        executionState: 'pending',
+        executionSource: 'push_requested',
+        executionWarning: null,
+        executionMessageCount: targetedMessageIds.length,
+        executionMessageIds: targetedMessageIds,
+      },
+    ],
+  })
+
+  if (targetedMessageIds.length === 0) {
+    const warning = 'No inbox-visible messages remained for this sender, so Gmail already matches the stored archive destination.'
+    await updateDestinationExecutionState({
+      supabase,
+      agentId: body.agentId,
+      sessionId: body.sessionId,
+      cluster: profile.cluster,
+      senders: [
+        {
+          senderKey: profile.senderKey,
+          sender: profile.sender,
+          executionState: 'succeeded',
+          executionSource: 'verified_applied',
+          executionWarning: warning,
+          executionMessageCount: 0,
+          executionMessageIds: [],
+        },
+      ],
+    })
+    return NextResponse.json({
+      ok: true,
+      data: {
+        sender_key: profile.senderKey,
+        sender: profile.sender,
+        archive_execution: {
+          status: 'succeeded',
+          message_count: 0,
+          warning,
+        },
+      },
+    })
+  }
+
+  const accessContextStartedAt = Date.now()
+  const accessContext = await loadGmailAccessContextForTenant({
+    supabase,
+    tenantId,
+    requireModifyScope: true,
+    logPrefix: '[runtime/gmail-destinations/archive-auth]',
+  })
+  const accessContextMs = timingMs(accessContextStartedAt)
 
   if (!accessContext.ok) {
-    const failedUpdates = archiveSenders.map<ExecutionUpdateSender>((sender) => ({
-      senderKey: sender.senderKey,
-      sender: sender.sender,
-      executionState: 'failed',
-      executionSource: 'archive_execution_unavailable',
-      executionWarning: accessContext.error,
-      executionMessageCount: 0,
-      executionMessageIds: resolved.data.messageIdsBySender[sender.senderKey] || [],
-    }))
     await updateDestinationExecutionState({
       supabase,
       agentId: body.agentId,
       sessionId: body.sessionId,
-      cluster: body.cluster,
-      senders: failedUpdates,
+      cluster: profile.cluster,
+      senders: [
+        {
+          senderKey: profile.senderKey,
+          sender: profile.sender,
+          executionState: 'failed',
+          executionSource: 'sync_mismatch_or_failed',
+          executionWarning: accessContext.error,
+          executionMessageCount: 0,
+          executionMessageIds: targetedMessageIds,
+        },
+      ],
     })
     return NextResponse.json({
       ok: true,
       data: {
-        committed_sender_count: body.senders.length,
+        sender_key: profile.senderKey,
+        sender: profile.sender,
         archive_execution: {
           status: 'failed',
-          sender_count: archiveSenders.length,
           message_count: 0,
           warning: accessContext.error,
         },
@@ -765,7 +723,7 @@ async function handleCommitRequest(
   const mutation = await mutateGmailInboxLabelStateForTenant({
     supabase,
     tenantId,
-    messageIds: resolved.data.messageIds,
+    messageIds: targetedMessageIds,
     removeLabelIds: ['INBOX'],
     logPrefix: '[runtime/gmail-destinations/archive]',
     accessContext: accessContext.data,
@@ -773,29 +731,30 @@ async function handleCommitRequest(
   const mutationMs = timingMs(mutationStartedAt)
 
   if (!mutation.ok) {
-    const failedUpdates = archiveSenders.map<ExecutionUpdateSender>((sender) => ({
-      senderKey: sender.senderKey,
-      sender: sender.sender,
-      executionState: 'failed',
-      executionSource: 'archive_request_failed',
-      executionWarning: mutation.error,
-      executionMessageCount: 0,
-      executionMessageIds: resolved.data.messageIdsBySender[sender.senderKey] || [],
-    }))
     await updateDestinationExecutionState({
       supabase,
       agentId: body.agentId,
       sessionId: body.sessionId,
-      cluster: body.cluster,
-      senders: failedUpdates,
+      cluster: profile.cluster,
+      senders: [
+        {
+          senderKey: profile.senderKey,
+          sender: profile.sender,
+          executionState: 'failed',
+          executionSource: 'sync_mismatch_or_failed',
+          executionWarning: mutation.error,
+          executionMessageCount: 0,
+          executionMessageIds: targetedMessageIds,
+        },
+      ],
     })
     return NextResponse.json({
       ok: true,
       data: {
-        committed_sender_count: body.senders.length,
+        sender_key: profile.senderKey,
+        sender: profile.sender,
         archive_execution: {
           status: 'failed',
-          sender_count: archiveSenders.length,
           message_count: 0,
           warning: mutation.error,
         },
@@ -803,14 +762,13 @@ async function handleCommitRequest(
     })
   }
 
-  let verifiedMessageIds = new Set<string>()
   let verificationWarning: string | null =
     mutation.data.partial_failure && mutation.data.failed_message_ids.length > 0
       ? `${mutation.data.failed_message_ids.length.toLocaleString()} messages were rejected during the Gmail archive request.`
       : null
+  let verifiedMessageIds = new Set<string>()
 
   if (mutation.data.accepted_message_ids.length > 0) {
-    const verificationStartedAt = Date.now()
     const verification = await verifyGmailMessagesInboxStateForTenant({
       supabase,
       tenantId,
@@ -827,78 +785,121 @@ async function handleCommitRequest(
       maxAttempts: mutation.data.accepted_message_ids.length > 2_500 ? 1 : 2,
       retryDelayMs: 75,
     })
-    const verificationMs = timingMs(verificationStartedAt)
 
     if (verification.ok) {
       verifiedMessageIds = new Set(verification.data.verified_message_ids)
-      if (verification.data.warning) {
-        verificationWarning = verification.data.warning
-      }
+      if (verification.data.warning) verificationWarning = verification.data.warning
     } else {
       verificationWarning = verification.error
     }
+  }
+
+  const verifiedCount = countMatchingIds(targetedMessageIds, verifiedMessageIds)
+  const allVerified = verifiedCount === targetedMessageIds.length
+
+  if (allVerified) {
+    await updateDestinationExecutionState({
+      supabase,
+      agentId: body.agentId,
+      sessionId: body.sessionId,
+      cluster: profile.cluster,
+      senders: [
+        {
+          senderKey: profile.senderKey,
+          sender: profile.sender,
+          executionState: 'succeeded',
+          executionSource: 'verified_applied',
+          executionWarning: null,
+          executionMessageCount: verifiedCount,
+          executionMessageIds: targetedMessageIds,
+        },
+      ],
+    })
 
     console.info(
       `[runtime/gmail-destinations/timing] ${JSON.stringify({
-        action: 'archive_verify',
+        action: 'push_archive_destination',
         agent_id: body.agentId,
-        sender_count: archiveSenders.length,
-        accepted_message_count: mutation.data.accepted_message_ids.length,
-        duration_ms: verificationMs,
-        verified_message_count: verifiedMessageIds.size,
-        warning: verificationWarning,
+        sender_key: body.senderKey,
+        profile_lookup_ms: profileLookupMs,
+        tenant_lookup_ms: tenantLookupMs,
+        scope_resolution_ms: scopeResolutionMs,
+        access_context_ms: accessContextMs,
+        mutation_ms: mutationMs,
+        total_ms: timingMs(routeStartedAt),
+        archive_execution_status: 'succeeded',
+        archive_message_count: verifiedCount,
       })}`
     )
+
+    return NextResponse.json({
+      ok: true,
+      data: {
+        sender_key: profile.senderKey,
+        sender: profile.sender,
+        archive_execution: {
+          status: 'succeeded',
+          message_count: verifiedCount,
+          warning: null,
+        },
+      },
+    })
   }
 
-  const updates = buildArchiveExecutionUpdates({
-    senders: archiveSenders,
-    messageIdsBySender: resolved.data.messageIdsBySender,
-    acceptedMessageIds: new Set(mutation.data.accepted_message_ids),
-    failedMessageIds: new Set(mutation.data.failed_message_ids),
-    verifiedMessageIds,
-    verificationWarning,
-  })
+  const nextState: GmailDestinationExecutionState =
+    mutation.data.failed_message_ids.length === targetedMessageIds.length &&
+    mutation.data.accepted_count === 0
+      ? 'failed'
+      : 'deferred'
+  const warning =
+    (verifiedCount > 0
+      ? `Confirmed archive for ${verifiedCount.toLocaleString()} of ${targetedMessageIds.length.toLocaleString()} targeted messages. `
+      : '') +
+    (verificationWarning || 'Inbox removal could not be fully verified for this sender yet.')
 
-  const executionStateUpdateStartedAt = Date.now()
   await updateDestinationExecutionState({
     supabase,
     agentId: body.agentId,
     sessionId: body.sessionId,
-    cluster: body.cluster,
-    senders: updates,
+    cluster: profile.cluster,
+    senders: [
+      {
+        senderKey: profile.senderKey,
+        sender: profile.sender,
+        executionState: nextState,
+        executionSource: 'sync_mismatch_or_failed',
+        executionWarning: warning.trim(),
+        executionMessageCount: verifiedCount,
+        executionMessageIds: targetedMessageIds,
+      },
+    ],
   })
-  const executionUpdateMs = timingMs(executionStateUpdateStartedAt)
-
-  const summary = summarizeArchiveExecution(updates)
 
   console.info(
     `[runtime/gmail-destinations/timing] ${JSON.stringify({
-      action: 'commit_archive_destinations',
+      action: 'push_archive_destination',
       agent_id: body.agentId,
-      committed_sender_count: body.senders.length,
-      archive_sender_count: archiveSenders.length,
-      persist_ms: persistMs,
+      sender_key: body.senderKey,
+      profile_lookup_ms: profileLookupMs,
       tenant_lookup_ms: tenantLookupMs,
-      access_context_ms: accessContextMs,
       scope_resolution_ms: scopeResolutionMs,
+      access_context_ms: accessContextMs,
       mutation_ms: mutationMs,
-      execution_update_ms: executionUpdateMs,
       total_ms: timingMs(routeStartedAt),
-      archive_execution_status: summary.status,
-      archive_message_count: summary.messageCount,
+      archive_execution_status: nextState,
+      archive_message_count: verifiedCount,
     })}`
   )
 
   return NextResponse.json({
     ok: true,
     data: {
-      committed_sender_count: body.senders.length,
+      sender_key: profile.senderKey,
+      sender: profile.sender,
       archive_execution: {
-        status: summary.status,
-        sender_count: summary.senderCount,
-        message_count: summary.messageCount,
-        warning: summary.warning,
+        status: nextState,
+        message_count: verifiedCount,
+        warning: warning.trim(),
       },
     },
   })
@@ -951,7 +952,7 @@ async function handleRestoreArchiveRequest(
           senderKey: profile.senderKey,
           sender: profile.sender,
           executionState: 'failed',
-          executionSource: 'archive_restore_unavailable',
+          executionSource: 'sync_mismatch_or_failed',
           executionWarning:
             'Inbox restore could not run because the Gmail tenant connection was unavailable.',
           executionMessageCount: 0,
@@ -988,7 +989,7 @@ async function handleRestoreArchiveRequest(
           senderKey: profile.senderKey,
           sender: profile.sender,
           executionState: 'failed',
-          executionSource: 'archive_restore_scope_missing',
+          executionSource: 'sync_mismatch_or_failed',
           executionWarning: warning,
           executionMessageCount: 0,
           executionMessageIds: [],
@@ -1030,7 +1031,7 @@ async function handleRestoreArchiveRequest(
           senderKey: profile.senderKey,
           sender: profile.sender,
           executionState: 'failed',
-          executionSource: 'archive_restore_unavailable',
+          executionSource: 'sync_mismatch_or_failed',
           executionWarning: accessContext.error,
           executionMessageCount: 0,
           executionMessageIds: profile.executionMessageIds,
@@ -1074,7 +1075,7 @@ async function handleRestoreArchiveRequest(
           senderKey: profile.senderKey,
           sender: profile.sender,
           executionState: 'failed',
-          executionSource: 'archive_restore_request_failed',
+          executionSource: 'sync_mismatch_or_failed',
           executionWarning: mutation.error,
           executionMessageCount: 0,
           executionMessageIds: profile.executionMessageIds,
@@ -1125,58 +1126,13 @@ async function handleRestoreArchiveRequest(
           senderKey: profile.senderKey,
           sender: profile.sender,
           executionState: 'succeeded',
-          executionSource: 'archive_restore_verified',
+          executionSource: 'reversed',
           executionWarning: null,
           executionMessageCount: verifiedCount,
           executionMessageIds: profile.executionMessageIds,
         },
       ],
     })
-
-    const clearResult = await clearDestinationState({
-      supabase,
-      agentId: body.agentId,
-      sessionId: body.sessionId,
-      senderKey: profile.senderKey,
-      sender: profile.sender,
-      reason:
-        'Archive destination was restored to Inbox and removed from the active destination layer.',
-    })
-
-    if (!clearResult.ok) {
-      const warning =
-        'Inbox restore was confirmed, but the archive destination state could not be cleared from management yet.'
-      await updateDestinationExecutionState({
-        supabase,
-        agentId: body.agentId,
-        sessionId: body.sessionId,
-        cluster: null,
-        senders: [
-          {
-            senderKey: profile.senderKey,
-            sender: profile.sender,
-            executionState: 'deferred',
-            executionSource: 'archive_restore_state_clear_failed',
-            executionWarning: warning,
-            executionMessageCount: verifiedCount,
-            executionMessageIds: profile.executionMessageIds,
-          },
-        ],
-      })
-      return NextResponse.json({
-        ok: true,
-        data: {
-          sender_key: profile.senderKey,
-          sender: profile.sender,
-          restore_execution: {
-            status: 'deferred',
-            message_count: verifiedCount,
-            warning,
-            cleared_destination_state: false,
-          },
-        },
-      })
-    }
 
     console.info(
       `[runtime/gmail-destinations/timing] ${JSON.stringify({
@@ -1201,7 +1157,7 @@ async function handleRestoreArchiveRequest(
           status: 'succeeded',
           message_count: verifiedCount,
           warning: null,
-          cleared_destination_state: true,
+          cleared_destination_state: false,
         },
       },
     })
@@ -1227,9 +1183,7 @@ async function handleRestoreArchiveRequest(
         sender: profile.sender,
         executionState: nextState,
         executionSource:
-          nextState === 'failed'
-            ? 'archive_restore_request_failed'
-            : 'archive_restore_verification_pending',
+          'sync_mismatch_or_failed',
         executionWarning:
           verifiedCount > 0
             ? `Confirmed inbox restore for ${verifiedCount.toLocaleString()} of ${profile.executionMessageIds.length.toLocaleString()} targeted messages. ${warning}`
@@ -1281,6 +1235,10 @@ export async function POST(req: Request) {
     }
 
     const supabase = await getSupabaseAdmin()
+
+    if (body.kind === 'push_archive') {
+      return handlePushArchiveRequest(supabase, body)
+    }
 
     if (body.kind === 'restore_archive') {
       return handleRestoreArchiveRequest(supabase, body)

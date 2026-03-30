@@ -1,5 +1,3 @@
-
-
 # Gmail Workspace Product Flow Specification
 
 ## Purpose
@@ -59,6 +57,17 @@ Each step must explain:
 - the count
 - what the count represents
 - why the scope narrowed
+
+---
+
+## 4. Unified Sender Surface (Two Modes)
+The system uses ONE sender card system with TWO modes:
+
+- Overview Mode (exploration, comparison, context)
+- Decision Mode (focused execution, one sender at a time)
+
+The user must never lose context when moving between modes.
+Transition into Decision Mode should happen in-place (overlay or focus shift), not via navigation to a disconnected screen.
 
 ---
 
@@ -181,6 +190,11 @@ Cleanup Groups
 
 ---
 
+Mailbox Intelligence must clearly communicate why some senders are not part of the cleanup candidate universe.
+This must be reinforced again in Cleanup Groups via the Protected cluster.
+
+---
+
 # Stage 2 — Cleanup Groups
 
 Route:
@@ -225,42 +239,94 @@ Retail Senders
 Likely newsletters or promotions
 ```
 
-Clicking a cluster moves to **Sender Decisions**.
+Clicking a cluster moves to **Sender Overview** for that cleanup group.
 
 ---
 
-# Stage 3 — Sender Decisions (Swipe Mode)
+Special cluster type must exist:
 
+Protected / Trusted Senders
+
+This cluster explains:
+- why certain senders are excluded from cleanup candidates
+- why they are protected (high engagement, personal, critical signals)
+
+This removes the need for a separate explanation layer.
+
+---
+
+## Stage 3 — Sender Exploration & Decision (Unified Surface)
 Route:
-
 /operations/review
-stage=senders
 
-This is the **primary decision engine of the product**.
+This is the core surface where users both:
+- explore senders (Overview Mode)
+- make decisions (Decision Mode)
 
-The user does NOT see a table by default.
+This is NOT two separate systems.
+This is ONE system with TWO modes.
 
-Instead, the experience shifts into a **single-focus, high-speed decision flow** similar to a swipe-based interface (Tinder-like interaction model).
+The product must support two valid entry paths into sender decisions:
+- Guided path: user clicks **Start Guided Review** and the system walks senders one by one
+- Direct path: user clicks a specific sender and opens that sender in Decision Mode immediately
 
 ---
 
-## Core Interaction Model
+## Mode A — Overview Mode (Explore)
 
-Only ONE sender is shown at a time.
+- multiple senders visible
+- scrollable list
+- expandable sender rows
+- comparison across senders
+- deep inspection of patterns and proof
 
-The screen enters **Decision Mode**:
-- background UI dims
-- focus locks to the active sender
-- user makes a fast decision
-- next sender appears instantly
+User goal:
+"Understand who these senders are"
 
-The goal is **speed, clarity, and momentum**, not analysis paralysis.
+Primary actions:
+- scan senders
+- expand sender rows
+- click sender to enter Decision Mode
+- optionally start guided review
+
+---
+
+## Mode B — Decision Mode (Execute)
+
+- one sender in focus
+- same sender data as overview
+- decisions enabled
+- progress visible
+- next sender auto-advances
+
+User goal:
+"Make a decision quickly and move forward"
+
+Entry paths:
+- click sender from Overview Mode
+- click "Start Guided Review"
+
+Transition behavior:
+- Decision Mode appears as an overlay or focus state
+- user remains in same context (same cleanup group)
+- no navigation reset
+
+---
+
+The user initially sees a scrollable sender list (Overview Mode).
+Decision Mode is entered when a sender is selected or guided mode is started.
 
 ---
 
 ## Sender Profile Card
 
-Each sender is presented as a **full profile card**:
+NOTE:
+This card is the SAME component used in both Overview Mode and Decision Mode.
+The only difference is interaction state and available actions.
+
+The shared sender card must surface the same sender truth in both modes.
+Overview Mode prioritizes comparison and scanning.
+Decision Mode prioritizes action, progress, and evidence clarity.
 
 ### 1. Header (Identity)
 - sender name
@@ -299,6 +365,8 @@ Messages remain **evidence only**, never primary objects.
 
 ## Decision Actions (Only 4)
 
+These actions are only visible when the card is in Decision Mode.
+
 The user has exactly four choices:
 
 1. **Keep All**
@@ -321,12 +389,16 @@ After user clicks a decision:
 - decision is saved instantly
 - sender exits the queue
 - next sender card appears immediately
+- if the user entered by clicking a sender, Decision Mode starts on that exact sender
+- if the user entered through guided review, Decision Mode starts on the first sender in the guided sequence
 
 No confirmation step.
 
 No intermediate friction.
 
 This is a **rapid-fire decision loop**.
+
+If the user entered from Overview Mode, they can exit Decision Mode and return to the same scroll position.
 
 ---
 
@@ -345,6 +417,7 @@ User proceeds to Management stage.
 
 ## Important Constraints
 
+- No separate decision card system may be introduced
 - No bulk table editing in this stage
 - No multi-select
 - No scrolling through multiple senders
@@ -576,301 +649,4 @@ The system learns from user behavior.
 
 Future inbox cleanup becomes mostly automated.
 
----
-
 End of Gmail Workspace Product Flow Specification
-# Gmail Workspace Product Flow Specification (Merged)
-
-## Purpose
-This document defines the **exact product flow** for the Gmail Workspace inside the AI Agent Platform. It unifies:
-- High-level workflow (Mailbox → Senders → Decisions → Automation)
-- Detailed UI/UX behavior (sender-first, swipe decision mode)
-
-The goal is to ensure the system is implemented as a **sender-first decision engine**, not a message-first inbox.
-
----
-
-# Core Design Principles
-
-## 1. Sender‑First Architecture
-The primary decision object is always **the sender**.
-
-Messages are:
-- supporting evidence only
-- never the primary decision unit
-
-Decisions create:
-- immediate actions (archive)
-- learned policies
-- future automation
-
----
-
-## 2. Guided Workflow Model
-The product is a **structured workflow**, not a tool:
-
-AI analysis → sender discovery → sender decisions → management → automation → monitoring
-
----
-
-## 3. Progressive Scope Narrowing
-Always show scope reduction:
-
-Mailbox → Candidate Universe → Cluster → Sender → Message Evidence
-
-Each stage must explain:
-- counts
-- meaning
-- why scope narrowed
-
----
-
-## 4. Speed Over Complexity
-The system prioritizes:
-- fast decisions
-- low friction
-- momentum
-
-Not:
-- deep manual inspection
-
----
-
-# Full Product Workflow
-
-## Stage 0 — Operations / Entry
-Route: /operations
-
-Purpose:
-- system status
-- mailbox connection
-- entry point
-
-Primary action:
-"Open Mailbox Intelligence"
-
----
-
-## Stage 1 — Mailbox Intelligence (Bird’s-Eye View)
-Route: /operations/intelligence
-
-Purpose:
-Convert inbox from:
-"200,000 emails"
-→
-"X senders"
-
-### Views
-
-#### Whole Mailbox
-- total messages
-- sender count
-- timeline
-- human vs machine ratio
-
-#### Cleanup Candidate Universe
-- likely cleanup senders
-- volume impact
-
-#### Protected Context
-- personal senders
-- safe senders
-
-### Visuals
-- sender distribution
-- activity timeline
-- category breakdown
-- domain distribution
-
-### Outcome
-User selects a cleanup group
-
----
-
-## Stage 2 — Cleanup Groups (Clusters)
-Route: /operations/clusters
-
-Clusters = behavioral groupings of senders
-
-Examples:
-- promotions
-- retail
-- dormant
-- subscriptions
-
-Each card shows:
-- sender count
-- message volume
-- % of inbox
-- explanation
-
-Outcome:
-User selects cluster → enters Sender Decisions
-
----
-
-## Stage 3 — Sender Decisions (Swipe Mode)
-Route: /operations/review?stage=senders
-
-This is the **core engine**.
-
-### Interaction Model
-- ONE sender at a time
-- full-screen focus
-- instant transitions
-
-### Sender Profile Card
-
-#### Identity
-- name
-- email
-- domain
-- avatar/logo
-
-#### AI Summary
-- what sender is
-
-#### Signals
-- human vs machine
-- frequency
-- recency
-- impact
-
-#### Content Breakdown
-Grouped categories:
-- promotions
-- updates
-- alerts
-
-Expandable with examples
-
----
-
-### Decision Buttons (ONLY 4)
-
-1. Keep All
-2. Keep Some
-3. Archive All
-4. Not Sure
-
----
-
-### Decision Mapping
-
-| Decision | Result |
-|--------|-------|
-| Keep All | stays in inbox |
-| Keep Some | goes to Custom Rules |
-| Archive All | goes to Archive |
-| Not Sure | goes to Quarantine |
-
----
-
-### Behavior
-- instant save
-- no confirmation
-- next sender immediately
-
-Goal:
-Process hundreds of senders quickly
-
----
-
-## Stage 4 — Management (Execution)
-Route: /operations/review?stage=management
-
-This is where decisions become actions.
-
-### Buckets
-
-#### Keep
-- no action
-
-#### Archive
-- bulk archive
-- push to Gmail
-
-#### Custom Rules (Keep Some)
-- user selects categories to keep/archive
-
-#### Quarantine
-- revisit later
-
----
-
-### Execution Controls
-- push to Gmail
-- undo support
-- status indicators
-
----
-
-### Rule
-Gmail mutations ONLY happen here
-
----
-
-## Stage 5 — Rules & Automation
-Route: /operations/review?stage=rules
-
-Convert decisions into rules:
-
-Examples:
-- always archive
-- always keep
-- category filtering
-
----
-
-## Stage 6 — Monitoring
-Route: /operations/review?stage=monitoring
-
-AI learning layer:
-- behavior tracking
-- recommendations
-- policy evolution
-
----
-
-# AI Learning Loop
-
-Observation → Preference → Policy → Automation
-
-The system improves continuously.
-
----
-
-# Performance Requirements
-- page load < 2s
-- cached intelligence
-- background loading
-
----
-
-# Key Constraints
-- sender-first only
-- no message-first workflows
-- decisions stored in:
-  - agent_events
-  - rag_documents
-
----
-
-# Success Criteria
-
-The system succeeds when:
-- users understand inbox quickly
-- decisions are sender-based
-- automation takes over
-
----
-
-# Final Summary
-
-This merged flow ensures:
-- clear mental model (from second document)
-- precise UI/UX execution (from first document)
-
-The product is now defined as:
-
-"A sender-first, AI-driven inbox decision system with a guided, high-speed workflow."

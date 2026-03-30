@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   GMAIL_MAILBOX_INDEX_HEARTBEAT_INTERVAL_MS,
-  GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
   GMAIL_MAILBOX_INDEX_STALL_THRESHOLD_MS,
   GMAIL_OPERATOR_BACKFILL_DEFAULT_WINDOW_MONTHS,
   clampGmailMailboxIndexMaxMessages,
@@ -10,6 +9,15 @@ import {
   type GmailMailboxIndexTrigger,
   type GmailOperatorBackfillWindowMonths,
 } from '@/lib/integrations/gmail/gmailMailboxIndexConfig'
+import {
+  recomputeGmailSenderStatsFromFullMailbox,
+  recomputeGmailSenderStatsForSenders,
+} from '@/lib/integrations/gmail/gmailArtifactFullMailboxProjector'
+import type {
+  GmailArtifactIncrementalChangedMessage,
+  GmailArtifactIncrementalMessageRow,
+  GmailArtifactIncrementalRefreshHint,
+} from '@/lib/integrations/gmail/gmailArtifactIncrementalUpdater'
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 const GMAIL_MESSAGES_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages'
@@ -211,17 +219,6 @@ export type GmailMailboxIndexCoverage = {
   indexed_date_span_end: string | null
 }
 
-type GmailSenderStatsRow = {
-  tenant_id: string
-  sender: string
-  message_count: number
-  recent_count_30d: number
-  machine_probability: number
-  human_probability: number
-  last_seen: string | null
-  updated_at: string
-}
-
 type IndexedRowsCacheEntry = {
   expires_at_ms: number
   rows: GmailMailboxIndexRow[]
@@ -394,6 +391,7 @@ export type GmailMailboxIndexSyncResult =
       growth_delta: number
       last_history_id: string | null
       used_fallback_full_scan: boolean
+      artifact_refresh_hint?: GmailArtifactIncrementalRefreshHint | null
     }
   | {
       ok: true
@@ -417,6 +415,7 @@ export type GmailMailboxIndexSyncResult =
       growth_delta: number
       last_history_id: string | null
       used_fallback_full_scan: false
+      artifact_refresh_hint?: null
     }
   | {
       ok: false
@@ -840,24 +839,6 @@ async function fetchWithRetry(
     hadRetryableSignal,
     cause: lastError,
   })
-}
-
-function senderMessageSignals(params: {
-  sender: string
-  subject: string | null
-}): { machineHit: number; humanHit: number } {
-  const sender = params.sender.toLowerCase()
-  const subject = (params.subject || '').toLowerCase()
-  const machineHit =
-    /\b(no-?reply|do-?not-?reply|noreply|mailer-daemon|bounce)\b/.test(sender) ||
-    /\b(unsubscribe|manage preferences|notification|digest|promo|newsletter|sale|offer|alert)\b/.test(
-      subject
-    )
-      ? 1
-      : 0
-  const humanHit =
-    /\b(re:|meeting|call|please|follow up|question|thanks)\b/.test(subject) && machineHit === 0 ? 1 : 0
-  return { machineHit, humanHit }
 }
 
 async function refreshGmailAccessToken(params: {
@@ -1429,6 +1410,85 @@ function equalComparableStringArrays(
   return true
 }
 
+function toArtifactIncrementalMessageRow(
+  row: GmailMailboxIndexComparableRow | GmailMailboxIndexRow | null | undefined
+): GmailArtifactIncrementalMessageRow | null {
+  if (!row) return null
+  return {
+    message_id: row.message_id,
+    thread_id: row.thread_id,
+    sender: row.sender,
+    subject: row.subject,
+    internal_date_ms:
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+        ? Math.round(row.internal_date_ms)
+        : null,
+    date: row.date,
+    label_ids: Array.isArray(row.label_ids) ? row.label_ids : [],
+    category_labels: Array.isArray(row.category_labels) ? row.category_labels : [],
+    is_in_inbox: row.is_in_inbox === true,
+    is_unread: row.is_unread === true,
+    is_starred: row.is_starred === true,
+    is_important: row.is_important === true,
+  }
+}
+
+function normalizeIncrementalSenderKey(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = normalizeSender(value)
+  return normalized ? normalized : null
+}
+
+function buildArtifactRefreshHint(params: {
+  runId: string
+  existingRowsByMessageId: Map<string, GmailMailboxIndexComparableRow>
+  metadataRows: GmailMailboxIndexRow[]
+  deletedMessageIds: string[]
+}): GmailArtifactIncrementalRefreshHint | null {
+  const metadataRowsByMessageId = new Map(
+    params.metadataRows.map((row) => [row.message_id, row] as const)
+  )
+  const messageIds = Array.from(
+    new Set([
+      ...metadataRowsByMessageId.keys(),
+      ...params.deletedMessageIds,
+    ])
+  )
+  if (messageIds.length === 0) return null
+
+  const changedMessages: GmailArtifactIncrementalChangedMessage[] = []
+  const senderKeys = new Set<string>()
+  for (const messageId of messageIds) {
+    const before = params.existingRowsByMessageId.get(messageId) || null
+    const after = metadataRowsByMessageId.get(messageId) || null
+    if (!before && !after) continue
+    if (before && after && !materiallyChangedMailboxIndexRow(before, after)) continue
+
+    const beforeSenderKey = normalizeIncrementalSenderKey(before?.sender)
+    const afterSenderKey = normalizeIncrementalSenderKey(after?.sender)
+    if (beforeSenderKey) senderKeys.add(beforeSenderKey)
+    if (afterSenderKey) senderKeys.add(afterSenderKey)
+
+    changedMessages.push({
+      message_id: messageId,
+      before: toArtifactIncrementalMessageRow(before),
+      after: toArtifactIncrementalMessageRow(after),
+    })
+  }
+
+  const affectedSenderKeys = Array.from(senderKeys)
+  if (affectedSenderKeys.length === 0 || changedMessages.length === 0) {
+    return null
+  }
+
+  return {
+    strategy: 'incremental',
+    sync_run_id: params.runId,
+    affected_sender_keys: affectedSenderKeys,
+    changed_messages: changedMessages,
+  }
+}
+
 function comparableMailboxIndexSeenAtIso(row: GmailMailboxIndexComparableRow): string | null {
   if (typeof row.date === 'string' && row.date.trim()) {
     const parsed = Date.parse(row.date)
@@ -1694,87 +1754,22 @@ async function recomputeSenderStatsForTenant(params: {
   supabase: SupabaseClient
   tenantId: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const rows = (await loadIndexedGmailMessagesForTenant({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
-    limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
-  })) as Array<{ sender: string | null; internal_date_ms: number | null; subject: string | null }>
+  return recomputeGmailSenderStatsFromFullMailbox(params)
+}
 
-  const nowMs = Date.now()
-  const threshold30d = nowMs - 30 * 24 * 60 * 60 * 1000
-  const bySender = new Map<
-    string,
-    {
-      message_count: number
-      recent_count_30d: number
-      last_seen_ms: number | null
-      machine_hits: number
-      human_hits: number
-    }
-  >()
+async function recomputeSenderStatsForSenders(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  senderKeys: string[]
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  return recomputeGmailSenderStatsForSenders(params)
+}
 
-  for (const row of rows) {
-    const sender = normalizeSender(row.sender)
-    if (!sender) continue
-    const bucket = bySender.get(sender) || {
-      message_count: 0,
-      recent_count_30d: 0,
-      last_seen_ms: null as number | null,
-      machine_hits: 0,
-      human_hits: 0,
-    }
-    bucket.message_count += 1
-    if (row.internal_date_ms != null && Number.isFinite(row.internal_date_ms)) {
-      if (row.internal_date_ms >= threshold30d) {
-        bucket.recent_count_30d += 1
-      }
-      if (bucket.last_seen_ms == null || row.internal_date_ms > bucket.last_seen_ms) {
-        bucket.last_seen_ms = row.internal_date_ms
-      }
-    }
-    const signals = senderMessageSignals({
-      sender,
-      subject: typeof row.subject === 'string' ? row.subject : null,
-    })
-    bucket.machine_hits += signals.machineHit
-    bucket.human_hits += signals.humanHit
-    bySender.set(sender, bucket)
-  }
-
-  const senderRows: GmailSenderStatsRow[] = Array.from(bySender.entries()).map(([sender, bucket]) => {
-    const machineProbability = bucket.message_count > 0 ? bucket.machine_hits / bucket.message_count : 0
-    const humanProbability = bucket.message_count > 0 ? bucket.human_hits / bucket.message_count : 0
-    return {
-      tenant_id: params.tenantId,
-      sender,
-      message_count: bucket.message_count,
-      recent_count_30d: bucket.recent_count_30d,
-      machine_probability: roundPercent(clamp(machineProbability, 0, 1)),
-      human_probability: roundPercent(clamp(humanProbability, 0, 1)),
-      last_seen: bucket.last_seen_ms != null ? new Date(bucket.last_seen_ms).toISOString() : null,
-      updated_at: new Date().toISOString(),
-    }
-  })
-
-  const { error: deleteError } = await params.supabase
-    .from('gmail_sender_stats')
-    .delete()
-    .eq('tenant_id', params.tenantId)
-  if (deleteError) {
-    return { ok: false, error: `Failed to reset gmail_sender_stats: ${deleteError.message}` }
-  }
-
-  if (senderRows.length === 0) return { ok: true }
-  for (const batch of chunkArray(senderRows, UPSERT_BATCH_SIZE)) {
-    const { error: upsertError } = await params.supabase
-      .from('gmail_sender_stats')
-      .upsert(batch, { onConflict: 'tenant_id,sender' })
-    if (upsertError) {
-      return { ok: false, error: `Failed to upsert gmail_sender_stats rows: ${upsertError.message}` }
-    }
-  }
-
-  return { ok: true }
+export async function recomputeGmailSenderStatsForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  return recomputeSenderStatsForTenant(params)
 }
 
 function mailboxIndexInProgressStatus(mode: 'full' | 'incremental'): string {
@@ -2330,6 +2325,7 @@ function mailboxIndexSuccessResult(params: {
   indexedMessageCount: number
   lastHistoryId: string | null
   usedFallbackFullScan: boolean
+  artifactRefreshHint?: GmailArtifactIncrementalRefreshHint | null
 }): GmailMailboxIndexSyncResult {
   return {
     ok: true,
@@ -2351,6 +2347,7 @@ function mailboxIndexSuccessResult(params: {
     last_history_id: params.lastHistoryId,
     used_fallback_full_scan:
       params.usedFallbackFullScan || params.run.requestedMode !== params.effectiveMode,
+    artifact_refresh_hint: params.artifactRefreshHint ?? null,
   }
 }
 
@@ -4840,10 +4837,11 @@ async function runIncrementalMailboxIndexForTenant(params: {
   }
 
   const changedList = Array.from(changedIds)
+  const trackedMessageIds = Array.from(new Set([...changedList, ...Array.from(deletedIds)]))
   const existingRowsResult = await loadExistingMailboxIndexRowsByMessageId({
     supabase: params.supabase,
     tenantId: params.tenantId,
-    messageIds: changedList,
+    messageIds: trackedMessageIds,
   })
   if (!existingRowsResult.ok) {
     const indexedCount = await countIndexedMessagesForTenant({
@@ -5044,11 +5042,24 @@ async function runIncrementalMailboxIndexForTenant(params: {
     tenantId: params.tenantId,
   })
   phaseMs.count_indexed_ms = Math.max(0, Date.now() - countIndexedStartedAt)
-  const senderStatsStartedAt = Date.now()
-  const senderStatsResult = await recomputeSenderStatsForTenant({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
+  const artifactRefreshHint = buildArtifactRefreshHint({
+    runId: params.run.runId,
+    existingRowsByMessageId: existingRowsResult.rowsByMessageId,
+    metadataRows,
+    deletedMessageIds: Array.from(deletedIds),
   })
+  const senderStatsStartedAt = Date.now()
+  const senderStatsResult =
+    artifactRefreshHint && artifactRefreshHint.affected_sender_keys.length > 0
+      ? await recomputeSenderStatsForSenders({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          senderKeys: artifactRefreshHint.affected_sender_keys,
+        })
+      : await recomputeSenderStatsForTenant({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+        })
   phaseMs.sender_stats_recompute_ms = Math.max(0, Date.now() - senderStatsStartedAt)
   if (!senderStatsResult.ok) {
     await markMailboxIndexRunFailed({
@@ -5167,6 +5178,7 @@ async function runIncrementalMailboxIndexForTenant(params: {
     indexedMessageCount: indexedCount,
     lastHistoryId: latestHistoryId || startHistoryId,
     usedFallbackFullScan: false,
+    artifactRefreshHint: degradedSync ? null : artifactRefreshHint,
   })
 }
 

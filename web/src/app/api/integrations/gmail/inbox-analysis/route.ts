@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import {
+  finishHeavyAction,
+  logHeavyActionEvent,
+  tryStartHeavyAction,
+} from '@/lib/runtime/heavyActionSafety'
+import {
   analyzeGmailInboxForTenant,
   browseIndexedGmailQueryClusterMessagesForTenant,
   loadGmailCleanupGroupIntelligenceForTenant,
@@ -15,8 +20,14 @@ import {
   loadGmailConfirmationPreviewForTenant,
   loadGmailMailboxIntelligenceForTenant,
   loadGmailPressureTrendForTenant,
+  loadGmailSenderDistributionForTenant,
   loadGmailSenderWorkspaceForTenant,
 } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
+import {
+  DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
+  GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
+  MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
+} from '@/lib/integrations/gmail/gmailWorkspaceContracts'
 
 type AuthContext =
   | { ok: true; supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>; tenantId: string }
@@ -27,6 +38,115 @@ type RequestMeta = {
   component: string | null
   reason: string | null
   phase: string | null
+  agentId: string | null
+}
+
+const DISABLED_INITIAL_PAINT_LIVE_ACTIONS = new Set([
+  'sender_distribution',
+  'sender_workspace',
+  'mailbox_intelligence',
+  'mailbox_pressure_trend',
+  'cleanup_group_intelligence',
+  'confirmation_preview',
+])
+
+const HEAVY_INBOX_ANALYSIS_ACTIONS = new Set([
+  'sender_distribution',
+  'sender_workspace',
+  'mailbox_intelligence',
+  'mailbox_pressure_trend',
+  'cleanup_group_intelligence',
+  'confirmation_preview',
+])
+
+const HEAVY_INBOX_ANALYSIS_COOLDOWN_MS = 1500
+function stableHeavyKey(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableHeavyKey(entry)).join(',')}]`
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .map(([key, entry]) => `${key}:${stableHeavyKey(entry)}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function heavyInboxAnalysisRequestKey(params: {
+  tenantId: string
+  action: string
+  body: Record<string, unknown> | null
+}): string | null {
+  const payload = params.body || {}
+  if (params.action === 'cleanup_group_intelligence' || params.action === 'mailbox_intelligence') {
+    return [
+      params.tenantId,
+      params.action,
+      stableHeavyKey({
+        analysis_scope: payload.analysis_scope ?? null,
+        cache_version: payload.cache_version ?? null,
+        clusters: payload.clusters ?? [],
+      }),
+    ].join('::')
+  }
+  if (params.action === 'mailbox_pressure_trend') {
+    return [
+      params.tenantId,
+      params.action,
+      stableHeavyKey({
+        cache_version: payload.cache_version ?? null,
+        clusters: payload.clusters ?? [],
+        pressure_window: payload.pressure_window ?? null,
+        pressure_start: payload.pressure_start ?? null,
+        pressure_end: payload.pressure_end ?? null,
+        time_zone: payload.time_zone ?? null,
+      }),
+    ].join('::')
+  }
+  if (params.action === 'sender_workspace') {
+    return [
+      params.tenantId,
+      params.action,
+      stableHeavyKey({
+        analysis_scope: payload.analysis_scope ?? null,
+        cache_version: payload.cache_version ?? null,
+        selected_cluster: payload.selected_cluster ?? null,
+        page: payload.page ?? null,
+        page_size: payload.page_size ?? null,
+        search: payload.search ?? null,
+        filter: payload.filter ?? null,
+        sort: payload.sort ?? null,
+        direction: payload.direction ?? null,
+        semantic_focus: payload.semantic_focus ?? null,
+      }),
+    ].join('::')
+  }
+  if (params.action === 'sender_distribution') {
+    return [
+      params.tenantId,
+      params.action,
+      stableHeavyKey({
+        analysis_scope: payload.analysis_scope ?? null,
+        cache_version: payload.cache_version ?? null,
+        selected_cluster: payload.selected_cluster ?? null,
+      }),
+    ].join('::')
+  }
+  if (params.action === 'confirmation_preview') {
+    return [
+      params.tenantId,
+      params.action,
+      stableHeavyKey({
+        analysis_scope: payload.analysis_scope ?? null,
+        cache_version: payload.cache_version ?? null,
+        selected_cluster: payload.selected_cluster ?? null,
+        sender_policies: payload.sender_policies ?? {},
+        message_overrides: payload.message_overrides ?? {},
+      }),
+    ].join('::')
+  }
+  return null
 }
 
 function normalizeRequestMeta(body: Record<string, unknown> | null): RequestMeta {
@@ -38,7 +158,52 @@ function normalizeRequestMeta(body: Record<string, unknown> | null): RequestMeta
     component: readString(body?.request_component),
     reason: readString(body?.request_reason),
     phase: readString(body?.request_phase),
+    agentId: readString(body?.request_agent_id),
   }
+}
+
+function clampSenderWorkspacePageSize(params: {
+  requestedPageSize: number
+  page: number
+  search: string
+  filter: string
+  sort: string
+  direction: string
+  requestMeta: RequestMeta
+}): number {
+  const normalizedPageSize = Math.min(
+    Math.max(Math.floor(params.requestedPageSize || 12), 6),
+    MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE
+  )
+
+  const isDefaultSenderOverviewFirstPaintShape =
+    params.requestMeta.component === 'sender_overview' &&
+    params.page === 1 &&
+    params.search === '' &&
+    params.filter === 'all' &&
+    params.sort === 'message_count' &&
+    params.direction === 'desc'
+
+  const isDefaultDecisionQueueShape =
+    params.requestMeta.component === 'decision_mode' &&
+    params.page === 1 &&
+    params.search === '' &&
+    params.filter === 'all' &&
+    params.sort === 'message_count' &&
+    params.direction === 'desc'
+
+  if (isDefaultSenderOverviewFirstPaintShape) {
+    return Math.min(normalizedPageSize, DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE)
+  }
+
+  if (isDefaultDecisionQueueShape) {
+    return Math.min(
+      Math.max(Math.floor(params.requestedPageSize || GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE), 12),
+      GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE
+    )
+  }
+
+  return normalizedPageSize
 }
 
 async function resolveAuthContext(): Promise<AuthContext> {
@@ -120,6 +285,43 @@ export async function POST(req: Request) {
     const action = typeof body?.action === 'string' ? body.action.trim() : ''
     const requestMeta = normalizeRequestMeta(body)
     const requestStartedAt = Date.now()
+    const heavyActionKey = HEAVY_INBOX_ANALYSIS_ACTIONS.has(action)
+      ? heavyInboxAnalysisRequestKey({
+          tenantId: auth.tenantId,
+          action,
+          body,
+        })
+      : null
+    let heavyActionStartedAt: number | null = null
+    let heavyActionFinalized = false
+    const finalizeHeavyAction = (params: {
+      status: number
+      ok: boolean
+      blockedBy?: 'already_running' | 'cooldown_active' | null
+      outcome?: string
+      extra?: Record<string, unknown>
+    }) => {
+      if (!heavyActionKey || heavyActionStartedAt == null || heavyActionFinalized) return
+      heavyActionFinalized = true
+      finishHeavyAction({
+        key: heavyActionKey,
+        cooldownMs: HEAVY_INBOX_ANALYSIS_COOLDOWN_MS,
+        applyCooldown: params.blockedBy == null,
+      })
+      logHeavyActionEvent({
+        category: 'inbox_analysis',
+        route: '/api/integrations/gmail/inbox-analysis',
+        action,
+        triggerSource: requestMeta.source,
+        requestMode: requestMeta.phase,
+        tenantId: auth.tenantId,
+        agentId: null,
+        blockedBy: params.blockedBy ?? null,
+        durationMs: Date.now() - heavyActionStartedAt,
+        outcome: params.outcome || (params.ok ? 'completed' : 'failed'),
+        extra: params.extra,
+      })
+    }
     const logRequest = (status: number, ok: boolean, extra?: Record<string, unknown>) => {
       console.info(
         `[integrations/gmail/inbox-analysis/request] ${JSON.stringify({
@@ -128,12 +330,87 @@ export async function POST(req: Request) {
           request_component: requestMeta.component,
           request_reason: requestMeta.reason,
           request_phase: requestMeta.phase,
+          request_agent_id: requestMeta.agentId,
           duration_ms: Math.max(0, Date.now() - requestStartedAt),
           status,
           ok,
           ...(extra || {}),
         })}`
       )
+      finalizeHeavyAction({ status, ok, extra })
+    }
+
+    if (
+      requestMeta.phase === 'initial_paint' &&
+      DISABLED_INITIAL_PAINT_LIVE_ACTIONS.has(action)
+    ) {
+      logRequest(409, false, {
+        disabled_reason: 'initial_paint_live_fetch_disabled',
+      })
+      logHeavyActionEvent({
+        category: 'inbox_analysis',
+        route: '/api/integrations/gmail/inbox-analysis',
+        action,
+        triggerSource: requestMeta.source,
+        requestMode: requestMeta.phase,
+        tenantId: auth.tenantId,
+        agentId: null,
+        blockedBy: null,
+        durationMs: Math.max(0, Date.now() - requestStartedAt),
+        outcome: 'initial_paint_live_fetch_disabled',
+        extra: {
+          disabled_reason: 'initial_paint_live_fetch_disabled',
+        },
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Initial page-load live analysis is temporarily disabled for safety.',
+          reason: 'initial_paint_live_fetch_disabled',
+        },
+        { status: 409 }
+      )
+    }
+
+    if (heavyActionKey) {
+      const guard = tryStartHeavyAction({
+        key: heavyActionKey,
+        cooldownMs: HEAVY_INBOX_ANALYSIS_COOLDOWN_MS,
+      })
+      if (!guard.ok) {
+        logRequest(409, false, {
+          disabled_reason: guard.reason,
+          retry_after_ms: guard.retryAfterMs,
+        })
+        logHeavyActionEvent({
+          category: 'inbox_analysis',
+          route: '/api/integrations/gmail/inbox-analysis',
+          action,
+          triggerSource: requestMeta.source,
+          requestMode: requestMeta.phase,
+          tenantId: auth.tenantId,
+          agentId: null,
+          blockedBy: guard.reason,
+          durationMs: Math.max(0, Date.now() - requestStartedAt),
+          outcome: 'blocked',
+          extra: {
+            retry_after_ms: guard.retryAfterMs,
+          },
+        })
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              guard.reason === 'already_running'
+                ? 'This analysis is already running. Please wait for the current request to finish.'
+                : 'This analysis was just requested. Please wait briefly before retrying.',
+            reason: guard.reason,
+            retry_after_ms: guard.retryAfterMs,
+          },
+          { status: 409 }
+        )
+      }
+      heavyActionStartedAt = guard.startedAtMs
     }
 
     if (action === 'review_query_cluster') {
@@ -266,6 +543,7 @@ export async function POST(req: Request) {
               cluster_type: string
               title: string
               query: string
+              estimated_count?: number
             } =>
               typeof entry === 'object' &&
               entry !== null &&
@@ -316,6 +594,28 @@ export async function POST(req: Request) {
         typeof body?.cache_version === 'string' && body.cache_version.trim()
           ? body.cache_version.trim()
           : null
+      const initialPressureWindow =
+        body?.initial_pressure_window === 'all_indexed' ||
+        body?.initial_pressure_window === 'last_year' ||
+        body?.initial_pressure_window === 'last_quarter' ||
+        body?.initial_pressure_window === 'last_month' ||
+        body?.initial_pressure_window === 'last_week' ||
+        body?.initial_pressure_window === 'last_day' ||
+        body?.initial_pressure_window === 'custom'
+          ? body.initial_pressure_window
+          : null
+      const initialPressureStart =
+        typeof body?.initial_pressure_start === 'string' && body.initial_pressure_start.trim()
+          ? body.initial_pressure_start.trim()
+          : null
+      const initialPressureEnd =
+        typeof body?.initial_pressure_end === 'string' && body.initial_pressure_end.trim()
+          ? body.initial_pressure_end.trim()
+          : null
+      const initialTimeZone =
+        typeof body?.initial_time_zone === 'string' && body.initial_time_zone.trim()
+          ? body.initial_time_zone.trim()
+          : null
       const rawClusters = Array.isArray(body?.clusters)
         ? body.clusters.filter(
             (
@@ -343,6 +643,10 @@ export async function POST(req: Request) {
         tenantId: auth.tenantId,
         analysisScope,
         cacheVersion,
+        initialPressureWindow,
+        initialPressureStart,
+        initialPressureEnd,
+        initialTimeZone,
         clusters: rawClusters,
       })
 
@@ -446,6 +750,9 @@ export async function POST(req: Request) {
               cluster_type: string
               title: string
               query: string
+              sender_count?: number
+              message_count?: number
+              estimated_count?: number
             } =>
               typeof entry === 'object' &&
               entry !== null &&
@@ -465,15 +772,18 @@ export async function POST(req: Request) {
               why_selected?: string
               risk_note?: string
               safety_note?: string
+              sender_count?: number
+              message_count?: number
+              estimated_count?: number
             })
-          : null
+        : null
       const page =
         typeof body?.page === 'number' && Number.isFinite(body.page)
           ? Math.max(1, Math.floor(body.page))
           : 1
       const pageSize =
         typeof body?.page_size === 'number' && Number.isFinite(body.page_size)
-          ? Math.min(Math.max(Math.floor(body.page_size), 6), 40)
+          ? Math.floor(body.page_size)
           : 12
       const search = typeof body?.search === 'string' ? body.search.trim() : ''
       const filter =
@@ -488,6 +798,30 @@ export async function POST(req: Request) {
           ? body.sort
           : 'message_count'
       const direction = body?.direction === 'asc' ? 'asc' : 'desc'
+      const includeClusterSenderKeys = body?.include_cluster_sender_keys === true
+      const previewEvidenceSenderKey =
+        typeof body?.preview_evidence_sender_key === 'string' &&
+        body.preview_evidence_sender_key.trim().length > 0
+          ? body.preview_evidence_sender_key.trim()
+          : null
+      const semanticFocus =
+        typeof body?.semantic_focus === 'object' && body.semantic_focus !== null
+          ? (body.semantic_focus as {
+              family?: string
+              kind?: string
+              subtype_key?: string | null
+              surfaced_subtype_keys?: unknown
+            })
+          : null
+      const effectivePageSize = clampSenderWorkspacePageSize({
+        requestedPageSize: pageSize,
+        page,
+        search,
+        filter,
+        sort,
+        direction,
+        requestMeta,
+      })
 
       if (
         !selectedCluster?.cluster_id ||
@@ -507,7 +841,6 @@ export async function POST(req: Request) {
         tenantId: auth.tenantId,
         analysisScope,
         cacheVersion,
-        clusters: rawClusters,
         selectedCluster: {
           cluster_id: selectedCluster.cluster_id,
           cluster_type: selectedCluster.cluster_type,
@@ -516,13 +849,75 @@ export async function POST(req: Request) {
           why_selected: selectedCluster.why_selected,
           risk_note: selectedCluster.risk_note,
           safety_note: selectedCluster.safety_note,
+          sender_count:
+            typeof selectedCluster.sender_count === 'number' &&
+            Number.isFinite(selectedCluster.sender_count)
+              ? selectedCluster.sender_count
+              : null,
+          message_count:
+            typeof selectedCluster.message_count === 'number' &&
+            Number.isFinite(selectedCluster.message_count)
+              ? selectedCluster.message_count
+              : null,
+          estimated_count:
+            typeof selectedCluster.estimated_count === 'number' &&
+            Number.isFinite(selectedCluster.estimated_count)
+              ? selectedCluster.estimated_count
+              : null,
         },
+        clusters: rawClusters.map((cluster) => ({
+          cluster_id: cluster.cluster_id,
+          cluster_type: cluster.cluster_type,
+          title: cluster.title,
+          query: cluster.query,
+          sender_count:
+            typeof cluster.sender_count === 'number' && Number.isFinite(cluster.sender_count)
+              ? cluster.sender_count
+              : null,
+          message_count:
+            typeof cluster.message_count === 'number' && Number.isFinite(cluster.message_count)
+              ? cluster.message_count
+              : null,
+          estimated_count:
+            typeof cluster.estimated_count === 'number' && Number.isFinite(cluster.estimated_count)
+              ? cluster.estimated_count
+              : null,
+        })),
         page,
-        pageSize,
+        pageSize: effectivePageSize,
         search,
         filter,
         sort,
         direction,
+        includeClusterSenderKeys,
+        previewEvidenceSenderKey,
+        requestAgentId: requestMeta.agentId,
+        semanticFocus:
+          semanticFocus &&
+          typeof semanticFocus.family === 'string' &&
+          (semanticFocus.kind === 'family' ||
+            semanticFocus.kind === 'subtype' ||
+            semanticFocus.kind === 'remainder')
+            ? {
+                family: semanticFocus.family as
+                  | 'marketing_promotional'
+                  | 'commerce_transactional'
+                  | 'account_notification'
+                  | 'security_alert'
+                  | 'social_community'
+                  | 'human_personal',
+                kind: semanticFocus.kind,
+                subtypeKey:
+                  typeof semanticFocus.subtype_key === 'string' && semanticFocus.subtype_key.trim()
+                    ? semanticFocus.subtype_key.trim()
+                    : null,
+                surfacedSubtypeKeys: Array.isArray(semanticFocus.surfaced_subtype_keys)
+                  ? semanticFocus.surfaced_subtype_keys
+                      .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                      .map((entry) => entry.trim())
+                  : [],
+              }
+            : null,
       })
 
       if (!workspace.ok) {
@@ -534,8 +929,99 @@ export async function POST(req: Request) {
         cluster_id: selectedCluster.cluster_id,
         sender_count: workspace.data.selected_cluster.sender_count,
         page: workspace.data.pagination.page,
+        requested_page_size: pageSize,
+        effective_page_size: effectivePageSize,
+        returned_page_size: workspace.data.pagination.page_size,
+        returned_total_senders: workspace.data.pagination.total_senders,
+        returned_sender_count: workspace.data.senders.length,
+        returned_sender_keys_complete: workspace.data.cluster_global.sender_keys_complete,
+        queue_contract_parity:
+          workspace.data.pagination.page_size === effectivePageSize &&
+          workspace.data.cluster_global.sender_keys_complete === includeClusterSenderKeys,
+        include_cluster_sender_keys: includeClusterSenderKeys,
+        semantic_focus_active: semanticFocus != null,
       })
       return NextResponse.json({ ok: true, data: workspace.data })
+    }
+
+    if (action === 'sender_distribution') {
+      const analysisScope = normalizeMailboxProfileScope(body?.analysis_scope)
+      const selectedCluster =
+        typeof body?.selected_cluster === 'object' && body.selected_cluster !== null
+          ? (body.selected_cluster as {
+              cluster_id?: string
+              canonical_cluster_id?: string
+              legacy_cluster_ids?: unknown
+              source_cluster_ids?: unknown
+              cluster_type?: string
+              title?: string
+              query?: string
+              sender_count?: number
+              message_count?: number
+            })
+          : null
+
+      if (
+        !selectedCluster?.cluster_id ||
+        !selectedCluster.cluster_type ||
+        !selectedCluster.title ||
+        !selectedCluster.query
+      ) {
+        logRequest(400, false, { cluster_id: null })
+        return NextResponse.json(
+          { error: 'selected_cluster is required for sender_distribution.' },
+          { status: 400 }
+        )
+      }
+
+      const distribution = await loadGmailSenderDistributionForTenant({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+        analysisScope,
+        selectedCluster: {
+          cluster_id: selectedCluster.cluster_id,
+          canonical_cluster_id:
+            typeof selectedCluster.canonical_cluster_id === 'string' &&
+            selectedCluster.canonical_cluster_id.trim()
+              ? selectedCluster.canonical_cluster_id.trim()
+              : null,
+          legacy_cluster_ids: Array.isArray(selectedCluster.legacy_cluster_ids)
+            ? selectedCluster.legacy_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          source_cluster_ids: Array.isArray(selectedCluster.source_cluster_ids)
+            ? selectedCluster.source_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          cluster_type: selectedCluster.cluster_type,
+          title: selectedCluster.title,
+          query: selectedCluster.query,
+          sender_count:
+            typeof selectedCluster.sender_count === 'number' &&
+            Number.isFinite(selectedCluster.sender_count)
+              ? selectedCluster.sender_count
+              : null,
+          message_count:
+            typeof selectedCluster.message_count === 'number' &&
+            Number.isFinite(selectedCluster.message_count)
+              ? selectedCluster.message_count
+              : null,
+        },
+      })
+
+      if (!distribution.ok) {
+        logRequest(distribution.status, false, { cluster_id: selectedCluster.cluster_id })
+        return NextResponse.json({ error: distribution.error }, { status: distribution.status })
+      }
+
+      logRequest(200, true, {
+        cluster_id: selectedCluster.cluster_id,
+        sender_count: distribution.data.selected_cluster.sender_count,
+        returned_sender_count: distribution.data.senders.length,
+      })
+      return NextResponse.json({ ok: true, data: distribution.data })
     }
 
     if (action === 'confirmation_preview') {

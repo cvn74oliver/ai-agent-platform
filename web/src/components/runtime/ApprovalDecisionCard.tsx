@@ -15,6 +15,12 @@ function riskBadgeClass(riskLevel: ApprovalDecisionSummary['riskLevel']) {
   return statusBadgeClassName('neutral')
 }
 
+const neutralNestedSurfaceClass =
+  'border border-white/[0.05] bg-[var(--app-surface-nested)] shadow-[0_16px_40px_rgba(2,6,23,0.18)]'
+const neutralInsetSurfaceClass =
+  'border border-white/[0.04] bg-[var(--app-surface-3)]'
+const neutralPillSurfaceClass = 'border border-white/[0.05] bg-[rgba(2,6,17,0.8)]'
+
 function renderExampleRow(
   example: ApprovalDecisionSummary['representativeExamples'][number],
   key: string
@@ -103,7 +109,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
             </p>
           </div>
         ) : null}
-        <details className="mt-1 rounded border border-gray-800/90 bg-gray-950/30 p-1.5">
+        <details className={`${neutralInsetSurfaceClass} mt-1 rounded p-1.5`}>
           <summary className="cursor-pointer list-none text-[11px] font-medium text-gray-300">
             Details
           </summary>
@@ -156,22 +162,22 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-full border border-gray-700 bg-gray-900/70 px-2 py-0.5 text-[11px] text-gray-200">
+        <span className={`${neutralPillSurfaceClass} rounded-full px-2 py-0.5 text-[11px] text-gray-200`}>
           Batch type: {summary.batchTypeLabel}
         </span>
-        <span className="rounded-full border border-gray-700 bg-gray-900/70 px-2 py-0.5 text-[11px] text-gray-200">
+        <span className={`${neutralPillSurfaceClass} rounded-full px-2 py-0.5 text-[11px] text-gray-200`}>
           Selection: {summary.selectionMethodLabel}
         </span>
-        <span className="rounded-full border border-gray-700 bg-gray-900/70 px-2 py-0.5 text-[11px] text-gray-200">
+        <span className={`${neutralPillSurfaceClass} rounded-full px-2 py-0.5 text-[11px] text-gray-200`}>
           {summary.previewCoverageLabel}
         </span>
       </div>
 
       {hasScopeTotals ? (
-        <div className="mt-2 rounded border border-gray-800 bg-gray-950/35 p-2">
+        <div className={`${neutralInsetSurfaceClass} mt-2 rounded p-2`}>
           <p className="text-[11px] uppercase tracking-wide text-gray-400">Approval scope</p>
           <div className="mt-1 grid gap-2 sm:grid-cols-3">
-            <div className="rounded border border-gray-800 bg-gray-950/45 p-1.5">
+            <div className={`${neutralNestedSurfaceClass} rounded p-1.5`}>
               <p className="text-[10px] uppercase tracking-wide text-gray-500">Total reviewed</p>
               <p className="text-base font-semibold text-gray-100">
                 {summary.scopeTotals.reviewed != null ? summary.scopeTotals.reviewed : '—'}
@@ -195,7 +201,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
         </div>
       ) : null}
 
-      <div className="mt-2 rounded border border-cyan-900/35 bg-gray-950/35 p-2">
+      <div className="mt-2 rounded border border-cyan-900/35 bg-[linear-gradient(180deg,rgba(8,145,178,0.08),var(--app-surface-3))] p-2">
         <p className="text-[11px] uppercase tracking-wide text-cyan-300">Representative examples</p>
         <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,150px)_110px] gap-2 border-b border-gray-800/80 pb-1 text-[10px] uppercase tracking-wide text-gray-500">
           <p>Subject</p>
@@ -209,7 +215,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
         </div>
       </div>
 
-      <details className="mt-2 rounded border border-gray-800 bg-gray-950/25 p-2">
+      <details className={`${neutralInsetSurfaceClass} mt-2 rounded p-2`}>
         <summary className="cursor-pointer list-none text-[11px] font-medium text-gray-300">
           Supporting details
         </summary>
@@ -224,14 +230,14 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
             {summary.safetySignals.map((signal) => (
               <span
                 key={`safe-${signal}`}
-                className="rounded-full border border-gray-700 bg-gray-900 px-2 py-0.5 text-[11px] text-gray-200"
+                className={`${neutralPillSurfaceClass} rounded-full px-2 py-0.5 text-[11px] text-gray-200`}
               >
                 {signal}
               </span>
             ))}
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded border border-gray-800 bg-gray-950/30 p-2">
+            <div className={`${neutralNestedSurfaceClass} rounded p-2`}>
               <p className="text-[11px] uppercase tracking-wide text-gray-400">Exclusions</p>
               <ul className="mt-1 space-y-0.5">
                 {summary.safetyExclusions.map((item) => (
@@ -241,7 +247,7 @@ export default function ApprovalDecisionCard({ summary, compact = false, classNa
                 ))}
               </ul>
             </div>
-            <div className="rounded border border-gray-800 bg-gray-950/30 p-2">
+            <div className={`${neutralNestedSurfaceClass} rounded p-2`}>
               <p className="text-[11px] uppercase tracking-wide text-gray-400">What happens if approved</p>
               <ul className="mt-1 space-y-0.5">
                 {summary.approvalEffect.map((item) => (
