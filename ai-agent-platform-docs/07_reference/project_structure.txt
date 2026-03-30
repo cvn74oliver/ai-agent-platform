@@ -138,9 +138,11 @@
 │   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
 │   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
 │   │   ├── automation_map.md
+│   │   ├── Git_GitHub_Worktrees_Backups_operating_Model.md
 │   │   ├── phase1_clarify_spec.md
 │   │   ├── project_structure.txt
 │   │   ├── schema_comparison_checklist.md
+│   │   ├── Simple_Worktrees_Setup_Checklist.md
 │   │   └── SYSTEM_MEMORY_MAP.md
 │   ├── 08_codex_instructions
 │   │   ├── CODEX_ARCHITECTURE_LOCK.md
@@ -308,6 +310,7 @@
     │   │   │   │   ├── decision_mode_ui_final_build_spec.md
     │   │   │   │   └── sender_decision_mode_spec.md
     │   │   │   ├── 06_cleanup_groups
+    │   │   │   │   ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
     │   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
     │   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
     │   │   │   ├── 07_archived_legacy
@@ -717,4 +720,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-162 directories, 556 files
+162 directories, 559 files
