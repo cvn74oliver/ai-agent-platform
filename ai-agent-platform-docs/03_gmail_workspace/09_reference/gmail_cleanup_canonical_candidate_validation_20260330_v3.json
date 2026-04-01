@@ -1,0 +1,14 @@
+{
+  "ok": false,
+  "safe_to_publish": false,
+  "generated_at": "2026-03-30T15:34:45.260Z",
+  "tenant_id": "085c8ef7-2fd7-4842-8499-cd605e894a77",
+  "analysis_scope": "all_indexed",
+  "candidate_artifact_version": "full-mailbox-20260330140252096",
+  "candidate_job_id": "full-rebuild:085c8ef7-2fd7-4842-8499-cd605e894a77:all_indexed:full-mailbox-20260330140252096",
+  "validation_error": {
+    "name": "AssertionError",
+    "message": "Candidate preview-index row count must match the finalized derived preview-index row count.\n\n1000 !== 207422\n",
+    "stack": "AssertionError [ERR_ASSERTION]: Candidate preview-index row count must match the finalized derived preview-index row count.\n\n1000 !== 207422\n\n    at file:///Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild/web/scripts/gmail-cleanup-group-candidate-audit.mjs:399:10\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+  }
+}

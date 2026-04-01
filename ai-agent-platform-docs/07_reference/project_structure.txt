@@ -76,11 +76,11 @@
 │   │   │   │   ├── decision_mode_full_build_spec.md
 │   │   │   │   ├── decision_mode_ui_final_build_spec.md
 │   │   │   │   └── sender_decision_mode_spec.md
-│   │   │   ├── 06_cleanup_groups
-│   │   │   │   ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
-│   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
-│   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
-│   │   │   └── 07_archived_legacy
+│   │   │   └── 06_cleanup_groups
+│   │   │       ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
+│   │   │       ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
+│   │   │       ├── CLEANUP_GROUPS_REBUILD_PHASED_EXECUTION_PLAN.md
+│   │   │       └── Cleanup_Groups_spec_phase_plan.md
 │   │   ├── 05_management_execution
 │   │   │   ├── execution_queue_spec.md
 │   │   │   ├── execution_safety_preview.md
@@ -99,8 +99,50 @@
 │   │   ├── 09_reference
 │   │   │   ├── codex_safeguards.md
 │   │   │   ├── engineering_spec.md
+│   │   │   ├── generated_proofs
+│   │   │   │   └── cleanup_groups
+│   │   │   │       ├── gmail_cleanup_canonical_candidate_build_20260330_v2.json
+│   │   │   │       ├── gmail_cleanup_canonical_candidate_build_20260330_v7.json
+│   │   │   │       ├── gmail_cleanup_canonical_candidate_validation_20260330_v2.json
+│   │   │   │       ├── gmail_cleanup_canonical_candidate_validation_20260330_v3.json
+│   │   │   │       ├── gmail_cleanup_canonical_candidate_validation_20260330_v4.json
+│   │   │   │       ├── gmail_cleanup_canonical_candidate_validation_20260330_v5.json
+│   │   │   │       ├── gmail_cleanup_canonical_candidate_validation_20260330_v6.json
+│   │   │   │       ├── gmail_cleanup_canonical_publish_20260331_fixlane_v1.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260330_v1.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260330_v2.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260331_fixlane_final_state.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260331_fixlane_postpublish_check.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260331_fixlane_prepublish.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260331_postpublish_check.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260331_postrollback_check_2.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260331_postrollback_check.json
+│   │   │   │       ├── gmail_cleanup_publication_readiness_20260331_prepublish.json
+│   │   │   │       ├── gmail_cleanup_shadow_rediscovery_baseline_20260330.json
+│   │   │   │       ├── gmail_workspace_data_access_acceptance_20260331_fixlane_v1.json
+│   │   │   │       ├── gmail_workspace_data_access_stabilization_proof_bundle.json
+│   │   │   │       └── gmail_workspace_full_mailbox_coverage_proof.json
 │   │   │   ├── gmail_artifact_refresh_and_sync_protocol.md
+│   │   │   ├── gmail_cleanup_canonical_candidate_build_20260330_v2.json
+│   │   │   ├── gmail_cleanup_canonical_candidate_build_20260330_v7.json
+│   │   │   ├── gmail_cleanup_canonical_candidate_validation_20260330_v2.json
+│   │   │   ├── gmail_cleanup_canonical_candidate_validation_20260330_v3.json
+│   │   │   ├── gmail_cleanup_canonical_candidate_validation_20260330_v4.json
+│   │   │   ├── gmail_cleanup_canonical_candidate_validation_20260330_v5.json
+│   │   │   ├── gmail_cleanup_canonical_candidate_validation_20260330_v6.json
+│   │   │   ├── gmail_cleanup_canonical_publish_20260331_fixlane_v1.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260330_v1.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260330_v2.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260331_fixlane_final_state.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260331_fixlane_postpublish_check.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260331_fixlane_prepublish.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260331_postpublish_check.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260331_postrollback_check_2.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260331_postrollback_check.json
+│   │   │   ├── gmail_cleanup_publication_readiness_20260331_prepublish.json
+│   │   │   ├── gmail_cleanup_shadow_rediscovery_baseline_20260330.json
 │   │   │   ├── gmail_workspace_canonical_engine_pattern.md
+│   │   │   ├── gmail_workspace_data_access_acceptance_20260331_fixlane_v1.json
 │   │   │   ├── gmail_workspace_data_access_stabilization_acceptance.md
 │   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.json
 │   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.md
@@ -306,7 +348,6 @@
     │   │   │   ├── 02_distribution_chart
     │   │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
     │   │   │   │   └── SENDER_DISTRIBUTION_CHART_SPEC.md
-    │   │   │   ├── 03_time_context
     │   │   │   │   └── TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md
     │   │   │   ├── 04_workflow_integration
     │   │   │   │   └── decision_ui_flow.md
@@ -320,7 +361,6 @@
     │   │   │   │   ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
     │   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
     │   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
-    │   │   │   ├── 07_archived_legacy
     │   │   │   ├── build_decision_mode_dev_spec.md
     │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
     │   │   │   ├── Cleanup_Groups_spec_phase_plan.md
@@ -511,9 +551,13 @@
     ├── scripts
     │   ├── codex-review-packet.mjs
     │   ├── gmail-artifact-full-coverage-audit.mjs
+    │   ├── gmail-artifact-publication-promote.mjs
+    │   ├── gmail-artifact-publication-readiness.mjs
     │   ├── gmail-artifact-stale-build-recovery-audit.mjs
     │   ├── gmail-cleanup-group-assignment-fixtures.mjs
+    │   ├── gmail-cleanup-group-candidate-audit.mjs
     │   ├── gmail-cleanup-group-live-audit.mjs
+    │   ├── gmail-cleanup-shadow-rediscovery-report.mjs
     │   ├── gmail-subscription-senders-phase3-implementation-packet.mjs
     │   ├── gmail-subscription-senders-remainder-decomposition-memo.mjs
     │   ├── gmail-subscription-senders-semantic-audit.mjs
@@ -657,6 +701,7 @@
     │   │   │       ├── gmailArtifactIncrementalUpdater.ts
     │   │   │       ├── gmailArtifactProjector.ts
     │   │   │       ├── gmailArtifactStore.ts
+    │   │   │       ├── gmailCleanupShadowRediscovery.ts
     │   │   │       ├── gmailCleanupWorkspace.ts
     │   │   │       ├── gmailMailboxIndexConfig.ts
     │   │   │       ├── gmailMailboxIndexer.ts
@@ -731,4 +776,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-162 directories, 570 files
+161 directories, 604 files
