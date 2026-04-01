@@ -209,17 +209,30 @@ function expectedPatternReviewFlag(params: {
 }
 
 export function semanticPolicyModeForCleanupGroup(clusterId: string): GmailSemanticGroupPolicyMode {
+  const policyClusterId = sourceClusterIdForCleanupGroup(clusterId)
   if (
-    clusterId === 'protected-trusted-senders' ||
-    clusterId === 'needs-review-senders' ||
-    clusterId === 'historical-out-of-inbox-senders'
+    policyClusterId === 'protected-trusted-senders' ||
+    policyClusterId === 'needs-review-senders' ||
+    policyClusterId === 'historical-out-of-inbox-senders'
   ) {
     return 'structural_only'
   }
-  if (clusterId === 'dormant-backlog-senders') {
+  if (policyClusterId === 'dormant-backlog-senders') {
     return 'structural_backlog'
   }
   return 'semantic_first'
+}
+
+function sourceClusterIdForCleanupGroup(clusterId: string): string {
+  const futureIdentity = buildCleanupGroupFutureCanonicalPublishIdentity(clusterId)
+  return (
+    futureIdentity?.sourceClusterIds.find(
+      (sourceClusterId) =>
+        sourceClusterId.trim().length > 0 && !sourceClusterId.startsWith('semantic-parent:')
+    ) ||
+    futureIdentity?.sourceClusterIds[0] ||
+    clusterId
+  )
 }
 
 function defaultCleanupGroupPromotionStatus(
@@ -244,10 +257,14 @@ function defaultCleanupGroupReviewUnitBasis(
   policyMode: GmailSemanticGroupPolicyMode,
   clusterId: string
 ): GmailCleanupGroupReviewUnitBasis {
+  const sourceClusterId = sourceClusterIdForCleanupGroup(clusterId)
+  if (sourceClusterId === 'historical-out-of-inbox-senders') {
+    return 'direct-open'
+  }
   if (policyMode === 'structural_only' || policyMode === 'structural_backlog') {
     return 'structural_lane'
   }
-  if (clusterId === 'subscription-senders') return 'secondary_group'
+  if (sourceClusterId === 'subscription-senders') return 'secondary_group'
   return 'not_promoted'
 }
 
@@ -256,6 +273,7 @@ function defaultCleanupGroupSurfacePlan(params: {
   groupPolicyMode: GmailSemanticGroupPolicyMode
   senderCount: number
 }): Pick<GmailSharedGroupSemanticRollup, 'surface' | 'promotion' | 'review_unit_plan'> {
+  const sourceClusterId = sourceClusterIdForCleanupGroup(params.clusterId)
   const structuralSurface =
     params.clusterId.startsWith('semantic-parent:')
       ? {
@@ -263,13 +281,13 @@ function defaultCleanupGroupSurfacePlan(params: {
           kind: 'semantic_parent' as const,
           top_level_rank: 0,
         }
-      : params.clusterId === 'dormant-backlog-senders'
+      : sourceClusterId === 'dormant-backlog-senders'
       ? {
           tier: 'featured_parent' as const,
           kind: 'backlog_parent' as const,
           top_level_rank: 1,
         }
-      : params.clusterId === 'historical-out-of-inbox-senders'
+      : sourceClusterId === 'historical-out-of-inbox-senders'
         ? {
             tier: 'collapsed_parent' as const,
             kind: 'historical_parent' as const,
@@ -279,7 +297,7 @@ function defaultCleanupGroupSurfacePlan(params: {
           ? {
               tier: 'featured_parent' as const,
               kind: 'structural_parent' as const,
-              top_level_rank: params.clusterId === 'protected-trusted-senders' ? 2 : 3,
+              top_level_rank: sourceClusterId === 'protected-trusted-senders' ? 2 : 3,
             }
           : {
               tier: 'secondary' as const,

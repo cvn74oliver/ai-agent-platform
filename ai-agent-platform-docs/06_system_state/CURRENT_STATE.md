@@ -1,9 +1,313 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-30  
+Last updated: 2026-03-31  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
+
+## 🚀 March 31 — Cleanup Groups Lane B Review-Page Unit Truth Accepted
+
+### What changed
+
+- Accepted the narrow Marketing review-page unit-truth correction inside the current **Lane B** review-entry lane.
+- Valid Marketing review-unit routes now render unit-scoped hero / top-summary truth instead of broad-parent truth.
+- Decision handoff truth is now unit-scoped for valid Marketing review-unit routes.
+- `spillover / exceptions` is now accepted as a first-class Marketing review unit at both:
+  - review-entry behavior
+  - top-summary / hero truth
+- Marketing chooser-only parent entry remains preserved.
+- Direct-open parents remain preserved.
+
+### Explicit boundary
+
+- This accepted pass did **not** change:
+  - Cleanup Groups root-surface behavior
+  - taxonomy
+  - artifact publication
+  - direct-open parent design
+- No root-surface, taxonomy, or artifact redesign happened in this pass.
+- Residual empty-action inbox-analysis runtime noise remains open as a separate follow-up and was **not** closed by this acceptance:
+  - `{"action":"","status":400,"ok":false}`
+
+### Current accepted state
+
+- Cleanup Groups planning Phases 1–4 remain accepted and locked.
+- Cleanup Groups Lane A remains implemented and accepted.
+- Cleanup Groups Lane B remains active, but is not yet closed.
+- The spillover review-unit integrity correction is accepted within Lane B.
+- The Marketing review-page hero / handoff truth correction is accepted within Lane B.
+- Marketing chooser-only parent entry remains preserved.
+- Direct-open parents remain preserved.
+
+## 🚀 March 31 — Cleanup Groups Lane B Spillover Review-Unit Integrity Accepted
+
+### What changed
+
+- Accepted the narrow Marketing review-unit integrity correction inside the current **Lane B** review-entry lane.
+- Valid Marketing review units now render coherent selected-state and scoped workflow behavior.
+- `spillover / exceptions` now functions as a first-class Marketing review unit:
+  - explicit selected-state banner
+  - coherent scoped workflow
+  - matching sender count surfaced in the live review state
+- Marketing chooser-only parent entry remains preserved.
+- Direct-open parents remain preserved.
+
+### Explicit boundary
+
+- This accepted pass did **not** change:
+  - Cleanup Groups root-surface behavior
+  - taxonomy
+  - artifact publication
+  - direct-open parent design
+- No new Cleanup Groups implementation lane started in this pass.
+
+### Current accepted state
+
+- Cleanup Groups planning Phases 1–4 remain accepted and locked.
+- Cleanup Groups Lane A remains implemented and accepted.
+- Cleanup Groups Lane B is active, but not yet closed.
+- The spillover review-unit integrity correction is accepted within Lane B.
+- The next unresolved implementation target remains the next explicitly scoped Lane B follow-up thread.
+
+## 🚀 March 31 — Cleanup Groups Lane A Implemented And Accepted
+
+### What changed
+
+- Implemented the narrow **Lane A** contract for Cleanup Groups root behavior only.
+- `semantic.marketing_subscriptions` now renders immediate unit-entry behavior at Cleanup Groups root.
+- Marketing no longer exposes a broad-parent root review-entry path:
+  - no root `Open group` path on the Marketing card
+  - no Marketing broad-parent shortcut from root-level recommendation / intent shortcuts
+- Marketing parent review entry is now guarded:
+  - parent URL renders choose-unit state
+  - invalid unit URL renders unavailable-unit state
+  - broad-parent fallback is blocked
+- Direct-open parents were preserved as honest direct-open parents:
+  - `structural.backlog`
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `secondary.account_updates`
+  - `context.historical`
+- No chooser/interstitial was introduced for direct-open parent URL entry.
+
+### Current accepted state
+
+- Cleanup Groups planning Phases 1–4 are accepted and locked.
+- Cleanup Groups Lane A is implemented and accepted.
+- Marketing is the only root-decomposed parent.
+- Direct-open parents remain visually and behaviorally direct-open.
+- Lane B is active, with spillover review-unit integrity accepted but the lane not yet closed.
+
+### Explicit boundary
+
+- Lane A changed only Cleanup Groups root-entry behavior plus the locked Marketing parent-route guard.
+- This lane did **not** begin Lane B.
+- This lane did **not** reopen taxonomy, artifact generation, alias behavior, or generalized review-page redesign.
+- The accepted Lane A caveat remains:
+  - the unit-review hero counters were still placeholder `—` in the captured snapshot
+  - root-entry and route-guard browser proof was sufficient for Lane A acceptance
+
+
+## 🚧 March 31 — Cleanup Groups Unit-First Pass Rolled Back
+
+### What changed
+
+- Live UI validation found a regression in the latest Cleanup Groups unit-first enforcement pass.
+- That pass was rolled back narrowly to the immediate pre-unit-first / post-canonical-presentation state.
+- The rollback removed only the rejected unit-first interaction layer:
+  - parent chooser-only enforcement
+  - review-page `Review Unit Required` guard
+  - `review_unit_reason_filter` request plumbing added for that pass
+- The rollback preserved the already accepted behavior:
+  - canonical publish remains live
+  - canonical Cleanup Groups labels and fixed section structure remain in place
+  - alias normalization remains intact
+  - `retail-commerce-senders` remains redirect-only
+
+### Current accepted state
+
+- Cleanup Groups root is back on the last known-good canonical surface before the rejected unit-first pass.
+- Direct parent-open review behavior is restored.
+- `semantic.marketing_subscriptions` and `structural.protected_trust` review routes load normally again.
+- `secondary.system_notifications` and `system-notification-senders` still normalize to `secondary.account_updates`.
+- Future Cleanup Groups decomposition work is paused pending a phased re-plan.
+
+
+### Explicit boundary
+
+- This rollback lane restored stability only.
+- It did **not** begin the next Cleanup Groups decomposition / redesign phase.
+
+## 🚧 March 31 — Cleanup Groups Structural Rebuild Planning (New Baseline)
+
+### What changed
+
+- Cleanup Groups is now intentionally paused at the restored pre-unit-first / post-canonical-presentation baseline.
+- A new planning phase has been initiated: **Cleanup Groups Rebuild Phased Execution Plan**.
+- The system is no longer attempting incremental fixes to legacy group structures.
+- The focus has shifted from:
+  - fixing existing cleanup groups
+  - renaming / relabeling / surface adjustments
+  to:
+  - defining a clean, artifact-driven **full inbox re-evaluation and structural decomposition plan**.
+
+### Current reality (important)
+
+- Cleanup Groups are still functionally the **same underlying sender groupings**:
+  - `Marketing subscriptions ≈ 850`
+  - `Backlog ≈ 993`
+  - `Unresolved ≈ 1115`
+  - `Protected trust ≈ 1840`
+  - `Account updates ≈ ~30`
+  - `Historical ≈ ~40`
+- The canonical work completed so far:
+  - fixed naming
+  - fixed section structure
+  - fixed identity + alias behavior
+- BUT:
+  - **no structural decomposition has actually happened yet**
+  - the first-step workflow is still effectively “flat” for large groups
+
+### Key insight (locked)
+
+- The previous work was **identity + correctness work**, not **structural transformation**.
+- What is missing is a true:
+  - inbox-wide re-evaluation
+  - artifact-backed regrouping
+  - decomposition into smaller, actionable units
+
+### Explicit boundary
+
+- We are no longer iterating on the existing groups directly.
+- We are designing a **new decomposition model first**, then implementing it in controlled phases.
+- No new Cleanup Groups implementation work should proceed without the new phased plan.
+- Planning Phases 1–4 are now complete, and Lane A is the only accepted implementation lane so far.
+
+## 🚀 March 31 — Cleanup Groups Canonical Publish Live
+
+### What changed
+
+- The explicit canonical publish command now completes cleanly and writes its proof payload without crashing.
+- The workspace/access acceptance harness now distinguishes between:
+  - archive-capable published clusters, which must produce archive impact
+  - `context.historical`, which is valid archive-no-op behavior when preview rows are out-of-inbox only
+- Canonical cleanup-group publish was rerun successfully for:
+  - `full-mailbox-20260330155423600`
+- Post-publish validation passed:
+  - live audit
+  - workspace/access acceptance
+  - canonical / alias route matrix
+- No rollback was needed in the final lane.
+
+### Current accepted state
+
+- Canonical cleanup-group artifact publish is live.
+- `published_version` is `full-mailbox-20260330155423600`.
+- `secondary.account_updates` is the canonical live secondary identity.
+- `secondary.system_notifications` and `system-notification-senders` normalize safely to `secondary.account_updates`.
+- `retail-commerce-senders` remains redirect-only and does not reopen as a live group.
+
+### Explicit boundary
+
+- This lane fixed only:
+  - the publish / rollback proof-writing crash
+  - the `context.historical` workspace acceptance failure
+- It did **not** reopen taxonomy, identity design, route design, redirect design, or artifact mechanics beyond those two fixes.
+
+## 🚀 March 30 — Cleanup Groups Canonical Cutover Preparation Implemented
+
+### What changed
+
+- Canonical cleanup-group publish logic is now implemented for the approved artifact surfaces.
+- Secondary canonical identity is now locked in code as `secondary.account_updates`.
+- Legacy alias direction is now locked in code:
+  - `system-notification-senders -> secondary.account_updates`
+  - `secondary.system_notifications -> secondary.account_updates`
+- `retail-commerce-senders` is now redirect-only in code and no longer survives as a live runtime group.
+- Artifact-backed runtime reads now normalize canonical-first with alias compatibility.
+- Incremental publish is now blocked until the first full canonical rebuild exists.
+- The live audit now compares against the accepted shadow baseline and correctly blocks the still-old published artifact.
+
+### Current accepted state
+
+- Canonical publish logic is implemented in code.
+- Alias inversion is complete.
+- Retail redirect-only handling is live in code.
+- Runtime identity alignment is in place across the shared artifact-backed read path.
+- Live publish has not happened yet.
+- The current published artifact is still pre-cutover by design.
+
+### Explicit boundary
+
+- This thread is complete for cutover-preparation implementation only.
+- It did **not** execute the first full canonical rebuild.
+- It did **not** publish a new artifact version.
+- The next required lane is `Cleanup Groups — First Canonical Rebuild + Publish Validation`.
+- Taxonomy, UI, alias design, and runtime architecture are not reopened in that follow-on.
+
+## 🚀 March 30 — Cleanup Groups Canonical Candidate Validated / Publish-Ready
+
+### What changed
+
+- The first full canonical rebuild completed successfully as an unpublished candidate:
+  - `full-mailbox-20260330155423600`
+  - job `full-rebuild:085c8ef7-2fd7-4842-8499-cd605e894a77:all_indexed:full-mailbox-20260330155423600`
+- Review-unit publication contract drift was corrected by preferring the non-transitional source id when evaluating canonical cleanup-group source behavior.
+- Preview-index integrity mechanics were corrected:
+  - canonical preview replacement now completes under statement timeout
+  - post-build preview row count matches finalized derived preview row count
+  - candidate validator now proves no non-canonical preview rows remain
+- The stale incremental publication lock remains cleared and publication prechecks remain compare-and-set ready.
+- No live publish happened in this lane.
+
+### Current accepted state
+
+- Candidate-ready: yes
+- Publish-ready: yes
+- Fresh candidate build proof:
+  - `ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_cleanup_canonical_candidate_build_20260330_v7.json`
+- Fresh candidate validation proof:
+  - `ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_cleanup_canonical_candidate_validation_20260330_v6.json`
+- Fresh publication-readiness proof:
+  - `ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_cleanup_publication_readiness_20260330_v2.json`
+- `published_version` is still intentionally pinned to `full-mailbox-20260329092447406` until explicit approval.
+
+### Explicit boundary
+
+- This lane proved publish readiness only.
+- It did **not** flip `published_version`.
+- The next step is the explicit publish command plus immediate post-flip live validation.
+
+## 🚀 March 30 — Cleanup Groups Taxonomy Shadow Validation Passed
+
+### What changed
+
+- Cleanup taxonomy shadow rediscovery ran successfully against pinned artifact `full-mailbox-20260329092447406`.
+- The approved artifact-driven taxonomy and assignment model validated cleanly:
+  - sender coverage preserved at `4,879 / 4,879`
+  - no duplicate parent membership
+  - only `7` sender movements, all from retired `retail-commerce-senders`
+- Review-unit decomposition validated across:
+  - `semantic.marketing_subscriptions`
+  - `structural.backlog`
+  - `structural.protected_trust`
+  - `structural.unresolved`
+- Cross-surface projection and shadow publish gates both passed.
+
+### Current accepted state
+
+- The next-generation cleanup taxonomy is validated in shadow.
+- The new assignment model is validated in shadow.
+- `retail-commerce-senders` is confirmed removable in shadow with safe redistribution.
+- No live artifact publish happened in this lane.
+- No runtime cutover happened in this lane.
+
+### Explicit boundary
+
+- This thread is complete as a shadow validation lane only.
+- The next step is a separate canonical publish / safe cutover thread.
+- Taxonomy design is not reopened in that follow-on.
+- UI work is not part of that follow-on.
 
 ## 🚀 March 30 — Cleanup Groups Rediscovery Lane Complete
 
@@ -50,7 +354,7 @@ Project Manager: v10 (finalized — preparing transition to v11)
   - `structural.backlog`
   - `structural.unresolved`
   - `structural.protected_trust`
-  - `secondary.system_notifications`
+  - `secondary.account_updates`
   - `context.historical`
 - `Secondary` and `Context` are collapsed by default.
 - Review units remain nested inside parent groups.
@@ -2543,3 +2847,67 @@ Current validation status:
   - before: `full-mailbox-20260328080841849`
   - after: `full-mailbox-20260329092447406`
 - Runtime acceptance proof confirms artifact-backed readers now resolve the newer published artifact version instead of remaining pinned to the stale one.
+
+---
+
+## Cleanup Groups Canonical Cutover Mechanics State - March 30, 2026
+
+Current scope state:
+
+- This lane implemented cutover mechanics and validation plumbing only.
+- This lane did not redesign:
+  - taxonomy
+  - assignment logic
+  - UI
+  - workflow behavior
+  - alias compatibility
+
+Current candidate-build state:
+
+- `runGmailFullMailboxArtifactBuild(...)` now supports candidate-only completion and defaults to non-publishing behavior unless `publishResult=true` is explicitly requested by code.
+- The candidate build path now:
+  - creates a side-by-side full artifact version
+  - stores the prebuild publication state in the resumable checkpoint
+  - restores that publication state after build completion
+  - leaves `published_version` unchanged
+  - marks the build job `completed` with `phase=candidate_ready`
+- Mailbox-index-triggered full rebuilds are explicitly pinned to candidate-only mode for this pre-cutover state.
+
+Current validation-command state:
+
+- Frozen shadow proof command remains available and pinned to:
+  - `full-mailbox-20260329092447406`
+- New unpublished candidate validation command is available and reads the requested artifact version directly without going through `published_version`.
+- Live audit remains published-version-only and still validates runtime/live behavior against the currently published artifact only.
+
+Current publication-control state:
+
+- Explicit publish and explicit rollback paths now exist as compare-and-set publication repoint commands.
+- Both paths require the caller to supply:
+  - expected current `published_version`
+  - expected `last_index_state_updated_at`
+  - expected `last_indexed_message_count`
+- Both paths refuse to proceed when publication state drifts before the repoint.
+- Failed candidate rows are retained; rollback only repoints publication and does not delete candidate data.
+
+Current readiness state:
+
+- Candidate-ready: yes
+- Publish-ready: yes
+
+Current publish-ready proof bundle:
+
+- Fresh candidate build proof:
+  - `full-mailbox-20260330155423600`
+  - `ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_cleanup_canonical_candidate_build_20260330_v7.json`
+- Fresh unpublished candidate validation packet:
+  - `ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_cleanup_canonical_candidate_validation_20260330_v6.json`
+  - `safe_to_publish=true`
+- Fresh publication-readiness packet:
+  - `ai-agent-platform-docs/03_gmail_workspace/09_reference/gmail_cleanup_publication_readiness_20260330_v2.json`
+  - `compare_and_set_ready=true`
+
+Pointer-flip boundary remains:
+
+- `published_version` has not been flipped yet.
+- Explicit publish approval is still required before running the compare-and-set publish command.

@@ -1,0 +1,554 @@
+{
+  "ok": true,
+  "generated_at": "2026-03-30T11:07:55.770Z",
+  "tenant_id": "085c8ef7-2fd7-4842-8499-cd605e894a77",
+  "analysis_scope": "all_indexed",
+  "baseline_artifact_version": "full-mailbox-20260329092447406",
+  "summary": {
+    "total_sender_count": 4879,
+    "baseline_source_group_count": 8,
+    "projected_source_group_count": 7,
+    "projected_canonical_group_count": 7,
+    "source_membership_changes": 7,
+    "redirect_only_group_ids": [
+      "retail-commerce-senders"
+    ],
+    "publish_gate_passed": true
+  },
+  "shadow_rebuild_output_result": {
+    "mode": "shadow_only",
+    "live_publish_performed": false,
+    "schema_changes": false,
+    "ui_changes": false,
+    "retired_source_group_ids": [
+      "retail-commerce-senders"
+    ],
+    "redirect_only_group_ids": [
+      "retail-commerce-senders"
+    ],
+    "projected_surface_cluster_ids": [
+      "semantic-parent:subscription-senders:family:marketing_promotional",
+      "dormant-backlog-senders",
+      "protected-trusted-senders",
+      "needs-review-senders",
+      "system-notification-senders",
+      "historical-out-of-inbox-senders",
+      "social-platform-senders"
+    ],
+    "projected_canonical_cluster_ids": [
+      "semantic.marketing_subscriptions",
+      "structural.backlog",
+      "structural.protected_trust",
+      "structural.unresolved",
+      "secondary.account_updates",
+      "context.historical",
+      "secondary.social_community"
+    ],
+    "output_surfaces": [
+      {
+        "surface": "gmail_sender_scope_rollups",
+        "projected_row_count": 4879,
+        "canonical_identity_published": false,
+        "review_unit_plan_published": false,
+        "movement_matrix_published": false,
+        "runtime_only": false,
+        "notes": "Compatibility-layer source assignment is recomputed here; retail-commerce senders are redistributed into surviving source groups."
+      },
+      {
+        "surface": "gmail_cluster_summaries",
+        "projected_row_count": 7,
+        "canonical_identity_published": true,
+        "review_unit_plan_published": true,
+        "movement_matrix_published": false,
+        "runtime_only": false,
+        "notes": "Surviving surface clusters publish canonical parent identity and the locked first-pass review-unit plan."
+      },
+      {
+        "surface": "gmail_sender_workspace_seed_headers",
+        "projected_row_count": 7,
+        "canonical_identity_published": true,
+        "review_unit_plan_published": true,
+        "movement_matrix_published": false,
+        "runtime_only": false,
+        "notes": "Seed headers mirror cluster summaries and carry the same canonical identity and group-level review-unit plan."
+      },
+      {
+        "surface": "gmail_sender_workspace_seed_rows",
+        "projected_row_count": 4879,
+        "canonical_identity_published": true,
+        "review_unit_plan_published": false,
+        "movement_matrix_published": false,
+        "runtime_only": false,
+        "notes": "Seed rows retain sender membership, reassign retired retail members, and publish canonical/source mapping; unresolved reason membership remains derived from rollups."
+      },
+      {
+        "surface": "gmail_preview_index",
+        "projected_row_count": 225310,
+        "canonical_identity_published": true,
+        "review_unit_plan_published": false,
+        "movement_matrix_published": false,
+        "runtime_only": false,
+        "notes": "Preview rows are rekeyed for redistributed retail senders and carry canonical/source mapping only."
+      },
+      {
+        "surface": "gmail_mailbox_intelligence_snapshots",
+        "projected_row_count": 1,
+        "canonical_identity_published": true,
+        "review_unit_plan_published": true,
+        "movement_matrix_published": false,
+        "runtime_only": false,
+        "notes": "Cleanup-group snapshot entries publish canonical identity and the locked group-level review-unit basis."
+      },
+      {
+        "surface": "gmail_mailbox_intelligence_buckets",
+        "projected_row_count": 101,
+        "canonical_identity_published": false,
+        "review_unit_plan_published": false,
+        "movement_matrix_published": false,
+        "runtime_only": false,
+        "notes": "Buckets are rebuilt for artifact bundle congruence only; no movement matrix or review-unit data is published here."
+      },
+      {
+        "surface": "shadow_sidecar_reports",
+        "projected_row_count": 3,
+        "canonical_identity_published": false,
+        "review_unit_plan_published": false,
+        "movement_matrix_published": true,
+        "runtime_only": true,
+        "notes": "Movement matrix, retired-group redirect table, and publish-gate report stay shadow-only and are not written into runtime artifact tables."
+      }
+    ]
+  },
+  "old_vs_new_parent_counts": {
+    "source_before": [
+      {
+        "cluster_id": "protected-trusted-senders",
+        "sender_count": 1840
+      },
+      {
+        "cluster_id": "needs-review-senders",
+        "sender_count": 1111
+      },
+      {
+        "cluster_id": "dormant-backlog-senders",
+        "sender_count": 993
+      },
+      {
+        "cluster_id": "subscription-senders",
+        "sender_count": 850
+      },
+      {
+        "cluster_id": "historical-out-of-inbox-senders",
+        "sender_count": 40
+      },
+      {
+        "cluster_id": "system-notification-senders",
+        "sender_count": 29
+      },
+      {
+        "cluster_id": "social-platform-senders",
+        "sender_count": 9
+      },
+      {
+        "cluster_id": "retail-commerce-senders",
+        "sender_count": 7
+      }
+    ],
+    "source_after": [
+      {
+        "cluster_id": "protected-trusted-senders",
+        "sender_count": 1840
+      },
+      {
+        "cluster_id": "needs-review-senders",
+        "sender_count": 1115
+      },
+      {
+        "cluster_id": "dormant-backlog-senders",
+        "sender_count": 993
+      },
+      {
+        "cluster_id": "subscription-senders",
+        "sender_count": 850
+      },
+      {
+        "cluster_id": "historical-out-of-inbox-senders",
+        "sender_count": 40
+      },
+      {
+        "cluster_id": "system-notification-senders",
+        "sender_count": 32
+      },
+      {
+        "cluster_id": "social-platform-senders",
+        "sender_count": 9
+      }
+    ],
+    "canonical_after": [
+      {
+        "cluster_id": "semantic.marketing_subscriptions",
+        "sender_count": 850
+      },
+      {
+        "cluster_id": "structural.backlog",
+        "sender_count": 993
+      },
+      {
+        "cluster_id": "structural.protected_trust",
+        "sender_count": 1840
+      },
+      {
+        "cluster_id": "structural.unresolved",
+        "sender_count": 1115
+      },
+      {
+        "cluster_id": "secondary.account_updates",
+        "sender_count": 32
+      },
+      {
+        "cluster_id": "context.historical",
+        "sender_count": 40
+      },
+      {
+        "cluster_id": "secondary.social_community",
+        "sender_count": 9
+      }
+    ]
+  },
+  "sender_movement_matrix_summary": {
+    "unchanged_source_assignment_count": 4872,
+    "changed_source_assignment_count": 7,
+    "source_movements": [
+      {
+        "from_cluster_id": "retail-commerce-senders",
+        "to_cluster_id": "needs-review-senders",
+        "sender_count": 4
+      },
+      {
+        "from_cluster_id": "retail-commerce-senders",
+        "to_cluster_id": "system-notification-senders",
+        "sender_count": 3
+      }
+    ],
+    "legacy_to_canonical_matrix": [
+      {
+        "from_cluster_id": "protected-trusted-senders",
+        "to_cluster_id": "structural.protected_trust",
+        "sender_count": 1840
+      },
+      {
+        "from_cluster_id": "needs-review-senders",
+        "to_cluster_id": "structural.unresolved",
+        "sender_count": 1111
+      },
+      {
+        "from_cluster_id": "dormant-backlog-senders",
+        "to_cluster_id": "structural.backlog",
+        "sender_count": 993
+      },
+      {
+        "from_cluster_id": "subscription-senders",
+        "to_cluster_id": "semantic.marketing_subscriptions",
+        "sender_count": 850
+      },
+      {
+        "from_cluster_id": "historical-out-of-inbox-senders",
+        "to_cluster_id": "context.historical",
+        "sender_count": 40
+      },
+      {
+        "from_cluster_id": "system-notification-senders",
+        "to_cluster_id": "secondary.account_updates",
+        "sender_count": 29
+      },
+      {
+        "from_cluster_id": "social-platform-senders",
+        "to_cluster_id": "secondary.social_community",
+        "sender_count": 9
+      },
+      {
+        "from_cluster_id": "retail-commerce-senders",
+        "to_cluster_id": "structural.unresolved",
+        "sender_count": 4
+      },
+      {
+        "from_cluster_id": "retail-commerce-senders",
+        "to_cluster_id": "secondary.account_updates",
+        "sender_count": 3
+      }
+    ]
+  },
+  "published_review_unit_plan_result": [
+    {
+      "canonical_cluster_id": "semantic.marketing_subscriptions",
+      "source_cluster_id": "subscription-senders",
+      "surface_cluster_id": "semantic-parent:subscription-senders:family:marketing_promotional",
+      "required": true,
+      "basis": "subtype-first",
+      "trigger_reason": "Promoted semantic parent remains subtype-first because published subtype units already provide the smallest coherent artifact-backed first pass.",
+      "unit_count": 5,
+      "units": [
+        {
+          "unit_id": "family:offer_campaign",
+          "label": "Offer campaign",
+          "kind": "semantic_subtype",
+          "source_key": "offer_campaign",
+          "sender_count": 252,
+          "share_pct": 30
+        },
+        {
+          "unit_id": "family:product_marketing_update",
+          "label": "Product marketing update",
+          "kind": "semantic_subtype",
+          "source_key": "product_marketing_update",
+          "sender_count": 179,
+          "share_pct": 21
+        },
+        {
+          "unit_id": "family:editorial_newsletter",
+          "label": "Editorial newsletter",
+          "kind": "semantic_subtype",
+          "source_key": "editorial_newsletter",
+          "sender_count": 50,
+          "share_pct": 6
+        },
+        {
+          "unit_id": "family:marketing_promotional:remainder",
+          "label": "Broad marketing / promotional remainder",
+          "kind": "semantic_remainder",
+          "source_key": "marketing_promotional",
+          "sender_count": 316,
+          "share_pct": 37
+        },
+        {
+          "unit_id": "family:spillover",
+          "label": "Non-promotional spillover / exceptions",
+          "kind": "semantic_spillover",
+          "source_key": "spillover",
+          "sender_count": 53,
+          "share_pct": 6
+        }
+      ],
+      "runtime_narrowing": null
+    },
+    {
+      "canonical_cluster_id": "structural.backlog",
+      "source_cluster_id": "dormant-backlog-senders",
+      "surface_cluster_id": "dormant-backlog-senders",
+      "required": true,
+      "basis": "family-first",
+      "trigger_reason": "Backlog remains structurally large and semantically mixed, so first-pass publication is ranked family lanes with age and volume narrowing deferred to runtime inside the chosen family lane.",
+      "unit_count": 6,
+      "units": [
+        {
+          "unit_id": "family:account_notification",
+          "label": "Account notifications",
+          "kind": "semantic_family",
+          "source_key": "account_notification",
+          "sender_count": 465,
+          "share_pct": 47
+        },
+        {
+          "unit_id": "family:marketing_promotional",
+          "label": "Marketing / promotional",
+          "kind": "semantic_family",
+          "source_key": "marketing_promotional",
+          "sender_count": 265,
+          "share_pct": 27
+        },
+        {
+          "unit_id": "family:commerce_transactional",
+          "label": "Commerce / transactional",
+          "kind": "semantic_family",
+          "source_key": "commerce_transactional",
+          "sender_count": 224,
+          "share_pct": 23
+        },
+        {
+          "unit_id": "family:security_alert",
+          "label": "Security alerts",
+          "kind": "semantic_family",
+          "source_key": "security_alert",
+          "sender_count": 23,
+          "share_pct": 2
+        },
+        {
+          "unit_id": "family:human_personal",
+          "label": "Human / personal",
+          "kind": "semantic_family",
+          "source_key": "human_personal",
+          "sender_count": 11,
+          "share_pct": 1
+        },
+        {
+          "unit_id": "family:social_community",
+          "label": "Social / community",
+          "kind": "semantic_family",
+          "source_key": "social_community",
+          "sender_count": 5,
+          "share_pct": 1
+        }
+      ],
+      "runtime_narrowing": "Age-first and volume-first narrowing stays runtime-only inside the selected family lane."
+    },
+    {
+      "canonical_cluster_id": "structural.protected_trust",
+      "source_cluster_id": "protected-trusted-senders",
+      "surface_cluster_id": "protected-trusted-senders",
+      "required": true,
+      "basis": "protection-reason-first",
+      "trigger_reason": "Protected coverage is defined by explicit protection/trust overrides, so publication must open on protection reasons before any semantic narrowing.",
+      "unit_count": 3,
+      "units": [
+        {
+          "unit_id": "assignment_reason:protected_signal_override",
+          "label": "Protected Signal Override",
+          "kind": "assignment_reason",
+          "source_key": "protected_signal_override",
+          "sender_count": 1655,
+          "share_pct": 90
+        },
+        {
+          "unit_id": "assignment_reason:protected_legacy_protected_human_dominant",
+          "label": "Protected Legacy Protected Human Dominant",
+          "kind": "assignment_reason",
+          "source_key": "protected_legacy_protected_human_dominant",
+          "sender_count": 154,
+          "share_pct": 8
+        },
+        {
+          "unit_id": "assignment_reason:protected_legacy_protected_human_sender",
+          "label": "Protected Legacy Protected Human Sender",
+          "kind": "assignment_reason",
+          "source_key": "protected_legacy_protected_human_sender",
+          "sender_count": 31,
+          "share_pct": 2
+        }
+      ],
+      "runtime_narrowing": "Semantic narrowing stays runtime-only after the operator chooses a protection reason."
+    },
+    {
+      "canonical_cluster_id": "structural.unresolved",
+      "source_cluster_id": "needs-review-senders",
+      "surface_cluster_id": "needs-review-senders",
+      "required": true,
+      "basis": "exclusion-reason-first",
+      "trigger_reason": "Unresolved coverage is defined by insufficient evidence, so publication must open on exclusion reasons before any secondary runtime narrowing.",
+      "unit_count": 2,
+      "units": [
+        {
+          "unit_id": "exclusion_reason:too_few_safe_rows",
+          "label": "Too Few Safe Rows",
+          "kind": "exclusion_reason",
+          "source_key": "too_few_safe_rows",
+          "sender_count": 1102,
+          "share_pct": 99
+        },
+        {
+          "unit_id": "exclusion_reason:score_below_threshold",
+          "label": "Score Below Threshold",
+          "kind": "exclusion_reason",
+          "source_key": "score_below_threshold",
+          "sender_count": 13,
+          "share_pct": 1
+        }
+      ],
+      "runtime_narrowing": "Runtime can narrow within an exclusion reason by age, volume, and trust cues without publishing new artifact child groups."
+    },
+    {
+      "canonical_cluster_id": "context.historical",
+      "source_cluster_id": "historical-out-of-inbox-senders",
+      "surface_cluster_id": "historical-out-of-inbox-senders",
+      "required": false,
+      "basis": "direct-open",
+      "trigger_reason": "Historical is a small context lane and does not require first-pass published review units.",
+      "unit_count": 0,
+      "units": [],
+      "runtime_narrowing": null
+    }
+  ],
+  "publish_gate_report": {
+    "pass": true,
+    "gates": [
+      {
+        "gate": "100_percent_sender_coverage",
+        "pass": true,
+        "detail": "4879/4879 senders preserved in the shadow rebuild."
+      },
+      {
+        "gate": "no_duplicate_sender_membership",
+        "pass": true,
+        "detail": "Each sender_key appears exactly once in the shadow parent assignment."
+      },
+      {
+        "gate": "retired_retail_group_removed",
+        "pass": true,
+        "detail": "retail-commerce-senders is removed from projected artifact outputs and remains redirect-only."
+      },
+      {
+        "gate": "required_review_unit_bases_locked",
+        "pass": true,
+        "detail": "Marketing -> subtype-first; backlog -> family-first; protected -> protection-reason-first; unresolved -> exclusion-reason-first; historical -> direct-open."
+      },
+      {
+        "gate": "cross_surface_projection_consistent",
+        "pass": true,
+        "detail": "Projected summary surfaces = 7; projected header surfaces = 7; projected cleanup-group snapshot surfaces = 7."
+      },
+      {
+        "gate": "movement_matrix_shadow_only",
+        "pass": true,
+        "detail": "Movement matrix, redirect table, and publish-gate report remain sidecar shadow outputs and are not projected into runtime artifact tables."
+      }
+    ]
+  },
+  "validation_performed": [
+    "Pinned artifact baseline version matches the approved March 29, 2026 full-mailbox artifact.",
+    "Recomputed shadow source assignments preserve total sender coverage and unique sender membership.",
+    "Projected source outputs remove retail-commerce-senders and redistribute its seven senders into surviving source groups.",
+    "Projected canonical counts reconcile one-to-one with shadow source assignments.",
+    "Projected summary/header/snapshot surfaces share the same post-retirement surface cluster set.",
+    "Locked first-pass review-unit publication bases are present for all five approved initial parents."
+  ],
+  "known_limitations": [
+    "This pass is shadow-only. No live artifact rows were written and no publish cutover was attempted.",
+    "secondary.account_updates remains a projected canonical identity in this report; live runtime registry cutover is intentionally out of scope for this lane.",
+    "structural.unresolved review-unit membership is still derived from rollup exclusion reasons rather than a first-class published seed-row field.",
+    "Backlog, protected, and unresolved still require runtime narrowing inside the chosen published review unit because their largest first-pass units remain above the few-hundred-sender target."
+  ],
+  "recommendation": {
+    "decision": "do_not_publish",
+    "rationale": "Shadow redistribution and publish gates pass, but this lane explicitly excludes live publish cutover and the live runtime registry still needs a dedicated follow-up pass for canonical identity rollout."
+  },
+  "publication_state": {
+    "tenant_id": "085c8ef7-2fd7-4842-8499-cd605e894a77",
+    "analysis_scope": "all_indexed",
+    "published_version": "full-mailbox-20260329092447406",
+    "published_at": "2026-03-29T10:03:51.301+00:00",
+    "building_version": "incremental-20260329100821134",
+    "build_status": "building",
+    "last_error": null,
+    "last_error_at": null,
+    "last_index_state_updated_at": "2026-03-29T10:08:18.29+00:00",
+    "last_indexed_message_count": 234345,
+    "freshness_state": "fresh",
+    "freshness_reason": "sync_completed_without_artifact_drift",
+    "refresh_strategy": "incremental",
+    "refresh_requested_at": "2026-03-29T10:13:19.851+00:00",
+    "refresh_started_at": "2026-03-29T10:08:21.134+00:00",
+    "refresh_completed_at": "2026-03-29T10:13:19.851+00:00",
+    "refresh_job_id": "incremental:085c8ef7-2fd7-4842-8499-cd605e894a77:all_indexed:incremental-20260329100821134",
+    "refresh_sync_run_id": "01388413-62a7-479b-8f94-1c504ec2b02d",
+    "created_at": "2026-03-22T11:34:18.13+00:00",
+    "updated_at": "2026-03-29T10:13:20.451+00:00"
+  },
+  "baseline_row_counts": {
+    "gmail_sender_workspace_seed_headers": 8,
+    "gmail_sender_workspace_seed_rows": 4879,
+    "gmail_sender_scope_rollups": 4879,
+    "gmail_cluster_summaries": 8,
+    "gmail_mailbox_intelligence_snapshots": 1,
+    "gmail_mailbox_intelligence_buckets": 101,
+    "gmail_preview_index": 225310
+  }
+}

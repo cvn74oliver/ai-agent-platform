@@ -418,6 +418,7 @@ async function refreshArtifactsAfterCompletedSync(params: {
           supabase: params.supabase,
           tenantId: params.tenantId,
           analysisScope: plan.analysisScope,
+          publishResult: false,
         })
         console.info(
           `${params.logPrefix}/artifact-refresh ${JSON.stringify({
@@ -428,6 +429,7 @@ async function refreshArtifactsAfterCompletedSync(params: {
             ok: true,
             artifact_version: buildResult.artifact_version,
             job_id: buildResult.job_id,
+            publication_action: buildResult.publication_action,
             processed_sender_count: buildResult.processed_sender_count,
             processed_message_count: buildResult.processed_message_count,
             processed_cluster_count: buildResult.processed_cluster_count,

@@ -26,7 +26,10 @@ import {
   type GmailSenderWorkspaceSemanticFocus,
   type GmailSenderWorkspaceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
-import { resolveCleanupClusterIdentity } from '@/lib/runtime/gmailCleanupClusterIdentity'
+import {
+  getRetiredCleanupGroupRedirect,
+  resolveCleanupClusterIdentity,
+} from '@/lib/runtime/gmailCleanupClusterIdentity'
 import {
   DEFAULT_OPERATIONS_ANALYSIS_SCOPE,
   type OperationsSelectedClusterRailFamilyScopeEntry,
@@ -40,11 +43,14 @@ import {
   type OperationsAnalysisScope,
 } from '@/lib/runtime/operationsWorkspace'
 import {
-  buildCleanupGroupDerivedReviewUnits,
+  buildCleanupGroupPublishedReviewUnits,
+  buildSemanticFocusFromPublishedReviewUnit,
   buildCleanupGroupInternalStructure,
-  findCleanupGroupDerivedReviewUnit,
+  findCleanupGroupPublishedReviewUnit,
+  getCleanupGroupCanonicalClusterId,
   getCleanupGroupLaneLabel,
-  type CleanupGroupDerivedReviewUnit,
+  getCleanupGroupPrimaryLabel,
+  type CleanupGroupPublishedReviewUnit,
 } from '@/lib/runtime/cleanupGroupPresentation'
 import {
   DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
@@ -172,11 +178,25 @@ const IDLE_DEFAULT_OVERVIEW_RUNTIME_GATE: DefaultOverviewRuntimeGateState = {
   status: 'idle',
 }
 
+const MARKETING_PARENT_CANONICAL_ID = 'semantic.marketing_subscriptions'
+
 const reviewScopeTransitionSnapshots = new Map<
   string,
   { snapshot: WorkspaceSnapshot; capturedAt: number }
 >()
 const senderOverviewRailMemoryStore = new Map<string, SenderOverviewRailFastPackage>()
+
+function cleanupGroupDisplayTitle(params: {
+  clusterId?: string | null
+  canonicalClusterId?: string | null
+  title?: string | null
+}): string | null {
+  const clusterId = params.canonicalClusterId || params.clusterId
+  if (!clusterId) {
+    return typeof params.title === 'string' && params.title.trim() ? params.title.trim() : null
+  }
+  return getCleanupGroupPrimaryLabel(clusterId, params.title)
+}
 
 type WorkspaceFetchPlan = {
   requestKey: string
@@ -254,6 +274,30 @@ type SemanticFocusWorkspaceState =
   | { status: 'idle' | 'loading'; data: GmailSenderWorkspaceData | null; error: null }
   | { status: 'ready'; data: GmailSenderWorkspaceData; error: null }
   | { status: 'error'; data: GmailSenderWorkspaceData | null; error: string }
+
+type MarketingReviewUnitTruthState =
+  | {
+      status: 'idle' | 'loading'
+      data: { senders: WorkspaceSender[]; senderTotalMatchesUnit: boolean } | null
+      error: null
+    }
+  | {
+      status: 'ready'
+      data: { senders: WorkspaceSender[]; senderTotalMatchesUnit: boolean }
+      error: null
+    }
+  | {
+      status: 'error'
+      data: { senders: WorkspaceSender[]; senderTotalMatchesUnit: boolean } | null
+      error: string
+    }
+
+type MarketingReviewUnitEntryState =
+  | 'choose_unit'
+  | 'missing_unit'
+  | 'invalid_unit'
+  | 'oversized_unit'
+  | 'unavailable_units'
 
 type SenderDistributionWorkspaceState =
   | { status: 'idle' | 'loading'; data: GmailSenderDistributionData | null; error: null }
@@ -704,6 +748,246 @@ function buildReviewHref(params: {
   return `/agents/${params.agentId}/operations/review${query ? `?${query}` : ''}`
 }
 
+function buildClustersHref(params: {
+  agentId: string
+  sessionId: string | null
+  analysisScope: string | null | undefined
+  retiredClusterId?: string | null
+}): string {
+  const search = new URLSearchParams()
+  if (params.sessionId) search.set('playground_session_id', params.sessionId)
+  appendAnalysisScopeParam(search, params.analysisScope)
+  if (params.retiredClusterId) search.set('retired_cluster', params.retiredClusterId)
+  const query = search.toString()
+  return `/agents/${params.agentId}/operations/clusters${query ? `?${query}` : ''}`
+}
+
+function buildRenderablePublishedReviewUnits<T extends { senderCount: number; targetState: string }>(
+  reviewUnits: T[]
+): T[] {
+  return reviewUnits.filter((unit) => unit.senderCount > 0 && unit.targetState !== 'oversized')
+}
+
+function hasRequestedReviewUnitValue(value: string | null): boolean {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function senderMatchesLocalSemanticFocus(
+  sender: WorkspaceSender,
+  semanticFocus: GmailSenderWorkspaceSemanticFocus
+): boolean {
+  if (sender.semantic_family.family !== semanticFocus.family) return false
+
+  if (semanticFocus.kind === 'family') return true
+
+  if (semanticFocus.kind === 'subtype') {
+    if (!semanticFocus.subtypeKey) return false
+    return sender.semantic_family.subtype_key === semanticFocus.subtypeKey
+  }
+
+  const senderSubtypeKey = sender.semantic_family.subtype_key
+  if (!senderSubtypeKey) return true
+  return !semanticFocus.surfacedSubtypeKeys.includes(senderSubtypeKey)
+}
+
+function senderMatchesPublishedReviewUnit(params: {
+  sender: WorkspaceSender
+  unit: CleanupGroupPublishedReviewUnit
+  dominantSemanticFamily: WorkspaceSender['semantic_family']['family'] | null
+}): boolean {
+  const semanticFocus = buildSemanticFocusFromPublishedReviewUnit(params.unit)
+  if (semanticFocus) {
+    return senderMatchesLocalSemanticFocus(params.sender, semanticFocus)
+  }
+
+  if (params.unit.sourceKind === 'spillover') {
+    if (!params.dominantSemanticFamily) return false
+    return params.sender.semantic_family.family !== params.dominantSemanticFamily
+  }
+
+  return false
+}
+
+function compareWorkspaceSendersByOrdering(
+  left: WorkspaceSender,
+  right: WorkspaceSender,
+  ordering: {
+    sort: 'message_count' | 'last_activity' | 'unread_count'
+    direction: 'desc'
+  }
+): number {
+  if (ordering.sort === 'last_activity') {
+    return (
+      dateSortValue(right.last_activity) - dateSortValue(left.last_activity) ||
+      right.cleanup_group_message_count - left.cleanup_group_message_count ||
+      right.unread_count - left.unread_count ||
+      left.sender.localeCompare(right.sender)
+    )
+  }
+
+  if (ordering.sort === 'unread_count') {
+    return (
+      right.unread_count - left.unread_count ||
+      right.cleanup_group_message_count - left.cleanup_group_message_count ||
+      dateSortValue(right.last_activity) - dateSortValue(left.last_activity) ||
+      left.sender.localeCompare(right.sender)
+    )
+  }
+
+  return (
+    right.cleanup_group_message_count - left.cleanup_group_message_count ||
+    right.unread_count - left.unread_count ||
+    dateSortValue(right.last_activity) - dateSortValue(left.last_activity) ||
+    left.sender.localeCompare(right.sender)
+  )
+}
+
+function buildPublishedReviewUnitWorkspace(params: {
+  parentWorkspace: GmailSenderWorkspaceData
+  unit: CleanupGroupPublishedReviewUnit
+  dominantSemanticFamily: WorkspaceSender['semantic_family']['family'] | null
+  requestedPage: number
+  requestedPageSize: number
+}): GmailSenderWorkspaceData {
+  const filteredSenders = params.parentWorkspace.senders.filter((sender) =>
+    senderMatchesPublishedReviewUnit({
+      sender,
+      unit: params.unit,
+      dominantSemanticFamily: params.dominantSemanticFamily,
+    })
+  )
+  const pageSize = Math.max(
+    1,
+    filteredSenders.length,
+    Math.min(Math.max(params.requestedPageSize, 1), MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE)
+  )
+  const totalPages = Math.max(1, Math.ceil(filteredSenders.length / pageSize))
+  const page = Math.min(Math.max(DEFAULT_OVERVIEW_WORKSPACE_PAGE, params.requestedPage), totalPages)
+  const pageStart = (page - 1) * pageSize
+  const pagedSenders = filteredSenders.slice(pageStart, pageStart + pageSize)
+
+  return {
+    ...params.parentWorkspace,
+    senders: pagedSenders,
+    pagination: {
+      ...params.parentWorkspace.pagination,
+      page,
+      page_size: pageSize,
+      total_senders: filteredSenders.length,
+      total_pages: totalPages,
+    },
+    exceptions_count: filteredSenders.filter((sender) => sender.requires_verification).length,
+  }
+}
+
+function buildPublishedReviewUnitWorkspaceFromSenders(params: {
+  parentWorkspace: GmailSenderWorkspaceData
+  senders: WorkspaceSender[]
+  requestedPage: number
+  requestedPageSize: number
+}): GmailSenderWorkspaceData {
+  const dedupedSenders = Array.from(
+    params.senders.reduce<Map<string, WorkspaceSender>>((accumulator, sender) => {
+      if (!accumulator.has(sender.sender_key)) {
+        accumulator.set(sender.sender_key, sender)
+      }
+      return accumulator
+    }, new Map())
+  ).map(([, sender]) => sender)
+  const pageSize = Math.max(
+    1,
+    dedupedSenders.length,
+    Math.min(Math.max(params.requestedPageSize, 1), MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE)
+  )
+  const totalPages = Math.max(1, Math.ceil(dedupedSenders.length / pageSize))
+  const page = Math.min(Math.max(DEFAULT_OVERVIEW_WORKSPACE_PAGE, params.requestedPage), totalPages)
+  const pageStart = (page - 1) * pageSize
+  const pagedSenders = dedupedSenders.slice(pageStart, pageStart + pageSize)
+
+  return {
+    ...params.parentWorkspace,
+    senders: pagedSenders,
+    pagination: {
+      ...params.parentWorkspace.pagination,
+      page,
+      page_size: pageSize,
+      total_senders: dedupedSenders.length,
+      total_pages: totalPages,
+    },
+    exceptions_count: dedupedSenders.filter((sender) => sender.requires_verification).length,
+  }
+}
+
+async function collectWorkspaceSendersForSemanticFocus(params: {
+  selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
+  analysisScope: OperationsAnalysisScope
+  cacheVersion: string | null
+  semanticFocus: GmailSenderWorkspaceSemanticFocus
+  ordering: {
+    sort: 'message_count' | 'last_activity' | 'unread_count'
+    direction: 'desc'
+  }
+  agentId: string
+  requestReason: string
+}):
+  | { ok: true; senders: WorkspaceSender[] }
+  | { ok: false; error: string }
+  | { aborted: true } {
+  const sendersByKey = new Map<string, WorkspaceSender>()
+  let page = DEFAULT_OVERVIEW_WORKSPACE_PAGE
+  let totalPages = DEFAULT_OVERVIEW_WORKSPACE_PAGE
+
+  while (page <= totalPages) {
+    const result = await fetchGmailSenderWorkspace({
+      selectedCluster: params.selectedCluster,
+      allClusters: params.allClusters,
+      analysisScope: params.analysisScope,
+      cacheVersion: params.cacheVersion,
+      includeClusterSenderKeys: false,
+      page,
+      pageSize: MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
+      sort: params.ordering.sort,
+      direction: params.ordering.direction,
+      semanticFocus: params.semanticFocus,
+      requestContext: {
+        source: 'operations_review_page',
+        component: 'sender_overview',
+        reason: params.requestReason,
+        phase: 'interactive',
+        agentId: params.agentId,
+      },
+    })
+
+    if ('aborted' in result && result.aborted) {
+      return { aborted: true }
+    }
+    if (!result.ok) {
+      return { ok: false, error: result.error }
+    }
+
+    totalPages = Math.max(
+      DEFAULT_OVERVIEW_WORKSPACE_PAGE,
+      result.data.pagination.total_pages || DEFAULT_OVERVIEW_WORKSPACE_PAGE
+    )
+
+    for (const sender of result.data.senders) {
+      if (!sendersByKey.has(sender.sender_key)) {
+        sendersByKey.set(sender.sender_key, sender)
+      }
+    }
+
+    page += 1
+  }
+
+  return {
+    ok: true,
+    senders: Array.from(sendersByKey.values()).sort((left, right) =>
+      compareWorkspaceSendersByOrdering(left, right, params.ordering)
+    ),
+  }
+}
+
 function buildDecisionWorkflowStorageKey(params: {
   kind: 'inspect-entry' | 'overview-return'
   agentId: string
@@ -961,7 +1245,7 @@ function labelForSenderSignal(signal: WorkspaceSender['sender_signal']): string 
 }
 
 function sortLabelForSubsetSource(source: OverviewSubsetSource): string {
-  if (source === 'review_unit') return 'Derived review unit'
+  if (source === 'review_unit') return 'Review unit'
   if (source === 'category') return 'Category lane'
   if (source === 'composition') return 'Composition lane'
   return 'Focused sender'
@@ -1535,50 +1819,24 @@ function buildSemanticSubtypeFocusRequest(
   }
 }
 
-function buildSemanticFocusFromDerivedReviewUnit(params: {
-  unit: CleanupGroupDerivedReviewUnit
+function buildSemanticSubtypeFocusFromPublishedReviewUnit(params: {
+  unit: CleanupGroupPublishedReviewUnit
   familyRow: SemanticFamilyRowPresentation
 }): SemanticSubtypeFocus | null {
-  const surfacedSubtypeKeys = params.familyRow.children
-    .filter((row) => row.focusTarget.kind === 'subtype' && row.focusTarget.subtypeKey)
-    .map((row) => row.focusTarget.subtypeKey as string)
-
-  if (params.unit.kind === 'family') {
-    return {
-      id: params.unit.id,
-      label: params.unit.label,
-      family: params.unit.semanticFamily,
-      familyLabel: params.familyRow.label,
-      publishedSenderCount: params.unit.senderCount,
-      publishedParentSharePct: params.unit.familySharePct,
-      publishedGroupSharePct: params.unit.groupSharePct,
-      subtypeKey: null,
-      kind: 'family',
-      tone: params.unit.tone,
-      surfacedSubtypeKeys,
-    }
-  }
-
-  const matchedChild = params.familyRow.children.find((child) =>
-    params.unit.kind === 'remainder'
-      ? child.focusTarget.kind === 'remainder'
-      : child.focusTarget.kind === 'subtype' &&
-        child.focusTarget.subtypeKey === params.unit.semanticSubtype
-  )
-  if (!matchedChild) return null
-
+  const semanticFocus = buildSemanticFocusFromPublishedReviewUnit(params.unit)
+  if (!semanticFocus) return null
   return {
-    id: matchedChild.id,
-    label: matchedChild.label,
-    family: matchedChild.focusTarget.family,
+    id: params.unit.id,
+    label: params.unit.label,
+    family: semanticFocus.family,
     familyLabel: params.familyRow.label,
-    publishedSenderCount: matchedChild.senderCount,
-    publishedParentSharePct: matchedChild.parentSharePct,
-    publishedGroupSharePct: matchedChild.groupSharePct,
-    subtypeKey: matchedChild.focusTarget.subtypeKey,
-    kind: matchedChild.focusTarget.kind,
-    tone: matchedChild.tone,
-    surfacedSubtypeKeys,
+    publishedSenderCount: params.unit.senderCount,
+    publishedParentSharePct: params.unit.groupSharePct,
+    publishedGroupSharePct: params.unit.groupSharePct,
+    subtypeKey: semanticFocus.subtypeKey,
+    kind: semanticFocus.kind,
+    tone: semanticFocus.kind === 'subtype' ? 'resolved' : 'provisional',
+    surfacedSubtypeKeys: semanticFocus.surfacedSubtypeKeys,
   }
 }
 
@@ -1871,7 +2129,11 @@ function buildSenderOverviewRailFastPackageFromRuntimeSeed(params: {
   entry: OperationsSelectedClusterRailFamilyScopeEntry
   fallbackClusterTitle: string | null
 }): SenderOverviewRailFastPackage {
-  const clusterTitle = params.entry.cluster_title || params.fallbackClusterTitle
+  const clusterTitle =
+    cleanupGroupDisplayTitle({
+      clusterId: params.entry.cluster_id,
+      title: params.entry.cluster_title || params.fallbackClusterTitle,
+    }) || null
   if (params.entry.state !== 'ready') {
     return {
       key: buildSenderOverviewRailFastKey({
@@ -2761,7 +3023,11 @@ export default function OperationsReviewPage() {
             )
           : [],
         clusterType: cluster.cluster_type,
-        title: cluster.title,
+        title: cleanupGroupDisplayTitle({
+          clusterId: cluster.cluster_id,
+          canonicalClusterId: cluster.canonical_cluster_id,
+          title: cluster.title,
+        }) || cluster.title,
         query: cluster.query,
         whySelected: cluster.why_selected,
         riskNote: cluster.risk_note,
@@ -2784,7 +3050,11 @@ export default function OperationsReviewPage() {
         legacyClusterIds: cluster.legacy_cluster_ids || [],
         sourceClusterIds: cluster.source_cluster_ids || [],
         clusterType: cluster.cluster_type,
-        title: cluster.title,
+        title: cleanupGroupDisplayTitle({
+          clusterId: cluster.cluster_id,
+          canonicalClusterId: cluster.canonical_cluster_id,
+          title: cluster.title,
+        }) || cluster.title,
         query: cluster.query,
         whySelected: cluster.why_selected,
         riskNote: cluster.risk_note,
@@ -2812,6 +3082,10 @@ export default function OperationsReviewPage() {
   }, [runtimeClusters, runtimeMailboxIntelligenceClusters])
   const rawRequestedClusterId =
     typeof clusterId === 'string' && clusterId.trim().length > 0 ? clusterId.trim() : null
+  const retiredClusterRedirect = useMemo(
+    () => getRetiredCleanupGroupRedirect(rawRequestedClusterId),
+    [rawRequestedClusterId]
+  )
   const requestedClusterIdentity = useMemo(
     () =>
       rawRequestedClusterId
@@ -2894,6 +3168,37 @@ export default function OperationsReviewPage() {
 
     return firstPopulatedCluster || runtimeClusters[0] || null
   }, [rawRequestedClusterId, renderRuntimeData?.runtime_sender_overview, requestedCluster, runtimeClusters])
+  const selectedMailboxIntelligenceGroup = useMemo(() => {
+    if (!selectedCluster) return null
+    const lookupIds = new Set([
+      selectedCluster.clusterId,
+      selectedCluster.canonicalClusterId || selectedCluster.clusterId,
+      ...(selectedCluster.legacyClusterIds || []),
+      ...(selectedCluster.sourceClusterIds || []),
+    ])
+    return (
+      renderRuntimeData?.runtime_mailbox_intelligence?.cleanup_groups.find((group) => {
+        if (lookupIds.has(group.cluster_id) || lookupIds.has(group.canonical_cluster_id)) {
+          return true
+        }
+        return (group.legacy_cluster_ids || []).some((legacyId) => lookupIds.has(legacyId))
+      }) || null
+    )
+  }, [renderRuntimeData?.runtime_mailbox_intelligence?.cleanup_groups, selectedCluster])
+  const selectedCanonicalClusterId = useMemo(() => {
+    const clusterIdentity =
+      selectedCluster?.canonicalClusterId ||
+      selectedCluster?.clusterId ||
+      requestedClusterId ||
+      rawRequestedClusterId
+    return clusterIdentity ? getCleanupGroupCanonicalClusterId(clusterIdentity) : null
+  }, [
+    rawRequestedClusterId,
+    requestedClusterId,
+    selectedCluster?.canonicalClusterId,
+    selectedCluster?.clusterId,
+  ])
+  const isMarketingCleanupGroup = selectedCanonicalClusterId === MARKETING_PARENT_CANONICAL_ID
   const selectedWorkflowTarget = useMemo(
     () =>
       selectedCluster
@@ -3015,11 +3320,29 @@ export default function OperationsReviewPage() {
   const missingScopedClusterName = useMemo(() => {
     if (!rawRequestedClusterId) return null
     const transitionTitle = reviewScopeTransitionSnapshot?.data.selected_cluster.title
-    if (typeof transitionTitle === 'string' && transitionTitle.trim()) return transitionTitle
+    if (typeof transitionTitle === 'string' && transitionTitle.trim()) {
+      return cleanupGroupDisplayTitle({
+        clusterId:
+          reviewScopeTransitionSnapshot?.data.selected_cluster.canonical_cluster_id ||
+          reviewScopeTransitionSnapshot?.data.selected_cluster.cluster_id ||
+          rawRequestedClusterId,
+        title: transitionTitle,
+      })
+    }
     const remembered = rememberedRequestedClustersRef.current.get(rawRequestedClusterId)
-    if (remembered?.title) return remembered.title
-    return humanizeCleanupGroupId(rawRequestedClusterId)
-  }, [rawRequestedClusterId, reviewScopeTransitionSnapshot?.data.selected_cluster.title])
+    if (remembered?.title) {
+      return cleanupGroupDisplayTitle({
+        clusterId: remembered.clusterId || rawRequestedClusterId,
+        title: remembered.title,
+      })
+    }
+    return cleanupGroupDisplayTitle({ clusterId: rawRequestedClusterId }) || humanizeCleanupGroupId(rawRequestedClusterId)
+  }, [
+    rawRequestedClusterId,
+    reviewScopeTransitionSnapshot?.data.selected_cluster.canonical_cluster_id,
+    reviewScopeTransitionSnapshot?.data.selected_cluster.cluster_id,
+    reviewScopeTransitionSnapshot?.data.selected_cluster.title,
+  ])
   const decisionInspectEntryStorageKey = useMemo(
     () =>
       buildDecisionWorkflowStorageKey({
@@ -3547,7 +3870,6 @@ export default function OperationsReviewPage() {
             phase: 'deferred',
             agentId,
           },
-          signal: controller.signal,
         })
         if (cancelled || ('aborted' in result && result.aborted)) return
         if (!result.ok) {
@@ -3828,7 +4150,52 @@ export default function OperationsReviewPage() {
     passiveReadyWorkspaceSnapshot,
     selectedCluster,
   ])
+  const marketingReviewUnitEntryUnits = useMemo(
+    () =>
+      selectedCluster && isMarketingCleanupGroup
+        ? buildCleanupGroupPublishedReviewUnits(
+            selectedCluster.clusterId,
+            selectedMailboxIntelligenceGroup?.semantic_rollup || null
+          )
+        : [],
+    [isMarketingCleanupGroup, selectedCluster, selectedMailboxIntelligenceGroup?.semantic_rollup]
+  )
+  const marketingReviewUnitEntryRequestedUnit = useMemo(
+    () =>
+      subsetSource === 'review_unit'
+        ? findCleanupGroupPublishedReviewUnit(marketingReviewUnitEntryUnits, subsetValue?.trim())
+        : null,
+    [marketingReviewUnitEntryUnits, subsetSource, subsetValue]
+  )
+  const selectableMarketingReviewUnits = useMemo(
+    () =>
+      isMarketingCleanupGroup ? buildRenderablePublishedReviewUnits(marketingReviewUnitEntryUnits) : [],
+    [isMarketingCleanupGroup, marketingReviewUnitEntryUnits]
+  )
+  const marketingReviewUnitEntryState = useMemo<MarketingReviewUnitEntryState | null>(() => {
+    if (!isMarketingCleanupGroup) return null
+    if (subsetSource === 'review_unit' && !hasRequestedReviewUnitValue(subsetValue)) {
+      return 'missing_unit'
+    }
+
+    const marketingReviewUnitsResolved = Boolean(selectedCluster) && !runtime.loading
+    if (!marketingReviewUnitsResolved) return null
+    if (selectableMarketingReviewUnits.length === 0) return 'unavailable_units'
+    if (subsetSource !== 'review_unit') return 'choose_unit'
+    if (!marketingReviewUnitEntryRequestedUnit) return 'invalid_unit'
+    if (marketingReviewUnitEntryRequestedUnit.targetState === 'oversized') return 'oversized_unit'
+    return null
+  }, [
+    isMarketingCleanupGroup,
+    marketingReviewUnitEntryRequestedUnit,
+    runtime.loading,
+    selectableMarketingReviewUnits.length,
+    selectedCluster,
+    subsetSource,
+    subsetValue,
+  ])
   const workspaceFetchPlan = useMemo<WorkspaceFetchPlan | null>(() => {
+    if (marketingReviewUnitEntryState) return null
     if (!workspaceRequestKey || !effectiveWorkflowSelectedCluster || !selectedCluster) return null
     if (mode === 'overview') {
       if (!shouldFetchOverviewCoverageBackfill && passiveReadyWorkspaceSnapshot) return null
@@ -3861,6 +4228,7 @@ export default function OperationsReviewPage() {
     decisionTargetPage,
     effectiveWorkflowScope,
     effectiveWorkflowSelectedCluster,
+    marketingReviewUnitEntryState,
     shouldFetchOverviewCoverageBackfill,
     shouldFetchDecisionWorkspacePage,
     mode,
@@ -3920,6 +4288,21 @@ export default function OperationsReviewPage() {
   }, [agentId])
 
   useEffect(() => {
+    if (!retiredClusterRedirect) return
+    startTransition(() => {
+      router.replace(
+        buildClustersHref({
+          agentId,
+          sessionId,
+          analysisScope,
+          retiredClusterId: retiredClusterRedirect.clusterId,
+        }),
+        { scroll: false }
+      )
+    })
+  }, [agentId, analysisScope, retiredClusterRedirect, router, sessionId])
+
+  useEffect(() => {
     if (!selectedCluster || rawRequestedClusterId === selectedCluster.clusterId) return
     startTransition(() => {
       router.replace(
@@ -3934,7 +4317,9 @@ export default function OperationsReviewPage() {
           }),
           clusterId: selectedCluster.clusterId,
           mode,
-          senderPage: null,
+          subsetSource,
+          subsetValue,
+          senderPage: requestedSenderPage,
           senderKey: mode === 'decision' ? requestedDecisionSenderKey : null,
           overlayIntent: decisionOverlayIntent,
         }),
@@ -3948,6 +4333,7 @@ export default function OperationsReviewPage() {
     decisionOverlayIntent,
     mode,
     requestedDecisionSenderKey,
+    requestedSenderPage,
     rawRequestedClusterId,
     router,
     selectedCluster,
@@ -4230,7 +4616,6 @@ export default function OperationsReviewPage() {
             phase: plan.requestPhase,
             agentId,
           },
-          signal: plan.requestPhase === 'interactive' ? controller.signal : undefined,
         })
         if (cancelled || ('aborted' in result && result.aborted)) {
           return
@@ -4806,23 +5191,152 @@ export default function OperationsReviewPage() {
             overviewRemainingCount === 1 ? '' : 's'
           } that still need a decision in Decision Mode.`
         : 'Next step: every sender in this cleanup group is already covered, so you can continue to Management when ready.'
-  const topSummarySenderTotal = overviewSenderTotal
-  const topSummaryManagedCount = overviewManagedCount
-  const topSummaryRemainingCount = overviewRemainingCount
-  const topSummaryCoveragePct = overviewCoveragePct
-  const topSummarySupportingMessageCount = overviewSupportingMessageCount
-  const topSummaryCoverageIsLoading =
-    (topSummaryManagedCount == null ||
+  const selectedClusterSemanticRollup =
+    overviewShellWorkspace?.analytics.semantic_rollup ||
+    selectedMailboxIntelligenceGroup?.semantic_rollup ||
+    null
+  const groupReviewUnits = useMemo(
+    () =>
+      selectedCluster
+        ? buildCleanupGroupPublishedReviewUnits(
+            selectedCluster.clusterId,
+            selectedClusterSemanticRollup
+          )
+        : [],
+    [selectedCluster, selectedClusterSemanticRollup]
+  )
+  const requestedReviewUnit = useMemo(
+    () =>
+      subsetSource === 'review_unit'
+        ? findCleanupGroupPublishedReviewUnit(groupReviewUnits, subsetValue?.trim())
+        : null,
+    [groupReviewUnits, subsetSource, subsetValue]
+  )
+  const activeReviewUnit = useMemo(
+    () =>
+      requestedReviewUnit && requestedReviewUnit.targetState !== 'oversized'
+        ? requestedReviewUnit
+        : null,
+    [requestedReviewUnit]
+  )
+  const reviewUnitSurfaceLabel = isMarketingCleanupGroup ? 'Review unit' : 'Focused view'
+  const reviewUnitSurfaceLabelPlural = isMarketingCleanupGroup ? 'Review units' : 'Focused views'
+  const reviewUnitActionLabel = isMarketingCleanupGroup ? 'Review This Unit' : 'Review Focused View'
+  const reviewUnitPreparingLabel = isMarketingCleanupGroup
+    ? 'Preparing This Unit'
+    : 'Preparing Focused View'
+  const reviewUnitNoun = isMarketingCleanupGroup ? 'review unit' : 'focused view'
+  const isMarketingReviewUnitRouteActive =
+    isMarketingCleanupGroup && subsetSource === 'review_unit' && activeReviewUnit != null
+  const marketingReviewUnitBackLabel = isMarketingReviewUnitRouteActive
+    ? 'Choose Another Unit'
+    : 'Back to full sender list'
+  const marketingReviewUnitBackHint = isMarketingReviewUnitRouteActive
+    ? 'Choose another unit when you want a different Marketing review scope.'
+    : 'Back to full sender list when you want the broader queue again.'
+  const [semanticFocusWorkspaceState, setSemanticFocusWorkspaceState] =
+    useState<SemanticFocusWorkspaceState>({
+      status: 'idle',
+      data: null,
+      error: null,
+    })
+  const [marketingReviewUnitTruthState, setMarketingReviewUnitTruthState] =
+    useState<MarketingReviewUnitTruthState>({
+      status: 'idle',
+      data: null,
+      error: null,
+    })
+  const semanticFocusWorkspace = useMemo(
+    () => normalizeWorkspaceDataContract(semanticFocusWorkspaceState.data),
+    [semanticFocusWorkspaceState.data]
+  )
+  const activeMarketingReviewUnitTruth = useMemo(() => {
+    if (!isMarketingReviewUnitRouteActive || !activeReviewUnit) {
+      return null
+    }
+
+    const senderTotal = Math.max(activeReviewUnit.senderCount, 0)
+    const unitSenders = marketingReviewUnitTruthState.data?.senders || []
+    const coverageReady =
+      marketingReviewUnitTruthState.status === 'ready' &&
+      marketingReviewUnitTruthState.data?.senderTotalMatchesUnit === true
+    const managedCount = coverageReady
+      ? unitSenders.filter((sender) => Boolean(managedBySender[sender.sender_key])).length
+      : null
+    const remainingCount = coverageReady
+      ? Math.max(unitSenders.filter((sender) => !managedBySender[sender.sender_key]).length, 0)
+      : null
+    const coveragePct =
+      coverageReady && managedCount != null
+        ? ratioPercent(managedCount, Math.max(senderTotal, 1))
+        : null
+    const supportingMessageCount = coverageReady
+      ? unitSenders.reduce((sum, sender) => sum + sender.cleanup_group_message_count, 0)
+      : null
+    const unitLabel = activeReviewUnit.label || 'This review unit'
+    const goalSummary =
+      coverageReady && managedCount != null && remainingCount != null
+        ? `${managedCount.toLocaleString()} covered · ${remainingCount.toLocaleString()} remaining in unit`
+        : 'Unit-scoped coverage is loading for this review unit.'
+    const goalFollowUp =
+      coverageReady && remainingCount != null
+        ? remainingCount > 0
+          ? `Next step: review the ${remainingCount.toLocaleString()} sender${
+              remainingCount === 1 ? '' : 's'
+            } that still need a decision in this review unit.`
+          : 'Next step: every sender in this review unit is already covered, so you can continue to Management when ready.'
+        : 'Unit-scoped next-step guidance will appear once this review unit is ready.'
+
+    return {
+      coveragePct,
+      coverageReady,
+      goalFollowUp,
+      goalSummary,
+      managedCount,
+      remainingCount,
+      senderTotal,
+      supportingMessageCount,
+      unitLabel,
+    }
+  }, [
+    activeReviewUnit,
+    isMarketingReviewUnitRouteActive,
+    managedBySender,
+    marketingReviewUnitTruthState.data,
+    marketingReviewUnitTruthState.status,
+  ])
+  const topSummarySenderTotal = activeMarketingReviewUnitTruth
+    ? activeMarketingReviewUnitTruth.senderTotal
+    : overviewSenderTotal
+  const topSummaryManagedCount = activeMarketingReviewUnitTruth
+    ? activeMarketingReviewUnitTruth.managedCount
+    : overviewManagedCount
+  const topSummaryRemainingCount = activeMarketingReviewUnitTruth
+    ? activeMarketingReviewUnitTruth.remainingCount
+    : overviewRemainingCount
+  const topSummaryCoveragePct = activeMarketingReviewUnitTruth
+    ? activeMarketingReviewUnitTruth.coveragePct
+    : overviewCoveragePct
+  const topSummarySupportingMessageCount = activeMarketingReviewUnitTruth
+    ? activeMarketingReviewUnitTruth.supportingMessageCount
+    : overviewSupportingMessageCount
+  const topSummaryCoverageIsLoading = activeMarketingReviewUnitTruth
+    ? !activeMarketingReviewUnitTruth.coverageReady
+    : topSummaryManagedCount == null ||
       topSummaryRemainingCount == null ||
-      topSummaryCoveragePct == null)
+      topSummaryCoveragePct == null
   const topSummarySenderTotalIsLoading = topSummarySenderTotal == null
-  const topSummarySupportingMessageIsLoading = topSummarySupportingMessageCount == null
-  const topSummaryGoalSummary =
-    overviewManagedCount != null && overviewRemainingCount != null
+  const topSummarySupportingMessageIsLoading = activeMarketingReviewUnitTruth
+    ? topSummarySupportingMessageCount == null
+    : topSummarySupportingMessageCount == null
+  const topSummaryGoalSummary = activeMarketingReviewUnitTruth
+    ? activeMarketingReviewUnitTruth.goalSummary
+    : overviewManagedCount != null && overviewRemainingCount != null
       ? `${overviewManagedCount.toLocaleString()} covered · ${overviewRemainingCount.toLocaleString()} remaining`
       : 'Sender coverage is loading for this cleanup group.'
-  const topSummaryGoalFollowUp =
-    overviewNextStep || 'Next-step guidance will appear once exact sender coverage is ready.'
+  const topSummaryGoalFollowUp = activeMarketingReviewUnitTruth
+    ? activeMarketingReviewUnitTruth.goalFollowUp
+    : overviewNextStep || 'Next-step guidance will appear once exact sender coverage is ready.'
 
   const overviewAnalytics = useMemo(() => {
     if (!overviewShellWorkspace) return null
@@ -5020,10 +5534,21 @@ export default function OperationsReviewPage() {
       scope: normalizedAnalysisScope,
       version: cacheVersion,
       clusterTitle:
-        hydratedOverviewPageWorkspace?.selected_cluster.title ||
-        overviewShellWorkspace.selected_cluster.title ||
-        selectedCluster?.title ||
-        null,
+        cleanupGroupDisplayTitle({
+          clusterId:
+            hydratedOverviewPageWorkspace?.selected_cluster.canonical_cluster_id ||
+            hydratedOverviewPageWorkspace?.selected_cluster.cluster_id ||
+            overviewShellWorkspace.selected_cluster.canonical_cluster_id ||
+            overviewShellWorkspace.selected_cluster.cluster_id ||
+            selectedCluster?.canonicalClusterId ||
+            selectedCluster?.clusterId ||
+            activeClusterId,
+          title:
+            hydratedOverviewPageWorkspace?.selected_cluster.title ||
+            overviewShellWorkspace.selected_cluster.title ||
+            selectedCluster?.title ||
+            null,
+        }) || null,
       visibleClusterCount: runtimeClusters.length,
       chart: {
         granularity: overviewShellWorkspace.analytics.sender_activity_timeline_granularity || 'month',
@@ -5042,6 +5567,8 @@ export default function OperationsReviewPage() {
   }, [
     agentId,
     cacheVersion,
+    hydratedOverviewPageWorkspace?.selected_cluster.canonical_cluster_id,
+    hydratedOverviewPageWorkspace?.selected_cluster.cluster_id,
     hydratedOverviewPageWorkspace?.selected_cluster.title,
     hydratedOverviewRailSourceLabel,
     missingScopedCluster,
@@ -5050,6 +5577,7 @@ export default function OperationsReviewPage() {
     overviewShellWorkspace,
     requestedClusterId,
     runtimeClusters.length,
+    selectedCluster?.canonicalClusterId,
     selectedCluster?.clusterId,
     selectedCluster?.title,
     sessionId,
@@ -5070,10 +5598,18 @@ export default function OperationsReviewPage() {
     if (runtimeSelectedClusterRailFamily.cluster_id !== activeClusterId) return []
 
     const fallbackClusterTitle =
-      runtimeSelectedClusterRailFamily.cluster_title ||
-      selectedCluster?.title ||
-      missingScopedClusterName ||
-      null
+      cleanupGroupDisplayTitle({
+        clusterId:
+          runtimeSelectedClusterRailFamily.cluster_id ||
+          selectedCluster?.canonicalClusterId ||
+          selectedCluster?.clusterId ||
+          activeClusterId,
+        title:
+          runtimeSelectedClusterRailFamily.cluster_title ||
+          selectedCluster?.title ||
+          missingScopedClusterName ||
+          null,
+      }) || null
 
     return runtimeSelectedClusterRailFamily.scopes.map((entry) =>
       buildSenderOverviewRailFastPackageFromRuntimeSeed({
@@ -5092,6 +5628,7 @@ export default function OperationsReviewPage() {
     normalizedAnalysisScope,
     renderRuntimeData?.runtime_selected_cluster_rail_family,
     requestedClusterId,
+    selectedCluster?.canonicalClusterId,
     selectedCluster?.clusterId,
     selectedCluster?.title,
     sessionId,
@@ -5145,10 +5682,14 @@ export default function OperationsReviewPage() {
       const normalizedScope = normalizeOperationsAnalysisScope(scope)
       const activeClusterId = requestedClusterId || selectedCluster?.clusterId
       const clusterTitle =
-        currentHydratedRailPackage?.clusterTitle ||
-        selectedCluster?.title ||
-        missingScopedClusterName ||
-        null
+        cleanupGroupDisplayTitle({
+          clusterId: selectedCluster?.canonicalClusterId || activeClusterId,
+          title:
+            currentHydratedRailPackage?.clusterTitle ||
+            selectedCluster?.title ||
+            missingScopedClusterName ||
+            null,
+        }) || null
       if (!activeClusterId) return null
       if (normalizedScope === normalizedAnalysisScope) {
         return (
@@ -5197,6 +5738,7 @@ export default function OperationsReviewPage() {
       normalizedAnalysisScope,
       bootstrapRailFamilyPackages,
       requestedClusterId,
+      selectedCluster?.canonicalClusterId,
       selectedCluster?.clusterId,
       selectedCluster?.title,
       sessionId,
@@ -5601,18 +6143,7 @@ export default function OperationsReviewPage() {
         : null,
     [overviewShellWorkspace?.analytics.semantic_rollup, selectedCluster]
   )
-  const groupReviewUnits = useMemo(
-    () => buildCleanupGroupDerivedReviewUnits(groupInternalStructure),
-    [groupInternalStructure]
-  )
-  const activeDerivedReviewUnit = useMemo(
-    () =>
-      subsetSource === 'review_unit'
-        ? findCleanupGroupDerivedReviewUnit(groupReviewUnits, subsetValue)
-        : null,
-    [groupReviewUnits, subsetSource, subsetValue]
-  )
-  const isDerivedReviewUnitActive = subsetSource === 'review_unit'
+  const isReviewUnitActive = subsetSource === 'review_unit'
   const [expandedSemanticMixFamilies, setExpandedSemanticMixFamilies] = useState<
     Record<string, boolean>
   >({})
@@ -5636,16 +6167,6 @@ export default function OperationsReviewPage() {
   const appliedRequestedSemanticFocusRef = useRef<string | null>(null)
   const [semanticFocusOrientationActive, setSemanticFocusOrientationActive] = useState(false)
   const [semanticFocusOrientationKey, setSemanticFocusOrientationKey] = useState(0)
-  const [semanticFocusWorkspaceState, setSemanticFocusWorkspaceState] =
-    useState<SemanticFocusWorkspaceState>({
-      status: 'idle',
-      data: null,
-      error: null,
-    })
-  const semanticFocusWorkspace = useMemo(
-    () => normalizeWorkspaceDataContract(semanticFocusWorkspaceState.data),
-    [semanticFocusWorkspaceState.data]
-  )
   const overviewBridgeCopy = useMemo(() => {
     const roleLabel = selectedCluster
       ? getCleanupGroupLaneLabel(selectedCluster.clusterId)
@@ -5741,6 +6262,48 @@ export default function OperationsReviewPage() {
       subsetValue,
     ]
   )
+  const clearMarketingReviewUnitSelection = useCallback(() => {
+    if (!isMarketingReviewUnitRouteActive) return
+    startTransition(() => {
+      router.replace(
+        buildReviewHref({
+          agentId,
+          sessionId,
+          analysisScope,
+          workflowScope: workflowScopeForOverviewContext({
+            subsetSource: null,
+            subsetValue: null,
+            semanticFocus: null,
+          }),
+          clusterId: selectedCluster?.clusterId || clusterId,
+          mode,
+          senderPage: null,
+        }),
+        { scroll: false }
+      )
+    })
+  }, [
+    agentId,
+    analysisScope,
+    clusterId,
+    isMarketingReviewUnitRouteActive,
+    mode,
+    router,
+    selectedCluster?.clusterId,
+    sessionId,
+    workflowScopeForOverviewContext,
+  ])
+  const handleSemanticFocusBackAction = useCallback(() => {
+    if (isMarketingReviewUnitRouteActive) {
+      clearMarketingReviewUnitSelection()
+      return
+    }
+    updateSemanticSubtypeFocus(null, 'clear')
+  }, [
+    clearMarketingReviewUnitSelection,
+    isMarketingReviewUnitRouteActive,
+    updateSemanticSubtypeFocus,
+  ])
 
   const applySemanticSubtypeFocus = useCallback(
     (familyRow: SemanticFamilyRowPresentation, child: SemanticFamilyChildPresentation) => {
@@ -5837,7 +6400,7 @@ export default function OperationsReviewPage() {
     updateSemanticSubtypeFocus,
   ])
   const groupReviewUnitStarters = useMemo(() => {
-    if (!groupInternalStructure || groupReviewUnits.length === 0) return []
+    if (groupReviewUnits.length === 0) return []
 
     return groupReviewUnits
       .map((unit) => {
@@ -5845,7 +6408,7 @@ export default function OperationsReviewPage() {
           (row) => row.id === unit.semanticFamily
         )
         if (!familyRow) return null
-        const focus = buildSemanticFocusFromDerivedReviewUnit({
+        const focus = buildSemanticSubtypeFocusFromPublishedReviewUnit({
           unit,
           familyRow,
         })
@@ -5864,7 +6427,6 @@ export default function OperationsReviewPage() {
       })
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
   }, [
-    groupInternalStructure,
     groupReviewUnits,
     renderedSemanticSubtypeFocus?.id,
     semanticRowModel.primaryFamilyRows,
@@ -6080,32 +6642,33 @@ export default function OperationsReviewPage() {
     requestedSemanticSubtype,
     semanticRowModel.primaryFamilyRows,
   ])
-  const appliedDerivedReviewUnitFocusRef = useRef<string | null>(null)
+  const appliedReviewUnitFocusRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!isDerivedReviewUnitActive || !activeDerivedReviewUnit) {
+    if (!isReviewUnitActive || !activeReviewUnit) {
       if (
-        appliedDerivedReviewUnitFocusRef.current &&
-        activeSemanticSubtypeFocus?.id === appliedDerivedReviewUnitFocusRef.current
+        appliedReviewUnitFocusRef.current &&
+        activeSemanticSubtypeFocus?.id === appliedReviewUnitFocusRef.current
       ) {
         setActiveSemanticSubtypeFocus(null)
       }
-      appliedDerivedReviewUnitFocusRef.current = null
+      appliedReviewUnitFocusRef.current = null
       return
     }
 
+    if (!activeReviewUnit.semanticFamily) return
     const familyRow = semanticRowModel.primaryFamilyRows.find(
-      (row) => row.id === activeDerivedReviewUnit.semanticFamily
+      (row) => row.id === activeReviewUnit.semanticFamily
     )
     if (!familyRow) return
 
-    const nextFocus = buildSemanticFocusFromDerivedReviewUnit({
-      unit: activeDerivedReviewUnit,
+    const nextFocus = buildSemanticSubtypeFocusFromPublishedReviewUnit({
+      unit: activeReviewUnit,
       familyRow,
     })
     if (!nextFocus) return
 
-    appliedDerivedReviewUnitFocusRef.current = nextFocus.id
+    appliedReviewUnitFocusRef.current = nextFocus.id
     setExpandedSemanticMixFamilies((current) => ({
       ...current,
       [familyRow.id]: true,
@@ -6114,12 +6677,47 @@ export default function OperationsReviewPage() {
       setActiveSemanticSubtypeFocus(nextFocus)
     }
   }, [
-    activeDerivedReviewUnit,
+    activeReviewUnit,
     activeSemanticSubtypeFocus,
-    isDerivedReviewUnitActive,
+    isReviewUnitActive,
     semanticRowModel.primaryFamilyRows,
   ])
 
+  const activeReviewUnitSemanticFocus = useMemo(
+    () =>
+      activeReviewUnit ? buildSemanticFocusFromPublishedReviewUnit(activeReviewUnit) : null,
+    [activeReviewUnit]
+  )
+  const activeReviewUnitFallbackFamily = useMemo(
+    () => groupReviewUnits.find((unit) => unit.semanticFamily)?.semanticFamily || null,
+    [groupReviewUnits]
+  )
+  const activeReviewUnitFallbackFamilyLabel = useMemo(
+    () =>
+      activeReviewUnitFallbackFamily
+        ? gmailSemanticFamilyDisplayLabel(activeReviewUnitFallbackFamily)
+        : null,
+    [activeReviewUnitFallbackFamily]
+  )
+  const activeReviewUnitSpilloverFamilies = useMemo(() => {
+    if (!activeReviewUnit || activeReviewUnit.sourceKind !== 'spillover') return []
+
+    const dominantFamily = activeReviewUnitFallbackFamily
+    const familyDistribution = selectedClusterSemanticRollup?.family_distribution || []
+    if (!dominantFamily || familyDistribution.length === 0) return []
+
+    return familyDistribution
+      .map((entry) => entry.family)
+      .filter(
+        (family, index, families): family is WorkspaceSender['semantic_family']['family'] =>
+          Boolean(family) &&
+          family !== dominantFamily &&
+          families.indexOf(family) === index
+      )
+  }, [activeReviewUnit, activeReviewUnitFallbackFamily, selectedClusterSemanticRollup])
+  const activeReviewUnitNeedsFallbackWorkspace = Boolean(
+    isReviewUnitActive && activeReviewUnit && !activeReviewUnitSemanticFocus
+  )
   const activeSemanticSubtypeFocusRequest = useMemo(
     () =>
       activeSemanticSubtypeFocus
@@ -6131,13 +6729,140 @@ export default function OperationsReviewPage() {
     () => senderWorkspaceOrderingForDrilldownSort(drilldownSort),
     [drilldownSort]
   )
-  const semanticFocusPageSize = isDerivedReviewUnitActive
+  const semanticFocusPageSize = isReviewUnitActive
     ? MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE
     : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE
 
   useEffect(() => {
-    if (mode !== 'overview' && !isDerivedReviewUnitActive) return
-    if (!selectedCluster || !activeSemanticSubtypeFocusRequest) {
+    if (!isMarketingReviewUnitRouteActive || !selectedCluster || !activeReviewUnit) {
+      setMarketingReviewUnitTruthState({
+        status: 'idle',
+        data: null,
+        error: null,
+      })
+      return
+    }
+
+    let cancelled = false
+    setMarketingReviewUnitTruthState({
+      status: 'loading',
+      data: null,
+      error: null,
+    })
+
+    void (async () => {
+      let collectedSenders: WorkspaceSender[] = []
+
+      if (activeReviewUnitSemanticFocus) {
+        const result = await collectWorkspaceSendersForSemanticFocus({
+          selectedCluster,
+          allClusters: runtimeClusters,
+          analysisScope,
+          cacheVersion,
+          semanticFocus: activeReviewUnitSemanticFocus,
+          ordering: semanticFocusWorkspaceOrdering,
+          agentId,
+          requestReason: 'sender_overview_marketing_review_unit_truth',
+        })
+
+        if (cancelled || ('aborted' in result && result.aborted)) return
+        if (!result.ok) {
+          setMarketingReviewUnitTruthState({
+            status: 'error',
+            data: null,
+            error: result.error,
+          })
+          return
+        }
+
+        collectedSenders = result.senders
+      } else if (
+        activeReviewUnit.sourceKind === 'spillover' &&
+        activeReviewUnitSpilloverFamilies.length > 0
+      ) {
+        const spilloverSenders = new Map<string, WorkspaceSender>()
+
+        for (const family of activeReviewUnitSpilloverFamilies) {
+          const result = await collectWorkspaceSendersForSemanticFocus({
+            selectedCluster,
+            allClusters: runtimeClusters,
+            analysisScope,
+            cacheVersion,
+            semanticFocus: {
+              family,
+              kind: 'family',
+              subtypeKey: null,
+              surfacedSubtypeKeys: [],
+            },
+            ordering: semanticFocusWorkspaceOrdering,
+            agentId,
+            requestReason: 'sender_overview_marketing_review_unit_truth_spillover_family',
+          })
+
+          if (cancelled || ('aborted' in result && result.aborted)) return
+          if (!result.ok) {
+            setMarketingReviewUnitTruthState({
+              status: 'error',
+              data: null,
+              error: result.error,
+            })
+            return
+          }
+
+          for (const sender of result.senders) {
+            if (!spilloverSenders.has(sender.sender_key)) {
+              spilloverSenders.set(sender.sender_key, sender)
+            }
+          }
+        }
+
+        collectedSenders = Array.from(spilloverSenders.values())
+          .filter((sender) =>
+            senderMatchesPublishedReviewUnit({
+              sender,
+              unit: activeReviewUnit,
+              dominantSemanticFamily: activeReviewUnitFallbackFamily,
+            })
+          )
+          .sort((left, right) =>
+            compareWorkspaceSendersByOrdering(left, right, semanticFocusWorkspaceOrdering)
+          )
+      }
+
+      if (cancelled) return
+
+      setMarketingReviewUnitTruthState({
+        status: 'ready',
+        data: {
+          senders: collectedSenders,
+          senderTotalMatchesUnit:
+            collectedSenders.length === Math.max(activeReviewUnit.senderCount, 0),
+        },
+        error: null,
+      })
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    activeReviewUnit,
+    activeReviewUnitFallbackFamily,
+    activeReviewUnitSemanticFocus,
+    activeReviewUnitSpilloverFamilies,
+    agentId,
+    analysisScope,
+    cacheVersion,
+    isMarketingReviewUnitRouteActive,
+    runtimeClusters,
+    selectedCluster,
+    semanticFocusWorkspaceOrdering,
+  ])
+
+  useEffect(() => {
+    if (mode !== 'overview' && !isReviewUnitActive) return
+    const requestedSemanticFocus = activeReviewUnitSemanticFocus || activeSemanticSubtypeFocusRequest
+    if (!selectedCluster || (!requestedSemanticFocus && !activeReviewUnitNeedsFallbackWorkspace)) {
       setSemanticFocusWorkspaceState({
         status: 'idle',
         data: null,
@@ -6155,26 +6880,26 @@ export default function OperationsReviewPage() {
       error: null,
     }))
 
-    void fetchGmailSenderWorkspace({
-      selectedCluster,
-      allClusters: runtimeClusters,
-      analysisScope,
-      cacheVersion,
-      includeClusterSenderKeys: false,
-      page: requestedSenderPage,
-      pageSize: semanticFocusPageSize,
-      sort: semanticFocusWorkspaceOrdering.sort,
-      direction: semanticFocusWorkspaceOrdering.direction,
-      semanticFocus: activeSemanticSubtypeFocusRequest,
-      requestContext: {
-        source: 'operations_review_page',
-        component: 'sender_overview',
-        reason: 'sender_overview_semantic_subtype_focus',
-        phase: 'interactive',
-        agentId,
-      },
-      signal: controller.signal,
-    }).then((result) => {
+    void (async () => {
+      const result = await fetchGmailSenderWorkspace({
+        selectedCluster,
+        allClusters: runtimeClusters,
+        analysisScope,
+        cacheVersion,
+        includeClusterSenderKeys: false,
+        page: activeReviewUnitNeedsFallbackWorkspace ? DEFAULT_OVERVIEW_WORKSPACE_PAGE : requestedSenderPage,
+        pageSize: semanticFocusPageSize,
+        sort: semanticFocusWorkspaceOrdering.sort,
+        direction: semanticFocusWorkspaceOrdering.direction,
+        semanticFocus: requestedSemanticFocus,
+        requestContext: {
+          source: 'operations_review_page',
+          component: 'sender_overview',
+          reason: 'sender_overview_semantic_subtype_focus',
+          phase: 'interactive',
+          agentId,
+        },
+      })
       if (cancelled || ('aborted' in result && result.aborted)) return
       if (!result.ok) {
         setSemanticFocusWorkspaceState((current) => ({
@@ -6184,12 +6909,94 @@ export default function OperationsReviewPage() {
         }))
         return
       }
+
+      let nextData = result.data
+
+      if (activeReviewUnitNeedsFallbackWorkspace && activeReviewUnit) {
+        if (
+          activeReviewUnit.sourceKind === 'spillover' &&
+          activeReviewUnitSpilloverFamilies.length > 0
+        ) {
+          const spilloverSenders = new Map<string, WorkspaceSender>()
+
+          for (const family of activeReviewUnitSpilloverFamilies) {
+            let familyPage = DEFAULT_OVERVIEW_WORKSPACE_PAGE
+            let familyTotalPages = DEFAULT_OVERVIEW_WORKSPACE_PAGE
+
+            while (familyPage <= familyTotalPages) {
+              const familyResult = await fetchGmailSenderWorkspace({
+                selectedCluster,
+                allClusters: runtimeClusters,
+                analysisScope,
+                cacheVersion,
+                includeClusterSenderKeys: false,
+                page: familyPage,
+                pageSize: semanticFocusPageSize,
+                sort: semanticFocusWorkspaceOrdering.sort,
+                direction: semanticFocusWorkspaceOrdering.direction,
+                semanticFocus: {
+                  family,
+                  kind: 'family',
+                  subtypeKey: null,
+                  surfacedSubtypeKeys: [],
+                },
+                requestContext: {
+                  source: 'operations_review_page',
+                  component: 'sender_overview',
+                  reason: 'sender_overview_marketing_spillover_family',
+                  phase: 'interactive',
+                  agentId,
+                },
+              })
+              if (cancelled || ('aborted' in familyResult && familyResult.aborted)) return
+              if (!familyResult.ok) {
+                setSemanticFocusWorkspaceState((current) => ({
+                  status: 'error',
+                  data: current.data,
+                  error: familyResult.error,
+                }))
+                return
+              }
+
+              familyTotalPages = Math.max(
+                DEFAULT_OVERVIEW_WORKSPACE_PAGE,
+                familyResult.data.pagination.total_pages || DEFAULT_OVERVIEW_WORKSPACE_PAGE
+              )
+              for (const sender of familyResult.data.senders) {
+                if (!spilloverSenders.has(sender.sender_key)) {
+                  spilloverSenders.set(sender.sender_key, sender)
+                }
+              }
+              familyPage += 1
+            }
+          }
+
+          nextData = buildPublishedReviewUnitWorkspaceFromSenders({
+            parentWorkspace: result.data,
+            senders: Array.from(spilloverSenders.values()).sort((left, right) =>
+              compareWorkspaceSendersByOrdering(left, right, semanticFocusWorkspaceOrdering)
+            ),
+            requestedPage: requestedSenderPage,
+            requestedPageSize: semanticFocusPageSize,
+          })
+        } else {
+          nextData = buildPublishedReviewUnitWorkspace({
+            parentWorkspace: result.data,
+            unit: activeReviewUnit,
+            dominantSemanticFamily: activeReviewUnitFallbackFamily,
+            requestedPage: requestedSenderPage,
+            requestedPageSize: semanticFocusPageSize,
+          })
+        }
+      }
+
+      if (cancelled) return
       setSemanticFocusWorkspaceState({
         status: 'ready',
-        data: result.data,
+        data: nextData,
         error: null,
       })
-    })
+    })()
 
     return () => {
       cancelled = true
@@ -6197,10 +7004,15 @@ export default function OperationsReviewPage() {
     }
   }, [
     activeSemanticSubtypeFocusRequest,
+    activeReviewUnit,
+    activeReviewUnitFallbackFamily,
+    activeReviewUnitSpilloverFamilies,
+    activeReviewUnitNeedsFallbackWorkspace,
+    activeReviewUnitSemanticFocus,
     agentId,
     analysisScope,
     cacheVersion,
-    isDerivedReviewUnitActive,
+    isReviewUnitActive,
     mode,
     requestedSenderPage,
     runtimeClusters,
@@ -6238,12 +7050,14 @@ export default function OperationsReviewPage() {
     let sourceSummary = ''
 
     if (renderedSubsetSource === 'review_unit') {
-      if (!activeDerivedReviewUnit) return null
-      label = activeDerivedReviewUnit.label
-      chartCount = activeDerivedReviewUnit.senderCount
+      if (!activeReviewUnit) return null
+      label = activeReviewUnit.label
+      chartCount = activeReviewUnit.senderCount
       senders = semanticFocusWorkspace?.senders || []
       sourceSummary =
-        'Derived review unit created from the current artifact-backed structure inside this cleanup group.'
+        isMarketingCleanupGroup
+          ? 'Published review unit selected from the current artifact-backed cleanup structure.'
+          : 'Focused view selected from the current artifact-backed cleanup structure for this direct-open parent.'
     } else if (renderedSubsetSource === 'category') {
       if (!subsetBaseWorkspace) return null
       const categoryEntry = subsetBaseWorkspace.analytics.sender_category_distribution.find(
@@ -6332,15 +7146,15 @@ export default function OperationsReviewPage() {
             left.sender.localeCompare(right.sender)
         )[0] || null
     const shareOfClusterSenders =
-      renderedSubsetSource === 'review_unit' && activeDerivedReviewUnit
-        ? activeDerivedReviewUnit.groupSharePct
+      renderedSubsetSource === 'review_unit' && activeReviewUnit
+        ? activeReviewUnit.groupSharePct
         : ratioPercent(chartCount || loadedCount, clusterSenderTotal)
     const shareOfVisibleSenders = ratioPercent(loadedCount, visibleSenderTotal)
     const loadedCoverageNote =
       renderedSubsetSource === 'review_unit'
         ? chartCount > loadedCount
-          ? `Showing ${loadedCount.toLocaleString()} loaded senders from ${chartCount.toLocaleString()} senders in this derived review unit.`
-          : `${loadedCount.toLocaleString()} loaded senders currently match this derived review unit.`
+          ? `Showing ${loadedCount.toLocaleString()} loaded senders from ${chartCount.toLocaleString()} senders in this ${reviewUnitNoun}.`
+          : `${loadedCount.toLocaleString()} loaded senders currently match this ${reviewUnitNoun}.`
         : chartCount > loadedCount
           ? `Showing ${loadedCount.toLocaleString()} loaded senders from ${chartCount.toLocaleString()} senders in this segment.`
           : `${loadedCount.toLocaleString()} loaded senders currently match this segment.`
@@ -6356,21 +7170,30 @@ export default function OperationsReviewPage() {
     let reviewGuidance = ''
     let actionStyle = ''
 
-    if (renderedSubsetSource === 'review_unit' && activeDerivedReviewUnit) {
-      const familyLabel = gmailSemanticFamilyDisplayLabel(activeDerivedReviewUnit.semanticFamily)
-      whyItMatters =
-        activeDerivedReviewUnit.kind === 'family'
-          ? `${label} is a descriptive family-backed review unit inside this parent cleanup group, covering ${formatPercent(
+    if (renderedSubsetSource === 'review_unit' && activeReviewUnit) {
+      whyItMatters = isMarketingCleanupGroup
+        ? activeReviewUnit.sourceKind === 'spillover' && activeReviewUnitFallbackFamilyLabel
+          ? `${label} is the published spillover review unit for senders that sit outside ${activeReviewUnitFallbackFamilyLabel}, covering ${formatPercent(
               shareOfClusterSenders
             )} of group senders from current artifact truth.`
-          : activeDerivedReviewUnit.kind === 'remainder'
-          ? `${label} keeps the broad unresolved portion of ${familyLabel} visible without presenting it like a taxonomy split.`
-          : `${label} is a derived review unit inside this cleanup group, covering ${formatPercent(
+          : `${label} is a published review unit inside this cleanup group, covering ${formatPercent(
               shareOfClusterSenders
             )} of group senders from current artifact truth.`
-      reviewGuidance = activeDerivedReviewUnit.guidance
+        : `${label} is a focused view inside this cleanup group, covering ${formatPercent(
+            shareOfClusterSenders
+          )} of group senders from current artifact truth.`
+      reviewGuidance =
+        isMarketingCleanupGroup &&
+        activeReviewUnit.sourceKind === 'spillover' &&
+        activeReviewUnitFallbackFamilyLabel
+          ? `Use this spillover unit as the bounded pass for senders that stay inside Marketing subscriptions but fall outside ${activeReviewUnitFallbackFamilyLabel}.`
+          : activeReviewUnit.guidance
       actionStyle =
-        'This derived review unit is session-only. It narrows the current review queue without creating a new cleanup group.'
+        isMarketingCleanupGroup
+          ? activeReviewUnit.sourceKind === 'spillover'
+            ? 'This review unit is session-only. The rows below are already scoped to the spillover sender universe without reopening the full Marketing parent.'
+            : 'This review unit is session-only. It narrows the current review queue without creating a new cleanup group.'
+          : 'This focused view is session-only. It narrows the current sender list without creating a new cleanup group.'
     } else if (renderedSubsetSource === 'category') {
       whyItMatters = `${formatPercent(shareOfClusterSenders)} of the cleanup group sits in this category lane, with ${messageShareText.toLowerCase()}.`
       if (dominantSignal === 'likely_machine_generated' && verificationCount === 0 && protectedCount === 0) {
@@ -6417,7 +7240,10 @@ export default function OperationsReviewPage() {
       source: renderedSubsetSource,
       value: renderedSubsetValue,
       label,
-      laneLabel: sortLabelForSubsetSource(renderedSubsetSource),
+      laneLabel:
+        renderedSubsetSource === 'review_unit'
+          ? reviewUnitSurfaceLabel
+          : sortLabelForSubsetSource(renderedSubsetSource),
       chartCount: chartCount || loadedCount,
       loadedCount,
       shareOfClusterSenders,
@@ -6442,7 +7268,8 @@ export default function OperationsReviewPage() {
       messageShareText,
     }
   }, [
-    activeDerivedReviewUnit,
+    activeReviewUnit,
+    activeReviewUnitFallbackFamilyLabel,
     displayOverviewWorkspace,
     managedBySender,
     overviewShellWorkspace,
@@ -6513,13 +7340,17 @@ export default function OperationsReviewPage() {
 
     if (renderedSubsetSource === 'review_unit') {
       return {
-        laneLabel: 'Derived review unit',
-        label: activeDerivedReviewUnit?.label || 'Derived review unit',
+        laneLabel: reviewUnitSurfaceLabel,
+        label: activeReviewUnit?.label || reviewUnitSurfaceLabel,
         whyItMatters:
-          'This derived review unit stays inside the same parent cleanup group and only narrows the session queue.',
-        messageShareText: activeDerivedReviewUnit
-          ? `${activeDerivedReviewUnit.honestyLabel} · ${activeDerivedReviewUnit.groupSharePct}% of group senders`
-          : 'Derived review unit active',
+          isMarketingCleanupGroup
+            ? activeReviewUnit?.sourceKind === 'spillover' && activeReviewUnitFallbackFamilyLabel
+              ? `This spillover review unit stays inside the same parent cleanup group while isolating the senders outside ${activeReviewUnitFallbackFamilyLabel}.`
+              : 'This review unit stays inside the same parent cleanup group and only narrows the session queue.'
+            : 'This focused view stays inside the same parent cleanup group and only narrows the current sender list.',
+        messageShareText: activeReviewUnit
+          ? `${activeReviewUnit.targetLabel} · ${activeReviewUnit.groupSharePct}% of group senders`
+          : `${reviewUnitSurfaceLabel} active`,
         loadedCount: null,
         eligibleCount: null,
       }
@@ -6551,13 +7382,16 @@ export default function OperationsReviewPage() {
       eligibleCount: null,
     }
   }, [
-    activeDerivedReviewUnit,
+    activeReviewUnit,
+    activeReviewUnitFallbackFamilyLabel,
     activeOverviewSubset,
+    isMarketingCleanupGroup,
     overviewAnalytics,
     overviewKnownTotalPages,
     requestedSenderPage,
     renderedSubsetSource,
     renderedSubsetValue,
+    reviewUnitSurfaceLabel,
   ])
   const authoritativeOverviewReturnContext = useMemo(
     () =>
@@ -6626,7 +7460,13 @@ export default function OperationsReviewPage() {
     const routeSubset = activeOverviewSubsetRouteContext
     const detachedWorkflowScopeActive = effectiveWorkflowScope !== normalizedAnalysisScope
     const focusedSenderSubsetActive = isFocusedSenderSubsetSource(routeSubset?.source)
-    const baseLabel = selectedCluster?.title || humanizeCleanupGroupId(parentClusterId)
+    const baseLabel =
+      cleanupGroupDisplayTitle({
+        clusterId: selectedCluster?.canonicalClusterId || selectedCluster?.clusterId || parentClusterId,
+        title: selectedCluster?.title || null,
+      }) ||
+      (parentClusterId ? cleanupGroupDisplayTitle({ clusterId: parentClusterId }) : null) ||
+      humanizeCleanupGroupId(parentClusterId)
     const orderedSenderKeys = focusedSenderSubsetActive
       ? fullAuthoritativeWorkflowSenderKeys
       : activeOverviewSubset
@@ -6698,6 +7538,7 @@ export default function OperationsReviewPage() {
     normalizedRequestedWorkflowScope,
     rawRequestedClusterId,
     requestedClusterId,
+    selectedCluster?.canonicalClusterId,
     selectedCluster?.clusterId,
     selectedCluster?.title,
   ])
@@ -6716,8 +7557,9 @@ export default function OperationsReviewPage() {
       data: null,
       error: null,
     })
-  const senderDistributionDedicatedFetchCluster =
-    effectiveWorkflowSelectedCluster || selectedCluster || null
+  const senderDistributionDedicatedFetchCluster = marketingReviewUnitEntryState
+    ? null
+    : effectiveWorkflowSelectedCluster || selectedCluster || null
   const senderDistributionCachedData = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
       return null
@@ -6766,7 +7608,6 @@ export default function OperationsReviewPage() {
             phase: 'interactive',
             agentId,
           },
-          signal: controller.signal,
         })
         if (cancelled || ('aborted' in result && result.aborted)) return
         if (!result.ok) {
@@ -6950,19 +7791,113 @@ export default function OperationsReviewPage() {
     sharedWorkflowSubset.focusedSenderKey,
     sharedWorkflowSubset.kind,
   ])
+  const activeReviewUnitDecisionPageSize = useMemo(() => {
+    if (activeOverviewSubset?.source !== 'review_unit') return null
+    return Math.max(
+      1,
+      semanticFocusWorkspace?.pagination.page_size || DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE
+    )
+  }, [activeOverviewSubset?.source, semanticFocusWorkspace?.pagination.page_size])
+  const activeReviewUnitDecisionPage = useMemo(() => {
+    if (activeOverviewSubset?.source !== 'review_unit') return null
+    return Math.max(
+      DEFAULT_OVERVIEW_WORKSPACE_PAGE,
+      semanticFocusWorkspace?.pagination.page || requestedSenderPage
+    )
+  }, [
+    activeOverviewSubset?.source,
+    requestedSenderPage,
+    semanticFocusWorkspace?.pagination.page,
+  ])
+  const activeReviewUnitDecisionTotalPages = useMemo(() => {
+    if (activeOverviewSubset?.source !== 'review_unit') return null
+    const pageSize = Math.max(
+      1,
+      semanticFocusWorkspace?.pagination.page_size || DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE
+    )
+    const reportedTotalPages = semanticFocusWorkspace?.pagination.total_pages || 0
+    const derivedTotalPages = Math.ceil(Math.max(activeOverviewSubset.chartCount, 0) / pageSize)
+    return Math.max(DEFAULT_OVERVIEW_WORKSPACE_PAGE, reportedTotalPages, derivedTotalPages)
+  }, [
+    activeOverviewSubset?.chartCount,
+    activeOverviewSubset?.source,
+    semanticFocusWorkspace?.pagination.page_size,
+    semanticFocusWorkspace?.pagination.total_pages,
+  ])
+  const activeReviewUnitDecisionPosition = useMemo(() => {
+    if (!activeDecisionSenderKey || activeOverviewSubset?.source !== 'review_unit') return null
+    const index = authoritativeWorkflowSenderKeys.indexOf(activeDecisionSenderKey)
+    if (index < 0) return null
+    const page = Math.max(
+      DEFAULT_OVERVIEW_WORKSPACE_PAGE,
+      semanticFocusWorkspace?.pagination.page || requestedSenderPage
+    )
+    const pageSize = Math.max(
+      1,
+      semanticFocusWorkspace?.pagination.page_size || DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE
+    )
+    return (page - 1) * pageSize + index + 1
+  }, [
+    activeDecisionSenderKey,
+    activeOverviewSubset?.source,
+    authoritativeWorkflowSenderKeys,
+    requestedSenderPage,
+    semanticFocusWorkspace?.pagination.page,
+    semanticFocusWorkspace?.pagination.page_size,
+  ])
+  const marketingReviewUnitHasNextDecisionPage = Boolean(
+    mode === 'decision' &&
+      isMarketingReviewUnitRouteActive &&
+      activeOverviewSubset?.source === 'review_unit' &&
+      activeReviewUnitDecisionPage != null &&
+      activeReviewUnitDecisionTotalPages != null &&
+      activeReviewUnitDecisionPage < activeReviewUnitDecisionTotalPages
+  )
   const decisionProgress = useMemo(
     () => ({
       total: activeOverviewSubset
-        ? reviewPopulation.length
+        ? activeOverviewSubset.source === 'review_unit'
+          ? activeMarketingReviewUnitTruth?.senderTotal ?? activeOverviewSubset.chartCount
+          : reviewPopulation.length
         : workspaceClusterSenderTotal(
             workflowCoverageWorkspace || workspace,
             selectedCluster?.senderCount
           ),
       managed: activeOverviewSubset
-        ? Math.max(reviewPopulation.length - eligibleSenders.length, 0)
+        ? activeOverviewSubset.source === 'review_unit'
+          ? isMarketingReviewUnitRouteActive &&
+            activeMarketingReviewUnitTruth?.coverageReady &&
+            activeMarketingReviewUnitTruth.managedCount != null
+            ? activeMarketingReviewUnitTruth.managedCount
+            : Math.max(
+                activeReviewUnitDecisionPosition != null
+                  ? activeReviewUnitDecisionPosition - 1
+                  : 0,
+                authoritativeWorkflowSenderKeys.filter((senderKey) =>
+                  Boolean(managedBySender[senderKey])
+                ).length
+              )
+          : Math.max(reviewPopulation.length - eligibleSenders.length, 0)
         : clusterManagedCount ?? 0,
       remaining: activeOverviewSubset
-        ? eligibleSenders.length
+        ? activeOverviewSubset.source === 'review_unit'
+          ? isMarketingReviewUnitRouteActive &&
+            activeMarketingReviewUnitTruth?.coverageReady &&
+            activeMarketingReviewUnitTruth.remainingCount != null
+            ? activeMarketingReviewUnitTruth.remainingCount
+            : Math.max(
+                activeOverviewSubset.chartCount -
+                  Math.max(
+                    activeReviewUnitDecisionPosition != null
+                      ? activeReviewUnitDecisionPosition - 1
+                      : 0,
+                    authoritativeWorkflowSenderKeys.filter((senderKey) =>
+                      Boolean(managedBySender[senderKey])
+                    ).length
+                  ),
+                0
+              )
+          : eligibleSenders.length
         : Math.max(
             workspaceClusterSenderTotal(
               workflowCoverageWorkspace || workspace,
@@ -6973,9 +7908,14 @@ export default function OperationsReviewPage() {
           ),
     }),
     [
+      activeMarketingReviewUnitTruth,
       activeOverviewSubset,
+      activeReviewUnitDecisionPosition,
+      authoritativeWorkflowSenderKeys,
       clusterManagedCount,
       eligibleSenders.length,
+      isMarketingReviewUnitRouteActive,
+      managedBySender,
       reviewPopulation.length,
       selectedCluster?.senderCount,
       workflowCoverageWorkspace,
@@ -6992,6 +7932,9 @@ export default function OperationsReviewPage() {
     if (!activeDecisionSenderKey) return null
     const index = authoritativeWorkflowSenderKeys.indexOf(activeDecisionSenderKey)
     if (index < 0) return null
+    if (activeOverviewSubset?.source === 'review_unit' && activeReviewUnitDecisionPosition != null) {
+      return activeReviewUnitDecisionPosition
+    }
     if (!activeOverviewSubset && decisionQueueSenderKeys.length === 0) {
       const pageWorkspace = workflowOverviewWorkspace || displayOverviewWorkspace
       const pageSize = Math.max(
@@ -7004,6 +7947,7 @@ export default function OperationsReviewPage() {
   }, [
     activeDecisionSenderKey,
     activeOverviewSubset,
+    activeReviewUnitDecisionPosition,
     authoritativeWorkflowSenderKeys,
     decisionQueueSenderKeys.length,
     decisionTargetPage,
@@ -7062,6 +8006,61 @@ export default function OperationsReviewPage() {
     workspace,
     subsetSource,
     subsetValue,
+  ])
+  useEffect(() => {
+    if (
+      mode !== 'decision' ||
+      !isMarketingReviewUnitRouteActive ||
+      activeOverviewSubset?.source !== 'review_unit' ||
+      semanticFocusWorkspaceState.status !== 'ready' ||
+      activeDecisionSenderKey ||
+      activeReviewUnitDecisionPage == null ||
+      activeReviewUnitDecisionTotalPages == null ||
+      activeReviewUnitDecisionPage >= activeReviewUnitDecisionTotalPages ||
+      !selectedCluster
+    ) {
+      return
+    }
+
+    startTransition(() => {
+      router.replace(
+        buildReviewHref({
+          agentId,
+          sessionId,
+          analysisScope,
+          workflowScope: workflowScopeForOverviewContext({
+            subsetSource,
+            subsetValue,
+            semanticFocus: activeSemanticSubtypeFocusRef.current,
+          }),
+          clusterId: selectedCluster.clusterId,
+          mode: 'decision',
+          subsetSource,
+          subsetValue,
+          senderPage: activeReviewUnitDecisionPage + 1,
+          senderKey: null,
+          overlayIntent: decisionOverlayIntent,
+        }),
+        { scroll: false }
+      )
+    })
+  }, [
+    activeDecisionSenderKey,
+    activeOverviewSubset?.source,
+    activeReviewUnitDecisionPage,
+    activeReviewUnitDecisionTotalPages,
+    agentId,
+    analysisScope,
+    decisionOverlayIntent,
+    isMarketingReviewUnitRouteActive,
+    mode,
+    router,
+    selectedCluster,
+    semanticFocusWorkspaceState.status,
+    sessionId,
+    subsetSource,
+    subsetValue,
+    workflowScopeForOverviewContext,
   ])
   const activeDecisionEvidenceSenderKey = useMemo(() => {
     if (mode !== 'decision') return null
@@ -7232,15 +8231,19 @@ export default function OperationsReviewPage() {
         : ''
 
     return {
-      eyebrow: isDerivedReviewUnitActive ? 'Derived review unit' : 'Focused view',
-      title: isDerivedReviewUnitActive
+      eyebrow: isReviewUnitActive ? reviewUnitSurfaceLabel : 'Focused view',
+      title: isReviewUnitActive
         ? `${semanticFocusTitle(renderedSemanticSubtypeFocus)}`
         : semanticFocusTitle(renderedSemanticSubtypeFocus),
-      selectionDetail: isDerivedReviewUnitActive
-        ? `${semanticFocusSelectionDetail(renderedSemanticSubtypeFocus)} This stays inside the same parent cleanup group and only changes the session review scope.`
+      selectionDetail: isReviewUnitActive
+        ? `${semanticFocusSelectionDetail(renderedSemanticSubtypeFocus)} ${
+            isMarketingCleanupGroup
+              ? 'This stays inside the same parent cleanup group and only changes the session review scope.'
+              : 'This stays inside the same parent cleanup group and only narrows the current sender list for this session.'
+          }`
         : semanticFocusSelectionDetail(renderedSemanticSubtypeFocus),
       laneDetail: semanticFocusLaneDetail(renderedSemanticSubtypeFocus),
-      subsetDetail: hasSubsetRouteContext && !isDerivedReviewUnitActive
+      subsetDetail: hasSubsetRouteContext && !isReviewUnitActive
         ? 'The subset above still gives context, but the rows below now show the strongest matches for this pattern across the full group.'
         : null,
       publishedCountLabel: `${renderedSemanticSubtypeFocus.publishedSenderCount.toLocaleString()} sender${
@@ -7251,11 +8254,73 @@ export default function OperationsReviewPage() {
     }
   }, [
     hasSubsetRouteContext,
-    isDerivedReviewUnitActive,
+    isReviewUnitActive,
     renderedSemanticSubtypeFocus,
     semanticFocusWorkspace,
     semanticFocusWorkspaceState.status,
   ])
+  const activeReviewUnitPresentation = useMemo(() => {
+    if (!isReviewUnitActive || renderedSemanticSubtypeFocus || !activeReviewUnit) return null
+
+    const liveFocusedSenderCount =
+      semanticFocusWorkspaceState.status === 'ready' && semanticFocusWorkspace
+        ? semanticFocusWorkspace.pagination.total_senders
+        : null
+    const marketingParentLabel =
+      cleanupGroupDisplayTitle({
+        clusterId: selectedCanonicalClusterId || MARKETING_PARENT_CANONICAL_ID,
+        title: selectedCluster?.title || missingScopedClusterName || null,
+      }) || 'Marketing subscriptions'
+    const isMarketingSpilloverUnit =
+      isMarketingCleanupGroup && activeReviewUnit.sourceKind === 'spillover'
+    const liveCountNote =
+      isMarketingSpilloverUnit && liveFocusedSenderCount != null
+        ? ` The live review list below is already scoped to ${liveFocusedSenderCount.toLocaleString()} spillover sender${
+            liveFocusedSenderCount === 1 ? '' : 's'
+          }.`
+        : liveFocusedSenderCount != null && liveFocusedSenderCount !== activeReviewUnit.senderCount
+          ? ` The live review list below currently finds ${liveFocusedSenderCount.toLocaleString()} matching sender${
+              liveFocusedSenderCount === 1 ? '' : 's'
+            } inside this published unit.`
+          : ''
+
+    return {
+      eyebrow: reviewUnitSurfaceLabel,
+      title:
+        isMarketingSpilloverUnit && activeReviewUnitFallbackFamilyLabel
+          ? `${activeReviewUnit.label} outside ${activeReviewUnitFallbackFamilyLabel}`
+          : activeReviewUnit.label,
+      selectionDetail: isMarketingSpilloverUnit
+        ? activeReviewUnitFallbackFamilyLabel
+          ? `Start here with ${activeReviewUnit.label}. These senders stay inside ${marketingParentLabel} but sit outside ${activeReviewUnitFallbackFamilyLabel}, so the workflow below is already the authoritative spillover review unit.`
+          : `Start here with ${activeReviewUnit.label}. The workflow below is already scoped to this spillover review unit inside ${marketingParentLabel}.`
+        : isMarketingCleanupGroup
+          ? `${activeReviewUnit.label} stays inside the same parent cleanup group and narrows this session queue without opening broad Marketing review.`
+          : `${activeReviewUnit.label} stays inside the same parent cleanup group and narrows the current sender list for this session.`,
+      publishedCountLabel: `${activeReviewUnit.senderCount.toLocaleString()} sender${
+        activeReviewUnit.senderCount === 1 ? '' : 's'
+      } are grouped in this published ${reviewUnitNoun} in the overview.`,
+      liveCountNote,
+    }
+  }, [
+    activeReviewUnit,
+    activeReviewUnitFallbackFamilyLabel,
+    isMarketingCleanupGroup,
+    isReviewUnitActive,
+    missingScopedClusterName,
+    renderedSemanticSubtypeFocus,
+    selectedCanonicalClusterId,
+    selectedCluster?.title,
+    reviewUnitNoun,
+    reviewUnitSurfaceLabel,
+    semanticFocusWorkspace,
+    semanticFocusWorkspaceState.status,
+  ])
+  const activeReviewUnitRowLabel = useMemo(() => {
+    if (!isReviewUnitActive || renderedSemanticSubtypeFocus || !activeReviewUnit) return null
+    if (activeReviewUnit.sourceKind === 'spillover') return 'Spillover match'
+    return `${activeReviewUnit.label} match`
+  }, [activeReviewUnit, isReviewUnitActive, renderedSemanticSubtypeFocus])
   const semanticFocusBannerClassName = `rounded-2xl border p-4 shadow-[0_16px_36px_rgba(2,6,23,0.2)] transition-colors duration-300 ${
     semanticFocusOrientationActive
       ? 'border-cyan-500/55 bg-[linear-gradient(180deg,rgba(13,45,66,0.96),rgba(8,22,35,0.98))]'
@@ -7286,14 +8351,43 @@ export default function OperationsReviewPage() {
         </div>
         <button
           type="button"
-          onClick={() => updateSemanticSubtypeFocus(null, 'clear')}
+          onClick={handleSemanticFocusBackAction}
           className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
         >
-          Back to full sender list
+          {marketingReviewUnitBackLabel}
         </button>
       </div>
     </div>
   ) : null
+  const activeReviewUnitBanner = activeReviewUnitPresentation ? (
+    <div className={semanticFocusBannerClassName}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-3xl">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+            {activeReviewUnitPresentation.eyebrow}
+          </p>
+          <p className="mt-2 text-lg font-semibold text-white">
+            {activeReviewUnitPresentation.title}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-100">
+            {activeReviewUnitPresentation.selectionDetail}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-cyan-100/90">
+            {activeReviewUnitPresentation.publishedCountLabel}
+            {activeReviewUnitPresentation.liveCountNote}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSemanticFocusBackAction}
+          className={`${quietSecondaryActionClass} rounded-full px-3 py-1.5 text-xs`}
+        >
+          {marketingReviewUnitBackLabel}
+        </button>
+      </div>
+    </div>
+  ) : null
+  const reviewUnitContextBanner = semanticFocusBanner || activeReviewUnitBanner
   const senderListCoverage = useMemo(() => {
     if (!workflowOverviewWorkspace) return null
 
@@ -7308,6 +8402,35 @@ export default function OperationsReviewPage() {
       1
     )}`
 
+    if (activeOverviewSubset?.source === 'review_unit' && semanticFocusWorkspace) {
+      const focusedTotalCount = semanticFocusWorkspace.pagination.total_senders || activeOverviewSubset.chartCount
+      const focusedPageCount = Math.max(semanticFocusWorkspace.pagination.total_pages || 1, 1)
+      const focusedPage =
+        semanticFocusWorkspace.pagination.page || DEFAULT_OVERVIEW_WORKSPACE_PAGE
+      const focusedPageLabel = `Matching page ${focusedPage} of ${focusedPageCount}`
+
+      return {
+        summary: `${visibleRowCount.toLocaleString()} row${
+          visibleRowCount === 1 ? '' : 's'
+        } on screen · ${activeOverviewSubset.loadedCount.toLocaleString()} matching sender${
+          activeOverviewSubset.loadedCount === 1 ? '' : 's'
+        } loaded in this page · ${focusedTotalCount.toLocaleString()} in the full ${reviewUnitNoun}.`,
+        detail:
+          focusedTotalCount > activeOverviewSubset.loadedCount
+            ? `This page shows part of this ${reviewUnitNoun}, so ${(
+                focusedTotalCount - activeOverviewSubset.loadedCount
+              ).toLocaleString()} matching sender${
+                focusedTotalCount - activeOverviewSubset.loadedCount === 1 ? '' : 's'
+              } are still offscreen.`
+            : `This page already includes every matching sender in this ${reviewUnitNoun}.`,
+        navigationHint:
+          isMarketingReviewUnitRouteActive
+            ? 'Open a sender to confirm before deciding. Choose another unit when you want a different Marketing review scope.'
+            : 'Open a sender to confirm before deciding. Back to full sender list when you want the broader queue again.',
+        pageLabel: focusedPageLabel,
+      }
+    }
+
     if (renderedSemanticSubtypeFocus) {
       const focusLabel = renderedSemanticSubtypeFocus.label
       const focusSelectionDetail =
@@ -7320,8 +8443,7 @@ export default function OperationsReviewPage() {
         return {
           summary: `Refreshing ${focusLabel} matches.`,
           detail: `${focusSelectionDetail} The list below is updating in place while the rest of the page stays put.`,
-          navigationHint:
-            'Back to full sender list when you want the broader queue again.',
+          navigationHint: marketingReviewUnitBackHint,
           pageLabel: `${focusLabel} matches · Updating`,
         }
       }
@@ -7333,8 +8455,7 @@ export default function OperationsReviewPage() {
             semanticFocusWorkspaceState.error
               ? `The focused list did not refresh just now. ${semanticFocusWorkspaceState.error}`
               : 'The focused list did not refresh just now.',
-          navigationHint:
-            'Back to full sender list when you want the broader queue again.',
+          navigationHint: marketingReviewUnitBackHint,
           pageLabel: `${focusLabel} matches unavailable`,
         }
       }
@@ -7367,8 +8488,9 @@ export default function OperationsReviewPage() {
               }. This page shows the first ${visibleRowCount.toLocaleString()} strongest match${
                 visibleRowCount === 1 ? '' : 'es'
               }.`,
-        navigationHint:
-          'Open a sender to confirm before deciding. Back to full sender list when you want the broader queue again.',
+        navigationHint: isMarketingReviewUnitRouteActive
+          ? 'Open a sender to confirm before deciding. Choose another unit when you want a different Marketing review scope.'
+          : 'Open a sender to confirm before deciding. Back to full sender list when you want the broader queue again.',
         pageLabel: `${focusedPageLabel} · ${focusLabel} matches`,
       }
     }
@@ -7415,7 +8537,9 @@ export default function OperationsReviewPage() {
     }
   }, [
     activeOverviewSubset,
+    isMarketingReviewUnitRouteActive,
     renderedSemanticSubtypeFocus,
+    reviewUnitNoun,
     semanticFocusWorkspace,
     semanticFocusWorkspaceState.error,
     semanticFocusWorkspaceState.status,
@@ -7681,10 +8805,17 @@ export default function OperationsReviewPage() {
       options?: { senderPage?: number | null }
     ) => {
       if (
+        isMarketingReviewUnitRouteActive &&
+        nextSubset?.source &&
+        nextSubset.source !== 'review_unit'
+      ) {
+        return
+      }
+      if (
         subsetSource === 'review_unit' &&
         nextSubset?.source !== 'review_unit' &&
-        appliedDerivedReviewUnitFocusRef.current &&
-        activeSemanticSubtypeFocus?.id === appliedDerivedReviewUnitFocusRef.current
+        appliedReviewUnitFocusRef.current &&
+        activeSemanticSubtypeFocus?.id === appliedReviewUnitFocusRef.current
       ) {
         setActiveSemanticSubtypeFocus(null)
       }
@@ -7714,6 +8845,7 @@ export default function OperationsReviewPage() {
       agentId,
       analysisScope,
       clusterId,
+      isMarketingReviewUnitRouteActive,
       mode,
       router,
       selectedCluster?.clusterId,
@@ -7722,6 +8854,23 @@ export default function OperationsReviewPage() {
       workflowScopeForOverviewContext,
     ]
   )
+  const handleSubsetBackAction = useCallback(() => {
+    if (isMarketingReviewUnitRouteActive) {
+      clearMarketingReviewUnitSelection()
+      return
+    }
+    updateSubsetSelection(null, {
+      senderPage: isFocusedSenderSubsetSource(renderedSubsetSource)
+        ? requestedSenderPage
+        : null,
+    })
+  }, [
+    clearMarketingReviewUnitSelection,
+    isMarketingReviewUnitRouteActive,
+    renderedSubsetSource,
+    requestedSenderPage,
+    updateSubsetSelection,
+  ])
   const handleSenderDistributionSelect = useCallback(
     (senderKey: string) => {
       const currentlyFocused = sharedWorkflowSubset.focusedSenderKey === senderKey
@@ -7794,6 +8943,24 @@ export default function OperationsReviewPage() {
     ]
   )
   const senderWorkflowPagination = useMemo<SenderWorkflowPaginationModel | null>(() => {
+    if (activeOverviewSubset?.source === 'review_unit' && semanticFocusWorkspace) {
+      const focusedLoadedPage = semanticFocusWorkspace.pagination.page || requestedSenderPage
+      const focusedTotalPages = Math.max(semanticFocusWorkspace.pagination.total_pages || 1, 1)
+      const transitionPending =
+        semanticFocusWorkspaceState.status === 'loading' && focusedLoadedPage !== requestedSenderPage
+      const focusedPage = transitionPending ? requestedSenderPage : focusedLoadedPage
+
+      return {
+        currentPage: focusedPage,
+        totalPages: focusedTotalPages,
+        statusText: `Matching page ${focusedPage} of ${focusedTotalPages}`,
+        hasMultiplePages: focusedTotalPages > 1,
+        canPrevious: focusedPage > DEFAULT_OVERVIEW_WORKSPACE_PAGE,
+        canNext: focusedPage < focusedTotalPages,
+        transitionPending,
+      }
+    }
+
     if (renderedSemanticSubtypeFocus) {
       const focusedLoadedPage = semanticFocusWorkspace?.pagination.page || requestedSenderPage
       const focusedTotalPages = Math.max(semanticFocusWorkspace?.pagination.total_pages || 1, 1)
@@ -7857,8 +9024,7 @@ export default function OperationsReviewPage() {
         summary: `Refreshing ${renderedSemanticSubtypeFocus.label} matches.`,
         detail:
           'Stay here — the focused list is updating in place while the rest of the review surface stays put.',
-        navigationHint:
-          'Back to full sender list when you want the broader queue again.',
+        navigationHint: marketingReviewUnitBackHint,
         pageLabel:
           senderWorkflowPagination?.statusText ||
           `${renderedSemanticSubtypeFocus.label} matches · Matching page ${requestedSenderPage} of ${Math.max(
@@ -7901,24 +9067,41 @@ export default function OperationsReviewPage() {
     senderListCoverage,
     senderWorkflowPagination,
   ])
-  const topSummarySenderDetail =
-    topSummarySenderTotalIsLoading
+  const topSummarySenderDetail = activeMarketingReviewUnitTruth
+    ? topSummarySenderTotalIsLoading
+      ? 'Unit-scoped sender total is loading for this review unit.'
+      : 'Primary KPI for this active Marketing review unit.'
+    : topSummarySenderTotalIsLoading
       ? 'Scoped sender count will appear here as soon as the current cleanup group finishes loading.'
       : 'Review is sender-first.'
-  const topSummaryManagedDetail =
-    topSummaryCoverageIsLoading
+  const topSummaryManagedDetail = activeMarketingReviewUnitTruth
+    ? topSummaryCoverageIsLoading
+      ? 'Unit-scoped managed count is loading.'
+      : 'Already covered in this unit.'
+    : topSummaryCoverageIsLoading
       ? 'Managed sender coverage will appear once scoped sender truth is ready.'
       : 'Already covered.'
-  const topSummaryRemainingDetail =
-    topSummaryCoverageIsLoading
+  const topSummaryRemainingDetail = activeMarketingReviewUnitTruth
+    ? topSummaryCoverageIsLoading
+      ? 'Unit-scoped remaining count is loading.'
+      : 'Ready for review in this unit.'
+    : topSummaryCoverageIsLoading
       ? 'The count left to review will appear once the current scoped workspace is ready.'
       : 'Ready for review.'
-  const topSummarySupportingDetail =
-    topSummarySupportingMessageIsLoading
+  const topSummarySupportingDetail = activeMarketingReviewUnitTruth
+    ? topSummarySupportingMessageIsLoading
+      ? 'Unit-scoped message workload is loading.'
+      : 'Supports sender priority inside this unit.'
+    : topSummarySupportingMessageIsLoading
       ? 'Scoped supporting-message volume will appear once the current cleanup group finishes loading.'
       : 'Supports sender priority.'
-  const topSummaryCoveredSendersDetail =
-    topSummaryRemainingCount == null
+  const topSummaryCoveredSendersDetail = activeMarketingReviewUnitTruth
+    ? topSummaryCoverageIsLoading || topSummaryRemainingCount == null
+      ? 'Unit-scoped coverage is loading for this review unit.'
+      : `${topSummaryRemainingCount.toLocaleString()} sender${
+          topSummaryRemainingCount === 1 ? '' : 's'
+        } still remaining in this unit`
+    : topSummaryRemainingCount == null
       ? 'Scoped sender coverage is loading.'
       : `${topSummaryRemainingCount.toLocaleString()} sender${
           topSummaryRemainingCount === 1 ? '' : 's'
@@ -8142,6 +9325,12 @@ export default function OperationsReviewPage() {
           managedBySender: nextManagedBySender,
           currentSenderKey: sender.sender_key,
         })
+        const nextSenderPage =
+          !nextSenderKey &&
+          marketingReviewUnitHasNextDecisionPage &&
+          activeReviewUnitDecisionPage != null
+            ? activeReviewUnitDecisionPage + 1
+            : requestedSenderPage
 
         startTransition(() => {
           router.replace(
@@ -8156,7 +9345,7 @@ export default function OperationsReviewPage() {
               }),
               clusterId: selectedCluster.clusterId,
               mode: 'decision',
-              senderPage: requestedSenderPage,
+              senderPage: nextSenderPage,
               subsetSource: authoritativeOverviewReturnContext.subsetSource,
               subsetValue: authoritativeOverviewReturnContext.subsetValue,
               senderKey: nextSenderKey,
@@ -8171,10 +9360,161 @@ export default function OperationsReviewPage() {
     }
   }
 
+  if (marketingReviewUnitEntryState) {
+    const marketingTitle =
+      cleanupGroupDisplayTitle({
+        clusterId: selectedCanonicalClusterId || MARKETING_PARENT_CANONICAL_ID,
+        title: selectedCluster?.title || missingScopedClusterName || null,
+      }) || 'Marketing subscriptions'
+    const marketingClustersHref = buildClustersHref({
+      agentId,
+      sessionId,
+      analysisScope,
+    })
+    const marketingManagementHref = buildManagementHref({ agentId, sessionId, analysisScope })
+    const marketingRouteClusterId =
+      selectedCluster?.canonicalClusterId ||
+      selectedCluster?.clusterId ||
+      selectedCanonicalClusterId ||
+      MARKETING_PARENT_CANONICAL_ID
+    const blockedRequestedUnitLabel =
+      marketingReviewUnitEntryRequestedUnit?.label || requestedReviewUnit?.label || 'This Marketing unit'
+    const blockedRequestedUnitCount =
+      marketingReviewUnitEntryRequestedUnit?.senderCount ?? requestedReviewUnit?.senderCount ?? null
+    const marketingStateHeadline =
+      marketingReviewUnitEntryState === 'choose_unit'
+        ? 'Choose a Marketing unit before review starts'
+        : marketingReviewUnitEntryState === 'missing_unit'
+          ? 'Marketing unit is missing from this route'
+          : marketingReviewUnitEntryState === 'invalid_unit'
+          ? 'Selected Marketing unit is unavailable'
+          : marketingReviewUnitEntryState === 'oversized_unit'
+            ? 'Selected Marketing unit is blocked'
+            : 'Marketing units are unavailable'
+    const marketingStateCopy =
+      marketingReviewUnitEntryState === 'choose_unit'
+        ? 'Marketing subscriptions is decomposed at first click. Choose one published unit below to enter review.'
+        : marketingReviewUnitEntryState === 'missing_unit'
+          ? 'This route asked for Marketing review-unit entry but did not include a unit id. Review stays blocked here until you choose one published unit below.'
+          : marketingReviewUnitEntryState === 'invalid_unit'
+          ? 'The requested Marketing unit is not valid anymore. Choose one of the current published units below, or return to Cleanup Groups.'
+          : marketingReviewUnitEntryState === 'oversized_unit'
+            ? `${blockedRequestedUnitLabel} is above the 400-sender hard max for first-click Marketing review entry${
+                blockedRequestedUnitCount != null
+                  ? ` (${blockedRequestedUnitCount.toLocaleString()} senders)`
+                  : ''
+              }. This route stays blocked instead of opening broad Marketing review. Choose one of the current valid published units below.`
+            : 'This decomposed parent cannot open broad review. Review stays blocked until a valid published unit set is available again.'
+
+    return (
+      <div className="space-y-4">
+        <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-700/50 bg-[linear-gradient(180deg,rgba(14,31,47,0.98),rgba(8,17,29,0.98),rgba(4,9,16,0.98))] p-5 space-y-4 shadow-[0_24px_64px_rgba(2,6,23,0.36)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
+                Selected Cleanup Group
+              </p>
+              <h1 className="text-2xl font-semibold text-white">{marketingTitle}</h1>
+              <p className="max-w-3xl text-sm text-slate-200">{marketingStateCopy}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={marketingClustersHref}
+                className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+              >
+                Cleanup Groups
+              </Link>
+              <Link
+                href={marketingManagementHref}
+                className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+              >
+                Open Management
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Senders in group</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
+                {formatCountOrPlaceholder(selectedCluster?.senderCount ?? null)}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-200">
+                Full Marketing parent scope remains contextual here until a valid unit is chosen.
+              </p>
+            </div>
+            <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Entry mode</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-white">Unit-only</p>
+              <p className="mt-2 text-xs leading-5 text-slate-200">
+                Broad parent review is intentionally blocked for this decomposed parent.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className={`${primarySurfaceClass} p-5 space-y-4`}>
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
+              Marketing Review Entry
+            </p>
+            <h2 className="text-xl font-semibold text-white">{marketingStateHeadline}</h2>
+            <p className="max-w-3xl text-sm leading-6 text-slate-200">{marketingStateCopy}</p>
+          </div>
+
+          {marketingReviewUnitEntryState === 'unavailable_units' ? (
+            <div className="rounded-2xl border border-amber-700/45 bg-amber-950/20 p-4 text-sm leading-6 text-amber-100">
+              Published Marketing units are missing, invalid, or stale. Review entry stays blocked
+              here rather than falling back to broad parent review.
+            </div>
+          ) : selectableMarketingReviewUnits.length === 0 ? (
+            <div className="rounded-2xl border border-cyan-700/45 bg-cyan-950/15 p-4 text-sm leading-6 text-cyan-100">
+              Loading the current published Marketing units for this blocked entry route. Broad
+              parent review stays blocked while the chooser list resolves.
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {selectableMarketingReviewUnits.map((unit) => (
+                <Link
+                  key={unit.id}
+                  href={buildReviewHref({
+                    agentId,
+                    sessionId,
+                    analysisScope,
+                    clusterId: marketingRouteClusterId,
+                    subsetSource: 'review_unit',
+                    subsetValue: unit.id,
+                  })}
+                  className="rounded-2xl border border-cyan-700/45 bg-cyan-950/15 p-4 text-left transition hover:border-cyan-600/70 hover:bg-cyan-950/20"
+                >
+                  <p className="text-base font-semibold text-cyan-50">{unit.label}</p>
+                  <p className="mt-2 text-sm text-cyan-100/90">
+                    {unit.senderCount.toLocaleString()} senders
+                  </p>
+                  <p className="mt-1 text-xs text-cyan-200/80">
+                    {unit.groupSharePct}% of Marketing subscriptions
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    )
+  }
+
   if (runtime.loading && !renderRuntimeData && !continuityOverviewWorkspaceSnapshot) {
     return (
       <section className={`${primarySurfaceClass} p-4 text-sm text-slate-200`}>
         Loading sender decisions workspace…
+      </section>
+    )
+  }
+
+  if (retiredClusterRedirect) {
+    return (
+      <section className={`${primarySurfaceClass} p-4 text-sm text-slate-200`}>
+        {retiredClusterRedirect.explanation}
       </section>
     )
   }
@@ -8211,6 +9551,15 @@ export default function OperationsReviewPage() {
     senderKey: guidedDecisionSenderKey || provisionalDecisionSeedSenderKey,
     overlayIntent: 'guided',
   })
+  const marketingChooseAnotherUnitHref =
+    isMarketingCleanupGroup && activeReviewClusterId
+      ? buildReviewHref({
+          agentId,
+          sessionId,
+          analysisScope,
+          clusterId: activeReviewClusterId,
+        })
+      : null
   const subsetDecisionHref = activeOverviewSubset
       ? buildReviewHref({
         agentId,
@@ -8329,10 +9678,20 @@ export default function OperationsReviewPage() {
               Selected Cleanup Group
             </p>
             <h1 className="text-2xl font-semibold text-white">{activeReviewClusterTitle}</h1>
-            <p className="max-w-3xl text-sm text-slate-200">
-              {isDerivedReviewUnitActive
-                ? `${activeOverviewSubset?.label || activeDerivedReviewUnit?.label || 'A derived review unit'} is active inside this parent cleanup group. The parent group stays intact while this session narrows to that unit.`
-                : 'Sender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay.'}
+              <p className="max-w-3xl text-sm text-slate-200">
+                {activeMarketingReviewUnitTruth
+                  ? `${activeMarketingReviewUnitTruth.unitLabel} is the active Marketing review unit. Parent context only: ${activeReviewClusterTitle} stays visible as the parent cleanup group while the hero and handoff numbers below stay scoped to this unit.`
+                  : isReviewUnitActive
+                    ? `${
+                        activeOverviewSubset?.label ||
+                        activeReviewUnit?.label ||
+                        (isMarketingCleanupGroup ? 'A review unit' : 'A focused view')
+                      } is active inside this parent cleanup group. ${
+                        isMarketingCleanupGroup
+                          ? 'The parent group stays intact while this session narrows to that unit.'
+                          : 'The parent group stays intact while this session narrows the current sender list.'
+                      }`
+                    : 'Sender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay.'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -8353,7 +9712,9 @@ export default function OperationsReviewPage() {
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-slate-300">Senders in group</p>
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">
+              {activeMarketingReviewUnitTruth ? 'Senders in unit' : 'Senders in group'}
+            </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountOrPlaceholder(topSummarySenderTotal)}
             </p>
@@ -8362,7 +9723,9 @@ export default function OperationsReviewPage() {
             </p>
           </div>
           <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-slate-300">Managed already</p>
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">
+              {activeMarketingReviewUnitTruth ? 'Managed in unit' : 'Managed already'}
+            </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountOrPlaceholder(topSummaryManagedCount)}
             </p>
@@ -8371,7 +9734,9 @@ export default function OperationsReviewPage() {
             </p>
           </div>
           <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-slate-300">Still to review</p>
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">
+              {activeMarketingReviewUnitTruth ? 'Still to review in unit' : 'Still to review'}
+            </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountOrPlaceholder(topSummaryRemainingCount)}
             </p>
@@ -8381,7 +9746,7 @@ export default function OperationsReviewPage() {
           </div>
           <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Supporting messages in scope
+              {activeMarketingReviewUnitTruth ? 'Supporting messages in unit' : 'Supporting messages in scope'}
             </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountOrPlaceholder(topSummarySupportingMessageCount)}
@@ -8399,20 +9764,26 @@ export default function OperationsReviewPage() {
                 Sender review goal
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
-                Give every sender in this cleanup group a decision.
+                {activeMarketingReviewUnitTruth
+                  ? 'Give every sender in this review unit a decision.'
+                  : 'Give every sender in this cleanup group a decision.'}
               </p>
               <p className="mt-2 text-sm text-slate-200">
-                Coverage is sender-level, not message-level.
+                {activeMarketingReviewUnitTruth
+                  ? 'Coverage is sender-level inside this active Marketing unit.'
+                  : 'Coverage is sender-level, not message-level.'}
               </p>
             </div>
             <div
               className={`${nestedSurfaceClass} rounded-2xl border border-emerald-600/45 px-4 py-3 text-right`}
             >
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/80">
-                Covered senders
+                {activeMarketingReviewUnitTruth ? 'Covered in unit' : 'Covered senders'}
               </p>
               <p className="mt-2 text-3xl font-semibold text-white">
-                {topSummarySenderTotal == null
+                {activeMarketingReviewUnitTruth && topSummaryCoverageIsLoading
+                  ? '— / —'
+                  : topSummarySenderTotal == null
                   ? '— / —'
                   : `${topSummaryManagedCount == null ? '—' : topSummaryManagedCount.toLocaleString()} / ${topSummarySenderTotal.toLocaleString()}`}
               </p>
@@ -8486,17 +9857,21 @@ export default function OperationsReviewPage() {
                   internal-structure view, separate from message-weight concentration below.
                 </p>
               </div>
-              {groupInternalStructure && groupReviewUnitStarters.length > 0 && !semanticFocusPresentation ? (
+              {groupInternalStructure &&
+              groupReviewUnitStarters.length > 0 &&
+              !semanticFocusPresentation &&
+              !isMarketingReviewUnitRouteActive ? (
                 <div className="rounded-xl border border-cyan-700/35 bg-[rgba(9,21,33,0.76)] px-4 py-3">
                   <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
-                    Review units inside this group
+                    {reviewUnitSurfaceLabelPlural} inside this group
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-100">
                     {groupInternalStructure.summary}
                   </p>
                   <p className="mt-2 text-xs leading-5 text-slate-300">
-                    These derived review units keep the parent cleanup group intact and only narrow
-                    the current session queue.
+                    {isMarketingCleanupGroup
+                      ? 'These review units keep the parent cleanup group intact and only narrow the current session queue.'
+                      : 'These focused views keep the parent cleanup group intact and only narrow the current sender list for this session.'}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {groupReviewUnitStarters.map((starter) => (
@@ -8527,39 +9902,7 @@ export default function OperationsReviewPage() {
                   ) : null}
                 </div>
               ) : null}
-              {semanticFocusPresentation ? (
-                <div
-                  className={`rounded-xl border px-4 py-3 transition-colors duration-300 ${
-                    semanticFocusOrientationActive
-                      ? 'border-cyan-500/50 bg-cyan-950/18'
-                      : 'border-cyan-700/35 bg-[rgba(9,21,33,0.76)]'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
-                        {semanticFocusPresentation.eyebrow}
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">
-                        {semanticFocusPresentation.title}
-                      </p>
-                      <p className="mt-1.5 text-sm leading-6 text-slate-200">
-                        {semanticFocusPresentation.selectionDetail}
-                      </p>
-                      <p className="mt-1.5 text-xs leading-5 text-cyan-100/90">
-                        {semanticFocusPresentation.publishedCountLabel}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => updateSemanticSubtypeFocus(null, 'clear')}
-                      className={`${quietSecondaryActionClass} rounded-full px-3 py-1.5 text-xs`}
-                    >
-                      Back to full sender list
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+              {reviewUnitContextBanner}
               <CompactRankedBarChart
                 items={semanticMixChartItems}
                 scaleTotal={100}
@@ -8740,16 +10083,10 @@ export default function OperationsReviewPage() {
                 {hasSubsetRouteContext ? (
                   <button
                     type="button"
-                    onClick={() =>
-                      updateSubsetSelection(null, {
-                        senderPage: isFocusedSenderSubsetSource(renderedSubsetSource)
-                          ? requestedSenderPage
-                          : null,
-                      })
-                    }
+                    onClick={handleSubsetBackAction}
                     className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
                   >
-                    Back to full sender list
+                    {marketingReviewUnitBackLabel}
                   </button>
                 ) : null}
               </div>
@@ -8821,8 +10158,8 @@ export default function OperationsReviewPage() {
                           ? 'Stay here — this focused list is updating in place.'
                           : semanticFocusWorkspaceState.status === 'error'
                             ? semanticFocusWorkspaceState.error ||
-                              'Back to full sender list when you want the broader queue again.'
-                            : 'Back to full sender list when you want the broader queue again.'
+                              marketingReviewUnitBackHint
+                            : marketingReviewUnitBackHint
                         : 'This page is still filling in. The next sender rows will appear here shortly.'}
                     </p>
                   </div>
@@ -8841,7 +10178,7 @@ export default function OperationsReviewPage() {
                               : renderedSemanticSubtypeFocus.kind === 'family'
                                 ? `${renderedSemanticSubtypeFocus.label} lane`
                               : `${renderedSemanticSubtypeFocus.label} match`
-                            : null
+                            : activeReviewUnitRowLabel
                         }
                         expanded={expandedSenderKey === sender.sender_key}
                         onOpenDecisionMode={openDecisionModeForSender}
@@ -8917,8 +10254,8 @@ export default function OperationsReviewPage() {
                         </p>
                       ) : (
                         <p className="mt-2">
-                          {isDerivedReviewUnitActive
-                            ? 'Senders from this derived review unit will appear here as soon as the scoped list is ready.'
+                          {isReviewUnitActive
+                            ? `Senders from this ${reviewUnitNoun} will appear here as soon as the scoped list is ready.`
                             : 'Matching senders from this subset will appear here as the next page comes in.'}
                         </p>
                       )}
@@ -8931,15 +10268,19 @@ export default function OperationsReviewPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
-                      {isDerivedReviewUnitActive
-                        ? 'Review this derived unit'
+                      {isReviewUnitActive
+                        ? isMarketingCleanupGroup
+                          ? 'Review this unit'
+                          : 'Review this focused view'
                         : renderedSemanticSubtypeFocus
                         ? 'Review this focused list'
                         : 'Review this matching list'}
                     </p>
                     <p className="mt-2 text-sm text-slate-200">
-                      {isDerivedReviewUnitActive
-                        ? 'This derived review unit stays inside the same parent cleanup group. Start with the strongest sender rows here, then open a sender to confirm before deciding.'
+                      {isReviewUnitActive
+                        ? isMarketingCleanupGroup
+                          ? 'This review unit stays inside the same parent cleanup group. Start with the strongest sender rows here, then open a sender to confirm before deciding.'
+                          : 'This focused view stays inside the same parent cleanup group. Start with the strongest sender rows here, then open a sender to confirm before deciding.'
                         : renderedSemanticSubtypeFocus
                         ? 'Start here — these are the strongest matches for this pattern. Open a sender to confirm before deciding.'
                         : 'Start with the strongest matching rows here, then open a sender to confirm before deciding.'}
@@ -8997,8 +10338,8 @@ export default function OperationsReviewPage() {
                           ? 'Stay here — this focused list is updating in place.'
                           : semanticFocusWorkspaceState.status === 'error'
                             ? semanticFocusWorkspaceState.error ||
-                              'Back to full sender list when you want the broader queue again.'
-                            : 'Back to full sender list when you want the broader queue again.'
+                              marketingReviewUnitBackHint
+                            : marketingReviewUnitBackHint
                         : 'This page does not include any matches for this subset yet. Go back to the full sender list when you want the wider queue.'}
                     </p>
                   </div>
@@ -9017,7 +10358,7 @@ export default function OperationsReviewPage() {
                               : renderedSemanticSubtypeFocus.kind === 'family'
                                 ? `${renderedSemanticSubtypeFocus.label} lane`
                               : `${renderedSemanticSubtypeFocus.label} match`
-                            : null
+                            : activeReviewUnitRowLabel
                         }
                         expanded={expandedSenderKey === sender.sender_key}
                         onOpenDecisionMode={openDecisionModeForSender}
@@ -9125,7 +10466,9 @@ export default function OperationsReviewPage() {
               <p className="text-sm leading-6 text-slate-200">
                 {activeOverviewSubset
                   ? activeOverviewSubset.source === 'review_unit'
-                    ? 'You can either review only this derived review unit or return to the full cleanup group. This scope is session-only and still uses the same one-sender-at-a-time Decision Mode.'
+                    ? isMarketingCleanupGroup
+                      ? 'You can review only this Marketing unit or choose another unit. Decision handoff here stays scoped to this unit only.'
+                      : 'You can either review only this focused view or return to the full cleanup group. This scope is session-only and still uses the same one-sender-at-a-time Decision Mode.'
                     : 'You can either review the full cleanup group or hand off only this selected subset into the same one-sender-at-a-time decision flow. Gmail still never mutates here.'
                   : 'Decision Mode is the next step when you are ready to move from overview into one-sender-at-a-time action.'}
               </p>
@@ -9133,7 +10476,7 @@ export default function OperationsReviewPage() {
                 <div className="space-y-3">
                   {reviewUnitDecisionQueueLoading ? (
                     <div className="inline-flex w-full items-center justify-center rounded-2xl bg-cyan-500/40 px-5 py-3 text-sm font-semibold text-cyan-50">
-                      Preparing This Unit
+                      {reviewUnitPreparingLabel}
                     </div>
                   ) : (
                     <Link
@@ -9142,16 +10485,22 @@ export default function OperationsReviewPage() {
                       className="inline-flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-gray-950 hover:bg-cyan-400"
                     >
                       {activeOverviewSubset.source === 'review_unit'
-                        ? 'Review This Unit'
+                        ? reviewUnitActionLabel
                         : 'Review Selected Subset'}
                     </Link>
                   )}
                   <Link
-                    href={decisionHref}
+                    href={
+                      isMarketingCleanupGroup && activeOverviewSubset.source === 'review_unit'
+                        ? marketingChooseAnotherUnitHref || decisionHref
+                        : decisionHref
+                    }
                     scroll={false}
                     className={`${quietSecondaryActionClass} inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold`}
                   >
-                    Review Full Group
+                    {isMarketingCleanupGroup && activeOverviewSubset.source === 'review_unit'
+                      ? 'Choose Another Unit'
+                      : 'Review Full Group'}
                   </Link>
                 </div>
               ) : (
@@ -9166,9 +10515,11 @@ export default function OperationsReviewPage() {
               <p className="text-xs leading-5 text-slate-300">
                 {activeOverviewSubset
                   ? reviewUnitDecisionQueueLoading
-                    ? 'Preparing the full sender list for this derived review unit before entering Decision Mode.'
+                    ? `Preparing the full sender list for this ${reviewUnitNoun} before entering Decision Mode.`
                     : activeOverviewSubset.source === 'review_unit'
-                    ? `${activeOverviewSubset.eligibleCount.toLocaleString()} senders are ready to review inside this derived review unit. This scope is session-only, keeps the parent group intact, and does not create a taxonomy split.`
+                    ? activeMarketingReviewUnitTruth && topSummaryCoverageIsLoading
+                      ? 'Unit-scoped decision handoff is loading for this review unit.'
+                      : `${topSummaryRemainingCount?.toLocaleString() || '0'} senders are ready to review inside this ${reviewUnitNoun}. This handoff stays unit-scoped, keeps the parent group intact, and does not create a taxonomy split.`
                     : `${activeOverviewSubset.eligibleCount.toLocaleString()} senders are ready to review inside this subset. This handoff is session-only and does not create a saved cleanup group.`
                   : workflowClusterProgress.remaining == null
                     ? 'Loading the exact cluster-global review count before handing this group into Decision Mode.'
@@ -9214,7 +10565,9 @@ export default function OperationsReviewPage() {
                   </h2>
                   <p className="mt-3 max-w-3xl text-sm text-slate-200">
                     {activeOverviewSubset
-                      ? 'Every visible sender in this selected subset is already managed or complete. You can close this overlay to keep exploring or continue in Management.'
+                      ? isMarketingCleanupGroup && activeOverviewSubset.source === 'review_unit'
+                        ? 'Every sender in this review unit is already managed or complete. You can close this overlay to keep exploring or continue in Management.'
+                        : 'Every visible sender in this selected subset is already managed or complete. You can close this overlay to keep exploring or continue in Management.'
                       : 'Managed senders stay out of the queue until they are explicitly reopened. Continue in Management to push Archive work, inspect pending Custom Rules, or revisit deferred senders.'}
                   </p>
                 </div>

@@ -240,21 +240,22 @@ assert.ok(
 
 const clusters = artifactRead.cluster_summaries.map(normalizeClusterInput)
 const preferredClusterIds = [
+  'semantic.marketing_subscriptions',
   'subscription-senders',
+  'structural.backlog',
   'dormant-backlog-senders',
+  'secondary.account_updates',
+  'structural.protected_trust',
   'social-platform-senders',
 ]
 
 let selectedCluster = null
 let selectedClusterArtifact = null
 let selectedSenderSeedRow = null
+let historicalSelectedCluster = null
+let historicalSelectedSenderSeedRow = null
 
-for (const clusterId of uniqueOrdered([
-  ...preferredClusterIds,
-  ...clusters.map((cluster) => cluster.cluster_id),
-])) {
-  const cluster = clusters.find((entry) => entry.cluster_id === clusterId)
-  if (!cluster) continue
+async function loadPreviewSeedCandidates(cluster) {
   const senderArtifact = await loadPublishedGmailSenderWorkspaceArtifact({
     supabase,
     tenantId: TENANT_ID,
@@ -268,7 +269,10 @@ for (const clusterId of uniqueOrdered([
       row.preview_message_ids.length > 0 &&
       row.cleanup_group_message_count > 0
   )
-  let previewSeedRow = null
+
+  let archiveableSeedRow = null
+  let nonArchiveableSeedRow = null
+
   for (const candidate of candidateSeedRows.slice(0, 25)) {
     const executionArtifact = await loadPublishedGmailSenderWorkspaceExecutionArtifact({
       supabase,
@@ -277,15 +281,59 @@ for (const clusterId of uniqueOrdered([
       selectedClusterId: cluster.cluster_id,
       previewSenderKeys: [candidate.sender_key],
     })
-    if (executionArtifact.preview_index_rows.length === candidate.cleanup_group_message_count) {
-      previewSeedRow = candidate
+    if (executionArtifact.preview_index_rows.length !== candidate.cleanup_group_message_count) {
+      continue
+    }
+
+    const inboxPreviewRowCount = executionArtifact.preview_index_rows.filter(
+      (row) => row.is_in_inbox === true
+    ).length
+
+    if (!archiveableSeedRow && inboxPreviewRowCount > 0) {
+      archiveableSeedRow = candidate
+    }
+    if (!nonArchiveableSeedRow && inboxPreviewRowCount === 0) {
+      nonArchiveableSeedRow = candidate
+    }
+    if (archiveableSeedRow && nonArchiveableSeedRow) {
       break
     }
   }
-  if (senderArtifact.selected_header && previewSeedRow) {
+
+  return {
+    senderArtifact,
+    archiveableSeedRow,
+    nonArchiveableSeedRow,
+  }
+}
+
+for (const clusterId of uniqueOrdered([
+  ...preferredClusterIds,
+  ...clusters.map((cluster) => cluster.cluster_id),
+])) {
+  const cluster = clusters.find((entry) => entry.cluster_id === clusterId)
+  if (!cluster) continue
+  const { senderArtifact, archiveableSeedRow, nonArchiveableSeedRow } =
+    await loadPreviewSeedCandidates(cluster)
+
+  if (!selectedCluster && senderArtifact.selected_header && archiveableSeedRow) {
     selectedCluster = cluster
     selectedClusterArtifact = senderArtifact
-    selectedSenderSeedRow = previewSeedRow
+    selectedSenderSeedRow = archiveableSeedRow
+  }
+
+  if (
+    !historicalSelectedCluster &&
+    (cluster.cluster_id === 'context.historical' ||
+      cluster.cluster_id === 'historical-out-of-inbox-senders') &&
+    senderArtifact.selected_header &&
+    nonArchiveableSeedRow
+  ) {
+    historicalSelectedCluster = cluster
+    historicalSelectedSenderSeedRow = nonArchiveableSeedRow
+  }
+
+  if (selectedCluster && historicalSelectedCluster) {
     break
   }
 }
@@ -310,6 +358,8 @@ const proof = {
   runtime_background_refresh_enabled: flagSnapshot.runtime_background_refresh,
   selected_cluster_id: selectedCluster.cluster_id,
   selected_sender_key: senderKey,
+  historical_selected_cluster_id: historicalSelectedCluster?.cluster_id || null,
+  historical_selected_sender_key: historicalSelectedSenderSeedRow?.sender_key || null,
   scenarios: [],
 }
 
@@ -447,6 +497,50 @@ const confirmationPreviewScenario = await runScenario('confirmation_preview_arti
   }),
 })
 proof.scenarios.push(confirmationPreviewScenario)
+
+if (historicalSelectedCluster && historicalSelectedSenderSeedRow) {
+  const historicalSenderPolicies = { [historicalSelectedSenderSeedRow.sender_key]: 'archive' }
+  proof.scenarios.push(
+    await runScenario('confirmation_preview_historical_noop', {
+      requiredLogs: [
+        '[integrations/gmail/confirmation-preview-artifact]',
+        '"mode":"published_artifact"',
+      ],
+      forbiddenLogs: [
+        ...forbiddenMailboxScanLogs,
+        'loadDerivedWorkspaceState(',
+        'loadMailboxContext(',
+      ],
+      run: async () => {
+        const response = await loadGmailConfirmationPreviewForTenant({
+          supabase,
+          tenantId: TENANT_ID,
+          analysisScope: ANALYSIS_SCOPE,
+          clusters,
+          selectedCluster: historicalSelectedCluster,
+          senderPolicies: historicalSenderPolicies,
+        })
+        assert.equal(response.ok, true)
+        return response.data
+      },
+      assertResult: async (result) => {
+        assert.equal(result.source, 'gmail_index_cache')
+        assert.equal(result.selected_cluster.cluster_id, historicalSelectedCluster.cluster_id)
+        assert.equal(
+          result.exact_archive_impact.message_count,
+          0,
+          'Historical confirmation preview should not archive out-of-inbox-only messages'
+        )
+      },
+      summarizeResult: (result) => ({
+        archive_sender_count: result.exact_archive_impact.sender_count,
+        archive_message_count: result.exact_archive_impact.message_count,
+        protected_exclusions_count: result.protected_exclusions_count,
+        source: result.source,
+      }),
+    })
+  )
+}
 
 proof.scenarios.push(
   await runScenario('archive_scope_resolution_artifact_only', {

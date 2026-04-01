@@ -244,8 +244,13 @@ export type GmailCleanupGroupOperatorValueStatus =
   (typeof GMAIL_CLEANUP_GROUP_OPERATOR_VALUE_STATUSES)[number]
 
 export const GMAIL_CLEANUP_GROUP_REVIEW_UNIT_BASES = [
+  'subtype-first',
+  'family-first',
+  'protection-reason-first',
+  'exclusion-reason-first',
   'selected_axis_dominant_lane',
   'structural_lane',
+  'direct-open',
   'secondary_group',
   'not_promoted',
 ] as const
@@ -264,10 +269,13 @@ export type GmailCleanupGroupReviewUnit = {
     | 'family_remainder'
     | 'pattern_remainder'
     | 'spillover'
+    | 'family_lane'
+    | 'assignment_reason'
+    | 'exclusion_reason'
   source_key: string
   sender_count: number
   share_pct: number
-  unit_role: 'subtype' | 'dominant_remainder' | 'spillover'
+  unit_role: 'subtype' | 'dominant_remainder' | 'spillover' | 'family_lane' | 'reason'
 }
 
 export type GmailSemanticDecompositionMetadata = {
@@ -716,7 +724,7 @@ export type GmailMailboxIntelligenceData = {
       sender_count: number
     }>
     activity_timeline: GmailPressureTimelineBucket[]
-    activity_timeline_granularity: 'week' | 'month'
+    activity_timeline_granularity: 'day' | 'week' | 'month'
     category_breakdown: Array<{
       label: string
       count: number
@@ -743,7 +751,7 @@ export type GmailMailboxIntelligenceData = {
       sender_count: number
     }>
     activity_timeline: GmailPressureTimelineBucket[]
-    activity_timeline_granularity: 'week' | 'month'
+    activity_timeline_granularity: 'day' | 'week' | 'month'
     category_breakdown: Array<{
       label: string
       count: number
@@ -828,6 +836,8 @@ export type GmailSenderWorkspaceSender = {
   sender_key: string
   sender_domain: string | null
   cleanup_group_message_count: number
+  assignment_reason?: GmailCleanupAssignmentReason
+  cleanup_exclusion_reason?: GmailCleanupExclusionReason | null
   total_sender_messages: number | null
   unread_count: number
   last_activity: string | null

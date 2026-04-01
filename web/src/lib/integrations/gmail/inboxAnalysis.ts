@@ -68,6 +68,7 @@ import type {
   GmailSharedGroupSemanticRollup,
   GmailSenderWorkspaceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
+import { buildCleanupGroupFutureCanonicalPublishIdentity } from '@/lib/runtime/gmailCleanupClusterIdentity'
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 const GMAIL_MESSAGES_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages'
@@ -1824,6 +1825,10 @@ export type CleanupGroupArtifactSurfaceCandidate = {
   senderCount: number
   messageCount: number
   semanticRollup: GmailSharedGroupSemanticRollup
+  reviewUnitEvidence: Array<{
+    assignmentReason: GmailCleanupAssignmentReason
+    cleanupExclusionReason: GmailCleanupExclusionReason | null
+  }>
 }
 
 export type CleanupGroupArtifactSurfaceDecision = CleanupGroupArtifactSurfacePlan & {
@@ -1898,17 +1903,48 @@ function cleanupGroupSemanticFamilyLabel(family: string | null): string {
   return CLEANUP_GROUP_SEMANTIC_FAMILY_TITLE_BY_KEY[family] || family.replace(/_/g, ' ')
 }
 
+function cleanupGroupFutureSurfaceIdentity(clusterId: string): {
+  canonicalClusterId: string
+  legacyClusterIds: string[]
+  sourceClusterIds: string[]
+} {
+  const futureIdentity = buildCleanupGroupFutureCanonicalPublishIdentity(clusterId)
+  const normalizedClusterId = clusterId.trim()
+  return {
+    canonicalClusterId: futureIdentity?.canonicalClusterId || normalizedClusterId,
+    legacyClusterIds: futureIdentity?.legacyClusterIds || [],
+    sourceClusterIds: futureIdentity?.sourceClusterIds || [normalizedClusterId],
+  }
+}
+
+function preferredCleanupGroupSourceClusterId(sourceClusterIds: string[], fallback: string): string {
+  return (
+    sourceClusterIds.find((clusterId) => clusterId.trim() && !clusterId.startsWith('semantic-parent:')) ||
+    sourceClusterIds[0] ||
+    fallback
+  )
+}
+
+function cleanupGroupSourceClusterId(clusterId: string): string {
+  const normalizedClusterId = clusterId.trim()
+  return preferredCleanupGroupSourceClusterId(
+    cleanupGroupFutureSurfaceIdentity(clusterId).sourceClusterIds,
+    normalizedClusterId
+  )
+}
+
 function cleanupGroupDefaultSurface(clusterId: string): CleanupGroupArtifactSurfacePlan['surface'] {
-  const structural = CLEANUP_GROUP_STRUCTURAL_SURFACE_META[clusterId]
+  const futureSurfaceIdentity = cleanupGroupFutureSurfaceIdentity(clusterId)
+  const structural = CLEANUP_GROUP_STRUCTURAL_SURFACE_META[cleanupGroupSourceClusterId(clusterId)]
   if (structural) {
     return {
       tier: structural.tier,
       kind: structural.kind,
       visibility: 'visible',
       top_level_rank: structural.topLevelRank,
-      canonical_cluster_id: clusterId,
-      legacy_cluster_ids: [],
-      source_cluster_ids: [clusterId],
+      canonical_cluster_id: futureSurfaceIdentity.canonicalClusterId,
+      legacy_cluster_ids: futureSurfaceIdentity.legacyClusterIds,
+      source_cluster_ids: futureSurfaceIdentity.sourceClusterIds,
     }
   }
 
@@ -1917,9 +1953,9 @@ function cleanupGroupDefaultSurface(clusterId: string): CleanupGroupArtifactSurf
     kind: 'secondary_candidate',
     visibility: 'visible',
     top_level_rank: null,
-    canonical_cluster_id: clusterId,
-    legacy_cluster_ids: [],
-    source_cluster_ids: [clusterId],
+    canonical_cluster_id: futureSurfaceIdentity.canonicalClusterId,
+    legacy_cluster_ids: futureSurfaceIdentity.legacyClusterIds,
+    source_cluster_ids: futureSurfaceIdentity.sourceClusterIds,
   }
 }
 
@@ -1934,7 +1970,108 @@ function buildNonPromotedReviewUnitPlan(
   }
 }
 
+function cleanupGroupAssignmentReasonLabel(reason: GmailCleanupAssignmentReason): string {
+  if (reason === 'protected_signal_override') return 'Protected signal override'
+  if (reason === 'protected_legacy_protected_human_sender') return 'Protected human sender'
+  if (reason === 'protected_legacy_protected_human_dominant') return 'Protected human dominant'
+  if (reason === 'historical_no_inbox_rows') return 'Historical no inbox rows'
+  if (reason === 'behavioral_safe_rows') return 'Behavioral safe rows'
+  if (reason === 'behavioral_broader_rows') return 'Behavioral broader rows'
+  return reason.replace(/^needs_review_/, 'Needs review ').replace(/_/g, ' ')
+}
+
+function cleanupGroupExclusionReasonLabel(reason: GmailCleanupExclusionReason): string {
+  if (reason === 'no_safe_rows') return 'No safe rows'
+  if (reason === 'too_few_safe_rows') return 'Too few safe rows'
+  if (reason === 'safe_ratio_too_low') return 'Safe ratio too low'
+  if (reason === 'score_below_threshold') return 'Score below threshold'
+  if (reason === 'no_cluster_match') return 'No cluster match'
+  if (reason === 'no_inbox_rows') return 'No inbox rows'
+  if (reason === 'protected_human_sender') return 'Protected human sender'
+  if (reason === 'protected_human_dominant') return 'Protected human dominant'
+  return reason.replace(/_/g, ' ')
+}
+
+function buildSubtypeFirstReviewUnitPlan(
+  units: GmailCleanupGroupReviewUnit[],
+  triggerReason: string
+): GmailSharedGroupSemanticRollup['review_unit_plan'] {
+  return {
+    required: units.length > 0,
+    basis: units.length > 0 ? 'subtype-first' : 'not_promoted',
+    trigger_reason: units.length > 0 ? triggerReason : null,
+    units,
+  }
+}
+
+function buildFamilyFirstReviewUnitPlan(
+  rollup: GmailSharedGroupSemanticRollup
+): GmailSharedGroupSemanticRollup['review_unit_plan'] {
+  const units = rollup.family_distribution
+    .filter((entry) => entry.sender_count > 0)
+    .slice(0, 5)
+    .map((entry) => ({
+      unit_id: `family:${entry.family}`,
+      label: cleanupGroupSemanticFamilyLabel(entry.family),
+      source_kind: 'family_lane' as const,
+      source_key: entry.family,
+      sender_count: entry.sender_count,
+      share_pct: entry.share_pct,
+      unit_role: 'family_lane' as const,
+    }))
+
+  return {
+    required: units.length > 0,
+    basis: units.length > 0 ? 'family-first' : 'not_promoted',
+    trigger_reason: units.length > 0 ? 'family_lane_requires_decomposition' : null,
+    units,
+  }
+}
+
+function buildReasonFirstReviewUnitPlan(params: {
+  basis: 'protection-reason-first' | 'exclusion-reason-first'
+  triggerReason: string
+  sourceKind: 'assignment_reason' | 'exclusion_reason'
+  entries: Array<{
+    key: string | null
+    label: string
+  }>
+  totalSenderCount: number
+}): GmailSharedGroupSemanticRollup['review_unit_plan'] {
+  const counts = new Map<string, { label: string; senderCount: number }>()
+  for (const entry of params.entries) {
+    const key = entry.key?.trim() || null
+    if (!key) continue
+    const current = counts.get(key)
+    counts.set(key, {
+      label: entry.label,
+      senderCount: (current?.senderCount || 0) + 1,
+    })
+  }
+
+  const units = Array.from(counts.entries())
+    .map(([key, value]) => ({
+      unit_id: `${params.sourceKind}:${key}`,
+      label: value.label,
+      source_kind: params.sourceKind,
+      source_key: key,
+      sender_count: value.senderCount,
+      share_pct: Math.round((value.senderCount / Math.max(params.totalSenderCount, 1)) * 100),
+      unit_role: 'reason' as const,
+    }))
+    .sort((left, right) => right.sender_count - left.sender_count || left.label.localeCompare(right.label))
+    .slice(0, 5)
+
+  return {
+    required: units.length > 0,
+    basis: units.length > 0 ? params.basis : 'not_promoted',
+    trigger_reason: units.length > 0 ? params.triggerReason : null,
+    units,
+  }
+}
+
 function buildCleanupGroupReviewUnitsForAxis(params: {
+  clusterId: string
   axis: GmailCleanupGroupSemanticAxis
   rollup: GmailSharedGroupSemanticRollup
 }): CleanupGroupAxisReviewPlan {
@@ -2088,12 +2225,15 @@ function buildCleanupGroupReviewUnitsForAxis(params: {
     dominantLabel: familyLabel,
     dominantSharePct: dominantLane?.share_pct || 0,
     clearSharePct: params.rollup.trust.summary.family_clear_share_pct,
-    reviewUnitPlan: {
-      required: units.length > 0,
-      basis: units.length > 0 ? 'selected_axis_dominant_lane' : 'not_promoted',
-      trigger_reason: units.length > 0 ? 'dominant_family_requires_decomposition' : null,
-      units,
-    },
+    reviewUnitPlan:
+      cleanupGroupSourceClusterId(params.clusterId) === 'subscription-senders'
+        ? buildSubtypeFirstReviewUnitPlan(units, 'dominant_family_requires_decomposition')
+        : {
+            required: units.length > 0,
+            basis: units.length > 0 ? 'selected_axis_dominant_lane' : 'not_promoted',
+            trigger_reason: units.length > 0 ? 'dominant_family_requires_decomposition' : null,
+            units,
+          },
     actionableReviewUnitCount: units.filter(
       (unit) => unit.sender_count >= CLEANUP_GROUP_REVIEW_UNIT_MIN_SENDERS
     ).length,
@@ -2105,13 +2245,19 @@ function buildCleanupGroupReviewUnitsForAxis(params: {
 }
 
 function chooseCleanupGroupSemanticAxis(
+  clusterId: string,
   rollup: GmailSharedGroupSemanticRollup
 ): CleanupGroupAxisReviewPlan {
   const familyPlan = buildCleanupGroupReviewUnitsForAxis({
+    clusterId,
     axis: 'family',
     rollup,
   })
+  if (cleanupGroupSourceClusterId(clusterId) === 'subscription-senders') {
+    return familyPlan
+  }
   const patternPlan = buildCleanupGroupReviewUnitsForAxis({
+    clusterId,
     axis: 'pattern',
     rollup,
   })
@@ -2131,7 +2277,9 @@ function cleanupGroupPromotionStatus(params: {
   selected: boolean
   promotable: boolean
 }): GmailCleanupGroupPromotionStatus {
-  if (CLEANUP_GROUP_STRUCTURAL_IDS.has(params.clusterId)) return 'structural_lane'
+  if (CLEANUP_GROUP_STRUCTURAL_IDS.has(cleanupGroupSourceClusterId(params.clusterId))) {
+    return 'structural_lane'
+  }
   if (!params.promotable && params.senderCount < CLEANUP_GROUP_PROMOTION_MIN_SENDERS) {
     return 'demoted_small'
   }
@@ -2151,17 +2299,10 @@ function cleanupGroupOperatorValueStatus(params: {
   clusterId: string
   promotable: boolean
 }): GmailCleanupGroupOperatorValueStatus {
-  if (CLEANUP_GROUP_STRUCTURAL_IDS.has(params.clusterId)) return 'not_applicable'
+  if (CLEANUP_GROUP_STRUCTURAL_IDS.has(cleanupGroupSourceClusterId(params.clusterId))) {
+    return 'not_applicable'
+  }
   return params.promotable ? 'strong' : 'low'
-}
-
-function buildPromotedCleanupGroupId(params: {
-  clusterId: string
-  axis: GmailCleanupGroupSemanticAxis
-  dominantKey: string | null
-}): string {
-  const dominantKey = (params.dominantKey || 'mixed').trim() || 'mixed'
-  return `semantic-parent:${params.clusterId}:${params.axis}:${dominantKey}`
 }
 
 function buildPromotedCleanupGroupTitle(params: {
@@ -2218,7 +2359,9 @@ function cleanupGroupPromotable(params: {
   axisPlan: CleanupGroupAxisReviewPlan
   rollup: GmailSharedGroupSemanticRollup
 }): boolean {
-  if (CLEANUP_GROUP_STRUCTURAL_IDS.has(params.clusterId)) return false
+  if (CLEANUP_GROUP_STRUCTURAL_IDS.has(cleanupGroupSourceClusterId(params.clusterId))) {
+    return false
+  }
   if (params.rollup.group_policy_mode !== 'semantic_first') return false
   return (
     params.senderCount >= CLEANUP_GROUP_PROMOTION_MIN_SENDERS &&
@@ -2256,7 +2399,7 @@ export function planCleanupGroupArtifactSurfaces(
   >()
 
   for (const candidate of candidates) {
-    const axisPlan = chooseCleanupGroupSemanticAxis(candidate.semanticRollup)
+    const axisPlan = chooseCleanupGroupSemanticAxis(candidate.clusterId, candidate.semanticRollup)
     const promotable = cleanupGroupPromotable({
       clusterId: candidate.clusterId,
       senderCount: candidate.senderCount,
@@ -2295,13 +2438,8 @@ export function planCleanupGroupArtifactSurfaces(
         selected,
       })
       const promoted = status === 'promoted'
-      const projectedClusterId = promoted
-        ? buildPromotedCleanupGroupId({
-            clusterId: entry.candidate.clusterId,
-            axis: entry.axisPlan.axis,
-            dominantKey: entry.axisPlan.dominantKey,
-          })
-        : entry.candidate.clusterId
+      const futureSurfaceIdentity = cleanupGroupFutureSurfaceIdentity(entry.candidate.clusterId)
+      const projectedClusterId = futureSurfaceIdentity.canonicalClusterId
       const projectedTitle = promoted
         ? buildPromotedCleanupGroupTitle({
             clusterId: entry.candidate.clusterId,
@@ -2315,20 +2453,46 @@ export function planCleanupGroupArtifactSurfaces(
             kind: 'semantic_parent',
             visibility: 'visible',
             top_level_rank: 0,
-            canonical_cluster_id: projectedClusterId,
-            legacy_cluster_ids: [entry.candidate.clusterId],
-            source_cluster_ids: [entry.candidate.clusterId],
+            canonical_cluster_id: futureSurfaceIdentity.canonicalClusterId,
+            legacy_cluster_ids: futureSurfaceIdentity.legacyClusterIds,
+            source_cluster_ids: futureSurfaceIdentity.sourceClusterIds,
           }
         : defaultSurface
       const reviewUnitPlan = promoted
         ? entry.axisPlan.reviewUnitPlan
-        : buildNonPromotedReviewUnitPlan(
-            CLEANUP_GROUP_STRUCTURAL_IDS.has(entry.candidate.clusterId)
-              ? 'structural_lane'
-              : entry.candidate.semanticRollup.group_policy_mode === 'semantic_first'
-                ? 'secondary_group'
-                : 'not_promoted'
-          )
+        : cleanupGroupSourceClusterId(entry.candidate.clusterId) === 'historical-out-of-inbox-senders'
+          ? buildNonPromotedReviewUnitPlan('direct-open')
+          : cleanupGroupSourceClusterId(entry.candidate.clusterId) === 'dormant-backlog-senders'
+            ? buildFamilyFirstReviewUnitPlan(entry.candidate.semanticRollup)
+            : cleanupGroupSourceClusterId(entry.candidate.clusterId) === 'protected-trusted-senders'
+              ? buildReasonFirstReviewUnitPlan({
+                  basis: 'protection-reason-first',
+                  triggerReason: 'protection_reason_requires_decomposition',
+                  sourceKind: 'assignment_reason',
+                  totalSenderCount: entry.candidate.senderCount,
+                  entries: entry.candidate.reviewUnitEvidence.map((evidence) => ({
+                    key: evidence.assignmentReason,
+                    label: cleanupGroupAssignmentReasonLabel(evidence.assignmentReason),
+                  })),
+                })
+              : cleanupGroupSourceClusterId(entry.candidate.clusterId) === 'needs-review-senders'
+                ? buildReasonFirstReviewUnitPlan({
+                    basis: 'exclusion-reason-first',
+                    triggerReason: 'exclusion_reason_requires_decomposition',
+                    sourceKind: 'exclusion_reason',
+                    totalSenderCount: entry.candidate.senderCount,
+                    entries: entry.candidate.reviewUnitEvidence.map((evidence) => ({
+                      key: evidence.cleanupExclusionReason,
+                      label: evidence.cleanupExclusionReason
+                        ? cleanupGroupExclusionReasonLabel(evidence.cleanupExclusionReason)
+                        : 'Excluded',
+                    })),
+                  })
+                : buildNonPromotedReviewUnitPlan(
+                    entry.candidate.semanticRollup.group_policy_mode === 'semantic_first'
+                      ? 'secondary_group'
+                      : 'not_promoted'
+                  )
       const promotion: GmailSharedGroupSemanticRollup['promotion'] = {
         status,
         selected_axis: promoted ? entry.axisPlan.axis : null,
@@ -4305,9 +4469,16 @@ function buildMailboxIntelligenceSnapshot(params: {
         messageCount: rows.length,
         semanticAnalytics,
       })
+      const futureSurfaceIdentity = cleanupGroupFutureSurfaceIdentity(cluster.cluster_id)
 
       return {
         cluster_id: cluster.cluster_id,
+        canonical_cluster_id:
+          cluster.canonical_cluster_id || futureSurfaceIdentity.canonicalClusterId,
+        legacy_cluster_ids:
+          cluster.legacy_cluster_ids || futureSurfaceIdentity.legacyClusterIds,
+        source_cluster_ids:
+          cluster.source_cluster_ids || futureSurfaceIdentity.sourceClusterIds,
         cluster_type: cluster.cluster_type,
         title: cluster.title,
         query: cluster.query,
@@ -4325,6 +4496,16 @@ function buildMailboxIntelligenceSnapshot(params: {
         ),
         protected_message_count: rows.filter((row) => mailboxIntelligenceProtectionLabel(row)).length,
         uncertain_sender_count: semanticArtifactFields.uncertain_sender_count,
+        surface_tier: semanticArtifactFields.cleanup_group_surface_tier,
+        surface_kind: semanticArtifactFields.cleanup_group_surface_kind,
+        surface_visibility: semanticArtifactFields.cleanup_group_surface_visibility,
+        top_level_rank: semanticArtifactFields.cleanup_group_top_level_rank,
+        promotion_status: semanticArtifactFields.cleanup_group_promotion_status,
+        selected_semantic_axis: semanticArtifactFields.cleanup_group_selected_semantic_axis,
+        operator_value_status: semanticArtifactFields.cleanup_group_operator_value_status,
+        review_units_required: semanticArtifactFields.cleanup_group_review_units_required,
+        review_unit_basis: semanticArtifactFields.cleanup_group_review_unit_basis,
+        review_unit_count: semanticArtifactFields.cleanup_group_review_unit_count,
         semantic_rollup_schema_version: semanticArtifactFields.semantic_rollup_schema_version,
         semantic_rollup_hash: semanticArtifactFields.semantic_rollup_hash,
         semantic_rollup: semanticArtifactFields.semantic_rollup,
@@ -4770,6 +4951,7 @@ async function buildSenderOverviewSnapshotForCluster(params: {
     messageCount: selectedClusterRows.length,
     semanticAnalytics,
   })
+  const futureSurfaceIdentity = cleanupGroupFutureSurfaceIdentity(params.cluster.cluster_id)
 
   return {
     analysis_scope: params.analysisScope,
@@ -4782,6 +4964,10 @@ async function buildSenderOverviewSnapshotForCluster(params: {
     }),
     selected_cluster: {
       cluster_id: params.cluster.cluster_id,
+      canonical_cluster_id:
+        params.cluster.canonical_cluster_id || futureSurfaceIdentity.canonicalClusterId,
+      legacy_cluster_ids:
+        params.cluster.legacy_cluster_ids || futureSurfaceIdentity.legacyClusterIds,
       cluster_type: params.cluster.cluster_type,
       title: params.cluster.title,
       query: params.cluster.query,

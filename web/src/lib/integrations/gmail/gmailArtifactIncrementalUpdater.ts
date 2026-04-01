@@ -94,6 +94,9 @@ export type GmailArtifactIncrementalRefreshResult = {
   scopes: ScopeRefreshResult[]
 }
 
+const LEGACY_SECONDARY_SYSTEM_NOTIFICATIONS_ID = 'secondary.system_notifications'
+const RETIRED_RETAIL_CLEANUP_GROUP_ID = 'retail-commerce-senders'
+
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -111,6 +114,32 @@ function normalizeStringArray(value: unknown): string[] {
 
 function uniqueStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => normalizeText(value)).filter(Boolean)))
+}
+
+function summaryPayloadCanonicalClusterId(row: GmailClusterSummaryArtifactRow): string {
+  const payload =
+    row.summary_payload && typeof row.summary_payload === 'object'
+      ? (row.summary_payload as Record<string, unknown>)
+      : null
+  return normalizeText(payload?.cleanup_group_canonical_cluster_id) || normalizeText(row.cluster_id)
+}
+
+function publishedArtifactSupportsCanonicalIncrementalRefresh(
+  clusterSummaries: GmailClusterSummaryArtifactRow[]
+): boolean {
+  return (
+    clusterSummaries.length > 0 &&
+    clusterSummaries.every((row) => {
+      const clusterId = normalizeText(row.cluster_id)
+      const canonicalClusterId = summaryPayloadCanonicalClusterId(row)
+      return (
+        clusterId.length > 0 &&
+        clusterId === canonicalClusterId &&
+        canonicalClusterId !== LEGACY_SECONDARY_SYSTEM_NOTIFICATIONS_ID &&
+        clusterId !== RETIRED_RETAIL_CLEANUP_GROUP_ID
+      )
+    })
+  )
 }
 
 function toStreamRow(params: {
@@ -441,6 +470,24 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
       continue
     }
 
+    const publishedClusterSummaries = await loadGmailClusterSummariesForArtifactVersion({
+      supabase: params.supabase,
+      tenantId,
+      analysisScope,
+      artifactVersion: publishedVersion,
+    })
+    if (!publishedArtifactSupportsCanonicalIncrementalRefresh(publishedClusterSummaries)) {
+      scopes.push({
+        analysis_scope: analysisScope,
+        status: 'skipped',
+        artifact_version: publishedVersion,
+        recomputed_sender_count: 0,
+        recomputed_cluster_count: 0,
+        reason: 'full_rebuild_required_for_canonical_cutover',
+      })
+      continue
+    }
+
     const artifactVersion = createGmailArtifactVersion('incremental')
     const jobId = `incremental:${tenantId}:${analysisScope}:${artifactVersion}`
 
@@ -461,7 +508,7 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
       })
 
       const publishedArtifactLoadStartedAt = Date.now()
-      const [headers, seedRows, rollups, clusterSummaries, previewRows, snapshot] =
+      const [headers, seedRows, rollups, previewRows, snapshot] =
         await Promise.all([
           loadGmailSenderWorkspaceSeedHeadersForArtifactVersion({
             supabase: params.supabase,
@@ -481,12 +528,6 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
             analysisScope,
             artifactVersion: publishedVersion,
           }),
-          loadGmailClusterSummariesForArtifactVersion({
-            supabase: params.supabase,
-            tenantId,
-            analysisScope,
-            artifactVersion: publishedVersion,
-          }),
           loadGmailPreviewIndexRowsForArtifactVersion({
             supabase: params.supabase,
             tenantId,
@@ -500,6 +541,7 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
             artifactVersion: publishedVersion,
           }),
         ])
+      const clusterSummaries = publishedClusterSummaries
       const publishedArtifactLoadMs = Math.max(0, Date.now() - publishedArtifactLoadStartedAt)
 
       const baseAggregate = extractWholeMailboxAggregateFromSnapshotPayload({

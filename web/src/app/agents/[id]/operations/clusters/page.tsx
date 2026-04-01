@@ -13,7 +13,7 @@ import {
   type GmailMailboxIntelligenceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
-  buildCleanupGroupDerivedReviewUnits,
+  buildCleanupGroupPublishedReviewUnits,
   buildCleanupGroupInternalStructure,
   buildCleanupGroupIntentSnapshotsForUi,
   buildCleanupGroupSectionSummariesForUi,
@@ -22,16 +22,19 @@ import {
   getCleanupGroupLaneLabel,
   getCleanupGroupSurfaceKind,
   getCleanupGroupSurfaceTier,
+  getCleanupGroupTitle,
   isCleanupGroupSurfacedInUi,
   type CleanupGroupRecommendationReason,
   type CleanupGroupSurfaceKind,
   getCleanupGroupStartWith,
   getCleanupGroupWhyExists,
-  recommendCleanupGroupDerivedReviewUnit,
   recommendCleanupGroupForUi,
 } from '@/lib/runtime/cleanupGroupPresentation'
+import { getRetiredCleanupGroupRedirect } from '@/lib/runtime/gmailCleanupClusterIdentity'
 import { buildGmailSemanticPresentationPolicy } from '@/lib/runtime/gmailSemanticPresentationPolicy'
 import { serializeOperationsQuery } from '@/lib/runtime/operationsWorkspace'
+
+const MARKETING_PARENT_CANONICAL_ID = 'semantic.marketing_subscriptions'
 
 function normalizedCount(value: number | null | undefined): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
@@ -54,19 +57,72 @@ function formatCountLabel(value: number | null | undefined, emptyLabel = '—'):
 }
 
 function cleanupGroupSectionMeaning(sectionId: string): string {
-  if (sectionId === 'action') {
-    return 'Primary workflow lane. This is the default place to begin when artifact truth supports a strong semantic parent.'
+  if (sectionId === 'semantic_parents') {
+    return 'Semantic parents are the default place to begin when the published artifact supports one coherent semantic parent.'
   }
-  if (sectionId === 'backlog') {
-    return 'Backlog lane for deliberate backlog reduction, not the default first move.'
-  }
-  if (sectionId === 'coverage') {
-    return 'Coverage lanes stay visible for caution and completeness, not as the default place to start.'
+  if (sectionId === 'structural_lanes') {
+    return 'Structural lanes stay top-level when workflow, protection, or unresolved coverage framing outranks one semantic family.'
   }
   if (sectionId === 'secondary') {
-    return 'Secondary groups are optional exploration only and do not enter the primary decision flow.'
+    return 'Secondary groups are optional exploration only and do not become equal-weight starting points.'
   }
-  return 'Context stays available for completeness, but it remains collapsed and behaviorally demoted.'
+  return 'Context stays available for completeness, but it remains reduced and behaviorally demoted.'
+}
+
+function buildDerivedReviewUnitHref(params: {
+  agentId: string
+  query: string
+  clusterId: string
+  unitId: string
+}): string {
+  return `/agents/${params.agentId}/operations/review${params.query}${params.query ? '&' : '?'}cluster_id=${encodeURIComponent(
+    params.clusterId
+  )}&subset_source=review_unit&subset_value=${encodeURIComponent(params.unitId)}`
+}
+
+function buildCleanupGroupFocusHref(params: {
+  agentId: string
+  query: string
+  focusClusterId: string
+}): string {
+  const search = new URLSearchParams(params.query)
+  search.set('focus_cluster', params.focusClusterId)
+  const query = search.toString()
+  return `/agents/${params.agentId}/operations/clusters${query ? `?${query}` : ''}#cleanup-group-cards`
+}
+
+function isMarketingCleanupGroup(canonicalClusterId: string | null | undefined): boolean {
+  return canonicalClusterId === MARKETING_PARENT_CANONICAL_ID
+}
+
+function buildRenderableReviewUnits<T extends { senderCount: number; targetState: string }>(
+  reviewUnits: T[]
+): T[] {
+  return reviewUnits.filter((unit) => unit.senderCount > 0 && unit.targetState !== 'oversized')
+}
+
+function cleanupGroupSurfaceRoleLabel(kind: CleanupGroupSurfaceKind): string {
+  if (kind === 'semantic_parent') return 'Semantic parent'
+  if (kind === 'backlog_parent') return 'Structural lane'
+  if (kind === 'structural_parent') return 'Structural lane'
+  if (kind === 'historical_parent') return 'Context'
+  return 'Secondary'
+}
+
+function cleanupGroupSurfaceRoleDetail(kind: CleanupGroupSurfaceKind): string {
+  if (kind === 'semantic_parent') {
+    return 'This parent earns direct top-level status because the current artifact shows one coherent semantic story.'
+  }
+  if (kind === 'backlog_parent') {
+    return 'This structural lane stays top-level because backlog age is the real organizing frame, not one semantic category.'
+  }
+  if (kind === 'structural_parent') {
+    return 'This structural lane stays top-level for protection or unresolved coverage, while internal review units only narrow work inside the lane.'
+  }
+  if (kind === 'historical_parent') {
+    return 'This context group stays visible for completeness, but it is reduced on purpose and not framed like a normal cleanup start.'
+  }
+  return 'This secondary canonical group still exists and can be opened, but it is not surfaced as an equal-weight top-level parent in this pass.'
 }
 
 function cleanupGroupNextStepInstruction(
@@ -81,54 +137,19 @@ function cleanupGroupNextStepInstruction(
   if (reason === 'small_quick_win') {
     return groupTitle
       ? `Next step: start with ${groupTitle}.`
-      : 'Next step: start with the quickest primary action lane in Sender Overview.'
+      : 'Next step: start with the quickest semantic parent in Sender Overview.'
   }
   if (reason === 'high_impact_manageable') {
     return groupTitle
       ? `Next step: open ${groupTitle} next.`
-      : 'Next step: open the biggest manageable primary action lane in Sender Overview.'
+      : 'Next step: open the biggest manageable semantic parent in Sender Overview.'
   }
   if (reason === 'backlog') {
     return groupTitle
       ? `Next step: work ${groupTitle} next.`
-      : 'Next step: work the backlog lane in Sender Overview.'
+      : 'Next step: work the backlog structural lane in Sender Overview.'
   }
   return 'Next step: compare the group sections below, then open Sender Overview.'
-}
-
-function buildDerivedReviewUnitHref(params: {
-  agentId: string
-  query: string
-  clusterId: string
-  unitId: string
-}): string {
-  return `/agents/${params.agentId}/operations/review${params.query}${params.query ? '&' : '?'}cluster_id=${encodeURIComponent(
-    params.clusterId
-  )}&subset_source=review_unit&subset_value=${encodeURIComponent(params.unitId)}`
-}
-
-function cleanupGroupSurfaceRoleLabel(kind: CleanupGroupSurfaceKind): string {
-  if (kind === 'semantic_parent') return 'Semantic parent'
-  if (kind === 'backlog_parent') return 'Backlog parent'
-  if (kind === 'structural_parent') return 'Structural lane'
-  if (kind === 'historical_parent') return 'Historical coverage lane'
-  return 'Secondary artifact group'
-}
-
-function cleanupGroupSurfaceRoleDetail(kind: CleanupGroupSurfaceKind): string {
-  if (kind === 'semantic_parent') {
-    return 'This parent earns direct top-level status because the current artifact shows one coherent semantic story.'
-  }
-  if (kind === 'backlog_parent') {
-    return 'This parent stays top-level because backlog age is the real organizing frame, not one semantic category.'
-  }
-  if (kind === 'structural_parent') {
-    return 'This parent stays top-level for safety or coverage, while internal review units only narrow work inside the lane.'
-  }
-  if (kind === 'historical_parent') {
-    return 'This coverage lane stays visible for completeness, but it is reduced on purpose and not framed like a normal cleanup start.'
-  }
-  return 'This artifact group still exists and can be opened, but it is no longer surfaced as an equal-weight top-level parent in this pass.'
 }
 
 export default function OperationsClustersPage() {
@@ -138,6 +159,7 @@ export default function OperationsClustersPage() {
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const requestedSessionId = searchParams.get('playground_session_id')
   const focusCluster = searchParams.get('focus_cluster')
+  const retiredClusterRedirect = getRetiredCleanupGroupRedirect(searchParams.get('retired_cluster'))
   const [workflowProgress, setWorkflowProgress] = useState<{
     latestClusterId: string | null
     startedGroupCount: number
@@ -230,20 +252,23 @@ export default function OperationsClustersPage() {
     () =>
       (resolvedIntelligence?.cleanup_groups || fallbackGroupCards)
         .map((group) => {
+          const semanticRollup = 'semantic_rollup' in group ? group.semantic_rollup : null
           const semanticPresentation = buildGmailSemanticPresentationPolicy(
-            'semantic_rollup' in group ? group.semantic_rollup : null
+            semanticRollup
           ).cleanupGroupCard
           const internalStructure = buildCleanupGroupInternalStructure(
             group.cluster_id,
-            'semantic_rollup' in group ? group.semantic_rollup : null
+            semanticRollup
           )
-          const reviewUnits = buildCleanupGroupDerivedReviewUnits(internalStructure)
-          const recommendedReviewUnit = recommendCleanupGroupDerivedReviewUnit(reviewUnits)
+          const publishedReviewUnits = buildCleanupGroupPublishedReviewUnits(
+            group.cluster_id,
+            semanticRollup
+          )
           const section = getCleanupGroupSection(group.cluster_id)
 
           return {
             clusterId: group.cluster_id,
-            title: group.title,
+            title: getCleanupGroupTitle(group.cluster_id, group.title),
             canonicalClusterId:
               'canonical_cluster_id' in group ? group.canonical_cluster_id : group.cluster_id,
             legacyClusterIds:
@@ -277,8 +302,7 @@ export default function OperationsClustersPage() {
             semanticSupport: semanticPresentation.support,
             semanticSupplement: semanticPresentation.semanticSupport,
             internalStructure,
-            reviewUnits,
-            recommendedReviewUnit,
+            reviewUnits: publishedReviewUnits,
           }
         })
         .filter((group) => isCleanupGroupSurfacedInUi(group.clusterId)),
@@ -383,6 +407,16 @@ export default function OperationsClustersPage() {
   const groupCoveragePct =
     mainParentCount > 0 ? (parentLanesWithSavedWorkCount / mainParentCount) * 100 : 0
   const recommendedGroup = recommendation.group
+  const recommendedGroupHref = useMemo(() => {
+    if (!recommendedGroup) return null
+    return isMarketingCleanupGroup(recommendedGroup.canonicalClusterId)
+      ? buildCleanupGroupFocusHref({
+          agentId,
+          query,
+          focusClusterId: recommendedGroup.clusterId,
+        })
+      : `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(recommendedGroup.clusterId)}`
+  }, [agentId, query, recommendedGroup])
   const nextStepInstruction = useMemo(
     () => cleanupGroupNextStepInstruction(recommendation.reason, recommendedGroup?.title || null),
     [recommendation.reason, recommendedGroup?.title]
@@ -464,11 +498,11 @@ export default function OperationsClustersPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Cleanup Groups</p>
-            <h1 className="text-2xl font-semibold text-white">Choose the parent lane to review next</h1>
+            <h1 className="text-2xl font-semibold text-white">Choose the next cleanup group</h1>
             <p className="max-w-3xl text-sm text-slate-200">
-              Cleanup Groups now renders a lane-first view from the current artifact: Action, Backlog,
-              and Coverage stay open by default, while Secondary and Context remain collapsed for
-              optional exploration only.
+              Cleanup Groups renders the canonical surface from the current artifact. Compare the
+              current parent groups here, then open Sender Overview when you are ready to inspect a
+              specific cleanup group.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -478,13 +512,15 @@ export default function OperationsClustersPage() {
             >
               Back to intelligence
             </Link>
-            {recommendedGroup ? (
-              <Link
-                href={`/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(recommendedGroup.clusterId)}`}
+            {recommendedGroup && recommendedGroupHref ? (
+              <a
+                href={recommendedGroupHref}
                 className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
               >
-                Open sender overview
-              </Link>
+                {isMarketingCleanupGroup(recommendedGroup.canonicalClusterId)
+                  ? 'Focus recommended group'
+                  : 'Open sender overview'}
+              </a>
             ) : (
               <a
                 href="#cleanup-group-cards"
@@ -496,16 +532,22 @@ export default function OperationsClustersPage() {
           </div>
         </div>
 
+        {retiredClusterRedirect ? (
+          <div className="rounded-2xl border border-amber-700/45 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
+            {retiredClusterRedirect.explanation}
+          </div>
+        ) : null}
+
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="app-surface-card-nested rounded-2xl p-4">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Expanded decision lanes
+              Expanded canonical groups
             </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountLabel(mainParentCount)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
-              Action, Backlog, and Coverage stay open as the primary workflow lanes.
+              Semantic parents and Structural lanes stay open as the primary review surface.
             </p>
           </div>
           <div className="app-surface-card-nested rounded-2xl p-4">
@@ -516,20 +558,20 @@ export default function OperationsClustersPage() {
               {formatCountLabel(optionalGroupCount)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
-              {formatCountLabel(secondaryGroupCount)} secondary lane{secondaryGroupCount === 1 ? '' : 's'} and{' '}
-              {formatCountLabel(contextGroupCount)} context lane{contextGroupCount === 1 ? '' : 's'} stay
-              available below without entering the primary decision flow.
+              {formatCountLabel(secondaryGroupCount)} secondary group{secondaryGroupCount === 1 ? '' : 's'} and{' '}
+              {formatCountLabel(contextGroupCount)} context group{contextGroupCount === 1 ? '' : 's'} stay
+              available below without becoming top-level review starts.
             </p>
           </div>
           <div className="app-surface-card-nested rounded-2xl p-4">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Decision lanes with saved work
+              Top-level groups with saved work
             </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountLabel(parentLanesWithSavedWorkCount)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
-              {formatCountLabel(parentLanesStillToReviewCount)} parent lanes still need a first pass.
+              {formatCountLabel(parentLanesStillToReviewCount)} top-level groups still need a first pass.
             </p>
           </div>
           <div className="app-surface-card-nested rounded-2xl p-4">
@@ -547,25 +589,25 @@ export default function OperationsClustersPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl">
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-300">
-                Decision-lane selection goal
+                Canonical review goal
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
-                Give every expanded decision lane a first pass.
+                Give every top-level canonical group a first pass.
               </p>
               <p className="mt-2 text-sm text-slate-200">
-                Coverage here is measured against the open Action, Backlog, and Coverage lanes.
+                Coverage here is measured against the open Semantic parents and Structural lanes.
                 Secondary and Context remain available below, but they stay visually and behaviorally demoted.
               </p>
             </div>
             <div className="app-surface-card-nested rounded-2xl border border-emerald-600/45 px-4 py-3 text-right">
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/80">
-                Decision lanes started
+                Top-level groups started
               </p>
               <p className="mt-2 text-3xl font-semibold text-white">
                 {formatCountLabel(parentLanesWithSavedWorkCount)} / {formatCountLabel(mainParentCount)}
               </p>
               <p className="mt-1 text-xs text-slate-200">
-                {formatCountLabel(parentLanesStillToReviewCount)} parent lanes still need a first pass
+                {formatCountLabel(parentLanesStillToReviewCount)} top-level groups still need a first pass
               </p>
             </div>
           </div>
@@ -577,8 +619,8 @@ export default function OperationsClustersPage() {
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-200">
             <span>
-              {formatCountLabel(parentLanesWithSavedWorkCount)} decision lanes started ·{' '}
-              {formatCountLabel(parentLanesStillToReviewCount)} decision lanes still need a first pass
+              {formatCountLabel(parentLanesWithSavedWorkCount)} top-level groups started ·{' '}
+              {formatCountLabel(parentLanesStillToReviewCount)} top-level groups still need a first pass
             </span>
             <span className="text-slate-300">
               {nextStepInstruction}
@@ -608,14 +650,20 @@ export default function OperationsClustersPage() {
         <div>
           <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">Choose by intent</p>
           <p className="mt-1 text-sm text-slate-200">
-            Use a shortcut if you do not want to scan every expanded decision lane first.
+            Use a shortcut if you do not want to scan every expanded canonical group first.
           </p>
         </div>
         <div className="grid gap-2 xl:grid-cols-3">
           {intentSnapshots.map((snapshot) => {
             const snapshotGroup = snapshot.group
             const snapshotHref = snapshotGroup
-              ? `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(snapshotGroup.clusterId)}`
+              ? isMarketingCleanupGroup(snapshotGroup.canonicalClusterId)
+                ? buildCleanupGroupFocusHref({
+                    agentId,
+                    query,
+                    focusClusterId: snapshotGroup.clusterId,
+                  })
+                : `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(snapshotGroup.clusterId)}`
               : null
             const snapshotContent = (
               <>
@@ -659,13 +707,13 @@ export default function OperationsClustersPage() {
 
             if (snapshotHref) {
               return (
-                <Link
+                <a
                   key={snapshot.id}
                   href={snapshotHref}
                   className="rounded-xl border border-[var(--app-border-muted)] bg-[var(--app-surface-nested)] p-3 transition-colors hover:border-cyan-700/45 hover:text-white"
                 >
                   {snapshotContent}
-                </Link>
+                </a>
               )
             }
 
@@ -724,9 +772,12 @@ export default function OperationsClustersPage() {
                     const isRecommended = recommendedClusterId === group.clusterId
                     const clusterQuery = `${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(group.clusterId)}`
                     const fullGroupHref = `/agents/${agentId}/operations/review${clusterQuery}`
-                    const alternateReviewUnits = group.reviewUnits.filter(
-                      (unit) => unit.id !== group.recommendedReviewUnit?.id
-                    )
+                    const isMarketingParent = isMarketingCleanupGroup(group.canonicalClusterId)
+                    const renderableReviewUnits = buildRenderableReviewUnits(group.reviewUnits)
+                    const marketingUnitsReady =
+                      isMarketingParent &&
+                      renderableReviewUnits.length > 0 &&
+                      renderableReviewUnits.length === group.reviewUnits.length
                     const cardClassName = isFocused
                       ? 'border-cyan-700/60 bg-[linear-gradient(180deg,rgba(17,53,73,0.18),rgba(17,23,34,0.98))]'
                       : group.surfaceKind === 'semantic_parent'
@@ -738,7 +789,10 @@ export default function OperationsClustersPage() {
                             : 'border-[var(--app-border-muted)] bg-[var(--app-surface-nested)]'
 
                     return (
-                      <article key={group.clusterId} className={`rounded-2xl border p-4 ${cardClassName}`}>
+                      <article
+                        key={group.clusterId}
+                        className={`rounded-2xl border p-4 ${cardClassName}`}
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-base font-semibold text-white">{group.title}</p>
@@ -787,84 +841,44 @@ export default function OperationsClustersPage() {
                             </p>
                             <p className="mt-2 text-sm leading-6 text-gray-300">{group.whyExists}</p>
                           </div>
-                          {group.reviewUnits.length > 0 ? (
+                          {isMarketingParent ? (
                             <div className="app-surface-card-inset rounded-xl p-3">
                               <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                                Review units inside this parent
+                                Choose unit
                               </p>
                               <p className="mt-2 text-sm leading-6 text-gray-200">
-                                {group.internalStructure.summary}
+                                {marketingUnitsReady
+                                  ? 'Start from a bounded published unit. Marketing subscriptions does not open as a broad parent from this root card.'
+                                  : 'Published Marketing units are unavailable right now, so this parent cannot open from the root until valid unit data is restored.'}
                               </p>
-                              <p className="mt-2 text-xs leading-5 text-slate-300">
-                                These derived review units come from current artifact truth. Opening one
-                                keeps this parent cleanup group intact and only narrows the session work
-                                queue.
-                              </p>
-                              {group.recommendedReviewUnit ? (
-                                <div className="mt-3 space-y-3">
-                                  <div className="flex flex-wrap gap-2">
+                              {marketingUnitsReady ? (
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                  {renderableReviewUnits.map((unit) => (
                                     <Link
+                                      key={unit.id}
                                       href={buildDerivedReviewUnitHref({
                                         agentId,
                                         query,
-                                        clusterId: group.clusterId,
-                                        unitId: group.recommendedReviewUnit.id,
+                                        clusterId: group.canonicalClusterId || group.clusterId,
+                                        unitId: unit.id,
                                       })}
-                                      className="rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
+                                      className="rounded-xl border border-cyan-700/45 bg-cyan-950/15 p-3 text-left transition hover:border-cyan-600/70 hover:bg-cyan-950/20"
                                     >
-                                      Review {group.recommendedReviewUnit.label}
+                                      <p className="text-sm font-medium text-cyan-50">{unit.label}</p>
+                                      <p className="mt-1 text-xs text-cyan-100/90">
+                                        {unit.senderCount.toLocaleString()} senders
+                                      </p>
+                                      <p className="mt-1 text-[11px] text-cyan-200/80">
+                                        {unit.groupSharePct}% of parent
+                                      </p>
                                     </Link>
-                                    <Link
-                                      href={fullGroupHref}
-                                      className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
-                                    >
-                                      Open full group
-                                    </Link>
-                                  </div>
-                                  <div className="rounded-xl border border-cyan-900/45 bg-cyan-950/10 px-3 py-3">
-                                    <p className="text-xs font-medium leading-5 text-cyan-100">
-                                      {group.recommendedReviewUnit.guidance}
-                                    </p>
-                                    <p className="mt-2 text-[11px] leading-5 text-cyan-200/90">
-                                      {group.recommendedReviewUnit.honestyLabel} ·{' '}
-                                      {group.recommendedReviewUnit.groupSharePct}% of group ·{' '}
-                                      {group.recommendedReviewUnit.senderCount.toLocaleString()} senders
-                                    </p>
-                                  </div>
+                                  ))}
                                 </div>
-                              ) : null}
-                              {alternateReviewUnits.length > 0 ? (
-                                <div className="mt-3 space-y-2">
-                                  <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                                    Alternate units
-                                  </p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {alternateReviewUnits.map((unit) => (
-                                      <Link
-                                        key={unit.id}
-                                        href={buildDerivedReviewUnitHref({
-                                          agentId,
-                                          query,
-                                          clusterId: group.clusterId,
-                                          unitId: unit.id,
-                                        })}
-                                        className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-gray-100 transition hover:border-cyan-700/45 hover:text-white"
-                                      >
-                                        {unit.label} · {unit.groupSharePct}%
-                                      </Link>
-                                    ))}
-                                  </div>
+                              ) : (
+                                <div className="mt-3 rounded-xl border border-amber-700/35 bg-amber-950/20 px-3 py-3 text-xs leading-5 text-amber-100">
+                                  Review entry is paused because this decomposed parent needs a valid published unit set before any first click can open review.
                                 </div>
-                              ) : null}
-                              {group.internalStructure?.intentionalRemainderNote ? (
-                                <p className="mt-3 text-xs leading-5 text-slate-400">
-                                  {group.internalStructure.intentionalRemainderNote}
-                                </p>
-                              ) : null}
-                              <p className="mt-3 text-xs leading-5 text-slate-400">
-                                This derived-unit scope is session-only and does not create a new
-                                cleanup group.
-                              </p>
+                              )}
                             </div>
                           ) : null}
                           {group.startWith ? (
@@ -910,20 +924,16 @@ export default function OperationsClustersPage() {
                           </details>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Link
-                            href={fullGroupHref}
-                            className="rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
-                          >
-                            Open full group
-                          </Link>
-                          <Link
-                            href={`/agents/${agentId}/operations/intelligence${query}`}
-                            className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
-                          >
-                            Back to intelligence
-                          </Link>
-                        </div>
+                        {!isMarketingParent ? (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Link
+                              href={fullGroupHref}
+                              className="rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
+                            >
+                              Open group
+                            </Link>
+                          </div>
+                        ) : null}
                       </article>
                     )
                   })}
@@ -979,7 +989,7 @@ export default function OperationsClustersPage() {
                           href={fullGroupHref}
                           className="inline-flex items-center justify-center rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-white"
                         >
-                          Open coverage lane
+                          Open context group
                         </Link>
                       </div>
                     </div>
@@ -1033,19 +1043,6 @@ export default function OperationsClustersPage() {
                           >
                             Open group
                           </Link>
-                          {group.reviewUnits.length > 0 && group.recommendedReviewUnit ? (
-                            <Link
-                              href={buildDerivedReviewUnitHref({
-                                agentId,
-                                query,
-                                clusterId: group.clusterId,
-                                unitId: group.recommendedReviewUnit.id,
-                              })}
-                              className="rounded-full border border-cyan-700/45 bg-cyan-950/10 px-3 py-1.5 text-xs text-cyan-100 hover:border-cyan-600/60 hover:text-white"
-                            >
-                              Review {group.recommendedReviewUnit.label}
-                            </Link>
-                          ) : null}
                         </div>
                       </article>
                     )

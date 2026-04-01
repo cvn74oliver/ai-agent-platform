@@ -51,6 +51,12 @@ export type CleanupGroupFutureCanonicalPublishIdentity = {
 
 type CleanupCanonicalGroupRegistryEntry = CleanupCanonicalGroupDescriptor
 
+export type CleanupRetiredGroupRedirect = {
+  clusterId: string
+  redirectTarget: 'cleanup_groups_root'
+  explanation: string
+}
+
 export const GMAIL_CLEANUP_CANONICAL_GROUP_REGISTRY = [
   {
     canonicalClusterId: 'semantic.marketing_subscriptions',
@@ -95,8 +101,11 @@ export const GMAIL_CLEANUP_CANONICAL_GROUP_REGISTRY = [
     primaryEntryEligible: false,
   },
   {
-    canonicalClusterId: 'secondary.system_notifications',
-    aliases: [{ clusterId: 'system-notification-senders', kind: 'legacy' }],
+    canonicalClusterId: 'secondary.account_updates',
+    aliases: [
+      { clusterId: 'system-notification-senders', kind: 'legacy' },
+      { clusterId: 'secondary.system_notifications', kind: 'legacy' },
+    ],
     lane: 'secondary',
     groupType: 'secondary',
     surfacedStatus: 'surfaced',
@@ -121,16 +130,16 @@ export const GMAIL_CLEANUP_CANONICAL_GROUP_REGISTRY = [
     displayPriority: 610,
     primaryEntryEligible: false,
   },
-  {
-    canonicalClusterId: 'secondary.commerce_activity',
-    aliases: [{ clusterId: 'retail-commerce-senders', kind: 'legacy' }],
-    lane: 'secondary',
-    groupType: 'secondary',
-    surfacedStatus: 'hidden_alias_only',
-    displayPriority: 620,
-    primaryEntryEligible: false,
-  },
 ] as const satisfies readonly CleanupCanonicalGroupRegistryEntry[]
+
+const CLEANUP_RETIRED_GROUP_REDIRECTS = [
+  {
+    clusterId: 'retail-commerce-senders',
+    redirectTarget: 'cleanup_groups_root',
+    explanation:
+      'Retail / commerce senders was retired during canonical cleanup-group cutover. Its seven senders were redistributed into surviving groups, so continue from Cleanup Groups root.',
+  },
+] as const satisfies readonly CleanupRetiredGroupRedirect[]
 
 export type CleanupClusterIdentitySource = {
   clusterId: string
@@ -225,9 +234,15 @@ function normalizeCleanupCanonicalGroupDescriptor(
 const cleanupCanonicalRegistryDescriptors = GMAIL_CLEANUP_CANONICAL_GROUP_REGISTRY.map(
   normalizeCleanupCanonicalGroupDescriptor
 )
+const cleanupRetiredGroupRedirects = CLEANUP_RETIRED_GROUP_REDIRECTS.map((entry) => ({
+  clusterId: normalizeClusterId(entry.clusterId),
+  redirectTarget: entry.redirectTarget,
+  explanation: entry.explanation.trim(),
+}))
 
 const cleanupCanonicalDescriptorById = new Map<string, CleanupCanonicalGroupDescriptor>()
 const cleanupCanonicalDescriptorByAliasId = new Map<string, CleanupClusterAliasLookupEntry>()
+const cleanupRetiredGroupRedirectById = new Map<string, CleanupRetiredGroupRedirect>()
 
 for (const descriptor of cleanupCanonicalRegistryDescriptors) {
   if (!descriptor.canonicalClusterId) {
@@ -258,6 +273,23 @@ for (const descriptor of cleanupCanonicalRegistryDescriptors) {
       alias,
     })
   }
+}
+
+for (const redirect of cleanupRetiredGroupRedirects) {
+  if (!redirect.clusterId) {
+    throw new Error('[gmail-cleanup-cluster-identity] Retired cleanup cluster ids must be non-empty.')
+  }
+  if (cleanupCanonicalDescriptorById.has(redirect.clusterId)) {
+    throw new Error(
+      `[gmail-cleanup-cluster-identity] Retired cleanup cluster id duplicates canonical id: ${redirect.clusterId}`
+    )
+  }
+  if (cleanupCanonicalDescriptorByAliasId.has(redirect.clusterId)) {
+    throw new Error(
+      `[gmail-cleanup-cluster-identity] Retired cleanup cluster id duplicates alias id: ${redirect.clusterId}`
+    )
+  }
+  cleanupRetiredGroupRedirectById.set(redirect.clusterId, redirect)
 }
 
 function resolveCleanupCanonicalDescriptorForId(
@@ -387,6 +419,18 @@ export function getCleanupCanonicalGroupDescriptor(
 
 export function listCleanupCanonicalGroupDescriptors(): CleanupCanonicalGroupDescriptor[] {
   return cleanupCanonicalRegistryDescriptors.slice()
+}
+
+export function getRetiredCleanupGroupRedirect(
+  clusterId: string | null | undefined
+): CleanupRetiredGroupRedirect | null {
+  return cleanupRetiredGroupRedirectById.get(normalizeClusterId(clusterId)) || null
+}
+
+export function isRetiredCleanupGroupClusterId(
+  clusterId: string | null | undefined
+): boolean {
+  return getRetiredCleanupGroupRedirect(clusterId) != null
 }
 
 export function buildCleanupGroupFutureCanonicalPublishIdentity(

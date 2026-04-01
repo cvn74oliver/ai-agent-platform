@@ -68,6 +68,10 @@ import {
   gmailPressureTrendExpectedGroupingForWindow,
 } from '@/lib/integrations/gmail/gmailPressureTrendArtifacts'
 import {
+  GMAIL_CLEANUP_ASSIGNMENT_REASONS,
+  GMAIL_CLEANUP_EXCLUSION_REASONS,
+} from '@/lib/runtime/gmailCleanupWorkspace'
+import {
   DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
   GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
   MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
@@ -403,12 +407,62 @@ function clusterLookupIds(cluster: ClusterInput): string[] {
   ])
 }
 
-function artifactClusterLookupId(cluster: ClusterInput): string {
-  const aliasIds = uniqueClusterInputIds([
+function artifactClusterLookupIds(cluster: ClusterInput): string[] {
+  return uniqueClusterInputIds([
+    cluster.cluster_id,
+    cluster.canonical_cluster_id,
     ...(cluster.source_cluster_ids || []),
     ...(cluster.legacy_cluster_ids || []),
   ])
-  return aliasIds[0] || cluster.cluster_id || cluster.canonical_cluster_id || ''
+}
+
+function artifactClusterLookupId(cluster: ClusterInput): string {
+  return artifactClusterLookupIds(cluster)[0] || ''
+}
+
+async function loadArtifactReadWithClusterFallback<
+  TResult extends {
+    publication?: GmailArtifactPublicationRow | null
+    selected_header?: GmailSenderWorkspaceSeedHeaderRow | null
+  },
+>(params: {
+  selectedCluster: ClusterInput
+  load: (selectedClusterId: string) => Promise<TResult>
+}): Promise<{
+  artifactRead: TResult
+  artifactSelectedClusterId: string
+}> {
+  const lookupIds = artifactClusterLookupIds(params.selectedCluster)
+  let fallback:
+    | {
+        artifactRead: TResult
+        artifactSelectedClusterId: string
+      }
+    | null = null
+
+  for (const clusterId of lookupIds) {
+    const artifactRead = await params.load(clusterId)
+    if (!fallback) {
+      fallback = {
+        artifactRead,
+        artifactSelectedClusterId: clusterId,
+      }
+    }
+    if (!artifactRead.publication?.published_version || artifactRead.selected_header) {
+      return {
+        artifactRead,
+        artifactSelectedClusterId: clusterId,
+      }
+    }
+  }
+
+  if (fallback) return fallback
+
+  const artifactRead = await params.load('')
+  return {
+    artifactRead,
+    artifactSelectedClusterId: '',
+  }
 }
 
 function findClusterByLookupIds(clusters: ClusterInput[], lookupIds: string[]): ClusterInput | null {
@@ -1331,6 +1385,11 @@ async function buildSenderWorkspaceBaseStateFromSelectedClusterRows(params: {
 
     const senderRows = rowsBySenderKey.get(entry.sender_key) || []
     const senderRow = senderRows[0]
+    const senderDecision = assignSenderCleanupGroupDecision({
+      sender: entry.sender,
+      rows: senderRows,
+      nowMs: Date.now(),
+    })
 
     return {
       sender: entry.sender,
@@ -1338,6 +1397,8 @@ async function buildSenderWorkspaceBaseStateFromSelectedClusterRows(params: {
       sender_domain:
         (senderRow ? rowSenderDomain(senderRow) : null) || senderDomainFromString(entry.sender),
       cleanup_group_message_count: entry.cleanup_group_message_count,
+      assignment_reason: senderDecision.assignmentReason,
+      cleanup_exclusion_reason: senderDecision.exclusionReason,
       total_sender_messages: signal?.message_count_indexed ?? null,
       unread_count: entry.batch_unread_count,
       last_activity: signal?.last_seen || entry.batch_last_seen,
@@ -2614,8 +2675,13 @@ function artifactCleanupGroupOperatorValueStatus(
 function artifactCleanupGroupReviewUnitBasis(
   value: unknown
 ): GmailSenderWorkspaceData['analytics']['cleanup_group_review_unit_basis'] {
-  return value === 'selected_axis_dominant_lane' ||
+  return value === 'subtype-first' ||
+    value === 'family-first' ||
+    value === 'protection-reason-first' ||
+    value === 'exclusion-reason-first' ||
+    value === 'selected_axis_dominant_lane' ||
     value === 'structural_lane' ||
+    value === 'direct-open' ||
     value === 'secondary_group' ||
     value === 'not_promoted'
     ? value
@@ -2643,14 +2709,19 @@ function parseArtifactCleanupGroupReviewUnits(
         record.source_kind === 'pattern_subtype' ||
         record.source_kind === 'family_remainder' ||
         record.source_kind === 'pattern_remainder' ||
-        record.source_kind === 'spillover'
+        record.source_kind === 'spillover' ||
+        record.source_kind === 'family_lane' ||
+        record.source_kind === 'assignment_reason' ||
+        record.source_kind === 'exclusion_reason'
           ? record.source_kind
           : null
       const sourceKey = artifactText(record.source_key)
       const unitRole =
         record.unit_role === 'subtype' ||
         record.unit_role === 'dominant_remainder' ||
-        record.unit_role === 'spillover'
+        record.unit_role === 'spillover' ||
+        record.unit_role === 'family_lane' ||
+        record.unit_role === 'reason'
           ? record.unit_role
           : null
       if (!unitId || !label || !sourceKind || !sourceKey || !unitRole) return null
@@ -3510,6 +3581,8 @@ function materializeArtifactSenderWorkspaceSender(params: {
     statsRow?.dominant_pattern ||
     artifactNullableText(seedPayload.dominant_pattern) ||
     GMAIL_PATTERN_LABEL_THIN_HISTORY
+  const assignmentReason = artifactNullableText(seedPayload.assignment_reason)
+  const cleanupExclusionReason = artifactNullableText(seedPayload.cleanup_exclusion_reason)
   const patternMix =
     statsRow?.pattern_mix?.length && Array.isArray(statsRow.pattern_mix)
       ? normalizePatternMix(statsRow.pattern_mix)
@@ -3520,6 +3593,16 @@ function materializeArtifactSenderWorkspaceSender(params: {
     sender_key: params.row.sender_key,
     sender_domain: params.row.sender_domain,
     cleanup_group_message_count: params.row.cleanup_group_message_count,
+    assignment_reason: GMAIL_CLEANUP_ASSIGNMENT_REASONS.includes(
+      assignmentReason as (typeof GMAIL_CLEANUP_ASSIGNMENT_REASONS)[number]
+    )
+      ? (assignmentReason as (typeof GMAIL_CLEANUP_ASSIGNMENT_REASONS)[number])
+      : 'behavioral_safe_rows',
+    cleanup_exclusion_reason: GMAIL_CLEANUP_EXCLUSION_REASONS.includes(
+      cleanupExclusionReason as (typeof GMAIL_CLEANUP_EXCLUSION_REASONS)[number]
+    )
+      ? (cleanupExclusionReason as (typeof GMAIL_CLEANUP_EXCLUSION_REASONS)[number])
+      : null,
     total_sender_messages:
       statsRow?.message_count ??
       (typeof seedPayload.total_sender_messages === 'number' &&
@@ -3599,7 +3682,7 @@ async function loadArtifactCleanupGroupSemanticRollups(params: {
   >
 > {
   const clusterIds = uniqueClusterInputIds(
-    params.clusters.flatMap((cluster) => [artifactClusterLookupId(cluster), ...clusterLookupIds(cluster)])
+    params.clusters.flatMap((cluster) => artifactClusterLookupIds(cluster))
   )
   if (clusterIds.length === 0) return new Map()
 
@@ -3785,7 +3868,6 @@ async function loadSenderWorkspaceFromArtifact(params: {
 }): Promise<{ ok: true; data: GmailSenderWorkspaceData }> {
   const workspaceLoadStartedAt = Date.now()
   const outwardSelectedClusterId = params.selectedCluster.cluster_id
-  const artifactSelectedClusterId = artifactClusterLookupId(params.selectedCluster)
   try {
     const semanticFocus = normalizeSenderWorkspaceSemanticFocus(params.semanticFocus)
     const defaultBoundedArtifactPageRead =
@@ -3803,45 +3885,74 @@ async function loadSenderWorkspaceFromArtifact(params: {
 
     const artifactReadStartedAt = Date.now()
     let focusedSemanticArtifactPageRead = false
-    const artifactRead = defaultBoundedArtifactPageRead
-      ? await loadPublishedGmailSenderWorkspaceArtifactPage({
-          supabase: params.supabase,
-          tenantId: params.tenantId,
-          analysisScope: normalizeMailboxProfileScope(params.analysisScope),
-          selectedClusterId: artifactSelectedClusterId,
-          page: params.page,
-          pageSize: params.pageSize,
-        })
-      : focusedSemanticArtifactPageRequested
-        ? await (async () => {
-            const focusedRead = await loadPublishedGmailSenderWorkspaceArtifactFocusedPage({
-              supabase: params.supabase,
-              tenantId: params.tenantId,
-              analysisScope: normalizeMailboxProfileScope(params.analysisScope),
-              selectedClusterId: artifactSelectedClusterId,
-              page: params.page,
-              pageSize: params.pageSize,
-              semanticFocus,
-              sort: params.sort,
-              direction: params.direction,
-            })
-            if (focusedRead.focused_capability_available) {
-              focusedSemanticArtifactPageRead = true
-              return focusedRead
-            }
-            return loadPublishedGmailSenderWorkspaceArtifact({
-              supabase: params.supabase,
-              tenantId: params.tenantId,
-              analysisScope: normalizeMailboxProfileScope(params.analysisScope),
-              selectedClusterId: artifactSelectedClusterId,
-            })
-          })()
-        : await loadPublishedGmailSenderWorkspaceArtifact({
+    let artifactRead:
+      | Awaited<ReturnType<typeof loadPublishedGmailSenderWorkspaceArtifactPage>>
+      | Awaited<ReturnType<typeof loadPublishedGmailSenderWorkspaceArtifactFocusedPage>>
+      | Awaited<ReturnType<typeof loadPublishedGmailSenderWorkspaceArtifact>>
+      | null = null
+    let artifactSelectedClusterId = ''
+    for (const candidateClusterId of artifactClusterLookupIds(params.selectedCluster)) {
+      let candidateFocusedSemanticArtifactPageRead = false
+      const candidateArtifactRead = defaultBoundedArtifactPageRead
+        ? await loadPublishedGmailSenderWorkspaceArtifactPage({
             supabase: params.supabase,
             tenantId: params.tenantId,
             analysisScope: normalizeMailboxProfileScope(params.analysisScope),
-            selectedClusterId: artifactSelectedClusterId,
+            selectedClusterId: candidateClusterId,
+            page: params.page,
+            pageSize: params.pageSize,
           })
+        : focusedSemanticArtifactPageRequested
+          ? await (async () => {
+              const focusedRead = await loadPublishedGmailSenderWorkspaceArtifactFocusedPage({
+                supabase: params.supabase,
+                tenantId: params.tenantId,
+                analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+                selectedClusterId: candidateClusterId,
+                page: params.page,
+                pageSize: params.pageSize,
+                semanticFocus,
+                sort: params.sort,
+                direction: params.direction,
+              })
+              if (focusedRead.focused_capability_available) {
+                candidateFocusedSemanticArtifactPageRead = true
+                return focusedRead
+              }
+              return loadPublishedGmailSenderWorkspaceArtifact({
+                supabase: params.supabase,
+                tenantId: params.tenantId,
+                analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+                selectedClusterId: candidateClusterId,
+              })
+            })()
+          : await loadPublishedGmailSenderWorkspaceArtifact({
+              supabase: params.supabase,
+              tenantId: params.tenantId,
+              analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+              selectedClusterId: candidateClusterId,
+            })
+      if (!artifactRead) {
+        artifactRead = candidateArtifactRead
+        artifactSelectedClusterId = candidateClusterId
+        focusedSemanticArtifactPageRead = candidateFocusedSemanticArtifactPageRead
+      }
+      if (!candidateArtifactRead.publication?.published_version || candidateArtifactRead.selected_header) {
+        artifactRead = candidateArtifactRead
+        artifactSelectedClusterId = candidateClusterId
+        focusedSemanticArtifactPageRead = candidateFocusedSemanticArtifactPageRead
+        break
+      }
+    }
+    if (!artifactRead) {
+      artifactRead = await loadPublishedGmailSenderWorkspaceArtifact({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+        selectedClusterId: artifactClusterLookupId(params.selectedCluster),
+      })
+      artifactSelectedClusterId = artifactClusterLookupId(params.selectedCluster)
+    }
     const artifactReadMs = Math.max(0, Date.now() - artifactReadStartedAt)
 
     if (!artifactRead.publication?.published_version || !artifactRead.selected_header) {
@@ -6357,12 +6468,15 @@ export async function loadGmailSenderDistributionForTenant(params: {
   }
 
   const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
-  const artifactSelectedClusterId = artifactClusterLookupId(selectedCluster)
-  const artifactRead = await loadPublishedGmailSenderWorkspaceExecutionArtifact({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
-    analysisScope,
-    selectedClusterId: artifactSelectedClusterId,
+  const { artifactRead, artifactSelectedClusterId } = await loadArtifactReadWithClusterFallback({
+    selectedCluster,
+    load: (selectedClusterId) =>
+      loadPublishedGmailSenderWorkspaceExecutionArtifact({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope,
+        selectedClusterId,
+      }),
   })
 
   if (!artifactRead.publication?.published_version || !artifactRead.selected_header) {
@@ -6485,18 +6599,22 @@ async function loadConfirmationResolutionFromArtifact(params: {
   logPrefix: string
 }): Promise<ConfirmationResolution> {
   try {
-    const artifactSelectedClusterId = artifactClusterLookupId(params.selectedCluster)
+    const { artifactRead, artifactSelectedClusterId } =
+      await loadArtifactReadWithClusterFallback({
+        selectedCluster: params.selectedCluster,
+        load: (selectedClusterId) =>
+          loadPublishedGmailSenderWorkspaceExecutionArtifact({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+            selectedClusterId,
+            previewSenderKeys: [],
+            previewMessageIds: [],
+          }),
+      })
     const overrideMessageIds = Object.keys(params.messageOverrides)
       .map((messageId) => artifactText(messageId))
       .filter(Boolean)
-    const artifactRead = await loadPublishedGmailSenderWorkspaceExecutionArtifact({
-      supabase: params.supabase,
-      tenantId: params.tenantId,
-      analysisScope: normalizeMailboxProfileScope(params.analysisScope),
-      selectedClusterId: artifactSelectedClusterId,
-      previewSenderKeys: [],
-      previewMessageIds: [],
-    })
 
     if (!artifactRead.publication?.published_version || !artifactRead.selected_header) {
       return buildSafePartialConfirmationResolutionFromArtifact({

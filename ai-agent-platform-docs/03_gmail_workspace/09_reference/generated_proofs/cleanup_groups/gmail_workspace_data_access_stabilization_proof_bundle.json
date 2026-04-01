@@ -1,0 +1,197 @@
+{
+  "ok": true,
+  "generated_at": "2026-03-22T13:23:18.907Z",
+  "tenant_id": "085c8ef7-2fd7-4842-8499-cd605e894a77",
+  "analysis_scope": "all_indexed",
+  "agent_id": "d256b48e-5acf-4b3d-af22-003d52e7e582",
+  "artifact_version": "shadow-rollout-preview-exec-20260322123030100",
+  "runtime_background_refresh_enabled": false,
+  "selected_cluster_id": "subscription-senders",
+  "selected_sender_key": "consumer@e.mail.realtor.com",
+  "scenarios": [
+    {
+      "name": "sender_overview_cold_open",
+      "ok": true,
+      "duration_ms": 9637,
+      "required_logs": [
+        "[integrations/gmail/sender-workspace-artifact]",
+        "\"mode\":\"published_artifact\""
+      ],
+      "forbidden_logs": [
+        "loadIndexedGmailMessagesForTenant(limit=100000)",
+        "[integrations/gmail/mailbox-indexer/indexed-rows]"
+      ],
+      "observed_logs": [
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"subscription-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":708,\"preview_row_count\":3449,\"stats_count\":708,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}"
+      ],
+      "summary": {
+        "sender_count": 708,
+        "loaded_sender_rows": 12,
+        "source": "gmail_index_cache"
+      }
+    },
+    {
+      "name": "mailbox_intelligence_cold_open",
+      "ok": true,
+      "duration_ms": 2013,
+      "required_logs": [
+        "[integrations/gmail/mailbox-intelligence-artifact]",
+        "\"mode\":\"published_artifact\""
+      ],
+      "forbidden_logs": [
+        "loadIndexedGmailMessagesForTenant(limit=100000)",
+        "[integrations/gmail/mailbox-indexer/indexed-rows]"
+      ],
+      "observed_logs": [
+        "[integrations/gmail/mailbox-intelligence-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"cluster_summary_count\":5,\"bucket_count\":14,\"has_snapshot\":true}"
+      ],
+      "summary": {
+        "cleanup_group_count": 5,
+        "whole_mailbox_messages": 234159,
+        "source": "gmail_index_cache"
+      }
+    },
+    {
+      "name": "cleanup_groups_cold_open",
+      "ok": true,
+      "duration_ms": 933,
+      "required_logs": [
+        "[integrations/gmail/cleanup-group-intelligence]",
+        "\"artifact_mode\":\"published_artifact\""
+      ],
+      "forbidden_logs": [
+        "loadIndexedGmailMessagesForTenant(limit=100000)",
+        "[integrations/gmail/mailbox-indexer/indexed-rows]"
+      ],
+      "observed_logs": [
+        "[integrations/gmail/cleanup-group-intelligence] {\"selected_analysis_scope\":\"all_indexed\",\"effective_discovery_window_days\":\"all_indexed\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"cluster_count\":5,\"cleanup_group_total_messages\":89323,\"cleanup_group_sender_count\":1497,\"indexed_total_rows\":234159,\"indexed_inbox_rows\":207160,\"cache_hit\":false,\"artifact_mode\":\"published_artifact\",\"cluster_summary_count\":5,\"duration_ms\":933}"
+      ],
+      "summary": {
+        "cluster_count": 5,
+        "cleanup_group_total_messages": 89323,
+        "source": "gmail_index_cache"
+      }
+    },
+    {
+      "name": "confirmation_preview_artifact_only",
+      "ok": true,
+      "duration_ms": 2901,
+      "required_logs": [
+        "[integrations/gmail/confirmation-preview-artifact]",
+        "\"mode\":\"published_artifact\""
+      ],
+      "forbidden_logs": [
+        "loadIndexedGmailMessagesForTenant(limit=100000)",
+        "[integrations/gmail/mailbox-indexer/indexed-rows]",
+        "loadDerivedWorkspaceState(",
+        "loadMailboxContext("
+      ],
+      "observed_logs": [
+        "[integrations/gmail/confirmation-preview-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"subscription-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"seed_row_count\":708,\"execution_preview_row_count\":961,\"archive_sender_count\":1,\"archive_message_count\":959}"
+      ],
+      "summary": {
+        "archive_sender_count": 1,
+        "archive_message_count": 959,
+        "protected_exclusions_count": 2,
+        "source": "gmail_index_cache"
+      }
+    },
+    {
+      "name": "archive_scope_resolution_artifact_only",
+      "ok": true,
+      "duration_ms": 5041,
+      "required_logs": [
+        "[integrations/gmail/archive-scope-artifact]",
+        "\"mode\":\"published_artifact\""
+      ],
+      "forbidden_logs": [
+        "loadIndexedGmailMessagesForTenant(limit=100000)",
+        "[integrations/gmail/mailbox-indexer/indexed-rows]",
+        "loadDerivedWorkspaceState(",
+        "loadMailboxContext("
+      ],
+      "observed_logs": [
+        "[integrations/gmail/archive-scope-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"subscription-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"seed_row_count\":708,\"execution_preview_row_count\":961,\"archive_sender_count\":1,\"archive_message_count\":959}",
+        "[integrations/gmail/archive-scope-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"subscription-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"seed_row_count\":708,\"execution_preview_row_count\":961,\"archive_sender_count\":1,\"archive_message_count\":958}"
+      ],
+      "summary": {
+        "base_selected_count": 959,
+        "excluded_selected_count": 958,
+        "excluded_message_id": "19d0e1e1cc4eacec"
+      }
+    },
+    {
+      "name": "runtime_shell_page_open_artifact_only",
+      "ok": true,
+      "duration_ms": 12739,
+      "required_logs": [
+        "[playground][cleanup-runtime-artifact]",
+        "\"artifact_mode\":\"published_artifact\""
+      ],
+      "forbidden_logs": [
+        "loadIndexedGmailMessagesForTenant(limit=100000)",
+        "[integrations/gmail/mailbox-indexer/indexed-rows]",
+        "[playground/cleanup-discovery]",
+        "discoverGmailCleanupClustersForTenant("
+      ],
+      "observed_logs": [
+        "[integrations/gmail/mailbox-intelligence-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"cluster_summary_count\":5,\"bucket_count\":14,\"has_snapshot\":true}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"social-platform-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":13,\"preview_row_count\":60,\"stats_count\":13,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"system-notification-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":62,\"preview_row_count\":284,\"stats_count\":62,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"retail-commerce-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":12,\"preview_row_count\":56,\"stats_count\":12,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"dormant-backlog-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":702,\"preview_row_count\":2611,\"stats_count\":702,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"subscription-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":708,\"preview_row_count\":3449,\"stats_count\":708,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[playground][cleanup-runtime-artifact] {\"request_mode\":\"rehydrate_only\",\"selected_analysis_scope\":\"all_indexed\",\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"artifact_mode\":\"published_artifact\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"cluster_summary_count\":5,\"mailbox_intelligence_present\":true,\"sender_overview_cluster_count\":5,\"cleanup_profile_status\":\"cached\",\"cleanup_profile_refresh_reason\":\"artifact_fresh\",\"background_refresh_enqueued\":false,\"background_refresh_mode\":\"not_needed\"}",
+        "[playground][runtime-state-timing] {\"request_mode\":\"rehydrate_only\",\"cleanup_profile_status\":\"cached\",\"cleanup_profile_refresh_reason\":\"artifact_fresh\",\"cleanup_cluster_count\":5,\"cleanup_snapshot_cluster_count\":5,\"cleanup_index_state_indexed_count\":234159,\"cleanup_index_state_inbox_count\":207160,\"selected_analysis_scope\":\"all_indexed\",\"snapshot_scope\":\"all_indexed\",\"review_scope\":\"all_indexed\",\"effective_discovery_window_days\":\"all_indexed\",\"snapshot_version_before\":\"shadow-rollout-preview-exec-20260322123030100\",\"snapshot_version_after\":\"shadow-rollout-preview-exec-20260322123030100\",\"previous_snapshot_served_while_refreshing\":false,\"approval_queue_item_count\":57,\"approval_queue_pending_count\":3,\"runtime_inputs_total_ms\":1100,\"phases_ms\":{\"inbox_cleanup_intent_gate_ms\":0,\"analyze_inbox_evidence_ms\":1100,\"sender_cluster_review_ms\":302,\"query_cluster_review_ms\":326,\"archive_evidence_ms\":622,\"review_results_ms\":645,\"suggestion_history_ms\":659,\"cleanup_plan_ms\":11635,\"batch_suggestions_ms\":3,\"other_runtime_state_ms\":0,\"runtime_state_total_ms\":12739},\"cleanup_plan_detail_ms\":{\"wrapper_snapshot_preload_ms\":0,\"wrapper_snapshot_preload_skipped\":true,\"wrapper_index_metadata_preload_ms\":371,\"wrapper_index_metadata_preload_skipped\":false,\"artifact_publication_load_ms\":1845,\"artifact_mode\":\"published_artifact\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"artifact_cluster_summary_count\":5,\"mailbox_intelligence_present\":true,\"sender_overview_cluster_count\":5,\"background_refresh_enqueued\":false,\"background_refresh_mode\":\"not_needed\",\"snapshot_save_mode\":\"skipped\",\"final_runtime_assemble_ms\":3}}",
+        "[playground][cleanup-scope] {\"request_mode\":\"rehydrate_only\",\"selected_analysis_scope\":\"all_indexed\",\"effective_discovery_window_days\":\"all_indexed\",\"snapshot_scope\":\"all_indexed\",\"review_scope\":\"all_indexed\",\"cleanup_cluster_count\":5}"
+      ],
+      "summary": {
+        "cleanup_cluster_count": 5,
+        "cleanup_profile_status": null,
+        "manual_cleanup_regeneration_diagnostics": null
+      }
+    },
+    {
+      "name": "runtime_refresh_flag_gated",
+      "ok": true,
+      "duration_ms": 12338,
+      "required_logs": [
+        "[playground][cleanup-runtime-artifact]",
+        "\"background_refresh_mode\":\"flag_disabled\""
+      ],
+      "forbidden_logs": [
+        "loadIndexedGmailMessagesForTenant(limit=100000)",
+        "[integrations/gmail/mailbox-indexer/indexed-rows]",
+        "[playground/cleanup-discovery]",
+        "discoverGmailCleanupClustersForTenant("
+      ],
+      "observed_logs": [
+        "[integrations/gmail/mailbox-intelligence-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"cluster_summary_count\":5,\"bucket_count\":14,\"has_snapshot\":true}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"retail-commerce-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":12,\"preview_row_count\":56,\"stats_count\":12,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"social-platform-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":13,\"preview_row_count\":60,\"stats_count\":13,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"system-notification-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":62,\"preview_row_count\":284,\"stats_count\":62,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"subscription-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":708,\"preview_row_count\":3449,\"stats_count\":708,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[integrations/gmail/sender-workspace-artifact] {\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"analysis_scope\":\"all_indexed\",\"selected_cluster_id\":\"dormant-backlog-senders\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"mode\":\"published_artifact\",\"header_count\":5,\"seed_row_count\":702,\"preview_row_count\":2611,\"stats_count\":702,\"requested_page\":1,\"requested_page_size\":12,\"returned_sender_count\":12}",
+        "[playground][cleanup-runtime-artifact] {\"request_mode\":\"rehydrate_only\",\"selected_analysis_scope\":\"all_indexed\",\"tenant_id\":\"085c8ef7-2fd7-4842-8499-cd605e894a77\",\"artifact_mode\":\"published_artifact\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"cluster_summary_count\":5,\"mailbox_intelligence_present\":true,\"sender_overview_cluster_count\":5,\"cleanup_profile_status\":\"cached\",\"cleanup_profile_refresh_reason\":\"force\",\"background_refresh_enqueued\":false,\"background_refresh_mode\":\"flag_disabled\"}",
+        "[playground][runtime-state-timing] {\"request_mode\":\"rehydrate_only\",\"cleanup_profile_status\":\"cached\",\"cleanup_profile_refresh_reason\":\"force\",\"cleanup_cluster_count\":5,\"cleanup_snapshot_cluster_count\":5,\"cleanup_index_state_indexed_count\":234159,\"cleanup_index_state_inbox_count\":207160,\"selected_analysis_scope\":\"all_indexed\",\"snapshot_scope\":\"all_indexed\",\"review_scope\":\"all_indexed\",\"effective_discovery_window_days\":\"all_indexed\",\"snapshot_version_before\":\"shadow-rollout-preview-exec-20260322123030100\",\"snapshot_version_after\":\"shadow-rollout-preview-exec-20260322123030100\",\"previous_snapshot_served_while_refreshing\":false,\"approval_queue_item_count\":57,\"approval_queue_pending_count\":3,\"runtime_inputs_total_ms\":1156,\"phases_ms\":{\"inbox_cleanup_intent_gate_ms\":0,\"analyze_inbox_evidence_ms\":1156,\"sender_cluster_review_ms\":295,\"query_cluster_review_ms\":538,\"archive_evidence_ms\":680,\"review_results_ms\":1071,\"suggestion_history_ms\":629,\"cleanup_plan_ms\":11181,\"batch_suggestions_ms\":1,\"other_runtime_state_ms\":0,\"runtime_state_total_ms\":12338},\"cleanup_plan_detail_ms\":{\"wrapper_snapshot_preload_ms\":0,\"wrapper_snapshot_preload_skipped\":true,\"wrapper_index_metadata_preload_ms\":362,\"wrapper_index_metadata_preload_skipped\":false,\"artifact_publication_load_ms\":1509,\"artifact_mode\":\"published_artifact\",\"artifact_version\":\"shadow-rollout-preview-exec-20260322123030100\",\"artifact_cluster_summary_count\":5,\"mailbox_intelligence_present\":true,\"sender_overview_cluster_count\":5,\"background_refresh_enqueued\":false,\"background_refresh_mode\":\"flag_disabled\",\"snapshot_save_mode\":\"background_enqueue_disabled\",\"final_runtime_assemble_ms\":1}}",
+        "[playground][cleanup-scope] {\"request_mode\":\"rehydrate_only\",\"selected_analysis_scope\":\"all_indexed\",\"effective_discovery_window_days\":\"all_indexed\",\"snapshot_scope\":\"all_indexed\",\"review_scope\":\"all_indexed\",\"cleanup_cluster_count\":5}"
+      ],
+      "summary": {
+        "cleanup_cluster_count": 5,
+        "cleanup_profile_status": null,
+        "manual_cleanup_regeneration_diagnostics": {
+          "cleanupPlanMs": 11181,
+          "runtimeStateTotalMs": 12338,
+          "discoveryTotalMs": null,
+          "wrapperSnapshotPreloadSkipped": true,
+          "wrapperIndexMetadataPreloadSkipped": false,
+          "discoveryRowCacheHit": null,
+          "indexedRowsLoadMs": null,
+          "indexSyncDisabledByRequest": null,
+          "snapshotSaveMode": "background_enqueue_disabled",
+          "finalRuntimeAssembleMs": 1
+        }
+      }
+    }
+  ]
+}

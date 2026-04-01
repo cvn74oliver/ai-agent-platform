@@ -1,0 +1,14 @@
+{
+  "ok": false,
+  "safe_to_publish": false,
+  "generated_at": "2026-03-30T15:51:51.257Z",
+  "tenant_id": "085c8ef7-2fd7-4842-8499-cd605e894a77",
+  "analysis_scope": "all_indexed",
+  "candidate_artifact_version": "full-mailbox-20260330140252096",
+  "candidate_job_id": "full-rebuild:085c8ef7-2fd7-4842-8499-cd605e894a77:all_indexed:full-mailbox-20260330140252096",
+  "validation_error": {
+    "name": "AssertionError",
+    "message": "Summary review-unit basis drifted for semantic.marketing_subscriptions.\n+ actual - expected\n\n+ 'selected_axis_dominant_lane'\n- 'subtype-first'\n",
+    "stack": "AssertionError [ERR_ASSERTION]: Summary review-unit basis drifted for semantic.marketing_subscriptions.\n+ actual - expected\n\n+ 'selected_axis_dominant_lane'\n- 'subtype-first'\n\n    at file:///Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild/web/scripts/gmail-cleanup-group-candidate-audit.mjs:502:12\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+  }
+}

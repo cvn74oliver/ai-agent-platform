@@ -122,10 +122,10 @@ type RuntimeCleanupArtifactClusterInput = {
   why_selected: string
   risk_note: string
   safety_note: string
-  surface_tier?: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_tier'] | null
-  surface_kind?: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_kind'] | null
-  surface_visibility?: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_visibility'] | null
-  top_level_rank?: number | null
+  surface_tier: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_tier'] | null
+  surface_kind: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_kind'] | null
+  surface_visibility: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_visibility'] | null
+  top_level_rank: number | null
 }
 
 export type PlaygroundRuntimeStateServiceResult = {
@@ -1291,52 +1291,51 @@ function runtimeMailboxProfileCategoryCount(
 function buildRuntimeCleanupArtifactClusterInputs(
   summaries: GmailClusterSummaryArtifactRow[]
 ): RuntimeCleanupArtifactClusterInput[] {
-  const rawInputs = summaries
-    .map((summary) => {
-      const clusterId = runtimeArtifactText(summary.cluster_id)
-      if (!clusterId) return null
-      const summaryPayload = isRecord(summary.summary_payload) ? summary.summary_payload : null
+  const rawInputs: RuntimeCleanupArtifactClusterInput[] = []
+  for (const summary of summaries) {
+    const clusterId = runtimeArtifactText(summary.cluster_id)
+    if (!clusterId) continue
+    const summaryPayload = isRecord(summary.summary_payload) ? summary.summary_payload : null
 
-      return {
-        cluster_id: clusterId,
-        canonical_cluster_id:
-          runtimeArtifactText(summaryPayload?.cleanup_group_canonical_cluster_id) || clusterId,
-        legacy_cluster_ids: Array.isArray(summaryPayload?.cleanup_group_legacy_cluster_ids)
-          ? summaryPayload.cleanup_group_legacy_cluster_ids
-              .map((entry) => runtimeArtifactText(entry))
-              .filter(Boolean)
-          : [],
-        source_cluster_ids: Array.isArray(summaryPayload?.cleanup_group_source_cluster_ids)
-          ? summaryPayload.cleanup_group_source_cluster_ids
-              .map((entry) => runtimeArtifactText(entry))
-              .filter(Boolean)
-          : [clusterId],
-        cluster_type: runtimeArtifactText(summary.cluster_type),
-        title: runtimeArtifactText(summary.title),
-        query: runtimeArtifactText(summary.query),
-        why_selected:
-          runtimeArtifactNullableText(summary.why_selected) || 'Chosen from published cleanup artifacts.',
-        risk_note:
-          runtimeArtifactNullableText(summary.risk_note) || 'Confirm mixed senders before archive.',
-        safety_note:
-          runtimeArtifactNullableText(summary.safety_note) ||
-          'Artifact-backed runtime plan: review the sender set first, then confirm exact impact before archive.',
-        surface_tier:
-          (runtimeArtifactNullableText(summaryPayload?.cleanup_group_surface_tier) as RuntimeCleanupArtifactClusterInput['surface_tier']) ||
-          null,
-        surface_kind:
-          (runtimeArtifactNullableText(summaryPayload?.cleanup_group_surface_kind) as RuntimeCleanupArtifactClusterInput['surface_kind']) ||
-          null,
-        surface_visibility:
-          (runtimeArtifactNullableText(summaryPayload?.cleanup_group_surface_visibility) as RuntimeCleanupArtifactClusterInput['surface_visibility']) ||
-          null,
-        top_level_rank:
-          typeof summaryPayload?.cleanup_group_top_level_rank === 'number'
-            ? summaryPayload.cleanup_group_top_level_rank
-            : null,
-      } satisfies RuntimeCleanupArtifactClusterInput
+    rawInputs.push({
+      cluster_id: clusterId,
+      canonical_cluster_id:
+        runtimeArtifactText(summaryPayload?.cleanup_group_canonical_cluster_id) || clusterId,
+      legacy_cluster_ids: Array.isArray(summaryPayload?.cleanup_group_legacy_cluster_ids)
+        ? summaryPayload.cleanup_group_legacy_cluster_ids
+            .map((entry) => runtimeArtifactText(entry))
+            .filter(Boolean)
+        : [],
+      source_cluster_ids: Array.isArray(summaryPayload?.cleanup_group_source_cluster_ids)
+        ? summaryPayload.cleanup_group_source_cluster_ids
+            .map((entry) => runtimeArtifactText(entry))
+            .filter(Boolean)
+        : [clusterId],
+      cluster_type: runtimeArtifactText(summary.cluster_type),
+      title: runtimeArtifactText(summary.title),
+      query: runtimeArtifactText(summary.query),
+      why_selected:
+        runtimeArtifactNullableText(summary.why_selected) || 'Chosen from published cleanup artifacts.',
+      risk_note:
+        runtimeArtifactNullableText(summary.risk_note) || 'Confirm mixed senders before archive.',
+      safety_note:
+        runtimeArtifactNullableText(summary.safety_note) ||
+        'Artifact-backed runtime plan: review the sender set first, then confirm exact impact before archive.',
+      surface_tier:
+        (runtimeArtifactNullableText(summaryPayload?.cleanup_group_surface_tier) as RuntimeCleanupArtifactClusterInput['surface_tier']) ||
+        null,
+      surface_kind:
+        (runtimeArtifactNullableText(summaryPayload?.cleanup_group_surface_kind) as RuntimeCleanupArtifactClusterInput['surface_kind']) ||
+        null,
+      surface_visibility:
+        (runtimeArtifactNullableText(summaryPayload?.cleanup_group_surface_visibility) as RuntimeCleanupArtifactClusterInput['surface_visibility']) ||
+        null,
+      top_level_rank:
+        typeof summaryPayload?.cleanup_group_top_level_rank === 'number'
+          ? summaryPayload.cleanup_group_top_level_rank
+          : null,
     })
-    .filter((entry): entry is RuntimeCleanupArtifactClusterInput => entry != null)
+  }
   const sources = rawInputs.map((cluster) => ({
     clusterId: cluster.cluster_id,
     canonicalClusterId: cluster.canonical_cluster_id || cluster.cluster_id,

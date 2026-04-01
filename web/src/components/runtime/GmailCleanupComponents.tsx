@@ -19,6 +19,8 @@ import type {
 import { GMAIL_CLEANUP_ACTIVE_STAGES } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
   buildCleanupGroupInternalStructure,
+  getCleanupGroupCanonicalClusterId,
+  getCleanupGroupPrimaryLabel,
   getCleanupGroupRecommendationExplanation,
   type CleanupGroupRecommendationReason,
 } from '@/lib/runtime/cleanupGroupPresentation'
@@ -83,6 +85,20 @@ function cleanupGroupShareLabel(sharePct: number | null | undefined): string {
   if (sharePct == null || !Number.isFinite(sharePct)) return 'Impact share pending'
   if (sharePct <= 0) return '<1% of cleanup message volume'
   return `${Math.round(sharePct)}% of cleanup message volume`
+}
+
+function cleanupGroupDisplayTitle(params: {
+  clusterId?: string | null
+  canonicalClusterId?: string | null
+  title?: string | null
+}): string {
+  const resolvedClusterId = params.canonicalClusterId || params.clusterId
+  if (!resolvedClusterId) {
+    return typeof params.title === 'string' && params.title.trim()
+      ? params.title.trim()
+      : 'Cleanup group'
+  }
+  return getCleanupGroupPrimaryLabel(resolvedClusterId, params.title)
 }
 
 function policyClass(policy: GmailSenderPolicy): string {
@@ -1042,11 +1058,25 @@ function CompactTrendChart(props: {
   const secondaryGroups = rankedGroups.slice(1, 3)
   const hasVisiblePeriods = chartItems.length > 0
   const hasAnyPressure = chartItems.some((item) => item.count > 0)
-  const dominantGroupLabel = dominantGroup ? dominantGroup.title : 'No dominant sender group yet'
+  const dominantGroupLabel = dominantGroup
+    ? cleanupGroupDisplayTitle({
+        clusterId: dominantGroup.cluster_id,
+        canonicalClusterId: dominantGroup.canonical_cluster_id,
+        title: dominantGroup.title,
+      })
+    : 'No dominant sender group yet'
   const dominantGroupExplanation = dominantGroup
-    ? `${dominantGroup.title} is the largest unresolved cleanup group in the current snapshot, so it is the best available pressure proxy for this window. ${
+    ? `${dominantGroupLabel} is the largest unresolved cleanup group in the current snapshot, so it is the best available pressure proxy for this window. ${
         secondaryGroups.length > 0
-          ? `Next largest unresolved groups: ${secondaryGroups.map((group) => group.title).join(' and ')}.`
+          ? `Next largest unresolved groups: ${secondaryGroups
+              .map((group) =>
+                cleanupGroupDisplayTitle({
+                  clusterId: group.cluster_id,
+                  canonicalClusterId: group.canonical_cluster_id,
+                  title: group.title,
+                })
+              )
+              .join(' and ')}.`
           : 'No secondary cleanup group is large enough to change the read meaningfully yet.'
       }`
     : 'No cleanup groups are available yet to attribute sender pressure.'
@@ -1085,16 +1115,16 @@ function CompactTrendChart(props: {
     props.nextActionTitle.toLowerCase().includes('approve')
       ? props.nextActionTitle
       : dominantGroup
-        ? `Open ${dominantGroup.title}`
+        ? `Open ${dominantGroupLabel}`
         : props.nextActionTitle
   const interventionExplanation = props.nextActionTitle.toLowerCase().includes('approve')
     ? `${props.nextActionDetail} ${executionFriction} ${
         dominantGroup
-          ? `${dominantGroup.title} remains the clearest unresolved cleanup lever once approvals are clear.`
+          ? `${dominantGroupLabel} remains the clearest unresolved cleanup lever once approvals are clear.`
           : 'No dominant cleanup group is visible yet once approvals are clear.'
       }`
     : dominantGroup
-      ? `${dominantGroup.title} is the clearest unresolved pressure lever in the current snapshot, so opening it should improve the next sender-first decision surface. ${executionFriction}`
+      ? `${dominantGroupLabel} is the clearest unresolved pressure lever in the current snapshot, so opening it should improve the next sender-first decision surface. ${executionFriction}`
       : `${props.nextActionTitle} remains the best available intervention from the current snapshot. ${executionFriction}`
 
   const chartWidth = chartViewportWidth > 0 ? chartViewportWidth : 320
@@ -1297,7 +1327,7 @@ function CompactTrendChart(props: {
   const driverCardDetail = props.nextActionTitle.toLowerCase().includes('approve')
     ? `Current snapshot only, not a period mix. ${executionFriction} ${
         dominantGroup
-          ? `${dominantGroup.title} remains the largest unresolved cleanup group in the current snapshot.`
+          ? `${dominantGroupLabel} remains the largest unresolved cleanup group in the current snapshot.`
           : 'No dominant cleanup group is visible yet.'
       }`
     : `Current snapshot only, not a period mix. ${dominantGroupExplanation}`
@@ -4047,8 +4077,18 @@ export function CleanupGroupContributionCards(props: {
   recommendedReason: CleanupGroupRecommendationReason
 }) {
   const recommendationCopy = getCleanupGroupRecommendationExplanation(props.recommendedReason)
+  const recommendedGroupTitle = props.recommendedGroup
+    ? cleanupGroupDisplayTitle({
+        clusterId: props.recommendedGroup.cluster_id,
+        canonicalClusterId: props.recommendedGroup.canonical_cluster_id,
+        title: props.recommendedGroup.title,
+      })
+    : null
   const internalStructure =
-    props.recommendedGroup?.cluster_id === 'subscription-senders'
+    props.recommendedGroup &&
+    getCleanupGroupCanonicalClusterId(
+      props.recommendedGroup.canonical_cluster_id || props.recommendedGroup.cluster_id
+    ) === 'semantic.marketing_subscriptions'
     ? buildCleanupGroupInternalStructure(
         props.recommendedGroup.cluster_id,
         props.recommendedGroup.semantic_rollup || null
@@ -4066,7 +4106,7 @@ export function CleanupGroupContributionCards(props: {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300">Recommended next group</p>
-              <p className="mt-1 text-lg font-semibold text-white">{props.recommendedGroup.title}</p>
+              <p className="mt-1 text-lg font-semibold text-white">{recommendedGroupTitle}</p>
             </div>
             <span className="rounded-full border border-cyan-700/45 bg-cyan-950/20 px-2.5 py-1 text-[11px] text-cyan-100">
               {cleanupGroupShareLabel(props.recommendedGroup.share_pct)}
@@ -4074,7 +4114,7 @@ export function CleanupGroupContributionCards(props: {
           </div>
           <p className="mt-3 text-sm text-gray-300">
             {props.recommendedGroup.why_selected ||
-              `${props.recommendedGroup.sender_count.toLocaleString()} senders are currently grouped into the clearest next primary action lane.`}
+              `${props.recommendedGroup.sender_count.toLocaleString()} senders are currently grouped into the clearest next canonical group to open.`}
           </p>
           {internalStructure ? (
             <div className={`${neutralNestedSurfaceClass} mt-4 rounded-2xl p-3`}>
@@ -4150,7 +4190,7 @@ export function CleanupGroupContributionCards(props: {
         <div className="mt-3 grid gap-3">
           {diagnosticRow(
             'Open next',
-            props.recommendedGroup ? props.recommendedGroup.title : 'No default recommendation',
+            recommendedGroupTitle || 'No default recommendation',
             props.recommendedGroup
               ? recommendationCopy.detail
               : 'Safety / coverage lanes stay available, but Cleanup Groups should not auto-pick one for you.'
@@ -4163,7 +4203,7 @@ export function CleanupGroupContributionCards(props: {
           {diagnosticRow(
             'What changes after you click through',
             'You move from command guidance to full group selection',
-            'Cleanup Groups owns the full comparison surface. Mailbox Intelligence only hands off the clearest next primary action lane or, when appropriate, the deliberate backlog lane.'
+            'Cleanup Groups owns the full comparison surface. Mailbox Intelligence only hands off the clearest next semantic parent or, when appropriate, the deliberate backlog structural lane.'
           )}
         </div>
         <Link
@@ -5249,7 +5289,11 @@ export function SenderDecisionStage(props: {
       <section className="rounded-2xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-4">
         <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Sender Decisions</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">
-          {props.data.selected_cluster.title}
+          {cleanupGroupDisplayTitle({
+            clusterId: props.data.selected_cluster.cluster_id,
+            canonicalClusterId: props.data.selected_cluster.canonical_cluster_id,
+            title: props.data.selected_cluster.title,
+          })}
         </h1>
         <p className="mt-2 text-sm text-gray-300">
           {presentationPolicy.topExplanation.body}

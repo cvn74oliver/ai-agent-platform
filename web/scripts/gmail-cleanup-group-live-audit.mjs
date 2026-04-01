@@ -99,15 +99,21 @@ console.log(`Agent ID: ${AGENT_ID}`)
 
 const { getSupabaseAdmin } = await import('../src/lib/supabase.ts')
 const {
+  countGmailArtifactVersionRows,
+  loadGmailClusterSummariesForArtifactVersion,
   loadPublishedGmailMailboxIntelligenceArtifact,
   loadGmailArtifactPublicationState,
+  loadGmailMailboxIntelligenceSnapshotForArtifactVersion,
   loadGmailSenderScopeRollupsForArtifactVersion,
+  loadGmailSenderWorkspaceSeedHeadersForArtifactVersion,
+  loadGmailSenderWorkspaceSeedRowsForArtifactVersion,
 } = await import('../src/lib/integrations/gmail/gmailArtifactStore.ts')
 const { loadGmailSenderWorkspaceForTenant } = await import(
   '../src/lib/integrations/gmail/gmailCleanupWorkspace.ts'
 )
 const {
   buildCleanupGroupFutureCanonicalPublishIdentity,
+  getRetiredCleanupGroupRedirect,
   listCleanupCanonicalGroupDescriptors,
   resolveCleanupClusterIdentity,
 } = await import('../src/lib/runtime/gmailCleanupClusterIdentity.ts')
@@ -117,6 +123,10 @@ const {
 const {
   buildFutureCanonicalCleanupGroupSurfaceIdentity,
 } = await import('../src/lib/integrations/gmail/gmailSemanticRollupContract.ts')
+const {
+  GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  buildGmailCleanupShadowRediscoveryReport,
+} = await import('../src/lib/integrations/gmail/gmailCleanupShadowRediscovery.ts')
 const { loadPlaygroundRuntimeState } = await import('../src/lib/runtime/runtimeStateService.ts')
 
 const supabase = await getSupabaseAdmin()
@@ -152,6 +162,74 @@ assert.equal(
   'Published artifact read should align with publication state.'
 )
 
+const [
+  shadowBaselineRowCounts,
+  shadowBaselineClusterSummaries,
+  shadowBaselineMailboxSnapshot,
+  shadowBaselineRollups,
+  shadowBaselineSeedHeaders,
+  shadowBaselineSeedRows,
+] = await Promise.all([
+  countGmailArtifactVersionRows({
+    supabase,
+    tenantId: TENANT_ID,
+    analysisScope: ANALYSIS_SCOPE,
+    artifactVersion: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  }),
+  loadGmailClusterSummariesForArtifactVersion({
+    supabase,
+    tenantId: TENANT_ID,
+    analysisScope: ANALYSIS_SCOPE,
+    artifactVersion: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  }),
+  loadGmailMailboxIntelligenceSnapshotForArtifactVersion({
+    supabase,
+    tenantId: TENANT_ID,
+    analysisScope: ANALYSIS_SCOPE,
+    artifactVersion: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  }),
+  loadGmailSenderScopeRollupsForArtifactVersion({
+    supabase,
+    tenantId: TENANT_ID,
+    analysisScope: ANALYSIS_SCOPE,
+    artifactVersion: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  }),
+  loadGmailSenderWorkspaceSeedHeadersForArtifactVersion({
+    supabase,
+    tenantId: TENANT_ID,
+    analysisScope: ANALYSIS_SCOPE,
+    artifactVersion: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  }),
+  loadGmailSenderWorkspaceSeedRowsForArtifactVersion({
+    supabase,
+    tenantId: TENANT_ID,
+    analysisScope: ANALYSIS_SCOPE,
+    artifactVersion: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  }),
+])
+
+assert.ok(
+  shadowBaselineMailboxSnapshot,
+  `Missing shadow baseline mailbox snapshot for ${GMAIL_CLEANUP_SHADOW_BASELINE_VERSION}.`
+)
+const shadowBaselineReport = buildGmailCleanupShadowRediscoveryReport({
+  tenantId: TENANT_ID,
+  analysisScope: ANALYSIS_SCOPE,
+  artifactVersion: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+  rowCounts: shadowBaselineRowCounts,
+  clusterSummaries: shadowBaselineClusterSummaries,
+  seedHeaders: shadowBaselineSeedHeaders,
+  seedRows: shadowBaselineSeedRows,
+  rollups: shadowBaselineRollups,
+  mailboxSnapshots: shadowBaselineMailboxSnapshot ? [shadowBaselineMailboxSnapshot] : [],
+})
+
+assert.equal(
+  shadowBaselineReport.publish_gate_report.pass,
+  true,
+  'Accepted shadow baseline must pass its publish gates before live comparison.'
+)
+
 const rollups = await loadGmailSenderScopeRollupsForArtifactVersion({
   supabase,
   tenantId: TENANT_ID,
@@ -177,21 +255,61 @@ const groupCounts = rollups.reduce((accumulator, row) => {
   return accumulator
 }, {})
 const groupCountSum = Object.values(groupCounts).reduce((sum, count) => sum + count, 0)
+const expectedSourceAfterCounts = Object.fromEntries(
+  shadowBaselineReport.old_vs_new_parent_counts.source_after.map((entry) => [
+    entry.cluster_id,
+    entry.sender_count,
+  ])
+)
+const expectedCanonicalClusterIds = shadowBaselineReport.shadow_rebuild_output_result.projected_canonical_cluster_ids
+  .slice()
+  .sort((left, right) => left.localeCompare(right))
 
 assert.equal(assignedSenderCount, totalSenderCount, 'All senders must be assigned.')
 assert.equal(unassignedSenderCount, 0, 'No sender may remain unassigned.')
 assert.equal(multiAssignedSenderCount, 0, 'No sender may be multi-assigned.')
 assert.equal(groupCountSum, totalSenderCount, 'Group counts must sum to total senders.')
+assert.deepEqual(
+  groupCounts,
+  expectedSourceAfterCounts,
+  'Published sender distribution must match the accepted shadow post-retirement source assignment.'
+)
+assert.equal(
+  groupCounts['retail-commerce-senders'] || 0,
+  0,
+  'retail-commerce-senders must not remain in published sender assignments.'
+)
 
-const artifactClusterIds = artifactRead.cluster_summaries.map((summary) => summary.cluster_id)
-const requiredStructuralGroupIds = [
-  'protected-trusted-senders',
-  'historical-out-of-inbox-senders',
-  'needs-review-senders',
-]
-for (const groupId of requiredStructuralGroupIds) {
-  assert.ok(artifactClusterIds.includes(groupId), `Published artifact is missing ${groupId}.`)
+const artifactClusterIds = artifactRead.cluster_summaries
+  .map((summary) => summary.cluster_id)
+  .slice()
+  .sort((left, right) => left.localeCompare(right))
+for (const summary of artifactRead.cluster_summaries) {
+  const canonicalClusterId =
+    typeof summary.summary_payload?.cleanup_group_canonical_cluster_id === 'string'
+      ? summary.summary_payload.cleanup_group_canonical_cluster_id
+      : summary.cluster_id
+  assert.equal(
+    summary.cluster_id,
+    canonicalClusterId,
+    `Published artifact cluster_id must equal canonical cleanup-group identity for ${summary.title}.`
+  )
+  assert.notEqual(
+    canonicalClusterId,
+    'secondary.system_notifications',
+    'Legacy secondary.system_notifications must never appear as a canonical published identity.'
+  )
 }
+assert.deepEqual(
+  artifactClusterIds,
+  expectedCanonicalClusterIds,
+  'Published canonical cleanup-group ids must match the accepted shadow canonical projection.'
+)
+assert.equal(
+  artifactClusterIds.includes('retail-commerce-senders'),
+  false,
+  'retail-commerce-senders must not appear in published artifact cluster ids.'
+)
 assert.ok(
   artifactRead.cluster_summaries.length > 5,
   'Published artifact cluster summary count should be greater than 5.'
@@ -279,6 +397,16 @@ assert.deepEqual(
   expectedSurfacedRuntimeClusterIds,
   'Runtime surfaced cleanup groups must match the canonical surfaced group set.'
 )
+assert.equal(
+  runtimeClusterIds.includes('retail-commerce-senders'),
+  false,
+  'Runtime cleanup plan must not surface retail-commerce-senders.'
+)
+assert.equal(
+  runtimeClusterIds.includes('secondary.system_notifications'),
+  false,
+  'Runtime cleanup plan must not surface legacy secondary.system_notifications as a live cluster.'
+)
 
 const requiredLegacyCompatibilityMappings = [
   {
@@ -300,6 +428,14 @@ const requiredLegacyCompatibilityMappings = [
   {
     input: 'semantic-parent:subscription-senders:family:marketing_promotional',
     expectedCanonicalClusterId: 'semantic.marketing_subscriptions',
+  },
+  {
+    input: 'system-notification-senders',
+    expectedCanonicalClusterId: 'secondary.account_updates',
+  },
+  {
+    input: 'secondary.system_notifications',
+    expectedCanonicalClusterId: 'secondary.account_updates',
   },
 ]
 
@@ -452,11 +588,52 @@ const futureCanonicalPublishIdentityProofs = canonicalDescriptors.map((descripto
   }
 })
 
+const secondaryAliasInversionInputs = [
+  'secondary.account_updates',
+  'system-notification-senders',
+  'secondary.system_notifications',
+]
+const secondaryAliasInversionProofs = secondaryAliasInversionInputs.map((input) => {
+  const runtimeIdentity = buildCleanupGroupFutureCanonicalPublishIdentity(input)
+  const artifactIdentity = buildFutureCanonicalCleanupGroupSurfaceIdentity(input)
+  assert.ok(runtimeIdentity, `Missing canonical publish identity for ${input}.`)
+  assert.equal(
+    runtimeIdentity.canonicalClusterId,
+    'secondary.account_updates',
+    `Canonical secondary mapping drifted for ${input}.`
+  )
+  assert.equal(
+    artifactIdentity.canonical_cluster_id,
+    'secondary.account_updates',
+    `Artifact surface canonical secondary mapping drifted for ${input}.`
+  )
+  assert.notEqual(
+    artifactIdentity.canonical_cluster_id,
+    'secondary.system_notifications',
+    `Legacy secondary.system_notifications must not be promoted for ${input}.`
+  )
+  return {
+    input,
+    canonical_cluster_id: artifactIdentity.canonical_cluster_id,
+    legacy_cluster_ids: artifactIdentity.legacy_cluster_ids,
+    source_cluster_ids: artifactIdentity.source_cluster_ids,
+  }
+})
+
+const retailRedirectProof = getRetiredCleanupGroupRedirect('retail-commerce-senders')
+assert.ok(retailRedirectProof, 'retail-commerce-senders must retain an explicit redirect-only retirement explanation.')
+assert.equal(
+  resolveCleanupClusterIdentity('retail-commerce-senders', runtimeSources).canonicalDescriptor?.canonicalClusterId ||
+    null,
+  null,
+  'retail-commerce-senders must not resolve to a live canonical cleanup-group descriptor.'
+)
+
 function extractSenderIdentity(sender) {
   return sender?.sender_key || sender?.sender || sender?.email || null
 }
 
-async function loadSenderWorkspaceProbe(requestedClusterId) {
+async function loadSenderWorkspaceProbe(requestedClusterId, selectedClusterRef) {
   const result = await loadGmailSenderWorkspaceForTenant({
     supabase,
     tenantId: TENANT_ID,
@@ -464,7 +641,7 @@ async function loadSenderWorkspaceProbe(requestedClusterId) {
     requestAgentId: AGENT_ID,
     clusters: runtimeClusters,
     selectedCluster: {
-      ...subscriptionRuntimeCluster,
+      ...selectedClusterRef,
       cluster_id: requestedClusterId,
     },
     page: 1,
@@ -486,9 +663,12 @@ async function loadSenderWorkspaceProbe(requestedClusterId) {
 }
 
 const subscriptionCompatibilityProbes = await Promise.all([
-  loadSenderWorkspaceProbe('subscription-senders'),
-  loadSenderWorkspaceProbe('semantic.marketing_subscriptions'),
-  loadSenderWorkspaceProbe('semantic-parent:subscription-senders:family:marketing_promotional'),
+  loadSenderWorkspaceProbe('subscription-senders', subscriptionRuntimeCluster),
+  loadSenderWorkspaceProbe('semantic.marketing_subscriptions', subscriptionRuntimeCluster),
+  loadSenderWorkspaceProbe(
+    'semantic-parent:subscription-senders:family:marketing_promotional',
+    subscriptionRuntimeCluster
+  ),
 ])
 
 assert.equal(
@@ -510,6 +690,41 @@ assert.equal(
   new Set(subscriptionCompatibilityProbes.map((probe) => JSON.stringify(probe.firstSenders))).size,
   1,
   'Legacy and canonical subscription routes must return the same first-page sender subset.'
+)
+
+const secondaryRuntimeCluster = runtimeClusters.find(
+  (cluster) => runtimeClusterId(cluster) === 'secondary.account_updates'
+)
+assert.ok(
+  secondaryRuntimeCluster,
+  'Runtime cleanup plan must include the canonical secondary account-updates lane.'
+)
+
+const secondaryCompatibilityProbes = await Promise.all([
+  loadSenderWorkspaceProbe('secondary.account_updates', secondaryRuntimeCluster),
+  loadSenderWorkspaceProbe('system-notification-senders', secondaryRuntimeCluster),
+  loadSenderWorkspaceProbe('secondary.system_notifications', secondaryRuntimeCluster),
+])
+
+assert.equal(
+  new Set(secondaryCompatibilityProbes.map((probe) => probe.selectedClusterId)).size,
+  1,
+  'Legacy and canonical secondary routes must normalize to the same selected cluster id.'
+)
+assert.equal(
+  new Set(secondaryCompatibilityProbes.map((probe) => probe.totalSenders)).size,
+  1,
+  'Legacy and canonical secondary routes must return the same sender totals.'
+)
+assert.equal(
+  new Set(secondaryCompatibilityProbes.map((probe) => probe.clusterTotalSenders)).size,
+  1,
+  'Legacy and canonical secondary routes must return the same cluster totals.'
+)
+assert.equal(
+  new Set(secondaryCompatibilityProbes.map((probe) => JSON.stringify(probe.firstSenders))).size,
+  1,
+  'Legacy and canonical secondary routes must return the same first-page sender subset.'
 )
 
 const proof = {
@@ -535,6 +750,12 @@ const proof = {
   artifact_cluster_summary_count: artifactRead.cluster_summaries.length,
   artifact_cluster_ids: artifactClusterIds,
   group_counts: groupCounts,
+  shadow_baseline: {
+    baseline_artifact_version: GMAIL_CLEANUP_SHADOW_BASELINE_VERSION,
+    projected_canonical_cluster_ids: expectedCanonicalClusterIds,
+    projected_source_counts: expectedSourceAfterCounts,
+    publish_gate_passed: shadowBaselineReport.publish_gate_report.pass,
+  },
   runtime: {
     cleanup_cluster_count: runtimeClusterCount,
     cleanup_cluster_ids: runtimeClusterIds,
@@ -560,9 +781,12 @@ const proof = {
       source_cluster_ids: probe.payload?.sourceClusterIds || [],
     })),
     subscription_sender_workspace_probes: subscriptionCompatibilityProbes,
+    secondary_sender_workspace_probes: secondaryCompatibilityProbes,
+    retail_redirect_only: retailRedirectProof,
   },
   future_canonical_publish_preparation: {
     surface_identity_probes: futureCanonicalPublishIdentityProofs,
+    secondary_alias_inversion_probes: secondaryAliasInversionProofs,
   },
   artifact_backed_request_behavior_preserved: {
     runtime_load_ok: Boolean(runtimeResult.runtimeState),

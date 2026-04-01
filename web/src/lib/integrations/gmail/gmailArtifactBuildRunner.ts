@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   beginGmailArtifactBuild,
   clearGmailArtifactBuildVersionRows,
+  completeGmailArtifactBuildCandidate,
   countGmailArtifactVersionRows,
   createGmailArtifactVersion,
   failGmailArtifactBuild,
@@ -9,6 +10,7 @@ import {
   loadGmailArtifactPublicationState,
   loadGmailSenderWorkspaceSeedRowsForArtifactVersion,
   publishGmailArtifactBuild,
+  snapshotGmailArtifactPublicationRestoreState,
   updateGmailArtifactBuildProgress,
   type GmailArtifactAnalysisScope,
 } from '@/lib/integrations/gmail/gmailArtifactStore'
@@ -46,6 +48,7 @@ export type GmailFullMailboxArtifactBuildResult = {
   analysis_scope: GmailArtifactAnalysisScope
   artifact_version: string
   job_id: string
+  publication_action: 'candidate_ready' | 'published'
   resumed: boolean
   processed_sender_count: number
   processed_message_count: number
@@ -206,6 +209,7 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
   artifactVersion?: string | null
   jobId?: string | null
   resumeJobId?: string | null
+  publishResult: boolean
   attempt: number
   maxAttempts: number
 }): Promise<GmailFullMailboxArtifactBuildResult> {
@@ -357,6 +361,14 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
       ? normalizeCount(checkpoint.reference_now_ms)
       : resolveArtifactReferenceNowMs({ coverage })
     checkpoint.reference_now_ms = referenceNowMs
+    if (!checkpoint.publication_restore_state) {
+      if (resume) {
+        throw new Error(
+          `Unable to resume Gmail artifact build job ${jobId}: missing publication restore state checkpoint.`
+        )
+      }
+      checkpoint.publication_restore_state = snapshotGmailArtifactPublicationRestoreState(publication)
+    }
 
     const publishedSeedRows =
       !resume && normalizeText(publication?.published_version)
@@ -677,7 +689,7 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
       },
     })
 
-    activePhase = 'publishing_artifacts'
+    activePhase = params.publishResult ? 'publishing_artifacts' : 'candidate_ready'
     await updateGmailArtifactBuildProgress({
       supabase: params.supabase,
       jobId,
@@ -710,20 +722,34 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
       artifactVersion,
       jobId,
     })
-    const publishStartedAt = Date.now()
-    await publishGmailArtifactBuild({
-      supabase: params.supabase,
-      jobId,
-      tenantId,
-      analysisScope,
-      artifactVersion,
-      lastIndexStateUpdatedAt: indexState?.updated_at || null,
-      lastIndexedMessageCount: coverage.indexed_total_rows,
-      processedSenderCount: totalProcessedSenderCount,
-      processedMessageCount: totalProcessedMessageCount,
-      processedClusterCount: totalProcessedClusterCount,
-    })
-    const publishMs = Math.max(0, Date.now() - publishStartedAt)
+    const publicationStartedAt = Date.now()
+    if (params.publishResult) {
+      await publishGmailArtifactBuild({
+        supabase: params.supabase,
+        jobId,
+        tenantId,
+        analysisScope,
+        artifactVersion,
+        lastIndexStateUpdatedAt: indexState?.updated_at || null,
+        lastIndexedMessageCount: coverage.indexed_total_rows,
+        processedSenderCount: totalProcessedSenderCount,
+        processedMessageCount: totalProcessedMessageCount,
+        processedClusterCount: totalProcessedClusterCount,
+      })
+    } else {
+      await completeGmailArtifactBuildCandidate({
+        supabase: params.supabase,
+        jobId,
+        tenantId,
+        analysisScope,
+        artifactVersion,
+        publicationRestoreState: checkpoint.publication_restore_state!,
+        processedSenderCount: totalProcessedSenderCount,
+        processedMessageCount: totalProcessedMessageCount,
+        processedClusterCount: totalProcessedClusterCount,
+      })
+    }
+    const publicationMs = Math.max(0, Date.now() - publicationStartedAt)
     logFullBuildPhase({
       tenantId,
       analysisScope,
@@ -733,9 +759,12 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
       maxAttempts: params.maxAttempts,
       phase: activePhase,
       event: 'completed',
-      durationMs: publishMs,
+      durationMs: publicationMs,
       extra: {
-        published_version_after: artifactVersion,
+        publication_action: params.publishResult ? 'published' : 'candidate_ready',
+        published_version_after: params.publishResult
+          ? artifactVersion
+          : publication?.published_version ?? null,
       },
     })
 
@@ -751,6 +780,7 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
         processed_sender_count: totalProcessedSenderCount,
         processed_message_count: totalProcessedMessageCount,
         matched_cluster_count: totalProcessedClusterCount,
+        publication_action: params.publishResult ? 'published' : 'candidate_ready',
         indexed_corpus_size: coverage.indexed_total_rows,
         row_counts: rowCounts,
         row_count_error: rowCountError,
@@ -759,7 +789,7 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
           projection: projectionMs,
           finalize: finalizeMs,
           row_count: rowCountMs,
-          publish: publishMs,
+          publication: publicationMs,
           total: Math.max(0, Date.now() - buildStartedAt),
         },
       })}`
@@ -771,6 +801,7 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
       analysis_scope: analysisScope,
       artifact_version: artifactVersion,
       job_id: jobId,
+      publication_action: params.publishResult ? 'published' : 'candidate_ready',
       resumed: resume != null,
       processed_sender_count: totalProcessedSenderCount,
       processed_message_count: totalProcessedMessageCount,
@@ -795,6 +826,7 @@ export async function runGmailFullMailboxArtifactBuild(params: {
   artifactVersion?: string | null
   jobId?: string | null
   resumeJobId?: string | null
+  publishResult?: boolean
 }): Promise<GmailFullMailboxArtifactBuildResult> {
   const tenantId = normalizeText(params.tenantId)
   const analysisScope = params.analysisScope || 'all_indexed'
@@ -805,6 +837,7 @@ export async function runGmailFullMailboxArtifactBuild(params: {
   let resumeJobId = normalizeText(params.resumeJobId) || null
   let artifactVersion = normalizeText(params.artifactVersion) || null
   let jobId = normalizeText(params.jobId) || null
+  const publishResult = params.publishResult === true
   let lastError: GmailFullMailboxBuildAttemptError | null = null
 
   for (let attempt = 1; attempt <= FULL_BUILD_RETRY_ATTEMPTS; attempt += 1) {
@@ -816,6 +849,7 @@ export async function runGmailFullMailboxArtifactBuild(params: {
         artifactVersion,
         jobId,
         resumeJobId,
+        publishResult,
         attempt,
         maxAttempts: FULL_BUILD_RETRY_ATTEMPTS,
       })

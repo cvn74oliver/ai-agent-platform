@@ -1,17 +1,23 @@
 import type {
   GmailCleanupClusterRef,
+  GmailCleanupGroupReviewUnit,
+  GmailCleanupGroupReviewUnitBasis,
   GmailMailboxIntelligenceData,
   GmailSemanticFamily,
+  GmailSenderWorkspaceSemanticFocus,
   GmailSharedGroupSemanticRollup,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
   resolveCleanupClusterIdentity,
   type CleanupCanonicalGroupDescriptor,
-  type GmailCleanupGroupLane,
 } from '@/lib/runtime/gmailCleanupClusterIdentity'
 import { gmailSemanticFamilyDisplayLabel } from '@/lib/runtime/gmailSemanticPresentationPolicy'
 
-export type CleanupGroupSectionId = GmailCleanupGroupLane
+export type CleanupGroupSectionId =
+  | 'semantic_parents'
+  | 'structural_lanes'
+  | 'secondary'
+  | 'context'
 
 export type CleanupGroupRecommendationReason =
   | 'resume_work'
@@ -86,6 +92,35 @@ export type CleanupGroupDerivedReviewUnit = {
   honestyLabel: string
 }
 
+export const CLEANUP_GROUP_REVIEW_UNIT_TARGET_MIN = 50
+export const CLEANUP_GROUP_REVIEW_UNIT_TARGET_MAX = 300
+export const CLEANUP_GROUP_REVIEW_UNIT_HARD_MAX = 400
+
+export type CleanupGroupPublishedReviewUnitTargetState =
+  | 'under_target'
+  | 'within_target'
+  | 'near_cap'
+  | 'oversized'
+
+export type CleanupGroupPublishedReviewUnit = {
+  id: string
+  label: string
+  senderCount: number
+  groupSharePct: number
+  sourceKind: GmailCleanupGroupReviewUnit['source_kind']
+  sourceKey: string
+  unitRole: GmailCleanupGroupReviewUnit['unit_role']
+  basis: GmailCleanupGroupReviewUnitBasis
+  semanticFamily: GmailSemanticFamily | null
+  semanticSubtype: string | null
+  focusKind: GmailSenderWorkspaceSemanticFocus['kind'] | null
+  surfacedSubtypeKeys: string[]
+  reasonKind: 'assignment_reason' | 'exclusion_reason' | null
+  targetState: CleanupGroupPublishedReviewUnitTargetState
+  targetLabel: string
+  guidance: string
+}
+
 export type CleanupGroupSurfaceTier = 'featured_parent' | 'collapsed_parent' | 'secondary'
 
 export type CleanupGroupSurfaceKind =
@@ -104,7 +139,8 @@ export type CleanupGroupSectionSummary<T> = CleanupGroupUiSection & {
 
 type CleanupGroupUiMeta = {
   sectionId: CleanupGroupSectionId
-  laneLabel: 'Action lane' | 'Backlog lane' | 'Coverage lane' | 'Secondary lane' | 'Context lane'
+  laneLabel: 'Semantic parent' | 'Structural lane' | 'Secondary' | 'Context'
+  title: string
   whyExists: string
   startWith: string | null
 }
@@ -120,46 +156,56 @@ const FALLBACK_SURFACE_META: CleanupGroupSurfaceMeta = {
 }
 
 const FALLBACK_UI_META: CleanupGroupUiMeta = {
-  sectionId: 'action',
-  laneLabel: 'Action lane',
+  sectionId: 'structural_lanes',
+  laneLabel: 'Structural lane',
+  title: 'Cleanup group',
   whyExists: 'Grouped into the current cleanup snapshot as a sender-first review pass.',
   startWith: null,
 }
 
+const CLEANUP_GROUP_CANONICAL_TITLES = {
+  'semantic.marketing_subscriptions': 'Marketing subscriptions',
+  'structural.backlog': 'Backlog',
+  'structural.unresolved': 'Unresolved',
+  'structural.protected_trust': 'Protected trust',
+  'secondary.account_updates': 'Account updates',
+  'context.historical': 'Historical',
+  'secondary.social_community': 'Social community',
+} as const satisfies Record<string, string>
+
+const CLEANUP_GROUP_DEFAULT_REVIEW_UNIT_FAMILY_BY_CANONICAL_ID: Partial<
+  Record<string, GmailSemanticFamily>
+> = {
+  'semantic.marketing_subscriptions': 'marketing_promotional',
+}
+
 export const CLEANUP_GROUP_UI_SECTIONS: CleanupGroupUiSection[] = [
   {
-    id: 'action',
-    title: 'Action',
+    id: 'semantic_parents',
+    title: 'Semantic parents',
     description:
-      'Primary workflow lane. Start here when artifact truth supports a coherent semantic parent worth opening first.',
+      'Top-level canonical semantic entry points. Start here when the published artifact supports one coherent semantic parent.',
     defaultExpanded: true,
   },
   {
-    id: 'backlog',
-    title: 'Backlog',
+    id: 'structural_lanes',
+    title: 'Structural lanes',
     description:
-      'Use this when you want a deliberate backlog pass. It stays top-level because workflow state matters more than one semantic family.',
-    defaultExpanded: true,
-  },
-  {
-    id: 'coverage',
-    title: 'Coverage',
-    description:
-      'Safety and unresolved lanes stay visible for caution and completeness, but they are not the default place to begin.',
+      'Structural backlog, protected, and unresolved groups stay top-level when workflow or safety framing outranks one semantic family.',
     defaultExpanded: true,
   },
   {
     id: 'secondary',
     title: 'Secondary',
     description:
-      'Optional exploration only. These smaller coherent clusters stay available without entering the primary decision flow.',
+      'Optional canonical secondary groups stay available without becoming equal-weight starting points.',
     defaultExpanded: false,
   },
   {
     id: 'context',
     title: 'Context',
     description:
-      'Historical coverage stays available for completeness, but it remains visually and behaviorally demoted.',
+      'Historical context stays available for completeness, but remains visually and behaviorally reduced.',
     defaultExpanded: false,
   },
 ]
@@ -172,6 +218,180 @@ function cleanupGroupCanonicalId(clusterId: string): string {
   return cleanupGroupDescriptor(clusterId)?.canonicalClusterId || clusterId
 }
 
+function humanizeCleanupGroupTitle(clusterId: string): string {
+  const normalized = clusterId
+    .split('.')
+    .pop()
+    ?.split(':')
+    .pop()
+    ?.replace(/[_-]+/g, ' ')
+    .trim()
+
+  if (!normalized) return 'Cleanup group'
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+export function getCleanupGroupCanonicalClusterId(clusterId: string): string {
+  return cleanupGroupCanonicalId(clusterId)
+}
+
+export function getCleanupGroupPrimaryLabel(
+  clusterId: string,
+  fallbackTitle?: string | null
+): string {
+  const canonicalClusterId = cleanupGroupCanonicalId(clusterId)
+  const registryTitle =
+    CLEANUP_GROUP_CANONICAL_TITLES[
+      canonicalClusterId as keyof typeof CLEANUP_GROUP_CANONICAL_TITLES
+    ]
+  if (registryTitle) return registryTitle
+  if (typeof fallbackTitle === 'string' && fallbackTitle.trim()) return fallbackTitle.trim()
+  return humanizeCleanupGroupTitle(canonicalClusterId)
+}
+
+function reviewUnitSemanticFamily(params: {
+  clusterId: string
+  unit: GmailCleanupGroupReviewUnit
+}): GmailSemanticFamily | null {
+  const canonicalClusterId = cleanupGroupCanonicalId(params.clusterId)
+
+  if (
+    params.unit.source_kind === 'family_lane' ||
+    params.unit.source_kind === 'family_remainder'
+  ) {
+    if (
+      params.unit.source_key === 'marketing_promotional' ||
+      params.unit.source_key === 'commerce_transactional' ||
+      params.unit.source_key === 'account_notification' ||
+      params.unit.source_key === 'security_alert' ||
+      params.unit.source_key === 'social_community' ||
+      params.unit.source_key === 'human_personal'
+    ) {
+      return params.unit.source_key
+    }
+  }
+
+  if (params.unit.source_kind === 'family_subtype') {
+    return (
+      CLEANUP_GROUP_DEFAULT_REVIEW_UNIT_FAMILY_BY_CANONICAL_ID[canonicalClusterId] || null
+    )
+  }
+
+  return null
+}
+
+function reviewUnitTargetState(senderCount: number): CleanupGroupPublishedReviewUnitTargetState {
+  if (senderCount > CLEANUP_GROUP_REVIEW_UNIT_HARD_MAX) return 'oversized'
+  if (senderCount > CLEANUP_GROUP_REVIEW_UNIT_TARGET_MAX) return 'near_cap'
+  if (senderCount < CLEANUP_GROUP_REVIEW_UNIT_TARGET_MIN) return 'under_target'
+  return 'within_target'
+}
+
+function reviewUnitTargetLabel(targetState: CleanupGroupPublishedReviewUnitTargetState): string {
+  if (targetState === 'oversized') return 'Blocking: above hard max'
+  if (targetState === 'near_cap') return 'Near cap'
+  if (targetState === 'under_target') return 'Small but valid'
+  return 'Target size'
+}
+
+function reviewUnitGuidance(params: {
+  basis: GmailCleanupGroupReviewUnitBasis
+  unit: GmailCleanupGroupReviewUnit
+}): string {
+  if (params.unit.source_kind === 'assignment_reason') {
+    return 'Start here to keep protected review bounded by one protection reason.'
+  }
+  if (params.unit.source_kind === 'exclusion_reason') {
+    return 'Start here to keep unresolved review bounded by one exclusion reason.'
+  }
+  if (params.unit.source_kind === 'family_lane') {
+    return 'Start here to narrow the first pass to one semantic family lane.'
+  }
+  if (params.unit.source_kind === 'family_remainder') {
+    return 'Use this remainder after the named subtype slices.'
+  }
+  if (params.basis === 'subtype-first') {
+    return 'Start here for the narrowest published subtype slice.'
+  }
+  return 'Start here to narrow the sender queue before entering review.'
+}
+
+export function buildCleanupGroupPublishedReviewUnits(
+  clusterId: string,
+  rollup: GmailSharedGroupSemanticRollup | null
+): CleanupGroupPublishedReviewUnit[] {
+  const unitPlan = rollup?.review_unit_plan
+  if (!unitPlan?.units?.length) return []
+
+  const marketingSubtypeKeys = unitPlan.units
+    .filter((unit) => unit.source_kind === 'family_subtype')
+    .map((unit) => unit.source_key)
+
+  return unitPlan.units.map((unit) => {
+    const semanticFamily = reviewUnitSemanticFamily({ clusterId, unit })
+    const focusKind =
+      unit.source_kind === 'family_lane'
+        ? 'family'
+        : unit.source_kind === 'family_subtype'
+          ? 'subtype'
+          : unit.source_kind === 'family_remainder'
+            ? 'remainder'
+            : null
+    const targetState = reviewUnitTargetState(unit.sender_count)
+    return {
+      id: unit.unit_id,
+      label: unit.label,
+      senderCount: Math.max(0, unit.sender_count),
+      groupSharePct: Math.max(0, Math.min(unit.share_pct, 100)),
+      sourceKind: unit.source_kind,
+      sourceKey: unit.source_key,
+      unitRole: unit.unit_role,
+      basis: unitPlan.basis,
+      semanticFamily,
+      semanticSubtype: unit.source_kind === 'family_subtype' ? unit.source_key : null,
+      focusKind,
+      surfacedSubtypeKeys:
+        unit.source_kind === 'family_remainder' ? marketingSubtypeKeys : marketingSubtypeKeys,
+      reasonKind:
+        unit.source_kind === 'assignment_reason' || unit.source_kind === 'exclusion_reason'
+          ? unit.source_kind
+          : null,
+      targetState,
+      targetLabel: reviewUnitTargetLabel(targetState),
+      guidance: reviewUnitGuidance({
+        basis: unitPlan.basis,
+        unit,
+      }),
+    }
+  })
+}
+
+export function findCleanupGroupPublishedReviewUnit(
+  units: CleanupGroupPublishedReviewUnit[],
+  unitId: string | null | undefined
+): CleanupGroupPublishedReviewUnit | null {
+  if (!unitId) return null
+  return units.find((unit) => unit.id === unitId) || null
+}
+
+export function recommendCleanupGroupPublishedReviewUnit(
+  units: CleanupGroupPublishedReviewUnit[]
+): CleanupGroupPublishedReviewUnit | null {
+  return units.find((unit) => unit.targetState !== 'oversized') || units[0] || null
+}
+
+export function buildSemanticFocusFromPublishedReviewUnit(
+  unit: CleanupGroupPublishedReviewUnit
+): GmailSenderWorkspaceSemanticFocus | null {
+  if (!unit.semanticFamily || !unit.focusKind) return null
+  return {
+    family: unit.semanticFamily,
+    kind: unit.focusKind,
+    subtypeKey: unit.focusKind === 'subtype' ? unit.semanticSubtype : null,
+    surfacedSubtypeKeys: unit.surfacedSubtypeKeys,
+  }
+}
+
 function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
   const descriptor = cleanupGroupDescriptor(clusterId)
   const canonicalClusterId = descriptor?.canonicalClusterId || clusterId
@@ -180,10 +400,11 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
 
   if (descriptor.lane === 'action') {
     return {
-      sectionId: 'action',
-      laneLabel: 'Action lane',
+      sectionId: 'semantic_parents',
+      laneLabel: 'Semantic parent',
+      title: getCleanupGroupPrimaryLabel(canonicalClusterId),
       whyExists:
-        'This is the only current semantic parent earning top-level action-lane status under artifact truth.',
+        'This semantic parent stays top-level because the published artifact supports one coherent semantic cleanup family.',
       startWith:
         canonicalClusterId === 'semantic.marketing_subscriptions'
           ? 'Offer campaigns first · Product updates next'
@@ -193,22 +414,24 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
 
   if (descriptor.lane === 'backlog') {
     return {
-      sectionId: 'backlog',
-      laneLabel: 'Backlog lane',
+      sectionId: 'structural_lanes',
+      laneLabel: 'Structural lane',
+      title: getCleanupGroupPrimaryLabel(canonicalClusterId),
       whyExists:
-        'This stays top-level because backlog state is the real organizing frame, not one semantic category.',
+        'This structural lane stays top-level because backlog state is the real organizing frame, not one semantic family.',
       startWith: 'Unread first · Highest-volume backlog',
     }
   }
 
   if (descriptor.lane === 'coverage') {
     return {
-      sectionId: 'coverage',
-      laneLabel: 'Coverage lane',
+      sectionId: 'structural_lanes',
+      laneLabel: 'Structural lane',
+      title: getCleanupGroupPrimaryLabel(canonicalClusterId),
       whyExists:
         descriptor.groupType === 'protected'
-          ? 'Protected and trusted senders stay visible here for caution, not as a default cleanup start.'
-          : 'Mixed or low-evidence senders stay visible here for coverage until stronger artifact truth exists.',
+          ? 'This structural lane stays top-level so protected trust remains visible without being reframed as a semantic parent.'
+          : 'This structural lane stays top-level because mixed or low-evidence senders still need explicit coverage.',
       startWith: null,
     }
   }
@@ -216,9 +439,10 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
   if (descriptor.lane === 'secondary') {
     return {
       sectionId: 'secondary',
-      laneLabel: 'Secondary lane',
+      laneLabel: 'Secondary',
+      title: getCleanupGroupPrimaryLabel(canonicalClusterId),
       whyExists:
-        'This is an optional exploration group only. It remains available without becoming an equal-weight entry point.',
+        'This canonical secondary group remains available without becoming an equal-weight entry point.',
       startWith: null,
     }
   }
@@ -226,9 +450,10 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
   if (descriptor.lane === 'context') {
     return {
       sectionId: 'context',
-      laneLabel: 'Context lane',
+      laneLabel: 'Context',
+      title: getCleanupGroupPrimaryLabel(canonicalClusterId),
       whyExists:
-        'Historical coverage stays visible for completeness, but it is intentionally reduced and not treated as an active start lane.',
+        'This context group stays visible for completeness, but it is intentionally reduced and not treated as a primary start point.',
       startWith: null,
     }
   }
@@ -305,6 +530,12 @@ export function isCleanupGroupSurfacedInUi(clusterId: string): boolean {
 
 export function getCleanupGroupLaneLabel(clusterId: string): CleanupGroupUiMeta['laneLabel'] {
   return cleanupGroupUiMeta(clusterId).laneLabel
+}
+
+export function getCleanupGroupTitle(clusterId: string, fallbackTitle?: string | null): string {
+  const meta = cleanupGroupUiMeta(clusterId)
+  if (meta.title && meta.title !== FALLBACK_UI_META.title) return meta.title
+  return getCleanupGroupPrimaryLabel(clusterId, fallbackTitle)
 }
 
 export function getCleanupGroupWhyExists(clusterId: string): string {
@@ -696,43 +927,43 @@ export function getCleanupGroupRecommendationExplanation(
     return {
       title: 'Resume saved work first',
       detail:
-        'This group already has active draft work, so continuing it should outrank opening a brand-new primary action lane.',
+        'This group already has active draft work, so continuing it should outrank opening a brand-new semantic parent or structural lane.',
       bridgeDetail:
         'Cleanup Groups stays the full comparison surface, but the handoff should send you back to the group where work is already in motion.',
     }
   }
   if (reason === 'small_quick_win') {
     return {
-      title: 'Smallest quick win in the primary action lanes',
+      title: 'Smallest quick win in the semantic parents',
       detail:
-        'This is the first visible primary action lane with a small enough sender scope to create momentum quickly.',
+        'This is the first visible semantic parent with a small enough sender scope to create momentum quickly.',
       bridgeDetail:
-        'Cleanup Groups still owns the full comparison view. Mailbox Intelligence only points to the quickest clear primary action lane.',
+        'Cleanup Groups still owns the full comparison view. Mailbox Intelligence only points to the quickest clear semantic parent.',
     }
   }
   if (reason === 'backlog') {
     return {
       title: 'Backlog is the clearest remaining pass',
       detail:
-        'The primary action lanes are no longer the default path, so the backlog lane becomes the next deliberate cleanup pass.',
+        'The semantic parents are no longer the default path, so Backlog becomes the next deliberate structural pass.',
       bridgeDetail:
-        'Cleanup Groups remains the full selection surface, while Mailbox Intelligence only points to the clearest remaining non-safety / coverage path.',
+        'Cleanup Groups remains the full selection surface, while Mailbox Intelligence only points to the clearest remaining structural lane that is still meant for active work.',
     }
   }
   if (reason === 'none') {
     return {
       title: 'No default next group',
       detail:
-        'Safety / coverage lanes remain available, but they should not auto-recommend themselves as the default next step.',
+        'Structural safety and context groups remain available, but they should not auto-recommend themselves as the default next step.',
       bridgeDetail: 'Open Cleanup Groups to choose from the remaining groups manually.',
     }
   }
   return {
-    title: 'Biggest manageable primary action lane',
+    title: 'Biggest manageable semantic parent',
     detail:
-      'This is the highest-impact visible primary action lane that still stays within the manageable sender-scope threshold.',
+      'This is the highest-impact visible semantic parent that still stays within the manageable sender-scope threshold.',
     bridgeDetail:
-      'Cleanup Groups still owns the full comparison surface. Mailbox Intelligence only points to the strongest manageable next primary action lane.',
+      'Cleanup Groups still owns the full comparison surface. Mailbox Intelligence only points to the strongest manageable next semantic parent.',
   }
 }
 
@@ -749,7 +980,9 @@ export function buildCleanupGroupIntentSnapshotsForUi<T>(params: {
     getSenderCount: params.getSenderCount,
     getImpactCount: params.getImpactCount,
   })
-  const startHereCandidates = candidates.filter((candidate) => candidate.sectionId === 'action')
+  const startHereCandidates = candidates.filter(
+    (candidate) => candidate.sectionId === 'semantic_parents'
+  )
   const quickStart =
     sortCleanupGroupsForUi(
       startHereCandidates.filter(
@@ -768,7 +1001,9 @@ export function buildCleanupGroupIntentSnapshotsForUi<T>(params: {
       })[0] || null
   const backlogReduction =
     sortCleanupGroupsForUi(
-      candidates.filter((candidate) => candidate.sectionId === 'backlog'),
+      candidates.filter(
+        (candidate) => cleanupGroupCanonicalId(candidate.clusterId) === 'structural.backlog'
+      ),
       (candidate) => candidate.clusterId
     )[0] || null
 
@@ -814,9 +1049,11 @@ export function recommendCleanupGroupForUi<T>(params: {
     return { group: resumeTarget.group, reason: 'resume_work' }
   }
 
-  const startHereCandidates = candidates.filter((candidate) => candidate.sectionId === 'action')
+  const semanticParentCandidates = candidates.filter(
+    (candidate) => candidate.sectionId === 'semantic_parents'
+  )
   const smallQuickWin = sortCleanupGroupsForUi(
-    startHereCandidates.filter(
+    semanticParentCandidates.filter(
       (candidate) => candidate.senderCount != null && candidate.senderCount <= 150
     ),
     (candidate) => candidate.clusterId
@@ -825,7 +1062,7 @@ export function recommendCleanupGroupForUi<T>(params: {
     return { group: smallQuickWin.group, reason: 'small_quick_win' }
   }
 
-  const manageableStartHere = startHereCandidates
+  const manageableStartHere = semanticParentCandidates
     .filter((candidate) => candidate.senderCount != null && candidate.senderCount <= 1000)
     .slice()
     .sort((left, right) => {
@@ -838,7 +1075,9 @@ export function recommendCleanupGroupForUi<T>(params: {
   }
 
   const backlogTarget = sortCleanupGroupsForUi(
-    candidates.filter((candidate) => candidate.sectionId === 'backlog'),
+    candidates.filter(
+      (candidate) => cleanupGroupCanonicalId(candidate.clusterId) === 'structural.backlog'
+    ),
     (candidate) => candidate.clusterId
   )[0]
   if (backlogTarget) {
