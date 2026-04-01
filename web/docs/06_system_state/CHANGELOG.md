@@ -1,3 +1,149 @@
+### March 31, 2026 — Shared Analysis Rail Time Context Truth-Reconciliation Accepted
+
+What changed:
+- Accepted the scoped Time Context truth-reconciliation pass for the validated Shared Analysis Rail routes.
+- `All Indexed` now reads as a materially reconciled monthly selected-cluster timeline on the validated routes.
+- `1M` and `1W` remain browser-valid in the validated cases.
+- Focused-bucket truth now appears aligned with rendered bucket data in the validated cases.
+
+Accepted outcome:
+- This closes the specific `All Indexed` monthly truth-mismatch problem for the validated routes.
+- The accepted validated routes are:
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `semantic.marketing_subscriptions`
+- No Lane B workflow-narrowing behavior was introduced in this pass.
+- No route-shape or API-shape widening was introduced in this pass.
+
+Explicitly still open:
+- the broader Time Context rebuild
+- full Time Context grammar lock
+- filtering-contract lock
+- bucket-driven workflow narrowing
+- interactive chart/workflow parity proof
+- residual empty `action:""` inbox-analysis runtime noise as a separate follow-up
+
+### March 30, 2026 — Cleanup Groups Rediscovery Lane Complete
+
+What changed:
+- Cleanup Groups migration is now complete for the scoped artifact-driven restructure roadmap.
+- The canonical runtime cleanup-group model is live end-to-end.
+- The Cleanup Groups page now uses the canonical lane-first structure in production.
+- Workflow integration is now live across Review, Intelligence, memory persistence, destination execution, and Management reopen handling.
+- Alias / canonical hardening is complete and the compatibility window remains open.
+- The future canonical-publish artifact path is prepared, but remains default-off and was not activated in this lane.
+
+Accepted outcome:
+- Cleanup Groups rediscovery / restructure Phases A through E are complete.
+- Canonical runtime identity is now the active cleanup-group contract.
+- Lane-first Cleanup Groups UI is live.
+- Workflow integration is live.
+- No sender membership drift occurred during the migration lane.
+- No unintended artifact republish or canonical-publish activation occurred.
+
+Deferred follow-on:
+- Cleanup Groups card-compression / summary-first UI refinement remains a separate future slice.
+- Alias retirement remains deferred until a later compatibility-window decision.
+- Any future activation of canonical artifact publish remains a separate follow-on decision because the prepared switch is still default-off.
+
+### March 30, 2026 — Cleanup Groups Rediscovery Phase C Complete
+
+What changed:
+- Cleanup Groups UI now renders from the canonical lane-first structure.
+- The live Cleanup Groups page now uses the locked lane order:
+  - `Action`
+  - `Backlog`
+  - `Coverage`
+  - `Secondary`
+  - `Context`
+- The surfaced canonical rollout-1 set is now live in UI:
+  - `semantic.marketing_subscriptions`
+  - `structural.backlog`
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `secondary.system_notifications`
+  - `context.historical`
+- Secondary and Context default-collapse behavior is live.
+- Review units remain nested inside parent groups and do not render as peer groups.
+- The live audit harness now validates the canonical runtime cleanup-group contract and still proves legacy/transitional compatibility.
+
+Accepted outcome:
+- Cleanup Groups Phase C is complete.
+- Cleanup Groups now uses the canonical lane-first selection structure.
+- Secondary/context default collapse is live.
+- Canonical cleanup-group ids are now used in the surfaced Cleanup Groups UI.
+- No sender membership changed in this phase.
+
+Explicit follow-on:
+- Card-compression / expand-collapse refinement is still future UI follow-on work.
+- The grouping model is accepted; future UI refinement should compress default card height and keep detailed artifact evidence available behind lighter-weight progressive disclosure.
+
+Next step:
+- Phase D is workflow integration.
+
+### March 30, 2026 — Cleanup Groups Rediscovery Phase A Complete
+
+What changed:
+- Added the single canonical Cleanup Groups registry in `web/src/lib/runtime/gmailCleanupClusterIdentity.ts`.
+- Locked rollout-1 canonical ids, alias mappings, lane, group type, surfaced status, display priority, and primary-entry eligibility in that one registry.
+- Added the descriptor-aware alias layer to cleanup-cluster identity resolution.
+- Added the minimal runtime ref typing support needed to carry the new identity metadata without widening behavior.
+
+Accepted outcome:
+- Cleanup Groups Phase A is complete.
+- Canonical registry ownership is centralized.
+- Alias resolution now has one canonical source of truth.
+- No sender membership changed.
+- No UI behavior changed.
+- No workflow behavior changed.
+- No URL behavior changed in this phase.
+
+Next step:
+- Phase B is runtime identity normalization.
+
+### March 30, 2026 — Shared Analysis Rail Phase 1 Foundation Complete
+
+Root-cause addressed:
+- Sender Overview needed a shared analysis-rail foundation before adding Sender Distribution chart logic or deeper Time Context interaction.
+- The implementation risk was not visual polish; it was architectural drift:
+  - tab state could have leaked into router or fetch state
+  - `GmailCleanupComponents.tsx` could have become a second authority for workflow truth
+  - focused-sender / workflow / Decision Mode behavior could have drifted before the shared contract was in place
+
+What changed:
+- Added a shared tabbed analysis rail shell in Sender Overview with:
+  - `Time Context`
+  - `Sender Distribution`
+- Added the shared workflow-subset contract in `review/page.tsx` as page-session-only normalized truth for:
+  - chart context
+  - workflow list integration
+  - guided Decision Mode handoff
+- Kept `review/page.tsx` as the only authority for:
+  - active tab state
+  - shared workflow-subset contract
+  - no-rehydrate safeguards
+- Kept `GmailCleanupComponents.tsx` presentation-only.
+- Kept `Sender Distribution` as a strict placeholder shell only:
+  - no chart logic
+  - no ranking logic
+  - no sender interaction
+  - no partial Phase 2 behavior
+- Shipped with no backend/API/query changes:
+  - no new Supabase work
+  - no new query patterns
+  - no `/api/agents/playground` introduction
+  - no page-wide rehydrate behavior
+
+Accepted outcome:
+- Shared Analysis Rail foundation is now in place for Sender Overview.
+- A tabbed rail shell now exists without changing current Time Context rendering or behavior.
+- The shared workflow-subset contract now exists in `review/page.tsx`.
+- Sender Distribution remains placeholder-only by design in Phase 1.
+- Current workflow list, contributor/focused-sender behavior, guided Decision Mode behavior, and timeframe-chip behavior remain unchanged.
+
+Next step:
+- Phase 2 is the actual Sender Distribution chart implementation on top of this accepted foundation.
+
 ### March 30, 2026 — Subscription-Senders Sender Overview Load Stability Accepted
 
 Root-cause addressed:

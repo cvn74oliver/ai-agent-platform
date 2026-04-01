@@ -256,8 +256,11 @@ async function loadDiscoveryIndexedRowsWithManualReuse(params: {
   const tenantId = params.tenantId.trim()
   const limit = GMAIL_MAILBOX_INDEX_MAX_MESSAGES
   const nowMs = Date.now()
+  const scopedWindowDays = scopeDays(params.analysisScope)
   const scopeBoundInternalDateMs =
-    params.analysisScope === '7d' ? nowMs - 7 * 24 * 60 * 60 * 1000 : null
+    scopedWindowDays != null && scopedWindowDays <= 7
+      ? nowMs - scopedWindowDays * 24 * 60 * 60 * 1000
+      : null
   const cacheKey =
     scopeBoundInternalDateMs != null ? `${tenantId}::${params.analysisScope}` : tenantId
   const signature = buildDiscoveryIndexedRowsSignature({
@@ -2419,7 +2422,7 @@ export function activityTimelineGranularityForScope(
   scope: GmailAnalysisScope
 ): GmailActivityTimelineGranularity {
   const days = scopeDays(scope)
-  if (days != null && days <= 7) return 'day'
+  if (days != null && days <= 30) return 'day'
   if (days != null && days <= 90) return 'week'
   return 'month'
 }
@@ -2428,6 +2431,10 @@ function utcDayBucketKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
     date.getUTCDate()
   ).padStart(2, '0')}`
+}
+
+function utcMonthBucketKey(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
 function utcWeekBucketKey(date: Date): string {
@@ -2445,7 +2452,270 @@ export function activityTimelineBucketKeyForTimestamp(
   const date = new Date(timestampMs)
   if (granularity === 'day') return utcDayBucketKey(date)
   if (granularity === 'week') return utcWeekBucketKey(date)
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+  return utcMonthBucketKey(date)
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+}
+
+function startOfUtcMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime())
+  next.setUTCDate(next.getUTCDate() + days)
+  return next
+}
+
+function addUtcMonths(date: Date, months: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1))
+}
+
+function senderTimelineFirstSeenMs(
+  sender: GmailSenderWorkspaceData['senders'][number]
+): number | null {
+  const parsed =
+    typeof sender.first_seen === 'string' && sender.first_seen.trim()
+      ? Date.parse(sender.first_seen)
+      : Number.NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function senderTimelineLastSeenMs(
+  sender: GmailSenderWorkspaceData['senders'][number]
+): number | null {
+  const parsed =
+    typeof sender.last_activity === 'string' && sender.last_activity.trim()
+      ? Date.parse(sender.last_activity)
+      : Number.NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildLaneATimeContextBucketKeys(params: {
+  senders: GmailSenderWorkspaceData['senders']
+  analysisScope: GmailAnalysisScope
+  nowMs?: number
+}): string[] | null {
+  if (params.analysisScope === '7d' || params.analysisScope === '30d') {
+    const bucketCount = params.analysisScope === '7d' ? 7 : 30
+    const end = startOfUtcDay(new Date(params.nowMs || Date.now()))
+    const start = addUtcDays(end, -(bucketCount - 1))
+    const keys: string[] = []
+    for (let index = 0; index < bucketCount; index += 1) {
+      keys.push(utcDayBucketKey(addUtcDays(start, index)))
+    }
+    return keys
+  }
+
+  if (params.analysisScope !== 'all_indexed') return null
+
+  let earliestMs: number | null = null
+  let latestMs: number | null = null
+  for (const sender of params.senders) {
+    const firstSeenMs = senderTimelineFirstSeenMs(sender)
+    const lastSeenMs = senderTimelineLastSeenMs(sender)
+    const candidateStartMs = firstSeenMs ?? lastSeenMs
+    const candidateEndMs = lastSeenMs ?? firstSeenMs
+    if (candidateStartMs != null && (earliestMs == null || candidateStartMs < earliestMs)) {
+      earliestMs = candidateStartMs
+    }
+    if (candidateEndMs != null && (latestMs == null || candidateEndMs > latestMs)) {
+      latestMs = candidateEndMs
+    }
+  }
+
+  if (earliestMs == null || latestMs == null) return []
+
+  const start = startOfUtcMonth(new Date(earliestMs))
+  const end = startOfUtcMonth(new Date(latestMs))
+  const keys: string[] = []
+  for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = addUtcMonths(cursor, 1)) {
+    keys.push(utcMonthBucketKey(cursor))
+  }
+  return keys
+}
+
+export function buildSenderWorkspaceActivityTimelineFromUniverse(params: {
+  senders: GmailSenderWorkspaceData['senders']
+  analysisScope: GmailAnalysisScope
+  nowMs?: number
+}): {
+  items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
+  granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
+} {
+  const granularity = activityTimelineGranularityForScope(params.analysisScope)
+
+  if (params.analysisScope === 'all_indexed') {
+    const counts = new Map<string, number>()
+    const laneABucketKeys = buildLaneATimeContextBucketKeys(params) || []
+
+    for (const sender of params.senders) {
+      const firstSeenMs = senderTimelineFirstSeenMs(sender)
+      const lastSeenMs = senderTimelineLastSeenMs(sender)
+      const rangeStartMs = firstSeenMs ?? lastSeenMs
+      const rangeEndMs = lastSeenMs ?? firstSeenMs
+      if (rangeStartMs == null || rangeEndMs == null) continue
+
+      const start = startOfUtcMonth(new Date(rangeStartMs))
+      const end = startOfUtcMonth(new Date(rangeEndMs))
+      for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = addUtcMonths(cursor, 1)) {
+        const label = utcMonthBucketKey(cursor)
+        counts.set(label, (counts.get(label) || 0) + 1)
+      }
+    }
+
+    return {
+      items: laneABucketKeys.map((label) => ({
+        label,
+        sender_count: counts.get(label) || 0,
+        message_count: null,
+      })),
+      granularity: 'month',
+    }
+  }
+
+  const counts = new Map<string, { senderCount: number; messageCount: number }>()
+
+  for (const sender of params.senders) {
+    const lastSeenMs = senderTimelineLastSeenMs(sender)
+    if (lastSeenMs == null) continue
+    const label = activityTimelineBucketKeyForTimestamp(lastSeenMs, granularity)
+    const current = counts.get(label) || { senderCount: 0, messageCount: 0 }
+    current.senderCount += 1
+    current.messageCount += Math.max(0, sender.cleanup_group_message_count || 0)
+    counts.set(label, current)
+  }
+
+  const laneABucketKeys = buildLaneATimeContextBucketKeys(params)
+  if (laneABucketKeys) {
+    return {
+      items: laneABucketKeys.map((label) => ({
+        label,
+        sender_count: counts.get(label)?.senderCount || 0,
+        message_count: counts.get(label)?.messageCount || 0,
+      })),
+      granularity,
+    }
+  }
+
+  return {
+    items: Array.from(counts.entries())
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .slice(-8)
+      .map(([label, entry]) => ({
+        label,
+        sender_count: entry.senderCount,
+        message_count: entry.messageCount,
+      })),
+    granularity,
+  }
+}
+
+function buildLaneATimeContextBucketKeysFromRows(params: {
+  rows: GmailMailboxIndexRow[]
+  analysisScope: GmailAnalysisScope
+  nowMs?: number
+}): string[] | null {
+  if (params.analysisScope === '7d' || params.analysisScope === '30d') {
+    const bucketCount = params.analysisScope === '7d' ? 7 : 30
+    const end = startOfUtcDay(new Date(params.nowMs || Date.now()))
+    const start = addUtcDays(end, -(bucketCount - 1))
+    const keys: string[] = []
+    for (let index = 0; index < bucketCount; index += 1) {
+      keys.push(utcDayBucketKey(addUtcDays(start, index)))
+    }
+    return keys
+  }
+
+  if (params.analysisScope !== 'all_indexed') return null
+
+  let earliestMs: number | null = null
+  let latestMs: number | null = null
+  for (const row of params.rows) {
+    const timestamp =
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+        ? row.internal_date_ms
+        : null
+    if (timestamp == null) continue
+    if (earliestMs == null || timestamp < earliestMs) earliestMs = timestamp
+    if (latestMs == null || timestamp > latestMs) latestMs = timestamp
+  }
+
+  if (earliestMs == null || latestMs == null) return []
+
+  const start = startOfUtcMonth(new Date(earliestMs))
+  const end = startOfUtcMonth(new Date(latestMs))
+  const keys: string[] = []
+  for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = addUtcMonths(cursor, 1)) {
+    keys.push(utcMonthBucketKey(cursor))
+  }
+  return keys
+}
+
+export function buildSenderWorkspaceActivityTimelineFromRows(params: {
+  rows: GmailMailboxIndexRow[]
+  analysisScope: GmailAnalysisScope
+  nowMs?: number
+}): {
+  items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
+  granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
+} {
+  const granularity = activityTimelineGranularityForScope(params.analysisScope)
+  const counts = new Map<
+    string,
+    {
+      senderKeys: Set<string>
+      messageCount: number
+    }
+  >()
+
+  for (const row of params.rows) {
+    const timestamp =
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+        ? row.internal_date_ms
+        : null
+    if (timestamp == null) continue
+
+    const label = activityTimelineBucketKeyForTimestamp(timestamp, granularity)
+    const senderDisplay = rowSender(row) || row.sender || 'Unknown sender'
+    const senderKey = normalizeSender(senderDisplay) || senderDisplay.trim().toLowerCase()
+    if (!senderKey) continue
+
+    const current =
+      counts.get(label) || {
+        senderKeys: new Set<string>(),
+        messageCount: 0,
+      }
+    current.senderKeys.add(senderKey)
+    current.messageCount += 1
+    counts.set(label, current)
+  }
+
+  const laneABucketKeys = buildLaneATimeContextBucketKeysFromRows(params)
+  if (laneABucketKeys) {
+    return {
+      items: laneABucketKeys.map((label) => ({
+        label,
+        sender_count: counts.get(label)?.senderKeys.size || 0,
+        message_count: counts.get(label)?.messageCount || 0,
+      })),
+      granularity,
+    }
+  }
+
+  return {
+    items: Array.from(counts.entries())
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .slice(-8)
+      .map(([label, entry]) => ({
+        label,
+        sender_count: entry.senderKeys.size,
+        message_count: entry.messageCount,
+      })),
+    granularity,
+  }
 }
 
 function latestIndexActivityMs(value: {
@@ -4308,6 +4578,9 @@ function buildMailboxIntelligenceSnapshot(params: {
 
       return {
         cluster_id: cluster.cluster_id,
+        canonical_cluster_id: cluster.canonical_cluster_id || cluster.cluster_id,
+        legacy_cluster_ids: cluster.legacy_cluster_ids || [],
+        source_cluster_ids: cluster.source_cluster_ids || [],
         cluster_type: cluster.cluster_type,
         title: cluster.title,
         query: cluster.query,
@@ -4325,6 +4598,16 @@ function buildMailboxIntelligenceSnapshot(params: {
         ),
         protected_message_count: rows.filter((row) => mailboxIntelligenceProtectionLabel(row)).length,
         uncertain_sender_count: semanticArtifactFields.uncertain_sender_count,
+        surface_tier: cluster.surface_tier || 'secondary',
+        surface_kind: cluster.surface_kind || 'secondary_candidate',
+        surface_visibility: cluster.surface_visibility || 'visible',
+        top_level_rank: cluster.top_level_rank ?? null,
+        promotion_status: 'secondary_visible' as const,
+        selected_semantic_axis: null,
+        operator_value_status: 'not_applicable' as const,
+        review_units_required: false,
+        review_unit_basis: 'secondary_group' as const,
+        review_unit_count: 0,
         semantic_rollup_schema_version: semanticArtifactFields.semantic_rollup_schema_version,
         semantic_rollup_hash: semanticArtifactFields.semantic_rollup_hash,
         semantic_rollup: semanticArtifactFields.semantic_rollup,
@@ -4473,26 +4756,7 @@ function buildSenderWorkspaceActivityTimeline(params: {
   items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
   granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
 } {
-  const granularity = activityTimelineGranularityForScope(params.analysisScope)
-  const counts = new Map<string, number>()
-
-  for (const sender of params.senders) {
-    const lastSeenMs =
-      typeof sender.last_activity === 'string' && sender.last_activity.trim()
-        ? Date.parse(sender.last_activity)
-        : Number.NaN
-    if (!Number.isFinite(lastSeenMs)) continue
-    const label = activityTimelineBucketKeyForTimestamp(lastSeenMs, granularity)
-    counts.set(label, (counts.get(label) || 0) + 1)
-  }
-
-  return {
-    items: Array.from(counts.entries())
-      .sort((left, right) => left[0].localeCompare(right[0]))
-      .slice(-8)
-      .map(([label, senderCount]) => ({ label, sender_count: senderCount })),
-    granularity,
-  }
+  return buildSenderWorkspaceActivityTimelineFromUniverse(params)
 }
 
 function buildSenderWorkspaceCategoryDistribution(
@@ -4782,6 +5046,8 @@ async function buildSenderOverviewSnapshotForCluster(params: {
     }),
     selected_cluster: {
       cluster_id: params.cluster.cluster_id,
+      canonical_cluster_id: params.cluster.canonical_cluster_id || params.cluster.cluster_id,
+      legacy_cluster_ids: params.cluster.legacy_cluster_ids || [],
       cluster_type: params.cluster.cluster_type,
       title: params.cluster.title,
       query: params.cluster.query,

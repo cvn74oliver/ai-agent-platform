@@ -22,6 +22,8 @@ import {
 } from '@/lib/integrations/gmail/gmailSemanticRollupContract'
 import {
   activityTimelineBucketKeyForTimestamp,
+  buildSenderWorkspaceActivityTimelineFromRows,
+  buildSenderWorkspaceActivityTimelineFromUniverse,
   activityTimelineGranularityForScope,
   assignSenderCleanupGroupDecision,
   buildQueryClusterBrowserSenderBreakdown,
@@ -60,6 +62,7 @@ import {
   type GmailSenderWorkspaceSeedRow,
 } from '@/lib/integrations/gmail/gmailArtifactStore'
 import {
+  buildCleanupGroupFutureCanonicalPublishIdentity,
   resolveCleanupClusterIdentity,
   type CleanupClusterIdentitySource,
 } from '@/lib/runtime/gmailCleanupClusterIdentity'
@@ -193,6 +196,16 @@ type SenderWorkspaceSnapshotCacheEntry = {
   data: PersistedCleanupDiscoverySnapshot | null
 }
 
+type ParentSenderUniverse = {
+  senderKeys: string[]
+  totalSenders: number
+}
+
+type ParentSenderUniverseCacheEntry = {
+  expires_at_ms: number
+  data: ParentSenderUniverse | null
+}
+
 const GMAIL_DERIVED_WORKSPACE_CACHE_TTL_MS = 1000 * 60 * 10
 const GMAIL_SENDER_WORKSPACE_FAST_PATH_PAGE_SIZE = 5000
 const GMAIL_SENDER_WORKSPACE_FAST_PATH_BREADTH_SLACK = 10_000
@@ -203,6 +216,8 @@ const GMAIL_SENDER_WORKSPACE_ARTIFACT_LOG_PREFIX =
   '[integrations/gmail/sender-workspace-artifact]'
 const GMAIL_SENDER_WORKSPACE_SNAPSHOT_LOG_PREFIX =
   '[integrations/gmail/sender-workspace-snapshot]'
+const GMAIL_SENDER_UNIVERSE_GUARD_LOG_PREFIX =
+  '[integrations/gmail/sender-universe-guard]'
 const GMAIL_MAILBOX_INTELLIGENCE_ARTIFACT_LOG_PREFIX =
   '[integrations/gmail/mailbox-intelligence-artifact]'
 const GMAIL_PRESSURE_TREND_ARTIFACT_LOG_PREFIX =
@@ -218,6 +233,8 @@ const GMAIL_SENDER_WORKSPACE_ARTIFACT_ALLOWLIST = new Set([
 const GMAIL_SENDER_WORKSPACE_SNAPSHOT_EVENT_TYPE = 'runtime_cleanup_discovery_snapshot'
 const GMAIL_SENDER_WORKSPACE_SNAPSHOT_VERSION = 'gmail.cleanup_profile_cache.v4'
 const GMAIL_SENDER_WORKSPACE_SNAPSHOT_CACHE_TTL_MS = 1000 * 60
+const GMAIL_SENDER_WORKSPACE_SNAPSHOT_RECENT_SCAN_LIMIT = 48
+const GMAIL_SCOPED_MAILBOX_CONTEXT_QUERY_PAGE_SIZE = 1000
 const GMAIL_SENDER_WORKSPACE_OPERATOR_PROFILE_FAMILY_SET = new Set<
   GmailSenderWorkspaceData['senders'][number]['operator_profile_family']
 >([
@@ -258,6 +275,9 @@ const gmailCleanupWorkspaceGlobal = globalThis as typeof globalThis & {
   __gmailSenderWorkspaceBaseCache?: Map<string, SenderWorkspaceBaseCacheEntry>
   __gmailSenderWorkspaceBaseInflight?: Map<string, Promise<{ ok: true; data: SenderWorkspaceBaseState } | ReturnType<typeof fail>>>
   __gmailSenderWorkspaceSnapshotCache?: Map<string, SenderWorkspaceSnapshotCacheEntry>
+  __gmailSenderWorkspaceSnapshotInflight?: Map<string, Promise<PersistedCleanupDiscoverySnapshot | null>>
+  __gmailParentSenderUniverseCache?: Map<string, ParentSenderUniverseCacheEntry>
+  __gmailParentSenderUniverseInflight?: Map<string, Promise<ParentSenderUniverse | null>>
 }
 
 const loadedMailboxContextCache =
@@ -308,66 +328,101 @@ if (!gmailCleanupWorkspaceGlobal.__gmailSenderWorkspaceSnapshotCache) {
   gmailCleanupWorkspaceGlobal.__gmailSenderWorkspaceSnapshotCache = senderWorkspaceSnapshotCache
 }
 
+const senderWorkspaceSnapshotInflight =
+  gmailCleanupWorkspaceGlobal.__gmailSenderWorkspaceSnapshotInflight ||
+  new Map<string, Promise<PersistedCleanupDiscoverySnapshot | null>>()
+if (!gmailCleanupWorkspaceGlobal.__gmailSenderWorkspaceSnapshotInflight) {
+  gmailCleanupWorkspaceGlobal.__gmailSenderWorkspaceSnapshotInflight = senderWorkspaceSnapshotInflight
+}
+
+const parentSenderUniverseCache =
+  gmailCleanupWorkspaceGlobal.__gmailParentSenderUniverseCache ||
+  new Map<string, ParentSenderUniverseCacheEntry>()
+if (!gmailCleanupWorkspaceGlobal.__gmailParentSenderUniverseCache) {
+  gmailCleanupWorkspaceGlobal.__gmailParentSenderUniverseCache = parentSenderUniverseCache
+}
+
+const parentSenderUniverseInflight =
+  gmailCleanupWorkspaceGlobal.__gmailParentSenderUniverseInflight ||
+  new Map<string, Promise<ParentSenderUniverse | null>>()
+if (!gmailCleanupWorkspaceGlobal.__gmailParentSenderUniverseInflight) {
+  gmailCleanupWorkspaceGlobal.__gmailParentSenderUniverseInflight = parentSenderUniverseInflight
+}
+
 function fail(status: number, error: string) {
   return { ok: false as const, status, error }
 }
 
 function normalizeClusters(clusters: ClusterInput[]): ClusterInput[] {
   return clusters
-    .map((cluster) => ({
-      cluster_id: typeof cluster.cluster_id === 'string' ? cluster.cluster_id.trim() : '',
-      canonical_cluster_id:
+    .map((cluster) => {
+      const clusterId = typeof cluster.cluster_id === 'string' ? cluster.cluster_id.trim() : ''
+      const canonicalClusterId =
         typeof cluster.canonical_cluster_id === 'string' && cluster.canonical_cluster_id.trim()
           ? cluster.canonical_cluster_id.trim()
-          : null,
-      legacy_cluster_ids: Array.isArray(cluster.legacy_cluster_ids)
-        ? cluster.legacy_cluster_ids
-            .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-            .map((entry) => entry.trim())
-        : [],
-      source_cluster_ids: Array.isArray(cluster.source_cluster_ids)
-        ? cluster.source_cluster_ids
-            .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-            .map((entry) => entry.trim())
-        : [],
-      cluster_type: typeof cluster.cluster_type === 'string' ? cluster.cluster_type.trim() : '',
-      title: typeof cluster.title === 'string' ? cluster.title.trim() : '',
-      query: typeof cluster.query === 'string' ? cluster.query.trim() : '',
-      estimated_count:
-        typeof cluster.estimated_count === 'number' && Number.isFinite(cluster.estimated_count)
-          ? Math.max(0, Math.round(cluster.estimated_count))
-          : null,
-      sender_count:
-        typeof cluster.sender_count === 'number' && Number.isFinite(cluster.sender_count)
-          ? Math.max(0, Math.round(cluster.sender_count))
-          : null,
-      message_count:
-        typeof cluster.message_count === 'number' && Number.isFinite(cluster.message_count)
-          ? Math.max(0, Math.round(cluster.message_count))
-          : null,
-      why_selected:
-        typeof cluster.why_selected === 'string' && cluster.why_selected.trim()
-          ? cluster.why_selected.trim()
-          : null,
-      risk_note:
-        typeof cluster.risk_note === 'string' && cluster.risk_note.trim()
-          ? cluster.risk_note.trim()
-          : null,
-      safety_note:
-        typeof cluster.safety_note === 'string' && cluster.safety_note.trim()
-          ? cluster.safety_note.trim()
-          : null,
-      surface_tier:
-        typeof cluster.surface_tier === 'string' ? cluster.surface_tier : null,
-      surface_kind:
-        typeof cluster.surface_kind === 'string' ? cluster.surface_kind : null,
-      surface_visibility:
-        typeof cluster.surface_visibility === 'string' ? cluster.surface_visibility : null,
-      top_level_rank:
-        typeof cluster.top_level_rank === 'number' && Number.isFinite(cluster.top_level_rank)
-          ? cluster.top_level_rank
-          : null,
-    }))
+          : null
+      const publishIdentity = buildCleanupGroupFutureCanonicalPublishIdentity(
+        canonicalClusterId || clusterId
+      )
+
+      return {
+        cluster_id: clusterId,
+        canonical_cluster_id: canonicalClusterId || publishIdentity?.canonicalClusterId || null,
+        legacy_cluster_ids: uniqueClusterInputIds([
+          ...(Array.isArray(cluster.legacy_cluster_ids)
+            ? cluster.legacy_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : []),
+          ...(publishIdentity?.legacyClusterIds || []),
+        ]),
+        source_cluster_ids: uniqueClusterInputIds([
+          ...(Array.isArray(cluster.source_cluster_ids)
+            ? cluster.source_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : []),
+          ...(publishIdentity?.sourceClusterIds || []),
+        ]),
+        cluster_type: typeof cluster.cluster_type === 'string' ? cluster.cluster_type.trim() : '',
+        title: typeof cluster.title === 'string' ? cluster.title.trim() : '',
+        query: typeof cluster.query === 'string' ? cluster.query.trim() : '',
+        estimated_count:
+          typeof cluster.estimated_count === 'number' && Number.isFinite(cluster.estimated_count)
+            ? Math.max(0, Math.round(cluster.estimated_count))
+            : null,
+        sender_count:
+          typeof cluster.sender_count === 'number' && Number.isFinite(cluster.sender_count)
+            ? Math.max(0, Math.round(cluster.sender_count))
+            : null,
+        message_count:
+          typeof cluster.message_count === 'number' && Number.isFinite(cluster.message_count)
+            ? Math.max(0, Math.round(cluster.message_count))
+            : null,
+        why_selected:
+          typeof cluster.why_selected === 'string' && cluster.why_selected.trim()
+            ? cluster.why_selected.trim()
+            : null,
+        risk_note:
+          typeof cluster.risk_note === 'string' && cluster.risk_note.trim()
+            ? cluster.risk_note.trim()
+            : null,
+        safety_note:
+          typeof cluster.safety_note === 'string' && cluster.safety_note.trim()
+            ? cluster.safety_note.trim()
+            : null,
+        surface_tier:
+          typeof cluster.surface_tier === 'string' ? cluster.surface_tier : null,
+        surface_kind:
+          typeof cluster.surface_kind === 'string' ? cluster.surface_kind : null,
+        surface_visibility:
+          typeof cluster.surface_visibility === 'string' ? cluster.surface_visibility : null,
+        top_level_rank:
+          typeof cluster.top_level_rank === 'number' && Number.isFinite(cluster.top_level_rank)
+            ? cluster.top_level_rank
+            : null,
+      }
+    })
     .filter((cluster) => cluster.cluster_id && cluster.cluster_type && cluster.title && cluster.query)
     .sort((left, right) => left.cluster_id.localeCompare(right.cluster_id))
     .slice(0, 25)
@@ -405,8 +460,8 @@ function clusterLookupIds(cluster: ClusterInput): string[] {
 
 function artifactClusterLookupId(cluster: ClusterInput): string {
   const aliasIds = uniqueClusterInputIds([
-    ...(cluster.source_cluster_ids || []),
     ...(cluster.legacy_cluster_ids || []),
+    ...(cluster.source_cluster_ids || []),
   ])
   return aliasIds[0] || cluster.cluster_id || cluster.canonical_cluster_id || ''
 }
@@ -827,6 +882,46 @@ function isRowWithinDays(row: GmailMailboxIndexRow, days: number, nowMs: number)
   return (row.internal_date_ms || 0) >= nowMs - days * 24 * 60 * 60 * 1000
 }
 
+async function loadScopedMailboxContextRows(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  limit: number
+  internalDateMsGte: number
+}): Promise<GmailMailboxIndexRow[]> {
+  const tenantId = params.tenantId.trim()
+  const limit = Math.max(1, Math.floor(params.limit))
+  const pageSize = Math.min(GMAIL_SCOPED_MAILBOX_CONTEXT_QUERY_PAGE_SIZE, limit)
+  const rows: GmailMailboxIndexRow[] = []
+
+  for (let rangeStart = 0; rangeStart < limit; rangeStart += pageSize) {
+    const rangeEnd = Math.min(rangeStart + pageSize - 1, limit - 1)
+    const { data, error } = await params.supabase
+      .from('gmail_messages')
+      .select(
+        'tenant_id,message_id,thread_id,sender,subject,internal_date_ms,date,label_ids,category_labels,is_in_inbox,is_unread,is_starred,is_important,indexed_at,updated_at'
+      )
+      .eq('tenant_id', tenantId)
+      .gte('internal_date_ms', params.internalDateMsGte)
+      .order('internal_date_ms', { ascending: false })
+      .order('message_id', { ascending: false })
+      .range(rangeStart, rangeEnd)
+
+    if (error) {
+      console.warn(
+        '[integrations/gmail/cleanup-workspace] scoped mailbox context row load failed:',
+        error.message
+      )
+      break
+    }
+
+    const pageRows = Array.isArray(data) ? (data as GmailMailboxIndexRow[]) : []
+    rows.push(...pageRows)
+    if (pageRows.length < pageSize) break
+  }
+
+  return rows.slice(0, limit)
+}
+
 async function loadMailboxCoverageSnapshot(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -871,14 +966,23 @@ async function loadMailboxContext(params: {
   if (inflight) return inflight
 
   const request = (async (): Promise<{ ok: true; data: LoadedMailboxContext } | ReturnType<typeof fail>> => {
-    const indexedRows = await loadIndexedGmailMessagesForTenant({
-      supabase: params.supabase,
-      tenantId: params.tenantId,
-      limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
-    })
-
     const nowMs = Date.now()
     const selectedScopeDays = scopeDays(analysisScope)
+    const scopeBoundInternalDateMs =
+      selectedScopeDays != null ? nowMs - selectedScopeDays * 24 * 60 * 60 * 1000 : null
+    const indexedRows =
+      scopeBoundInternalDateMs != null
+        ? await loadScopedMailboxContextRows({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
+            internalDateMsGte: scopeBoundInternalDateMs,
+          })
+        : await loadIndexedGmailMessagesForTenant({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            limit: GMAIL_MAILBOX_INDEX_MAX_MESSAGES,
+          })
     const scopedRows =
       selectedScopeDays != null
         ? indexedRows.filter((row) => isRowWithinDays(row, selectedScopeDays, nowMs))
@@ -1624,31 +1728,19 @@ function primarySenderCategory(summary: string): string {
 
 function buildSenderActivityTimeline(params: {
   senders: GmailSenderWorkspaceData['senders']
+  rows?: GmailMailboxIndexRow[]
   analysisScope: GmailAnalysisScope
 }): {
   items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
   granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
 } {
-  const granularity = activityTimelineGranularityForScope(params.analysisScope)
-  const counts = new Map<string, number>()
-
-  for (const sender of params.senders) {
-    const lastSeenMs =
-      typeof sender.last_activity === 'string' && sender.last_activity.trim()
-        ? Date.parse(sender.last_activity)
-        : Number.NaN
-    if (!Number.isFinite(lastSeenMs)) continue
-    const label = activityTimelineBucketKeyForTimestamp(lastSeenMs, granularity)
-    counts.set(label, (counts.get(label) || 0) + 1)
+  if (Array.isArray(params.rows) && params.rows.length > 0) {
+    return buildSenderWorkspaceActivityTimelineFromRows({
+      rows: params.rows,
+      analysisScope: params.analysisScope,
+    })
   }
-
-  return {
-    items: Array.from(counts.entries())
-      .sort((left, right) => left[0].localeCompare(right[0]))
-      .slice(-8)
-      .map(([label, senderCount]) => ({ label, sender_count: senderCount })),
-    granularity,
-  }
+  return buildSenderWorkspaceActivityTimelineFromUniverse(params)
 }
 
 function buildSenderCategoryDistribution(
@@ -1756,6 +1848,10 @@ function shouldUseSenderWorkspaceArtifactRead(params: {
   )
 }
 
+function shouldRecomputeLaneATimeContextTimeline(scope: GmailAnalysisScope): boolean {
+  return scope === 'all_indexed' || scope === '30d' || scope === '7d'
+}
+
 function artifactRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1802,6 +1898,261 @@ function dedupeArtifactStrings(values: Array<string | null | undefined>): string
   )
 }
 
+function parentSenderUniverseCacheKey(params: {
+  tenantId: string
+  selectedCluster: ClusterInput
+  cacheVersion?: string | null
+}): string {
+  return [
+    params.tenantId.trim(),
+    artifactClusterLookupId(params.selectedCluster),
+    artifactText(params.cacheVersion) || 'no-cache-version',
+  ].join('::')
+}
+
+function shouldReturnZeroRecentScopeForCluster(
+  selectedCluster: ClusterInput,
+  analysisScope: GmailAnalysisScope
+): boolean {
+  return (
+    analysisScope !== 'all_indexed' &&
+    selectedCluster.cluster_type === 'historical_out_of_inbox'
+  )
+}
+
+function shouldEnforceRecentScopeParentUniverse(
+  selectedCluster: ClusterInput,
+  analysisScope: GmailAnalysisScope
+): boolean {
+  return (
+    analysisScope !== 'all_indexed' &&
+    (selectedCluster.cluster_id.startsWith('secondary.') ||
+      selectedCluster.cluster_id.startsWith('context.'))
+  )
+}
+
+function buildEmptySenderDistributionData(params: {
+  analysisScope: GmailAnalysisScope
+  selectedCluster: ClusterInput
+}): GmailSenderDistributionData {
+  return {
+    analysis_scope: normalizeMailboxProfileScope(params.analysisScope),
+    selected_cluster: {
+      cluster_id: params.selectedCluster.cluster_id,
+      canonical_cluster_id:
+        params.selectedCluster.canonical_cluster_id || params.selectedCluster.cluster_id,
+      legacy_cluster_ids: params.selectedCluster.legacy_cluster_ids || [],
+      cluster_type: params.selectedCluster.cluster_type,
+      title: params.selectedCluster.title,
+      query: params.selectedCluster.query,
+      message_count: 0,
+      sender_count: 0,
+    },
+    senders: [],
+    source: 'gmail_index_cache',
+  }
+}
+
+function buildEmptySenderWorkspaceData(params: {
+  analysisScope: GmailAnalysisScope
+  selectedCluster: ClusterInput
+  page: number
+  pageSize: number
+  searchInput: string
+  filter: GmailSenderWorkspaceFilter
+  sort: GmailSenderWorkspaceSort
+  direction: GmailSenderWorkspaceSortDirection
+}): GmailSenderWorkspaceData {
+  return {
+    analysis_scope: normalizeMailboxProfileScope(params.analysisScope),
+    scope_ladder: buildScopeLadderCounts({
+      wholeMailbox: 0,
+      cleanupCandidate: 0,
+      cleanupGroup: 0,
+      senderSet: 0,
+      loadedPreviewRows: 0,
+    }),
+    selected_cluster: {
+      cluster_id: params.selectedCluster.cluster_id,
+      canonical_cluster_id:
+        params.selectedCluster.canonical_cluster_id || params.selectedCluster.cluster_id,
+      legacy_cluster_ids: params.selectedCluster.legacy_cluster_ids || [],
+      cluster_type: params.selectedCluster.cluster_type,
+      title: params.selectedCluster.title,
+      query: params.selectedCluster.query,
+      why_selected: params.selectedCluster.why_selected || 'Chosen from Cleanup Groups.',
+      risk_note: params.selectedCluster.risk_note || 'Confirm mixed senders before archive.',
+      safety_note:
+        params.selectedCluster.safety_note ||
+        'Messages remain in All Mail; only INBOX changes after approval.',
+      message_count: 0,
+      sender_count: 0,
+      share_pct: 0,
+      surface_tier: params.selectedCluster.surface_tier || null,
+      surface_kind: params.selectedCluster.surface_kind || null,
+      surface_visibility: params.selectedCluster.surface_visibility || null,
+      top_level_rank: params.selectedCluster.top_level_rank ?? null,
+    },
+    senders: [],
+    pagination: {
+      page: Math.max(1, params.page),
+      page_size: params.pageSize,
+      total_senders: 0,
+      total_pages: 1,
+      cluster_total_senders: 0,
+    },
+    cluster_global: {
+      sender_keys: [],
+      sender_keys_complete: true,
+    },
+    analytics: {
+      sender_category_distribution: [],
+      semantic_rollup_schema_version: null,
+      semantic_rollup_hash: null,
+      semantic_rollup: null,
+      semantic_family_distribution: [],
+      semantic_pattern_distribution: [],
+      semantic_resolution_distribution: [],
+      semantic_confidence_distribution: [],
+      semantic_provenance_distribution: [],
+      semantic_umbrella_distribution: [],
+      operator_profile_family_distribution: [],
+      dominant_pattern_distribution: [],
+      operator_profile_mode_distribution: [],
+      category_summary_source_distribution: [],
+      sender_activity_timeline: [],
+      sender_activity_timeline_granularity: activityTimelineGranularityForScope(params.analysisScope),
+      cluster_contribution: [],
+    },
+    view: {
+      search: params.searchInput,
+      filter: params.filter,
+      sort: params.sort,
+      direction: params.direction,
+    },
+    exceptions_count: 0,
+    source: 'gmail_index_cache',
+  }
+}
+
+async function loadAllIndexedParentSenderUniverse(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  selectedCluster: ClusterInput
+  cacheVersion?: string | null
+}): Promise<ParentSenderUniverse | null> {
+  const cacheKey = parentSenderUniverseCacheKey(params)
+  const cached = parentSenderUniverseCache.get(cacheKey) || null
+  if (cached && cached.expires_at_ms > Date.now()) return cached.data
+
+  const inflight = parentSenderUniverseInflight.get(cacheKey)
+  if (inflight) return inflight
+
+  const request = (async () => {
+    const applyCache = (data: ParentSenderUniverse | null, ttlMs = GMAIL_DERIVED_WORKSPACE_CACHE_TTL_MS) => {
+      parentSenderUniverseCache.set(cacheKey, {
+        expires_at_ms: Date.now() + ttlMs,
+        data,
+      })
+      return data
+    }
+
+    try {
+      const artifactSelectedClusterId = artifactClusterLookupId(params.selectedCluster)
+      const artifactRead = await loadPublishedGmailSenderWorkspaceExecutionArtifact({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: 'all_indexed',
+        selectedClusterId: artifactSelectedClusterId,
+      })
+
+      if (artifactRead.publication?.published_version && artifactRead.selected_header) {
+        const senderKeys = dedupeArtifactStrings(artifactRead.seed_rows.map((row) => row.sender_key))
+        return applyCache({
+          senderKeys,
+          totalSenders: Math.max(
+            artifactInteger(artifactRead.selected_header.sender_count, senderKeys.length),
+            senderKeys.length
+          ),
+        })
+      }
+
+      const baseState = await loadSenderWorkspaceBaseState({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: 'all_indexed',
+        cacheVersion: params.cacheVersion ?? null,
+        clusters: [params.selectedCluster],
+        selectedCluster: params.selectedCluster,
+      })
+      if (!baseState.ok) return applyCache(null, 5_000)
+
+      const senderKeys = dedupeArtifactStrings(
+        baseState.data.allSenders.map((sender) => sender.sender_key)
+      )
+      return applyCache({
+        senderKeys,
+        totalSenders: senderKeys.length,
+      })
+    } catch (error) {
+      console.warn(
+        `${GMAIL_SENDER_UNIVERSE_GUARD_LOG_PREFIX} parent sender universe lookup failed:`,
+        error
+      )
+      return applyCache(null, 5_000)
+    }
+  })()
+
+  parentSenderUniverseInflight.set(cacheKey, request)
+  try {
+    return await request
+  } finally {
+    parentSenderUniverseInflight.delete(cacheKey)
+  }
+}
+
+function constrainSenderDistributionToParentUniverse(params: {
+  data: GmailSenderDistributionData
+  allowedSenderKeys: Set<string>
+  allIndexedSenderTotal: number
+  logContext?: Record<string, unknown>
+}): GmailSenderDistributionData {
+  const filteredSenders = params.data.senders.filter((sender) =>
+    params.allowedSenderKeys.has(sender.sender_key)
+  )
+  if (filteredSenders.length === params.data.senders.length) return params.data
+
+  const scopedMessageCount = filteredSenders.reduce(
+    (sum, sender) => sum + sender.cleanup_group_message_count,
+    0
+  )
+  console.info(
+    `${GMAIL_SENDER_UNIVERSE_GUARD_LOG_PREFIX} ${JSON.stringify({
+      ...params.logContext,
+      before_sender_count: params.data.senders.length,
+      after_sender_count: filteredSenders.length,
+      all_indexed_sender_total: params.allIndexedSenderTotal,
+      status: 'applied_distribution_parent_universe_intersection',
+    })}`
+  )
+  return {
+    ...params.data,
+    selected_cluster: {
+      ...params.data.selected_cluster,
+      message_count: scopedMessageCount,
+      sender_count: filteredSenders.length,
+    },
+    senders: filteredSenders,
+  }
+}
+
+function filterSendersToParentUniverse<T extends { sender_key: string }>(
+  senders: T[],
+  allowedSenderKeys: Set<string>
+): T[] {
+  return senders.filter((sender) => allowedSenderKeys.has(sender.sender_key))
+}
+
 function senderWorkspaceSnapshotCacheKey(params: {
   agentId: string
   analysisScope: GmailAnalysisScope
@@ -1836,36 +2187,84 @@ async function loadLatestPersistedCleanupDiscoverySnapshot(params: {
   if (cached && cached.expires_at_ms > Date.now()) {
     return cached.data
   }
-
-  const { data, error } = await params.supabase
-    .from('agent_events')
-    .select('payload')
-    .eq('agent_id', params.agentId)
-    .eq('event_type', GMAIL_SENDER_WORKSPACE_SNAPSHOT_EVENT_TYPE)
-    .eq('payload->>version', GMAIL_SENDER_WORKSPACE_SNAPSHOT_VERSION)
-    .eq('payload->>analysis_scope', normalizeMailboxProfileScope(params.analysisScope))
-    .order('created_at', { ascending: false })
-    .limit(1)
-
-  if (error) {
-    console.warn(`${GMAIL_SENDER_WORKSPACE_SNAPSHOT_LOG_PREFIX} snapshot lookup failed:`, error)
-    senderWorkspaceSnapshotCache.set(cacheKey, {
-      expires_at_ms: Date.now() + 5_000,
-      data: null,
-    })
-    return null
+  const inflight = senderWorkspaceSnapshotInflight.get(cacheKey)
+  if (inflight) {
+    return inflight
   }
 
-  const parsed =
-    ((data || []) as Array<{ payload: unknown }>)
-      .map((row) => parsePersistedCleanupDiscoverySnapshot(row.payload))
-      .find((snapshot): snapshot is PersistedCleanupDiscoverySnapshot => snapshot != null) || null
+  const loadPromise = (async () => {
+    const normalizedScope = normalizeMailboxProfileScope(params.analysisScope)
+    const applyCache = (data: PersistedCleanupDiscoverySnapshot | null, ttlMs: number) => {
+      senderWorkspaceSnapshotCache.set(cacheKey, {
+        expires_at_ms: Date.now() + ttlMs,
+        data,
+      })
+      return data
+    }
 
-  senderWorkspaceSnapshotCache.set(cacheKey, {
-    expires_at_ms: Date.now() + GMAIL_SENDER_WORKSPACE_SNAPSHOT_CACHE_TTL_MS,
-    data: parsed,
-  })
-  return parsed
+    const recentRead = await params.supabase
+      .from('agent_events')
+      .select('payload')
+      .eq('agent_id', params.agentId)
+      .eq('event_type', GMAIL_SENDER_WORKSPACE_SNAPSHOT_EVENT_TYPE)
+      .order('created_at', { ascending: false })
+      .limit(GMAIL_SENDER_WORKSPACE_SNAPSHOT_RECENT_SCAN_LIMIT)
+
+    if (recentRead.error) {
+      console.warn(
+        `${GMAIL_SENDER_WORKSPACE_SNAPSHOT_LOG_PREFIX} snapshot lookup failed:`,
+        recentRead.error
+      )
+      return applyCache(null, 5_000)
+    }
+
+    const recentSnapshots = ((recentRead.data || []) as Array<{ payload: unknown }>)
+      .map((row) => parsePersistedCleanupDiscoverySnapshot(row.payload))
+      .filter((snapshot): snapshot is PersistedCleanupDiscoverySnapshot => snapshot != null)
+    const recentMatch =
+      recentSnapshots.find((snapshot) => snapshot.analysisScope === normalizedScope) || null
+
+    if (recentMatch) {
+      return applyCache(recentMatch, GMAIL_SENDER_WORKSPACE_SNAPSHOT_CACHE_TTL_MS)
+    }
+
+    if (recentSnapshots.length < GMAIL_SENDER_WORKSPACE_SNAPSHOT_RECENT_SCAN_LIMIT) {
+      return applyCache(null, GMAIL_SENDER_WORKSPACE_SNAPSHOT_CACHE_TTL_MS)
+    }
+
+    const exactRead = await params.supabase
+      .from('agent_events')
+      .select('payload')
+      .eq('agent_id', params.agentId)
+      .eq('event_type', GMAIL_SENDER_WORKSPACE_SNAPSHOT_EVENT_TYPE)
+      .eq('payload->>version', GMAIL_SENDER_WORKSPACE_SNAPSHOT_VERSION)
+      .eq('payload->>analysis_scope', normalizedScope)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (exactRead.error) {
+      console.warn(
+        `${GMAIL_SENDER_WORKSPACE_SNAPSHOT_LOG_PREFIX} exact snapshot lookup failed:`,
+        exactRead.error
+      )
+      return applyCache(null, 5_000)
+    }
+
+    const exactMatch =
+      ((exactRead.data || []) as Array<{ payload: unknown }>)
+        .map((row) => parsePersistedCleanupDiscoverySnapshot(row.payload))
+        .find((snapshot): snapshot is PersistedCleanupDiscoverySnapshot => snapshot != null) || null
+
+    return applyCache(exactMatch, GMAIL_SENDER_WORKSPACE_SNAPSHOT_CACHE_TTL_MS)
+  })()
+
+  senderWorkspaceSnapshotInflight.set(cacheKey, loadPromise)
+
+  try {
+    return await loadPromise
+  } finally {
+    senderWorkspaceSnapshotInflight.delete(cacheKey)
+  }
 }
 
 function isDefaultSenderOverviewSnapshotRequest(params: {
@@ -1886,6 +2285,33 @@ function isDefaultSenderOverviewSnapshotRequest(params: {
     params.sort === 'message_count' &&
     params.direction === 'desc' &&
     params.semanticFocus == null &&
+    !artifactText(params.previewEvidenceSenderKey)
+  )
+}
+
+function snapshotWorkspaceHasCompleteSenderPopulation(
+  workspace: GmailSenderWorkspaceData | null | undefined
+): boolean {
+  if (!workspace) return false
+  const totalSenders = Math.max(
+    artifactInteger(workspace.pagination?.total_senders, workspace.senders.length),
+    workspace.senders.length
+  )
+  return workspace.senders.length >= totalSenders
+}
+
+function canServeSenderWorkspaceFromPersistedSnapshot(params: {
+  searchInput: string
+  filter: GmailSenderWorkspaceFilter
+  sort: GmailSenderWorkspaceSort
+  direction: GmailSenderWorkspaceSortDirection
+  previewEvidenceSenderKey?: string | null
+}): boolean {
+  return (
+    params.searchInput === '' &&
+    params.filter === 'all' &&
+    params.sort === 'message_count' &&
+    params.direction === 'desc' &&
     !artifactText(params.previewEvidenceSenderKey)
   )
 }
@@ -2052,6 +2478,204 @@ function buildSenderWorkspaceFromPersistedSnapshot(params: {
       sort: 'message_count',
       direction: 'desc',
     },
+  }
+}
+
+function buildSenderWorkspaceRequestFromPersistedSnapshot(params: {
+  snapshotClusterId: string
+  snapshotWorkspace: GmailSenderWorkspaceData
+  selectedCluster: ClusterInput
+  analysisScope: GmailAnalysisScope
+  page: number
+  pageSize: number
+  searchInput: string
+  filter: GmailSenderWorkspaceFilter
+  sort: GmailSenderWorkspaceSort
+  direction: GmailSenderWorkspaceSortDirection
+  semanticFocus: GmailSenderWorkspaceSemanticFocus | null
+  includeClusterSenderKeys: boolean
+  allowedSenderKeys?: Set<string> | null
+  allIndexedSenderTotal?: number | null
+  logContext?: Record<string, unknown>
+}): GmailSenderWorkspaceData {
+  const snapshotSelectedCluster = params.snapshotWorkspace.selected_cluster
+  const canonicalClusterId =
+    artifactText(params.selectedCluster.canonical_cluster_id) ||
+    params.selectedCluster.cluster_id ||
+    artifactText(snapshotSelectedCluster.canonical_cluster_id) ||
+    artifactText(snapshotSelectedCluster.cluster_id) ||
+    params.snapshotClusterId
+  const legacyClusterIds = dedupeArtifactStrings([
+    ...(params.selectedCluster.legacy_cluster_ids || []),
+    ...artifactStringArray(snapshotSelectedCluster.legacy_cluster_ids),
+    artifactText(snapshotSelectedCluster.cluster_id),
+  ])
+  const allSnapshotSenders = params.snapshotWorkspace.senders.slice()
+  const allSenders = params.allowedSenderKeys
+    ? filterSendersToParentUniverse(allSnapshotSenders, params.allowedSenderKeys)
+    : allSnapshotSenders
+  if (
+    params.allowedSenderKeys &&
+    allSenders.length !== allSnapshotSenders.length
+  ) {
+    console.info(
+      `${GMAIL_SENDER_UNIVERSE_GUARD_LOG_PREFIX} ${JSON.stringify({
+        ...params.logContext,
+        before_sender_count: allSnapshotSenders.length,
+        after_sender_count: allSenders.length,
+        all_indexed_sender_total: params.allIndexedSenderTotal,
+        status: 'applied_snapshot_workspace_parent_universe_intersection',
+      })}`
+    )
+  }
+
+  const filteredSenders = allSenders.filter((sender) =>
+    senderMatchesWorkspaceFilters({
+      sender,
+      search: '',
+      filter: params.filter,
+      semanticFocus: params.semanticFocus,
+    })
+  )
+
+  filteredSenders.sort((left, right) => {
+    let delta = 0
+    if (params.sort === 'sender') {
+      delta = left.sender.localeCompare(right.sender)
+    } else if (params.sort === 'unread_count') {
+      delta = left.unread_count - right.unread_count
+    } else if (params.sort === 'last_activity') {
+      delta =
+        (Date.parse(left.last_activity || '') || 0) - (Date.parse(right.last_activity || '') || 0)
+    } else {
+      delta = left.cleanup_group_message_count - right.cleanup_group_message_count
+    }
+    if (delta === 0) delta = left.sender.localeCompare(right.sender)
+    return params.direction === 'asc' ? delta : delta * -1
+  })
+
+  const totalSenders = filteredSenders.length
+  const totalPages = Math.max(1, Math.ceil(totalSenders / Math.max(params.pageSize, 1)))
+  const normalizedPage = Math.min(Math.max(1, params.page), totalPages)
+  const rangeStart = (normalizedPage - 1) * params.pageSize
+  const senders = filteredSenders.slice(rangeStart, rangeStart + params.pageSize)
+  const cleanupGroupMessageCount = allSenders.reduce(
+    (sum, sender) => sum + sender.cleanup_group_message_count,
+    0
+  )
+  const scopeLadder = params.snapshotWorkspace.scope_ladder
+  const senderActivityTimeline = buildSenderActivityTimeline({
+    senders: allSenders,
+    analysisScope: params.analysisScope,
+  })
+  const semanticAnalytics = buildSemanticAnalyticsDistributions(allSenders)
+  const semanticArtifactFields = buildPersistedSemanticRollupArtifactFields({
+    clusterId: canonicalClusterId,
+    senderCount: allSenders.length,
+    messageCount: cleanupGroupMessageCount,
+    semanticAnalytics,
+  })
+
+  return {
+    ...params.snapshotWorkspace,
+    analysis_scope: normalizeMailboxProfileScope(params.analysisScope),
+    scope_ladder: buildScopeLadderCounts({
+      wholeMailbox: artifactInteger(scopeLadder?.whole_mailbox),
+      cleanupCandidate: artifactInteger(scopeLadder?.cleanup_candidate_universe),
+      cleanupGroup: cleanupGroupMessageCount,
+      senderSet: filteredSenders.length,
+      loadedPreviewRows: senders.reduce((sum, sender) => sum + sender.preview_messages.length, 0),
+    }),
+    selected_cluster: {
+      cluster_id: canonicalClusterId,
+      canonical_cluster_id: canonicalClusterId,
+      legacy_cluster_ids: legacyClusterIds,
+      cluster_type: artifactText(snapshotSelectedCluster.cluster_type) || params.selectedCluster.cluster_type,
+      title: artifactText(snapshotSelectedCluster.title) || params.selectedCluster.title,
+      query: artifactText(snapshotSelectedCluster.query) || params.selectedCluster.query,
+      why_selected:
+        artifactText(snapshotSelectedCluster.why_selected) ||
+        params.selectedCluster.why_selected ||
+        'Chosen from Cleanup Groups.',
+      risk_note:
+        artifactText(snapshotSelectedCluster.risk_note) ||
+        params.selectedCluster.risk_note ||
+        'Confirm mixed senders before archive.',
+      safety_note:
+        artifactText(snapshotSelectedCluster.safety_note) ||
+        params.selectedCluster.safety_note ||
+        'Messages remain in All Mail; only INBOX changes after approval.',
+      message_count: cleanupGroupMessageCount,
+      sender_count: allSenders.length,
+      share_pct: artifactInteger(snapshotSelectedCluster.share_pct),
+      surface_tier:
+        snapshotSelectedCluster.surface_tier || params.selectedCluster.surface_tier || null,
+      surface_kind:
+        snapshotSelectedCluster.surface_kind || params.selectedCluster.surface_kind || null,
+      surface_visibility:
+        snapshotSelectedCluster.surface_visibility || params.selectedCluster.surface_visibility || null,
+      top_level_rank:
+        typeof snapshotSelectedCluster.top_level_rank === 'number' &&
+        Number.isFinite(snapshotSelectedCluster.top_level_rank)
+          ? snapshotSelectedCluster.top_level_rank
+          : params.selectedCluster.top_level_rank ?? null,
+    },
+    senders,
+    pagination: {
+      page: normalizedPage,
+      page_size: params.pageSize,
+      total_senders: totalSenders,
+      total_pages: totalPages,
+      cluster_total_senders: allSenders.length,
+    },
+    cluster_global: params.includeClusterSenderKeys
+      ? {
+          sender_keys:
+            params.snapshotWorkspace.cluster_global?.sender_keys_complete === true
+              ? params.snapshotWorkspace.cluster_global.sender_keys
+              : allSenders.map((sender) => sender.sender_key),
+          sender_keys_complete: true,
+        }
+      : {
+          sender_keys: [],
+          sender_keys_complete: false,
+        },
+    analytics: {
+      sender_category_distribution: buildSenderCategoryDistribution(allSenders),
+      semantic_rollup_schema_version: semanticArtifactFields.semantic_rollup_schema_version,
+      semantic_rollup_hash: semanticArtifactFields.semantic_rollup_hash,
+      semantic_rollup: semanticArtifactFields.semantic_rollup,
+      semantic_family_distribution: semanticArtifactFields.semantic_family_distribution,
+      semantic_pattern_distribution: semanticArtifactFields.semantic_pattern_distribution,
+      semantic_resolution_distribution: semanticArtifactFields.semantic_resolution_distribution,
+      semantic_confidence_distribution: semanticArtifactFields.semantic_confidence_distribution,
+      semantic_provenance_distribution: semanticArtifactFields.semantic_provenance_distribution,
+      semantic_umbrella_distribution: semanticArtifactFields.semantic_umbrella_distribution,
+      operator_profile_family_distribution: buildCompatibilityOperatorProfileFamilyDistribution(
+        semanticArtifactFields.semantic_family_distribution
+      ),
+      dominant_pattern_distribution: buildCompatibilityDominantPatternDistribution(
+        semanticArtifactFields.semantic_pattern_distribution
+      ),
+      operator_profile_mode_distribution: buildCompatibilityOperatorProfileModeDistribution(
+        semanticArtifactFields.semantic_resolution_distribution
+      ),
+      category_summary_source_distribution: buildCategorySummarySourceDistribution(allSenders),
+      sender_activity_timeline: senderActivityTimeline.items,
+      sender_activity_timeline_granularity: senderActivityTimeline.granularity,
+      cluster_contribution: buildClusterContributionMetrics({
+        senders: allSenders,
+        clusterMessageCount: cleanupGroupMessageCount,
+      }),
+    },
+    view: {
+      search: params.searchInput,
+      filter: params.filter,
+      sort: params.sort,
+      direction: params.direction,
+    },
+    exceptions_count: allSenders.filter((sender) => sender.requires_verification).length,
+    source: 'gmail_index_cache',
   }
 }
 
@@ -3080,12 +3704,18 @@ function parseArtifactAnalytics(
             return {
               label,
               sender_count: artifactInteger(record.sender_count),
+              message_count:
+                record.message_count == null ? null : artifactInteger(record.message_count),
             }
           })
           .filter(
             (
               entry
-            ): entry is GmailSenderWorkspaceData['analytics']['sender_activity_timeline'][number] =>
+            ): entry is {
+              label: string
+              sender_count: number
+              message_count: number | null
+            } =>
               entry != null
           )
       : [],
@@ -4082,6 +4712,37 @@ async function loadSenderWorkspaceFromArtifact(params: {
       (sum, header) => sum + artifactInteger(header.message_count),
       0
     )
+    const laneATimeContextTimeline = shouldRecomputeLaneATimeContextTimeline(params.analysisScope)
+      ? await (async () => {
+          const baseState = await loadSenderWorkspaceBaseState({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            analysisScope: params.analysisScope,
+            clusters: [params.selectedCluster],
+            selectedCluster: params.selectedCluster,
+          })
+          if (!baseState.ok) {
+            console.warn(
+              `${GMAIL_SENDER_WORKSPACE_ARTIFACT_LOG_PREFIX} lane_a_timeline_base_state_fallback ${JSON.stringify({
+                tenant_id: params.tenantId,
+                analysis_scope: params.analysisScope,
+                selected_cluster_id: outwardSelectedClusterId,
+                artifact_selected_cluster_id: artifactSelectedClusterId,
+              })}`
+            )
+            return buildSenderActivityTimeline({
+              senders: allSenders,
+              analysisScope: params.analysisScope,
+            })
+          }
+
+          return buildSenderActivityTimeline({
+            senders: baseState.data.allSenders,
+            rows: baseState.data.selectedClusterRows,
+            analysisScope: params.analysisScope,
+          })
+        })()
+      : null
 
     console.info(
       `${GMAIL_SENDER_WORKSPACE_ARTIFACT_LOG_PREFIX} ${JSON.stringify({
@@ -4206,6 +4867,11 @@ async function loadSenderWorkspaceFromArtifact(params: {
             ...(params.selectedCluster.legacy_cluster_ids || []),
             artifactRead.selected_header.cluster_id,
           ]),
+          sender_activity_timeline:
+            laneATimeContextTimeline?.items || parsedHeaderAnalytics.sender_activity_timeline,
+          sender_activity_timeline_granularity:
+            laneATimeContextTimeline?.granularity ||
+            parsedHeaderAnalytics.sender_activity_timeline_granularity,
           semantic_rollup_schema_version: resolvedSemanticState.semantic_rollup_schema_version,
           semantic_rollup_hash: resolvedSemanticState.semantic_rollup_hash,
           semantic_rollup: resolvedSemanticState.semantic_rollup,
@@ -4379,6 +5045,54 @@ function normalizeSenderWorkspaceSortDirection(value: unknown): GmailSenderWorks
   return value === 'asc' ? 'asc' : 'desc'
 }
 
+function normalizeTimeContextBucketLabel(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function resolveSenderKeysForTimeContextBucket(params: {
+  rows: GmailMailboxIndexRow[]
+  analysisScope: GmailAnalysisScope
+  bucketLabel: string
+  allowedSenderKeys?: Set<string> | null
+}): {
+  bucketExists: boolean
+  senderKeys: Set<string>
+} {
+  const timeline = buildSenderWorkspaceActivityTimelineFromRows({
+    rows: params.rows,
+    analysisScope: params.analysisScope,
+  })
+  const bucketExists = timeline.items.some((item) => item.label === params.bucketLabel)
+  const senderKeys = new Set<string>()
+  if (!bucketExists) {
+    return {
+      bucketExists: false,
+      senderKeys,
+    }
+  }
+
+  const granularity = activityTimelineGranularityForScope(params.analysisScope)
+  for (const row of params.rows) {
+    const timestamp =
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+        ? row.internal_date_ms
+        : null
+    if (timestamp == null) continue
+    if (activityTimelineBucketKeyForTimestamp(timestamp, granularity) !== params.bucketLabel) continue
+
+    const senderDisplay = rowSender(row) || row.sender || 'Unknown sender'
+    const senderKey = normalizeSender(senderDisplay) || senderDisplay.trim().toLowerCase()
+    if (!senderKey) continue
+    if (params.allowedSenderKeys && !params.allowedSenderKeys.has(senderKey)) continue
+    senderKeys.add(senderKey)
+  }
+
+  return {
+    bucketExists,
+    senderKeys,
+  }
+}
+
 function normalizeSenderWorkspaceSemanticFocus(
   value: GmailSenderWorkspaceSemanticFocus | null | undefined
 ): GmailSenderWorkspaceSemanticFocus | null {
@@ -4403,6 +5117,24 @@ function normalizeSenderWorkspaceSemanticFocus(
           .map((entry) => entry.trim())
       : [],
   }
+}
+
+function senderDistributionSeedRowMatchesSemanticFocus(
+  row: GmailSenderWorkspaceSeedRow,
+  semanticFocus: GmailSenderWorkspaceSemanticFocus | null
+): boolean {
+  if (!semanticFocus) return true
+  if (artifactNullableText(row.semantic_family_key) !== semanticFocus.family) return false
+
+  if (semanticFocus.kind === 'family') return true
+
+  const rowSubtypeKey = artifactNullableText(row.semantic_subtype_key)
+  if (semanticFocus.kind === 'subtype') {
+    return rowSubtypeKey === (semanticFocus.subtypeKey || null)
+  }
+
+  if (!rowSubtypeKey) return true
+  return !semanticFocus.surfacedSubtypeKeys.includes(rowSubtypeKey)
 }
 
 function senderMatchesWorkspaceSemanticFocus(
@@ -5836,6 +6568,7 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
   includeClusterSenderKeys?: boolean
   previewEvidenceSenderKey?: string | null
+  timeContextBucketLabel?: string | null
 }): Promise<{ ok: true; data: GmailSenderWorkspaceData } | ReturnType<typeof fail>> {
   if (!params.tenantId) return fail(400, 'User profile is missing tenant_id.')
   const normalizedClusters = normalizeClusters(params.clusters)
@@ -5860,6 +6593,7 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
   const sort = normalizeSenderWorkspaceSort(params.sort)
   const direction = normalizeSenderWorkspaceSortDirection(params.direction)
   const semanticFocus = normalizeSenderWorkspaceSemanticFocus(params.semanticFocus)
+  const timeContextBucketLabel = normalizeTimeContextBucketLabel(params.timeContextBucketLabel)
   const requestedPageSize = Math.floor(
     params.pageSize || DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE
   )
@@ -5888,9 +6622,53 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
     semanticFocus,
     previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
   })
+  const canServeSnapshotWorkspaceRequest = canServeSenderWorkspaceFromPersistedSnapshot({
+    searchInput,
+    filter,
+    sort,
+    direction,
+    previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
+  })
   const requestAgentId = artifactText(params.requestAgentId)
+  const needsParentUniverseGuard = shouldEnforceRecentScopeParentUniverse(
+    selectedCluster,
+    analysisScope
+  )
 
-  if (analysisScope !== 'all_indexed' && isDefaultOverviewSnapshotShape && requestAgentId) {
+  if (shouldReturnZeroRecentScopeForCluster(selectedCluster, analysisScope)) {
+    return {
+      ok: true,
+      data: buildEmptySenderWorkspaceData({
+        analysisScope,
+        selectedCluster,
+        page,
+        pageSize,
+        searchInput,
+        filter,
+        sort,
+        direction,
+      }),
+    }
+  }
+
+  const parentSenderUniverse = needsParentUniverseGuard
+    ? await loadAllIndexedParentSenderUniverse({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        selectedCluster,
+        cacheVersion: params.cacheVersion ?? null,
+      })
+    : null
+  const parentSenderUniverseKeys = parentSenderUniverse
+    ? new Set(parentSenderUniverse.senderKeys)
+    : null
+
+  if (
+    timeContextBucketLabel == null &&
+    analysisScope !== 'all_indexed' &&
+    canServeSnapshotWorkspaceRequest &&
+    requestAgentId
+  ) {
     const snapshotLoadStartedAt = Date.now()
     const persistedSnapshot = await loadLatestPersistedCleanupDiscoverySnapshot({
       supabase: params.supabase,
@@ -5905,39 +6683,92 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
         })
       : null
     if (persistedSnapshot && resolvedSnapshotWorkspace) {
-      const workspace = buildSenderWorkspaceFromPersistedSnapshot({
-        snapshot: persistedSnapshot,
-        snapshotClusterId: resolvedSnapshotWorkspace.snapshotClusterId,
-        snapshotWorkspace: resolvedSnapshotWorkspace.workspace,
-        selectedCluster,
-        requestedSelectedClusterId: requestedSelectedCluster?.cluster_id || null,
-        analysisScope,
-        pageSize,
-        includeClusterSenderKeys: params.includeClusterSenderKeys === true,
-      })
-      console.info(
-        `${GMAIL_SENDER_WORKSPACE_SNAPSHOT_LOG_PREFIX} ${JSON.stringify({
-          tenant_id: params.tenantId,
-          agent_id: requestAgentId,
-          analysis_scope: analysisScope,
-          selected_cluster_id: selectedCluster.cluster_id,
-          requested_selected_cluster_id: requestedSelectedCluster?.cluster_id || null,
-          snapshot_cluster_id: resolvedSnapshotWorkspace.snapshotClusterId,
-          snapshot_generated_at: persistedSnapshot.generatedAt,
-          snapshot_expires_at: persistedSnapshot.expiresAt,
-          include_cluster_sender_keys: params.includeClusterSenderKeys === true,
-          sender_key_count: workspace.cluster_global.sender_keys.length,
-          returned_sender_count: workspace.senders.length,
-          total_sender_count: workspace.pagination.total_senders,
-          duration_ms: Math.max(0, Date.now() - snapshotLoadStartedAt),
-          status: 'applied',
-        })}`
-      )
-      return { ok: true, data: workspace }
+      const snapshotWorkspace = resolvedSnapshotWorkspace.workspace
+      const snapshotWorkspaceComplete =
+        snapshotWorkspaceHasCompleteSenderPopulation(snapshotWorkspace)
+      if (snapshotWorkspaceComplete) {
+        const workspace = buildSenderWorkspaceRequestFromPersistedSnapshot({
+          snapshotClusterId: resolvedSnapshotWorkspace.snapshotClusterId,
+          snapshotWorkspace,
+          selectedCluster,
+          analysisScope,
+          page,
+          pageSize,
+          searchInput,
+          filter,
+          sort,
+          direction,
+          semanticFocus,
+          includeClusterSenderKeys: params.includeClusterSenderKeys === true,
+          allowedSenderKeys: parentSenderUniverseKeys,
+          allIndexedSenderTotal: parentSenderUniverse?.totalSenders ?? null,
+          logContext: {
+            analysis_scope: analysisScope,
+            selected_cluster_id: selectedCluster.cluster_id,
+            source: 'recent_snapshot',
+          },
+        })
+        console.info(
+          `${GMAIL_SENDER_WORKSPACE_SNAPSHOT_LOG_PREFIX} ${JSON.stringify({
+            tenant_id: params.tenantId,
+            agent_id: requestAgentId,
+            analysis_scope: analysisScope,
+            selected_cluster_id: selectedCluster.cluster_id,
+            requested_selected_cluster_id: requestedSelectedCluster?.cluster_id || null,
+            snapshot_cluster_id: resolvedSnapshotWorkspace.snapshotClusterId,
+            snapshot_generated_at: persistedSnapshot.generatedAt,
+            snapshot_expires_at: persistedSnapshot.expiresAt,
+            include_cluster_sender_keys: params.includeClusterSenderKeys === true,
+            sender_key_count: workspace.cluster_global.sender_keys.length,
+            returned_sender_count: workspace.senders.length,
+            total_sender_count: workspace.pagination.total_senders,
+            semantic_focus_active: semanticFocus != null,
+            duration_ms: Math.max(0, Date.now() - snapshotLoadStartedAt),
+            status: 'applied_complete_snapshot',
+          })}`
+        )
+        return { ok: true, data: workspace }
+      }
+
+      if (isDefaultOverviewSnapshotShape) {
+        const workspace = buildSenderWorkspaceFromPersistedSnapshot({
+          snapshot: persistedSnapshot,
+          snapshotClusterId: resolvedSnapshotWorkspace.snapshotClusterId,
+          snapshotWorkspace,
+          selectedCluster,
+          requestedSelectedClusterId: requestedSelectedCluster?.cluster_id || null,
+          analysisScope,
+          pageSize,
+          includeClusterSenderKeys: params.includeClusterSenderKeys === true,
+        })
+        console.info(
+          `${GMAIL_SENDER_WORKSPACE_SNAPSHOT_LOG_PREFIX} ${JSON.stringify({
+            tenant_id: params.tenantId,
+            agent_id: requestAgentId,
+            analysis_scope: analysisScope,
+            selected_cluster_id: selectedCluster.cluster_id,
+            requested_selected_cluster_id: requestedSelectedCluster?.cluster_id || null,
+            snapshot_cluster_id: resolvedSnapshotWorkspace.snapshotClusterId,
+            snapshot_generated_at: persistedSnapshot.generatedAt,
+            snapshot_expires_at: persistedSnapshot.expiresAt,
+            include_cluster_sender_keys: params.includeClusterSenderKeys === true,
+            sender_key_count: workspace.cluster_global.sender_keys.length,
+            returned_sender_count: workspace.senders.length,
+            total_sender_count: workspace.pagination.total_senders,
+            semantic_focus_active: semanticFocus != null,
+            duration_ms: Math.max(0, Date.now() - snapshotLoadStartedAt),
+            status: 'applied_partial_snapshot',
+          })}`
+        )
+        return { ok: true, data: workspace }
+      }
     }
   }
 
-  if (shouldUseSenderWorkspaceArtifactRead({ tenantId: params.tenantId, analysisScope })) {
+  if (
+    timeContextBucketLabel == null &&
+    shouldUseSenderWorkspaceArtifactRead({ tenantId: params.tenantId, analysisScope })
+  ) {
     return loadSenderWorkspaceFromArtifact({
       supabase: params.supabase,
       tenantId: params.tenantId,
@@ -5971,11 +6802,58 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
   })
   if (!senderWorkspaceBase.ok) return senderWorkspaceBase
 
-  const selectedClusterRows = senderWorkspaceBase.data.selectedClusterRows
-  const allSenders = senderWorkspaceBase.data.allSenders.slice()
+  const allSenders = parentSenderUniverseKeys
+    ? filterSendersToParentUniverse(senderWorkspaceBase.data.allSenders.slice(), parentSenderUniverseKeys)
+    : senderWorkspaceBase.data.allSenders.slice()
+  if (
+    parentSenderUniverseKeys &&
+    allSenders.length !== senderWorkspaceBase.data.allSenders.length
+  ) {
+    console.info(
+      `${GMAIL_SENDER_UNIVERSE_GUARD_LOG_PREFIX} ${JSON.stringify({
+        analysis_scope: analysisScope,
+        selected_cluster_id: selectedCluster.cluster_id,
+        source: 'live_workspace_base',
+        before_sender_count: senderWorkspaceBase.data.allSenders.length,
+        after_sender_count: allSenders.length,
+        all_indexed_sender_total: parentSenderUniverse?.totalSenders ?? null,
+        status: 'applied_workspace_parent_universe_intersection',
+      })}`
+    )
+  }
+  const timelineRows = parentSenderUniverseKeys
+    ? senderWorkspaceBase.data.selectedClusterRows.filter((row) => {
+        const senderDisplay = rowSender(row) || row.sender || 'Unknown sender'
+        const senderKey = normalizeSender(senderDisplay) || senderDisplay.trim().toLowerCase()
+        return senderKey ? parentSenderUniverseKeys.has(senderKey) : false
+      })
+    : senderWorkspaceBase.data.selectedClusterRows
+  const scopedBucketSenderKeys = timeContextBucketLabel
+    ? resolveSenderKeysForTimeContextBucket({
+        rows: timelineRows,
+        analysisScope,
+        bucketLabel: timeContextBucketLabel,
+        allowedSenderKeys: parentSenderUniverseKeys,
+      })
+    : null
+  if (timeContextBucketLabel && scopedBucketSenderKeys && !scopedBucketSenderKeys.bucketExists) {
+    return fail(409, 'The selected Time Context bucket is unavailable for the current workflow scope.')
+  }
+  if (
+    timeContextBucketLabel &&
+    scopedBucketSenderKeys &&
+    scopedBucketSenderKeys.bucketExists &&
+    scopedBucketSenderKeys.senderKeys.size === 0
+  ) {
+    return fail(409, 'The selected Time Context bucket is empty for the current workflow scope.')
+  }
+  const bucketFilteredSenders =
+    scopedBucketSenderKeys && timeContextBucketLabel
+      ? allSenders.filter((sender) => scopedBucketSenderKeys.senderKeys.has(sender.sender_key))
+      : allSenders
   const cleanupCandidateMessageCount = senderWorkspaceBase.data.cleanupCandidateMessageCount
 
-  const filteredSenders = allSenders.filter((sender) =>
+  const filteredSenders = bucketFilteredSenders.filter((sender) =>
     senderMatchesWorkspaceFilters({
       sender,
       search,
@@ -6005,15 +6883,27 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
   const normalizedPage = Math.min(page, totalPages)
   const rangeStart = (normalizedPage - 1) * pageSize
   const senders = filteredSenders.slice(rangeStart, rangeStart + pageSize)
+  const selectedClusterMessageCount = filteredSenders.reduce(
+    (sum, sender) => sum + sender.cleanup_group_message_count,
+    0
+  )
   const senderActivityTimeline = buildSenderActivityTimeline({
-    senders: allSenders,
+    senders: bucketFilteredSenders,
+    rows:
+      scopedBucketSenderKeys && timeContextBucketLabel
+        ? timelineRows.filter((row) => {
+            const senderDisplay = rowSender(row) || row.sender || 'Unknown sender'
+            const senderKey = normalizeSender(senderDisplay) || senderDisplay.trim().toLowerCase()
+            return senderKey ? scopedBucketSenderKeys.senderKeys.has(senderKey) : false
+          })
+        : timelineRows,
     analysisScope,
   })
-  const semanticAnalytics = buildSemanticAnalyticsDistributions(allSenders)
+  const semanticAnalytics = buildSemanticAnalyticsDistributions(bucketFilteredSenders)
   const semanticArtifactFields = buildPersistedSemanticRollupArtifactFields({
     clusterId: selectedCluster.cluster_id,
-    senderCount: allSenders.length,
-    messageCount: selectedClusterRows.length,
+    senderCount: bucketFilteredSenders.length,
+    messageCount: selectedClusterMessageCount,
     semanticAnalytics,
   })
 
@@ -6022,7 +6912,7 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
     scope_ladder: buildScopeLadderCounts({
       wholeMailbox: coverageSnapshot.coverage.indexed_total_rows,
       cleanupCandidate: cleanupCandidateMessageCount,
-      cleanupGroup: selectedClusterRows.length,
+      cleanupGroup: selectedClusterMessageCount,
       senderSet: filteredSenders.length,
       loadedPreviewRows: senders.reduce((sum, sender) => sum + sender.preview_messages.length, 0),
     }),
@@ -6036,11 +6926,11 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
       why_selected: selectedCluster.why_selected || 'Chosen from Cleanup Groups.',
       risk_note: selectedCluster.risk_note || 'Confirm mixed senders before archive.',
       safety_note: selectedCluster.safety_note || 'Messages remain in All Mail; only INBOX changes after approval.',
-      message_count: selectedClusterRows.length,
-      sender_count: allSenders.length,
+      message_count: selectedClusterMessageCount,
+      sender_count: bucketFilteredSenders.length,
       share_pct:
         cleanupCandidateMessageCount > 0
-          ? Math.round((selectedClusterRows.length / cleanupCandidateMessageCount) * 100)
+          ? Math.round((selectedClusterMessageCount / cleanupCandidateMessageCount) * 100)
           : 0,
       surface_tier: selectedCluster.surface_tier || null,
       surface_kind: selectedCluster.surface_kind || null,
@@ -6053,14 +6943,14 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
       page_size: pageSize,
       total_senders: totalSenders,
       total_pages: totalPages,
-      cluster_total_senders: allSenders.length,
+      cluster_total_senders: bucketFilteredSenders.length,
     },
     cluster_global: {
-      sender_keys: allSenders.map((sender) => sender.sender_key),
+      sender_keys: bucketFilteredSenders.map((sender) => sender.sender_key),
       sender_keys_complete: true,
     },
     analytics: {
-      sender_category_distribution: buildSenderCategoryDistribution(allSenders),
+      sender_category_distribution: buildSenderCategoryDistribution(bucketFilteredSenders),
       semantic_rollup_schema_version: semanticArtifactFields.semantic_rollup_schema_version,
       semantic_rollup_hash: semanticArtifactFields.semantic_rollup_hash,
       semantic_rollup: semanticArtifactFields.semantic_rollup,
@@ -6079,12 +6969,12 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
       operator_profile_mode_distribution: buildCompatibilityOperatorProfileModeDistribution(
         semanticArtifactFields.semantic_resolution_distribution
       ),
-      category_summary_source_distribution: buildCategorySummarySourceDistribution(allSenders),
+      category_summary_source_distribution: buildCategorySummarySourceDistribution(bucketFilteredSenders),
       sender_activity_timeline: senderActivityTimeline.items,
       sender_activity_timeline_granularity: senderActivityTimeline.granularity,
       cluster_contribution: buildClusterContributionMetrics({
-        senders: allSenders,
-        clusterMessageCount: selectedClusterRows.length,
+        senders: bucketFilteredSenders,
+        clusterMessageCount: selectedClusterMessageCount,
       }),
     },
     view: {
@@ -6093,7 +6983,7 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
       sort,
       direction,
     },
-    exceptions_count: allSenders.filter((sender) => sender.requires_verification).length,
+    exceptions_count: bucketFilteredSenders.filter((sender) => sender.requires_verification).length,
     source: 'gmail_index_cache',
   }
 
@@ -6345,6 +7235,9 @@ export async function loadGmailSenderDistributionForTenant(params: {
   tenantId: string
   analysisScope?: GmailAnalysisScope
   selectedCluster: ClusterInput
+  semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  cacheVersion?: string | null
+  requestAgentId?: string | null
 }): Promise<{ ok: true; data: GmailSenderDistributionData } | ReturnType<typeof fail>> {
   if (!params.tenantId) return fail(400, 'User profile is missing tenant_id.')
 
@@ -6357,6 +7250,185 @@ export async function loadGmailSenderDistributionForTenant(params: {
   }
 
   const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
+  const semanticFocus = normalizeSenderWorkspaceSemanticFocus(params.semanticFocus)
+  const requestAgentId = artifactText(params.requestAgentId)
+  const needsParentUniverseGuard = shouldEnforceRecentScopeParentUniverse(
+    selectedCluster,
+    analysisScope
+  )
+
+  if (shouldReturnZeroRecentScopeForCluster(selectedCluster, analysisScope)) {
+    return {
+      ok: true,
+      data: buildEmptySenderDistributionData({
+        analysisScope,
+        selectedCluster,
+      }),
+    }
+  }
+
+  const parentSenderUniverse = needsParentUniverseGuard
+    ? await loadAllIndexedParentSenderUniverse({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        selectedCluster,
+        cacheVersion: params.cacheVersion ?? null,
+      })
+    : null
+  const parentSenderUniverseKeys = parentSenderUniverse
+    ? new Set(parentSenderUniverse.senderKeys)
+    : null
+
+  if (needsParentUniverseGuard) {
+    const mirroredWorkspace = await loadGmailSenderWorkspaceForTenant({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope,
+      selectedCluster,
+      clusters: [selectedCluster],
+      page: 1,
+      pageSize: MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
+      includeClusterSenderKeys: false,
+      semanticFocus,
+      cacheVersion: params.cacheVersion ?? null,
+      requestAgentId: params.requestAgentId ?? null,
+      search: '',
+      filter: 'all',
+      sort: 'message_count',
+      direction: 'desc',
+    })
+    if (!mirroredWorkspace.ok) return mirroredWorkspace
+
+    return {
+      ok: true,
+      data: {
+        analysis_scope: analysisScope,
+        selected_cluster: {
+          cluster_id: mirroredWorkspace.data.selected_cluster.cluster_id,
+          canonical_cluster_id:
+            mirroredWorkspace.data.selected_cluster.canonical_cluster_id ||
+            selectedCluster.canonical_cluster_id ||
+            selectedCluster.cluster_id,
+          legacy_cluster_ids: dedupeArtifactStrings([
+            ...(selectedCluster.legacy_cluster_ids || []),
+            ...artifactStringArray(mirroredWorkspace.data.selected_cluster.legacy_cluster_ids),
+          ]),
+          cluster_type:
+            artifactText(mirroredWorkspace.data.selected_cluster.cluster_type) ||
+            selectedCluster.cluster_type,
+          title:
+            artifactText(mirroredWorkspace.data.selected_cluster.title) || selectedCluster.title,
+          query:
+            artifactText(mirroredWorkspace.data.selected_cluster.query) || selectedCluster.query,
+          message_count: Math.max(
+            artifactInteger(mirroredWorkspace.data.selected_cluster.message_count),
+            mirroredWorkspace.data.senders.reduce(
+              (sum, sender) => sum + sender.cleanup_group_message_count,
+              0
+            )
+          ),
+          sender_count: Math.max(
+            artifactInteger(
+              mirroredWorkspace.data.pagination.total_senders,
+              mirroredWorkspace.data.selected_cluster.sender_count
+            ),
+            mirroredWorkspace.data.senders.length
+          ),
+        },
+        senders: mirroredWorkspace.data.senders.map((sender) => ({
+          sender: sender.sender,
+          sender_key: sender.sender_key,
+          cleanup_group_message_count: sender.cleanup_group_message_count,
+          unread_count: sender.unread_count,
+          last_activity: sender.last_activity,
+          sender_signal: sender.sender_signal,
+          requires_verification: sender.requires_verification,
+        })),
+        source: mirroredWorkspace.data.source,
+      },
+    }
+  }
+
+  if (analysisScope !== 'all_indexed' && requestAgentId) {
+    const persistedSnapshot = await loadLatestPersistedCleanupDiscoverySnapshot({
+      supabase: params.supabase,
+      agentId: requestAgentId,
+      analysisScope,
+    })
+    const resolvedSnapshotWorkspace = persistedSnapshot
+      ? resolvePersistedSenderOverviewWorkspace({
+          snapshot: persistedSnapshot,
+          selectedCluster,
+          requestedSelectedClusterId: params.selectedCluster.cluster_id || null,
+        })
+      : null
+    const snapshotWorkspace = resolvedSnapshotWorkspace?.workspace || null
+    const snapshotWorkspaceTotal = Math.max(
+      artifactInteger(snapshotWorkspace?.pagination?.total_senders, snapshotWorkspace?.senders.length || 0),
+      snapshotWorkspace?.senders.length || 0
+    )
+
+    if (snapshotWorkspace && snapshotWorkspace.senders.length >= snapshotWorkspaceTotal) {
+      const scopedSenders = snapshotWorkspace.senders.filter((sender) =>
+        senderMatchesWorkspaceSemanticFocus(sender, semanticFocus)
+      )
+      const scopedMessageCount = scopedSenders.reduce(
+        (sum, sender) => sum + sender.cleanup_group_message_count,
+        0
+      )
+
+      const data: { ok: true; data: GmailSenderDistributionData } = {
+        ok: true,
+        data: {
+          analysis_scope: analysisScope,
+          selected_cluster: {
+            cluster_id: selectedCluster.cluster_id,
+            canonical_cluster_id:
+              artifactText(snapshotWorkspace.selected_cluster.canonical_cluster_id) ||
+              selectedCluster.canonical_cluster_id ||
+              selectedCluster.cluster_id,
+            legacy_cluster_ids: dedupeArtifactStrings([
+              ...(selectedCluster.legacy_cluster_ids || []),
+              ...artifactStringArray(snapshotWorkspace.selected_cluster.legacy_cluster_ids),
+            ]),
+            cluster_type:
+              artifactText(snapshotWorkspace.selected_cluster.cluster_type) ||
+              selectedCluster.cluster_type,
+            title: artifactText(snapshotWorkspace.selected_cluster.title) || selectedCluster.title,
+            query: artifactText(snapshotWorkspace.selected_cluster.query) || selectedCluster.query,
+            message_count: scopedMessageCount,
+            sender_count: scopedSenders.length,
+          },
+          senders: scopedSenders.map((sender) => ({
+            sender: sender.sender,
+            sender_key: sender.sender_key,
+            cleanup_group_message_count: sender.cleanup_group_message_count,
+            unread_count: sender.unread_count,
+            last_activity: sender.last_activity,
+            sender_signal: sender.sender_signal,
+            requires_verification: sender.requires_verification,
+          })),
+          source: 'gmail_index_cache',
+        },
+      }
+      return parentSenderUniverseKeys
+        ? {
+            ok: true,
+            data: constrainSenderDistributionToParentUniverse({
+              data: data.data,
+              allowedSenderKeys: parentSenderUniverseKeys,
+              allIndexedSenderTotal: parentSenderUniverse?.totalSenders ?? data.data.senders.length,
+              logContext: {
+                analysis_scope: analysisScope,
+                selected_cluster_id: selectedCluster.cluster_id,
+                source: 'recent_snapshot',
+              },
+            }),
+          }
+        : data
+    }
+  }
+
   const artifactSelectedClusterId = artifactClusterLookupId(selectedCluster)
   const artifactRead = await loadPublishedGmailSenderWorkspaceExecutionArtifact({
     supabase: params.supabase,
@@ -6365,8 +7437,97 @@ export async function loadGmailSenderDistributionForTenant(params: {
     selectedClusterId: artifactSelectedClusterId,
   })
 
-  if (!artifactRead.publication?.published_version || !artifactRead.selected_header) {
-    return fail(503, 'Published sender distribution is not ready for this scope.')
+  if (artifactRead.publication?.published_version && artifactRead.selected_header) {
+    const scopedSeedRows = artifactRead.seed_rows.filter((row) =>
+      senderDistributionSeedRowMatchesSemanticFocus(row, semanticFocus)
+    )
+    const scopedMessageCount =
+      semanticFocus == null
+        ? artifactInteger(artifactRead.selected_header.message_count)
+        : scopedSeedRows.reduce((sum, row) => sum + artifactInteger(row.cleanup_group_message_count), 0)
+
+    const data: { ok: true; data: GmailSenderDistributionData } = {
+      ok: true,
+      data: {
+        analysis_scope: analysisScope,
+        selected_cluster: {
+          cluster_id: selectedCluster.cluster_id,
+          canonical_cluster_id:
+            selectedCluster.canonical_cluster_id || selectedCluster.cluster_id,
+          legacy_cluster_ids: selectedCluster.legacy_cluster_ids || [],
+          cluster_type: artifactRead.selected_header.cluster_type || selectedCluster.cluster_type,
+          title: artifactRead.selected_header.title || selectedCluster.title,
+          query: artifactRead.selected_header.query || selectedCluster.query,
+          message_count: scopedMessageCount,
+          sender_count:
+            semanticFocus == null
+              ? artifactInteger(artifactRead.selected_header.sender_count)
+              : scopedSeedRows.length,
+        },
+        senders: scopedSeedRows.map((row) => {
+          const seedPayload = artifactRecord(row.seed_payload)
+          return {
+            sender: row.sender,
+            sender_key: row.sender_key,
+            cleanup_group_message_count: artifactInteger(row.cleanup_group_message_count),
+            unread_count: artifactInteger(row.unread_count),
+            last_activity: artifactNullableText(row.last_activity_at),
+            sender_signal: artifactSenderSignal(seedPayload?.sender_signal),
+            requires_verification: artifactBoolean(row.requires_verification),
+          }
+        }),
+        source: 'gmail_index_cache',
+      },
+    }
+    return parentSenderUniverseKeys
+      ? {
+          ok: true,
+          data: constrainSenderDistributionToParentUniverse({
+            data: data.data,
+            allowedSenderKeys: parentSenderUniverseKeys,
+            allIndexedSenderTotal: parentSenderUniverse?.totalSenders ?? data.data.senders.length,
+            logContext: {
+              analysis_scope: analysisScope,
+              selected_cluster_id: selectedCluster.cluster_id,
+              source: 'published_distribution_artifact',
+            },
+          }),
+        }
+      : data
+  }
+
+  const senderWorkspaceBase = await loadSenderWorkspaceBaseState({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    analysisScope,
+    cacheVersion: params.cacheVersion ?? null,
+    clusters: [selectedCluster],
+    selectedCluster,
+  })
+  if (!senderWorkspaceBase.ok) return senderWorkspaceBase
+
+  const liveScopedSenders = senderWorkspaceBase.data.allSenders.filter((sender) =>
+    senderMatchesWorkspaceSemanticFocus(sender, semanticFocus)
+  )
+  const scopedSenders = parentSenderUniverseKeys
+    ? filterSendersToParentUniverse(liveScopedSenders, parentSenderUniverseKeys)
+    : liveScopedSenders
+  const scopedMessageCount = scopedSenders.reduce(
+    (sum, sender) => sum + sender.cleanup_group_message_count,
+    0
+  )
+  if (parentSenderUniverseKeys && scopedSenders.length !== liveScopedSenders.length) {
+    console.info(
+      `${GMAIL_SENDER_UNIVERSE_GUARD_LOG_PREFIX} ${JSON.stringify({
+        analysis_scope: analysisScope,
+        selected_cluster_id: selectedCluster.cluster_id,
+        source: 'live_distribution_base',
+        before_sender_count: liveScopedSenders.length,
+        after_sender_count: scopedSenders.length,
+        all_indexed_sender_total: parentSenderUniverse?.totalSenders ?? null,
+        status: 'applied_distribution_parent_universe_intersection',
+      })}`
+    )
   }
 
   return {
@@ -6378,24 +7539,21 @@ export async function loadGmailSenderDistributionForTenant(params: {
         canonical_cluster_id:
           selectedCluster.canonical_cluster_id || selectedCluster.cluster_id,
         legacy_cluster_ids: selectedCluster.legacy_cluster_ids || [],
-        cluster_type: artifactRead.selected_header.cluster_type || selectedCluster.cluster_type,
-        title: artifactRead.selected_header.title || selectedCluster.title,
-        query: artifactRead.selected_header.query || selectedCluster.query,
-        message_count: artifactInteger(artifactRead.selected_header.message_count),
-        sender_count: artifactInteger(artifactRead.selected_header.sender_count),
+        cluster_type: selectedCluster.cluster_type,
+        title: selectedCluster.title,
+        query: selectedCluster.query,
+        message_count: scopedMessageCount,
+        sender_count: scopedSenders.length,
       },
-      senders: artifactRead.seed_rows.map((row) => {
-        const seedPayload = artifactRecord(row.seed_payload)
-        return {
-          sender: row.sender,
-          sender_key: row.sender_key,
-          cleanup_group_message_count: artifactInteger(row.cleanup_group_message_count),
-          unread_count: artifactInteger(row.unread_count),
-          last_activity: artifactNullableText(row.last_activity_at),
-          sender_signal: artifactSenderSignal(seedPayload?.sender_signal),
-          requires_verification: artifactBoolean(row.requires_verification),
-        }
-      }),
+      senders: scopedSenders.map((sender) => ({
+        sender: sender.sender,
+        sender_key: sender.sender_key,
+        cleanup_group_message_count: sender.cleanup_group_message_count,
+        unread_count: sender.unread_count,
+        last_activity: sender.last_activity,
+        sender_signal: sender.sender_signal,
+        requires_verification: sender.requires_verification,
+      })),
       source: 'gmail_index_cache',
     },
   }

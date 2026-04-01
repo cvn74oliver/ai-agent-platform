@@ -1,7 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import type {
   GmailCleanupRuleIntent,
   GmailCleanupStage,
@@ -2097,12 +2106,18 @@ export function SenderDistributionAnalysisRail(props: {
   items: SenderDistributionRailItem[]
   totalRankedSenders: number
   focusedSenderKey: string | null
+  authoritativeContext?: {
+    label: string
+    detail: string
+    chips: string[]
+  }
   onSelectSender?: (senderKey: string) => void
   onClearSelection?: () => void
   scopeControls?: {
     activeScope: OperationsAnalysisScope
     pendingScope: OperationsAnalysisScope | null
     onSelectScope?: (scope: OperationsAnalysisScope) => void
+    allowedScopes?: readonly OperationsAnalysisScope[]
   }
   scopeStatus?: {
     label: string
@@ -2221,6 +2236,7 @@ export function SenderDistributionAnalysisRail(props: {
     : 'Wait for ranked sender data to load, then start with the highest visible bar.'
   const chartWidth = chartViewportWidth > 0 ? chartViewportWidth : 320
   const chartInnerWidth = Math.max(chartWidth - paddingLeft - paddingRight, 1)
+  const chartInnerHeight = Math.max(chartHeight - paddingTop - paddingBottom, 1)
   const slotWidth = props.items.length > 0 ? chartInnerWidth / props.items.length : chartInnerWidth
   const gap = props.items.length > 1 ? (slotWidth >= 10 ? Math.min(slotWidth * 0.18, 10) : 0) : 0
   const barWidth = props.items.length > 0 ? Math.max(Math.min(slotWidth - gap, 24), Math.min(slotWidth, 1)) : chartInnerWidth
@@ -2259,6 +2275,42 @@ export function SenderDistributionAnalysisRail(props: {
       ])
     )
   }, [props.items])
+  const updateHoveredSenderKeyFromChartPosition = (
+    clientX: number,
+    clientY: number,
+    currentTarget: SVGSVGElement
+  ) => {
+    if (props.items.length === 0) return
+
+    const rect = currentTarget.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+
+    const chartX = ((clientX - rect.left) / rect.width) * chartWidth
+    const chartY = ((clientY - rect.top) / rect.height) * chartHeight
+
+    if (
+      chartX < paddingLeft ||
+      chartX > chartWidth - paddingRight ||
+      chartY < paddingTop ||
+      chartY > chartHeight - paddingBottom
+    ) {
+      setHoveredSenderKey(null)
+      return
+    }
+
+    const slotIndex = Math.min(
+      props.items.length - 1,
+      Math.max(0, Math.floor((chartX - paddingLeft) / Math.max(slotWidth, 1 / chartWidth)))
+    )
+    const hoveredBar = bars[slotIndex]
+    setHoveredSenderKey(hoveredBar?.senderKey || null)
+  }
+  const handleChartPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    updateHoveredSenderKeyFromChartPosition(event.clientX, event.clientY, event.currentTarget)
+  }
+  const handleChartMouseMove = (event: ReactMouseEvent<SVGSVGElement>) => {
+    updateHoveredSenderKeyFromChartPosition(event.clientX, event.clientY, event.currentTarget)
+  }
 
   return (
     <SenderOverviewAnalysisRailShell
@@ -2272,11 +2324,14 @@ export function SenderDistributionAnalysisRail(props: {
             activeScope={props.scopeControls.activeScope}
             pendingScope={props.scopeControls.pendingScope}
             onSelectScope={props.scopeControls.onSelectScope}
+            allowedScopes={props.scopeControls.allowedScopes}
           />
         ) : null
       }
     >
-      <div className={`${neutralInsetSurfaceClass} relative rounded-[24px] p-4`}>
+      <div
+        className={`${neutralInsetSurfaceClass} relative rounded-[24px] p-4`}
+      >
         {props.isUpdating ? (
           <div className="mb-3 flex justify-end">
             <div className="rounded-full border border-cyan-700/45 bg-slate-950/85 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
@@ -2290,17 +2345,29 @@ export function SenderDistributionAnalysisRail(props: {
             <div className="max-w-xl space-y-2">
               <p className="text-sm font-semibold text-white">
                 {props.isLoading
-                  ? 'Loading full sender distribution'
+                  ? 'Loading authoritative sender distribution'
                   : props.errorMessage
-                    ? 'Could not load sender distribution'
-                    : 'No sender distribution is visible yet'}
+                    ? 'Could not load sender distribution for this scope'
+                    : 'No sender distribution is available for this scope'}
               </p>
               <p className="text-sm leading-6 text-slate-300">
                 {props.isLoading
-                  ? 'This rail is loading the current authoritative sender distribution without changing the workflow below.'
+                  ? `${props.authoritativeContext?.detail || 'This rail is still loading the current authoritative sender universe.'} The workflow below stays mounted while the chart catches up.`
                   : props.errorMessage ||
-                    'Sender bars will appear here once the artifact-backed distribution payload is ready.'}
+                    `${props.authoritativeContext?.detail || 'The current authoritative scope and narrowing state are ready.'} There are zero senders to draw in this distribution.`}
               </p>
+              {props.authoritativeContext?.chips.length ? (
+                <div className="flex flex-wrap justify-center gap-2 pt-2">
+                  {props.authoritativeContext.chips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-full border border-slate-700/60 bg-slate-900/70 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-200"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -2315,6 +2382,26 @@ export function SenderDistributionAnalysisRail(props: {
                     This chart shows the full current-scope sender population. Workflow
                     pagination below does not change the rail shape.
                   </p>
+                  {props.authoritativeContext ? (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                        {props.authoritativeContext.label}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {props.authoritativeContext.chips.map((chip) => (
+                          <span
+                            key={chip}
+                            className="rounded-full border border-slate-700/60 bg-slate-900/70 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-200"
+                          >
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-xs leading-5 text-slate-300">
+                        {props.authoritativeContext.detail}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 <span className="rounded-full border border-cyan-700/45 bg-cyan-950/20 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
                   {`${props.totalRankedSenders.toLocaleString()} ranked sender${
@@ -2326,6 +2413,7 @@ export function SenderDistributionAnalysisRail(props: {
               <div ref={chartViewportRef} className="relative mt-4 w-full">
                 {hoveredItem && hoveredBar ? (
                   <div
+                    data-sender-distribution-hover-card="true"
                     className="pointer-events-none absolute top-3 z-10 rounded-2xl border border-cyan-900/60 bg-gray-950/95 px-3 py-2 shadow-[0_18px_40px_rgba(2,12,27,0.55)]"
                     style={{ left: hoverCardLeft, width: hoverCardWidth }}
                   >
@@ -2361,7 +2449,14 @@ export function SenderDistributionAnalysisRail(props: {
                     </p>
                   </div>
                 ) : null}
-                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-72 w-full">
+                <svg
+                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                  className="h-72 w-full"
+                  onMouseMove={handleChartMouseMove}
+                  onMouseLeave={() => setHoveredSenderKey(null)}
+                  onPointerMove={handleChartPointerMove}
+                  onPointerLeave={() => setHoveredSenderKey(null)}
+                >
                   {axisLabelValues.map((value, index) => {
                     const ratio = index === 0 ? 1 : index === 1 ? 0.5 : 0
                     const y =
@@ -2406,10 +2501,11 @@ export function SenderDistributionAnalysisRail(props: {
                     return (
                       <g key={bar.senderKey}>
                         <rect
+                          data-sender-distribution-slot={bar.senderKey}
                           x={bar.slotX}
                           y={paddingTop}
                           width={Math.max(bar.slotWidth, 1)}
-                          height={chartHeight - paddingTop - paddingBottom}
+                          height={chartInnerHeight}
                           fill="rgba(0,0,0,0.001)"
                           className="cursor-pointer"
                           role="button"
@@ -2417,6 +2513,7 @@ export function SenderDistributionAnalysisRail(props: {
                           aria-pressed={isLocked}
                           tabIndex={0}
                           onMouseEnter={() => setHoveredSenderKey(bar.senderKey)}
+                          onMouseMove={() => setHoveredSenderKey(bar.senderKey)}
                           onMouseLeave={() =>
                             setHoveredSenderKey((current) =>
                               current === bar.senderKey ? null : current
@@ -2449,9 +2546,11 @@ export function SenderDistributionAnalysisRail(props: {
                                 : 'rgba(148,163,184,0.42)'
                             }
                             strokeWidth={isLocked ? 2.25 : 1.5}
+                            pointerEvents="none"
                           />
                         ) : null}
                         <rect
+                          data-sender-distribution-bar={bar.senderKey}
                           x={bar.x}
                           y={bar.y}
                           width={bar.width}
@@ -2477,6 +2576,7 @@ export function SenderDistributionAnalysisRail(props: {
                           }
                           strokeWidth={isHovered ? 1.5 : 1}
                           className="transition-all duration-150"
+                          pointerEvents="none"
                         />
                         {isHovered ? (
                           <rect
@@ -2488,6 +2588,7 @@ export function SenderDistributionAnalysisRail(props: {
                             fill="none"
                             stroke="rgba(186,230,253,0.9)"
                             strokeWidth="2"
+                            pointerEvents="none"
                           />
                         ) : null}
                       </g>
@@ -2642,10 +2743,13 @@ function SenderOverviewAnalysisScopeStrip(props: {
   activeScope: OperationsAnalysisScope
   pendingScope: OperationsAnalysisScope | null
   onSelectScope?: (scope: OperationsAnalysisScope) => void
+  allowedScopes?: readonly OperationsAnalysisScope[]
 }) {
+  const availableScopes = props.allowedScopes || OPERATIONS_ANALYSIS_SCOPE_OPTIONS
+
   return (
     <div className="flex flex-wrap gap-2">
-      {OPERATIONS_ANALYSIS_SCOPE_OPTIONS.map((scope) => {
+      {availableScopes.map((scope) => {
         const isActive = props.activeScope === scope
         const isPending = props.pendingScope === scope
         const interactive = typeof props.onSelectScope === 'function'
@@ -2681,7 +2785,7 @@ function SenderOverviewAnalysisScopeStrip(props: {
 }
 
 export function SenderTimeContextAnalysisRail(props: {
-  items: Array<{ label: string; count: number }>
+  items: Array<{ label: string; count: number; messageCount?: number | null }>
   granularity: 'day' | 'week' | 'month'
   overallActivity: SenderTimeContextRailMetric
   activityMix: SenderTimeContextRailMetric
@@ -2694,6 +2798,7 @@ export function SenderTimeContextAnalysisRail(props: {
     activeScope: OperationsAnalysisScope
     pendingScope: OperationsAnalysisScope | null
     onSelectScope?: (scope: OperationsAnalysisScope) => void
+    allowedScopes?: readonly OperationsAnalysisScope[]
   }
   scopeStatus?: {
     label: string
@@ -2703,11 +2808,23 @@ export function SenderTimeContextAnalysisRail(props: {
   tabStrip?: ReactNode
   isUpdating?: boolean
   bodyOverride?: ReactNode | null
+  workflowSenderUniverseTotal?: number | null
+  bucketSelection?: {
+    activeLabel: string | null
+    onToggleBucket?: (item: { label: string; count: number; messageCount?: number | null }) => void
+    disabledReason?: string | null
+    isLoading?: boolean
+    notice?: {
+      tone: 'info' | 'warning' | 'error'
+      title: string
+      detail: string
+    } | null
+  }
 }) {
   const formatTimelineBucketLabel = (
     label: string,
     granularity: 'day' | 'week' | 'month',
-    format: 'compact' | 'full' = 'compact'
+    format: 'axis' | 'compact' | 'full' = 'compact'
   ): string => {
     const normalized = label.trim()
     if (!normalized) return label
@@ -2717,11 +2834,15 @@ export function SenderTimeContextAnalysisRail(props: {
         ? Date.parse(`${normalized}-01T00:00:00Z`)
         : Date.parse(normalized)
       if (!Number.isFinite(parsed)) return normalized
-      return new Date(parsed).toLocaleDateString('en-US', {
+      const date = new Date(parsed)
+      const monthLabel = date.toLocaleDateString('en-US', {
         month: 'short',
-        year: 'numeric',
         timeZone: 'UTC',
       })
+      if (format === 'axis') {
+        return `${monthLabel} '${String(date.getUTCFullYear()).slice(-2)}`
+      }
+      return `${monthLabel} ${date.getUTCFullYear()}`
     }
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized
@@ -2739,26 +2860,31 @@ export function SenderTimeContextAnalysisRail(props: {
   }
   const chartItems = props.items.map((item, index) => ({
     ...item,
+    messageCount:
+      typeof item.messageCount === 'number' && Number.isFinite(item.messageCount)
+        ? Math.max(0, item.messageCount)
+        : null,
     key: `${item.label}-${index}`,
-    compactLabel: formatTimelineBucketLabel(item.label, props.granularity, 'compact'),
+    compactLabel: formatTimelineBucketLabel(item.label, props.granularity, 'axis'),
     detailLabel: formatTimelineBucketLabel(item.label, props.granularity, 'full'),
   }))
   const peakItem = chartItems
     .slice()
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))[0] || null
   const latestItem = chartItems[chartItems.length - 1] || null
+  const selectedBucketLabel = props.bucketSelection?.activeLabel || null
+  const selectedBucketItem =
+    selectedBucketLabel != null
+      ? chartItems.find((item) => item.label === selectedBucketLabel) || null
+      : null
+  const bucketSelectionEnabled = typeof props.bucketSelection?.onToggleBucket === 'function'
+  const bucketSelectionDisabledReason = props.bucketSelection?.disabledReason || null
+  const bucketSelectionNotice = props.bucketSelection?.notice || null
   const defaultFocusedItem =
     hasMeaningfullyDistinctActivityPeak(peakItem, latestItem) && peakItem
       ? peakItem
       : latestItem || chartItems[0] || null
   const activeScope = props.scopeControls?.activeScope || null
-  const [lockedInteraction, setLockedInteraction] = useState<{
-    scope: OperationsAnalysisScope | null
-    itemKey: string | null
-  }>({
-    scope: activeScope,
-    itemKey: null,
-  })
   const [hoveredInteraction, setHoveredInteraction] = useState<{
     scope: OperationsAnalysisScope | null
     itemKey: string | null
@@ -2771,7 +2897,7 @@ export function SenderTimeContextAnalysisRail(props: {
   const max = maxChartValue(chartItems.map((item) => item.count))
   const chartHeight = 272
   const paddingLeft = 56
-  const paddingRight = 20
+  const paddingRight = 36
   const paddingTop = 24
   const paddingBottom = 44
 
@@ -2826,28 +2952,17 @@ export function SenderTimeContextAnalysisRail(props: {
     }
   }, [activeScope, chartItems.length, props.bodyOverride])
 
-  const lockedItemKey = lockedInteraction.scope === activeScope ? lockedInteraction.itemKey : null
   const hoveredItemKey = hoveredInteraction.scope === activeScope ? hoveredInteraction.itemKey : null
-  const resolvedLockedItemKey =
-    lockedItemKey && chartItems.some((item) => item.key === lockedItemKey) ? lockedItemKey : null
   const resolvedHoveredItemKey =
     hoveredItemKey && chartItems.some((item) => item.key === hoveredItemKey) ? hoveredItemKey : null
-  const lockedItem =
-    chartItems.find((item) => item.key === resolvedLockedItemKey) || null
   const hoveredItem =
     chartItems.find((item) => item.key === resolvedHoveredItemKey) || null
-  const focusedItem = lockedItem || defaultFocusedItem
+  const focusedItem = defaultFocusedItem
   const focusedIndex = focusedItem
     ? chartItems.findIndex((item) => item.key === focusedItem.key)
     : -1
   const previousItem = focusedIndex > 0 ? chartItems[focusedIndex - 1] : null
   const metricItem = hoveredItem || focusedItem
-  const metricIndex = metricItem
-    ? chartItems.findIndex((item) => item.key === metricItem.key)
-    : -1
-  const metricPreviousItem = metricIndex > 0 ? chartItems[metricIndex - 1] : null
-  const metricDelta =
-    metricItem && metricPreviousItem ? metricItem.count - metricPreviousItem.count : null
   const activeInterpretation =
     focusedItem
       ? senderTimeContextInterpretation({
@@ -2883,19 +2998,70 @@ export function SenderTimeContextAnalysisRail(props: {
         })
       : props.nextAction.detail
   const chartWidth = chartViewportWidth > 0 ? chartViewportWidth : 320
+  const chartInnerHeight = chartHeight - paddingTop - paddingBottom
   const chartInnerWidth = Math.max(chartWidth - paddingLeft - paddingRight, 1)
   const slotWidth = chartItems.length > 0 ? chartInnerWidth / chartItems.length : chartInnerWidth
   const gap = chartItems.length > 1 ? Math.min(Math.max(slotWidth * 0.18, 6), 18) : 0
   const barWidth = chartItems.length > 0 ? Math.max(18, slotWidth - gap) : chartInnerWidth
-  const bars = chartItems.map((item, index) => {
+  const minimumAxisLabelSpacingPx =
+    props.granularity === 'month' ? 86 : chartItems.length > 20 ? 62 : 46
+  const trailingAxisLabelGuardPx =
+    props.granularity === 'month' ? 88 : chartItems.length > 20 ? 54 : 34
+  const axisLabelStep =
+    chartItems.length <= 2
+      ? 1
+      : Math.max(1, Math.ceil(minimumAxisLabelSpacingPx / Math.max(slotWidth, 1)))
+  const baseBars = chartItems.map((item, index) => {
     const x = paddingLeft + index * slotWidth + Math.max(slotWidth - barWidth, 0) / 2
-    const height =
-      item.count > 0
-        ? Math.max(18, (item.count / max) * (chartHeight - paddingTop - paddingBottom))
-        : 8
+    const height = item.count > 0 ? Math.max(18, (item.count / max) * chartInnerHeight) : 0
     const y = chartHeight - paddingBottom - height
-    return { ...item, x, y, width: barWidth, height }
+    return {
+      ...item,
+      x,
+      y,
+      width: barWidth,
+      height,
+      isZeroValue: item.count === 0,
+    }
   })
+  const axisLabelIndexes = new Set<number>()
+  const lastBar = baseBars[baseBars.length - 1] || null
+  let lastShownLabelX = Number.NEGATIVE_INFINITY
+  baseBars.forEach((bar, index) => {
+    const lastIndex = baseBars.length - 1
+    const yearBoundary =
+      props.granularity === 'month' &&
+      index > 0 &&
+      bar.label.slice(0, 4) !== baseBars[index - 1]?.label.slice(0, 4)
+    const candidate =
+      index === 0 || index === lastIndex || index % axisLabelStep === 0 || yearBoundary
+    if (!candidate) return
+    const labelX =
+      index === 0
+        ? bar.x
+        : index === lastIndex
+          ? bar.x + bar.width
+          : bar.x + bar.width / 2
+    if (
+      index !== lastIndex &&
+      lastBar &&
+      lastBar.x + lastBar.width - labelX < trailingAxisLabelGuardPx
+    ) {
+      return
+    }
+    if (index !== 0 && labelX - lastShownLabelX < minimumAxisLabelSpacingPx) {
+      return
+    }
+    axisLabelIndexes.add(index)
+    lastShownLabelX = labelX
+  })
+  if (baseBars.length > 0) {
+    axisLabelIndexes.add(baseBars.length - 1)
+  }
+  const bars = baseBars.map((bar, index) => ({
+    ...bar,
+    showAxisLabel: axisLabelIndexes.has(index),
+  }))
   const hoveredBar =
     hoveredItem ? bars.find((bar) => bar.key === hoveredItem.key) || null : null
   const hoverPreviousItem =
@@ -2914,16 +3080,35 @@ export function SenderTimeContextAnalysisRail(props: {
   const axisLabelValues = [max, Math.round(max / 2), 0]
   const previewingDifferentPeriod =
     Boolean(hoveredItem && focusedItem && hoveredItem.key !== focusedItem.key)
-  const anchoredStateLabel = lockedItem ? 'Locked selection' : 'Default focus'
-  const anchoredStateDetail = lockedItem
-    ? 'This period stays anchored below until you clear it.'
-    : 'This period anchors the read until you lock another one.'
-  const metricRowDetail =
+  const anchoredStateLabel = 'Default focus'
+  const anchoredStateDetail =
+    'This period anchors the read while hover previews another visible period.'
+  const metricPanelDetail =
     previewingDifferentPeriod && hoveredItem && focusedItem
-      ? `Previewing ${hoveredItem.detailLabel} metrics while ${focusedItem.detailLabel} stays in focus below.`
+      ? `Previewing ${hoveredItem.detailLabel} while ${focusedItem.detailLabel} stays anchored as the default focus.`
       : metricItem
-        ? `Showing exact counts for ${metricItem.detailLabel}.`
+        ? `Showing the exact bucket truth for ${metricItem.detailLabel}.`
         : 'No visible period is available yet.'
+  const workflowSenderUniverseTotal = Math.max(0, props.workflowSenderUniverseTotal || 0)
+  const bucketUnitLabel =
+    props.granularity === 'month' ? 'month' : props.granularity === 'week' ? 'week' : 'day'
+  const bucketMeaningLead =
+    props.granularity === 'month'
+      ? 'Each monthly bar counts distinct senders from this cleanup group with at least one indexed message in that month.'
+      : props.granularity === 'week'
+        ? 'Each weekly bar counts distinct senders from this cleanup group with at least one indexed message in that week.'
+        : 'Each daily bar counts distinct senders from this cleanup group with at least one indexed message on that day.'
+  const metricSupportingMessages =
+    metricItem && typeof metricItem.messageCount === 'number' && Number.isFinite(metricItem.messageCount)
+      ? Math.max(0, metricItem.messageCount)
+      : null
+  const metricTruthNote = metricItem
+    ? workflowSenderUniverseTotal > 0
+      ? metricItem.count === workflowSenderUniverseTotal
+        ? `${metricItem.count.toLocaleString()} distinct senders have at least one indexed message in ${metricItem.detailLabel}, which matches the full sender universe in the current workflow scope.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}, not distinct senders.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
+        : `${metricItem.count.toLocaleString()} distinct senders have at least one indexed message in ${metricItem.detailLabel}. The current workflow scope still contains ${workflowSenderUniverseTotal.toLocaleString()} total senders, so this ${bucketUnitLabel} is one non-additive slice of that sender universe.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}, not distinct senders.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
+      : `${metricItem.count.toLocaleString()} distinct senders have at least one indexed message in ${metricItem.detailLabel}.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}, not distinct senders.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
+    : 'No visible bucket is available yet.'
 
   return (
     <SenderOverviewAnalysisRailShell
@@ -2937,16 +3122,79 @@ export function SenderTimeContextAnalysisRail(props: {
             activeScope={props.scopeControls.activeScope}
             pendingScope={props.scopeControls.pendingScope}
             onSelectScope={props.scopeControls.onSelectScope}
+            allowedScopes={props.scopeControls.allowedScopes}
           />
         ) : null
       }
     >
-      <div className={`${neutralInsetSurfaceClass} relative rounded-[24px] p-4`}>
+      <div
+        className={`${neutralInsetSurfaceClass} relative rounded-[24px] p-4`}
+        data-time-context-visual-root="true"
+        data-time-context-granularity={props.granularity}
+        data-time-context-bucket-count={chartItems.length}
+      >
         {props.isUpdating ? (
           <div className="mb-3 flex justify-end">
             <div className="rounded-full border border-cyan-700/45 bg-slate-950/85 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
               Updating time window…
             </div>
+          </div>
+        ) : null}
+        {selectedBucketItem ? (
+          <div className="mb-3 rounded-2xl border border-cyan-700/40 bg-cyan-950/14 px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                  Workflow narrowed
+                </p>
+                <p className="mt-1 text-sm font-medium text-white">
+                  {selectedBucketItem.detailLabel} is the active workflow bucket.
+                </p>
+                <p className="mt-1 text-xs leading-5 text-cyan-100/75">
+                  Chart highlighting is visual only. The bar set stays full-scope and keeps the
+                  same aggregation while the workflow below narrows to this exact sender bucket.
+                </p>
+              </div>
+              {props.bucketSelection?.isLoading ? (
+                <span className="rounded-full border border-cyan-700/45 bg-slate-950/80 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-cyan-100">
+                  Refreshing workflow…
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {bucketSelectionNotice ? (
+          <div
+            className={`mb-3 rounded-2xl border px-4 py-3 ${
+              bucketSelectionNotice.tone === 'error'
+                ? 'border-rose-700/45 bg-rose-950/18'
+                : bucketSelectionNotice.tone === 'warning'
+                  ? 'border-amber-700/45 bg-amber-950/18'
+                  : 'border-cyan-700/40 bg-cyan-950/14'
+            }`}
+          >
+            <p
+              className={`text-[10px] uppercase tracking-[0.22em] ${
+                bucketSelectionNotice.tone === 'error'
+                  ? 'text-rose-200'
+                  : bucketSelectionNotice.tone === 'warning'
+                    ? 'text-amber-200'
+                    : 'text-cyan-300'
+              }`}
+            >
+              {bucketSelectionNotice.title}
+            </p>
+            <p
+              className={`mt-2 text-sm leading-6 ${
+                bucketSelectionNotice.tone === 'error'
+                  ? 'text-rose-50'
+                  : bucketSelectionNotice.tone === 'warning'
+                    ? 'text-amber-50'
+                    : 'text-cyan-50'
+              }`}
+            >
+              {bucketSelectionNotice.detail}
+            </p>
           </div>
         ) : null}
         {props.bodyOverride ? (
@@ -2962,6 +3210,22 @@ export function SenderTimeContextAnalysisRail(props: {
           </div>
         ) : (
           <>
+            <div
+              className="mb-4 rounded-2xl border border-slate-500/15 bg-black/10 px-4 py-3"
+              data-time-context-metric-meaning="true"
+            >
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Metric meaning</p>
+              <p className="mt-1 text-sm font-medium text-slate-100">
+                {bucketMeaningLead}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-300/85">
+                Focused bucket details below separate bucket senders, supporting messages from those
+                same senders, and the full sender universe in the current workflow scope.
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-300/85">
+                The same sender can appear in multiple {props.granularity === 'month' ? 'months' : props.granularity === 'week' ? 'weeks' : 'days'}, so bucket counts are non-additive and do not sum to the workflow-scope sender total. When supporting-message totals are bucketized, they count emails, not distinct senders.
+              </p>
+            </div>
             <div ref={chartViewportRef} className="relative w-full">
               {hoveredItem && hoveredBar ? (
                 <div
@@ -2978,7 +3242,15 @@ export function SenderTimeContextAnalysisRail(props: {
                       <span className="font-medium text-white">{hoveredItem.count.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-500">Previous</span>
+                      <span className="text-gray-500">Supporting messages</span>
+                      <span className="font-medium text-white">
+                        {hoveredItem.messageCount != null
+                          ? hoveredItem.messageCount.toLocaleString()
+                          : 'Not bucketized'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-gray-500">Previous bucket</span>
                       <span className="font-medium text-white">
                         {hoverPreviousItem ? hoverPreviousItem.count.toLocaleString() : 'No prior period'}
                       </span>
@@ -3042,8 +3314,12 @@ export function SenderTimeContextAnalysisRail(props: {
                   const isPeak = peakItem?.key === bar.key
                   const isLatest = latestItem?.key === bar.key
                   const isHovered = hoveredItem?.key === bar.key
-                  const isLocked = lockedItem?.key === bar.key
-                  const isDefaultFocused = !isLocked && focusedItem?.key === bar.key
+                  const isDefaultFocused = focusedItem?.key === bar.key
+                  const isWorkflowSelected = selectedBucketLabel === bar.label
+                  const canToggleWorkflowBucket =
+                    bucketSelectionEnabled &&
+                    bucketSelectionDisabledReason == null &&
+                    bar.count > 0
                   const defaultFocusedFill = isPeak
                     ? 'rgba(158,114,28,0.92)'
                     : isLatest
@@ -3055,6 +3331,7 @@ export function SenderTimeContextAnalysisRail(props: {
                       ? 'rgba(34,211,238,0.28)'
                       : 'rgba(148,163,184,0.22)'
                   const markerLabel = isPeak && isLatest ? 'Peak + latest' : isPeak ? 'Peak' : isLatest ? 'Latest' : null
+                  const markerAnchorY = bar.isZeroValue ? chartHeight - paddingBottom : bar.y
                   const anchor =
                     index === 0 ? 'start' : index === bars.length - 1 ? 'end' : 'middle'
                   const labelX =
@@ -3068,7 +3345,7 @@ export function SenderTimeContextAnalysisRail(props: {
                       {markerLabel ? (
                         <text
                           x={labelX}
-                          y={Math.max(18, bar.y - 8)}
+                          y={Math.max(18, markerAnchorY - 8)}
                           textAnchor={anchor}
                           fill={
                             isPeak && isLatest
@@ -3086,9 +3363,9 @@ export function SenderTimeContextAnalysisRail(props: {
                       {isPeak ? (
                         <line
                           x1={bar.x + 2}
-                          y1={Math.max(14, bar.y - 3)}
+                          y1={Math.max(14, markerAnchorY - 3)}
                           x2={bar.x + bar.width - 2}
-                          y2={Math.max(14, bar.y - 3)}
+                          y2={Math.max(14, markerAnchorY - 3)}
                           stroke="rgba(251,191,36,0.5)"
                           strokeWidth="1.5"
                           strokeLinecap="round"
@@ -3097,37 +3374,143 @@ export function SenderTimeContextAnalysisRail(props: {
                       {isLatest ? (
                         <line
                           x1={bar.x + 2}
-                          y1={Math.max(18, bar.y - (isPeak ? 8 : 3))}
+                          y1={Math.max(18, markerAnchorY - (isPeak ? 8 : 3))}
                           x2={bar.x + bar.width - 2}
-                          y2={Math.max(18, bar.y - (isPeak ? 8 : 3))}
+                          y2={Math.max(18, markerAnchorY - (isPeak ? 8 : 3))}
                           stroke="rgba(34,211,238,0.48)"
                           strokeWidth="1.5"
                           strokeLinecap="round"
                         />
                       ) : null}
-                      {(isLocked || isDefaultFocused) ? (
+                      {bar.isZeroValue ? (
+                        <>
+                          <line
+                            x1={bar.x + bar.width / 2}
+                            y1={paddingTop + 8}
+                            x2={bar.x + bar.width / 2}
+                            y2={chartHeight - paddingBottom - 8}
+                            stroke="rgba(148,163,184,0.1)"
+                            strokeWidth="1"
+                            strokeDasharray="1.5 7"
+                            pointerEvents="none"
+                          />
+                          <rect
+                            x={
+                              bar.x +
+                              Math.max((bar.width - Math.min(Math.max(bar.width * 0.34, 6), 10)) / 2, 0)
+                            }
+                            y={chartHeight - paddingBottom - 2}
+                            width={Math.min(Math.max(bar.width * 0.34, 6), 10)}
+                            height={2}
+                            rx={999}
+                            fill="rgba(148,163,184,0.12)"
+                            pointerEvents="none"
+                          />
+                          <rect
+                            x={bar.x}
+                            y={paddingTop}
+                            width={bar.width}
+                            height={chartInnerHeight}
+                            rx={Math.min(14, Math.max(4, bar.width / 3))}
+                            fill="rgba(0,0,0,0.001)"
+                            data-time-context-zero-slot="true"
+                            data-time-context-bucket-label={bar.detailLabel}
+                            data-time-context-bucket-count={bar.count}
+                            data-time-context-bucket-message-count={
+                              bar.messageCount != null ? bar.messageCount : ''
+                            }
+                            role={canToggleWorkflowBucket ? 'button' : 'img'}
+                            aria-label={`${bar.detailLabel}. ${bar.count.toLocaleString()} active senders.${bar.count === 0 ? ' Bucket selection is unavailable because this bucket is empty.' : bucketSelectionDisabledReason ? ` Bucket selection is unavailable because ${bucketSelectionDisabledReason}.` : canToggleWorkflowBucket ? ' Press to narrow the workflow to this bucket.' : ''}`}
+                            aria-pressed={canToggleWorkflowBucket ? isWorkflowSelected : undefined}
+                            tabIndex={0}
+                            onMouseEnter={() =>
+                              setHoveredInteraction({
+                                scope: activeScope,
+                                itemKey: bar.key,
+                              })
+                            }
+                            onMouseLeave={() =>
+                              setHoveredInteraction((current) =>
+                                current.scope === activeScope && current.itemKey === bar.key
+                                  ? { scope: activeScope, itemKey: null }
+                                  : current
+                              )
+                            }
+                            onFocus={() =>
+                              setHoveredInteraction({
+                                scope: activeScope,
+                                itemKey: bar.key,
+                              })
+                            }
+                            onBlur={() =>
+                              setHoveredInteraction((current) =>
+                                current.scope === activeScope && current.itemKey === bar.key
+                                  ? { scope: activeScope, itemKey: null }
+                                  : current
+                              )
+                            }
+                            onClick={() =>
+                              canToggleWorkflowBucket
+                                ? props.bucketSelection?.onToggleBucket?.({
+                                    label: bar.label,
+                                    count: bar.count,
+                                    messageCount: bar.messageCount,
+                                  })
+                                : undefined
+                            }
+                            onKeyDown={(event) => {
+                              if (!canToggleWorkflowBucket) return
+                              if (event.key !== 'Enter' && event.key !== ' ') return
+                              event.preventDefault()
+                              props.bucketSelection?.onToggleBucket?.({
+                                label: bar.label,
+                                count: bar.count,
+                                messageCount: bar.messageCount,
+                              })
+                            }}
+                          />
+                        </>
+                      ) : null}
+                      {isDefaultFocused ? (
                         <rect
                           x={bar.x - 3}
-                          y={Math.max(10, bar.y - 3)}
+                          y={bar.isZeroValue ? paddingTop : Math.max(10, bar.y - 3)}
                           width={bar.width + 6}
-                          height={bar.height + 6}
+                          height={bar.isZeroValue ? chartInnerHeight : bar.height + 6}
                           rx={Math.min(18, Math.max(8, bar.width / 2))}
                           fill="none"
-                          stroke={isLocked ? 'rgba(255,255,255,0.92)' : 'rgba(148,163,184,0.42)'}
-                          strokeWidth={isLocked ? 2.25 : 1.5}
+                          stroke="rgba(148,163,184,0.42)"
+                          strokeWidth={1.5}
                         />
                       ) : null}
-                      <rect
-                        x={bar.x}
-                        y={bar.y}
-                        width={bar.width}
-                        height={bar.height}
-                        rx={Math.min(14, Math.max(4, bar.width / 3))}
-                        fill={
-                          isHovered
-                            ? 'rgba(125,211,252,0.92)'
-                            : isLocked
-                              ? 'rgba(103,232,249,0.78)'
+                      {isWorkflowSelected ? (
+                        <rect
+                          x={bar.x - 5}
+                          y={bar.isZeroValue ? paddingTop : Math.max(8, bar.y - 5)}
+                          width={bar.width + 10}
+                          height={bar.isZeroValue ? chartInnerHeight : bar.height + 10}
+                          rx={Math.min(20, Math.max(10, bar.width / 2))}
+                          fill="none"
+                          stroke="rgba(34,211,238,0.92)"
+                          strokeWidth={2.25}
+                          pointerEvents="none"
+                        />
+                      ) : null}
+                      {!bar.isZeroValue ? (
+                        <rect
+                          x={bar.x}
+                          y={bar.y}
+                          width={bar.width}
+                          height={bar.height}
+                          rx={Math.min(14, Math.max(4, bar.width / 3))}
+                          data-time-context-bucket-label={bar.detailLabel}
+                          data-time-context-bucket-count={bar.count}
+                          data-time-context-bucket-message-count={
+                            bar.messageCount != null ? bar.messageCount : ''
+                          }
+                          fill={
+                            isHovered
+                              ? 'rgba(125,211,252,0.92)'
                               : isDefaultFocused
                                 ? defaultFocusedFill
                                 : isPeak
@@ -3135,12 +3518,10 @@ export function SenderTimeContextAnalysisRail(props: {
                                   : isLatest
                                     ? 'rgba(79,111,137,0.88)'
                                     : 'rgba(100,116,139,0.82)'
-                        }
-                        stroke={
-                          isHovered
-                            ? 'rgba(186,230,253,0.95)'
-                            : isLocked
-                              ? 'rgba(255,255,255,0.2)'
+                          }
+                          stroke={
+                            isHovered
+                              ? 'rgba(186,230,253,0.95)'
                               : isDefaultFocused
                                 ? defaultFocusedStroke
                                 : isPeak
@@ -3148,90 +3529,91 @@ export function SenderTimeContextAnalysisRail(props: {
                                   : isLatest
                                     ? 'rgba(34,211,238,0.28)'
                                     : 'rgba(255,255,255,0.1)'
-                        }
-                        strokeWidth={isHovered ? 1.5 : 1}
-                        className="cursor-pointer transition-all duration-150"
-                        role="button"
-                        aria-label={`${bar.detailLabel}. ${bar.count.toLocaleString()} active senders.`}
-                        aria-pressed={isLocked}
-                        tabIndex={0}
-                        onMouseEnter={() =>
-                          setHoveredInteraction({
-                            scope: activeScope,
-                            itemKey: bar.key,
-                          })
-                        }
-                        onMouseLeave={() =>
-                          setHoveredInteraction((current) =>
-                            current.scope === activeScope && current.itemKey === bar.key
-                              ? { scope: activeScope, itemKey: null }
-                              : current
-                          )
-                        }
-                        onFocus={() =>
-                          setHoveredInteraction({
-                            scope: activeScope,
-                            itemKey: bar.key,
-                          })
-                        }
-                        onBlur={() =>
-                          setHoveredInteraction((current) =>
-                            current.scope === activeScope && current.itemKey === bar.key
-                              ? { scope: activeScope, itemKey: null }
-                              : current
-                          )
-                        }
-                        onClick={() =>
-                          setLockedInteraction((current) => ({
-                            scope: activeScope,
-                            itemKey:
+                          }
+                          strokeWidth={isHovered ? 1.5 : 1}
+                          className="transition-all duration-150"
+                          role={canToggleWorkflowBucket ? 'button' : 'img'}
+                          aria-label={`${bar.detailLabel}. ${bar.count.toLocaleString()} active senders.${bucketSelectionDisabledReason ? ` Bucket selection is unavailable because ${bucketSelectionDisabledReason}.` : canToggleWorkflowBucket ? ' Press to narrow the workflow to this bucket.' : ''}`}
+                          aria-pressed={canToggleWorkflowBucket ? isWorkflowSelected : undefined}
+                          tabIndex={0}
+                          onMouseEnter={() =>
+                            setHoveredInteraction({
+                              scope: activeScope,
+                              itemKey: bar.key,
+                            })
+                          }
+                          onMouseLeave={() =>
+                            setHoveredInteraction((current) =>
                               current.scope === activeScope && current.itemKey === bar.key
-                                ? null
-                                : bar.key,
-                          }))
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter' && event.key !== ' ') return
-                          event.preventDefault()
-                          setLockedInteraction((current) => ({
-                            scope: activeScope,
-                            itemKey:
+                                ? { scope: activeScope, itemKey: null }
+                                : current
+                            )
+                          }
+                          onFocus={() =>
+                            setHoveredInteraction({
+                              scope: activeScope,
+                              itemKey: bar.key,
+                            })
+                          }
+                          onBlur={() =>
+                            setHoveredInteraction((current) =>
                               current.scope === activeScope && current.itemKey === bar.key
-                                ? null
-                                : bar.key,
-                          }))
-                        }}
-                      />
+                                ? { scope: activeScope, itemKey: null }
+                                : current
+                            )
+                          }
+                          onClick={() =>
+                            canToggleWorkflowBucket
+                              ? props.bucketSelection?.onToggleBucket?.({
+                                  label: bar.label,
+                                  count: bar.count,
+                                  messageCount: bar.messageCount,
+                                })
+                              : undefined
+                          }
+                          onKeyDown={(event) => {
+                            if (!canToggleWorkflowBucket) return
+                            if (event.key !== 'Enter' && event.key !== ' ') return
+                            event.preventDefault()
+                            props.bucketSelection?.onToggleBucket?.({
+                              label: bar.label,
+                              count: bar.count,
+                              messageCount: bar.messageCount,
+                            })
+                          }}
+                        />
+                      ) : null}
                       {isHovered ? (
                         <rect
                           x={bar.x - 2}
-                          y={Math.max(12, bar.y - 2)}
+                          y={bar.isZeroValue ? paddingTop : Math.max(12, bar.y - 2)}
                           width={bar.width + 4}
-                          height={bar.height + 4}
+                          height={bar.isZeroValue ? chartInnerHeight : bar.height + 4}
                           rx={Math.min(18, Math.max(8, bar.width / 2))}
                           fill="none"
                           stroke="rgba(186,230,253,0.9)"
                           strokeWidth="2"
                         />
                       ) : null}
-                      <text
-                        x={labelX}
-                        y={chartHeight - 14}
-                        textAnchor={anchor}
-                        fill={
-                          isHovered
-                            ? 'rgba(255,255,255,0.98)'
-                            : isLocked
-                              ? 'rgba(255,255,255,0.94)'
+                      {bar.showAxisLabel ? (
+                        <text
+                          x={labelX}
+                          y={chartHeight - 14}
+                          textAnchor={anchor}
+                          data-time-context-axis-label="true"
+                          fill={
+                            isHovered
+                              ? 'rgba(255,255,255,0.98)'
                               : isDefaultFocused
                                 ? 'rgba(226,232,240,0.9)'
                                 : 'rgba(203,213,225,0.82)'
-                        }
-                        fontSize="11"
-                        fontWeight={isHovered || isLocked ? '600' : '400'}
-                      >
-                        {bar.compactLabel}
-                      </text>
+                          }
+                          fontSize="10.5"
+                          fontWeight={isHovered ? '600' : '500'}
+                        >
+                          {bar.compactLabel}
+                        </text>
+                      ) : null}
                     </g>
                   )
                 })}
@@ -3239,10 +3621,6 @@ export function SenderTimeContextAnalysisRail(props: {
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-white" />
-                  Locked selection
-                </span>
                 <span className="inline-flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full border border-slate-300/60 bg-slate-400/20" />
                   Default focus
@@ -3259,8 +3637,20 @@ export function SenderTimeContextAnalysisRail(props: {
                   <span className="h-0.5 w-3 rounded-full bg-cyan-300/70" />
                   Latest visible period
                 </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="relative inline-flex h-3 w-3 items-center justify-center">
+                    <span className="h-3 border-l border-dashed border-slate-400/45" />
+                  </span>
+                  Reserved zero slot
+                </span>
+                {selectedBucketItem ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full border-2 border-cyan-300" />
+                    Workflow bucket
+                  </span>
+                ) : null}
               </div>
-              <p>Hover previews another period. Click keeps one anchored below.</p>
+              <p>Bucket bars stay sender-based; supporting messages are called out separately below.</p>
             </div>
           </>
         )}
@@ -3285,63 +3675,77 @@ export function SenderTimeContextAnalysisRail(props: {
               <p className="mt-1 text-sm text-cyan-50/90">{activeInterpretation}</p>
               <p className="mt-2 text-xs leading-5 text-cyan-100/75">{anchoredStateDetail}</p>
             </div>
-            {lockedItem ? (
-              <button
-                type="button"
-                onClick={() => setLockedInteraction({ scope: activeScope, itemKey: null })}
-                className={`${quietControlSurfaceClass} rounded-full px-3 py-1.5 text-xs`}
-              >
-                Clear selection
-              </button>
-            ) : (
-              <p className="max-w-sm text-xs leading-5 text-cyan-100/70">
-                The rail is currently centered on the period that best explains the visible workload.
-              </p>
-            )}
+            <p className="max-w-sm text-xs leading-5 text-cyan-100/70">
+              The rail is currently centered on the period that best explains the visible workload.
+            </p>
           </div>
 
           <div className="mt-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Exact metrics</p>
-                <p className="mt-1 text-xs leading-5 text-cyan-100/75">{metricRowDetail}</p>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Focused bucket truth</p>
+                <p className="mt-1 text-xs leading-5 text-cyan-100/75">{metricPanelDetail}</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            {diagnosticRow(
-              'Active senders',
-              metricItem ? metricItem.count.toLocaleString() : '—',
-              metricItem
-                ? `Visible activity in ${metricItem.label}.`
-                : 'No visible activity is available yet.'
-            )}
-            {diagnosticRow(
-              'Previous period',
-              metricPreviousItem ? metricPreviousItem.count.toLocaleString() : 'No prior period',
-              metricPreviousItem
-                ? `${metricPreviousItem.label} is the comparison point for this read.`
-                : 'A comparison appears once the timeline has an earlier visible period.'
-            )}
-            {diagnosticRow(
-              'Change vs prior',
-              formatSignedCount(metricDelta),
-              metricDelta == null
-                ? 'This period opens the visible timeline.'
-                : metricDelta > 0
-                  ? 'More active senders were visible than in the prior period.'
-                  : metricDelta < 0
-                    ? 'Fewer active senders were visible than in the prior period.'
-                    : 'Activity matched the prior period.'
-            )}
+          <div
+            className="mt-3 rounded-2xl border border-cyan-900/35 bg-black/10 px-4 py-3"
+            data-time-context-truth-summary="true"
+          >
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">How to read these numbers</p>
+            <p
+              className="mt-2 text-sm font-medium text-cyan-50"
+              data-time-context-focused-bucket-label="true"
+            >
+              {metricItem ? metricItem.detailLabel : 'No visible period yet'}
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Active senders in this bucket
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white" data-time-context-active-senders="true">
+                  {metricItem ? metricItem.count.toLocaleString() : '—'}
+                </p>
+              </div>
+              <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Supporting messages in this bucket
+                </p>
+                <p
+                  className="mt-1 text-sm font-semibold text-white"
+                  data-time-context-supporting-messages="true"
+                >
+                  {metricItem
+                    ? metricSupportingMessages != null
+                      ? metricSupportingMessages.toLocaleString()
+                      : 'Not bucketized'
+                    : '—'}
+                </p>
+              </div>
+              <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Senders in current workflow scope
+                </p>
+                <p
+                  className="mt-1 text-sm font-semibold text-white"
+                  data-time-context-workflow-total="true"
+                >
+                  {workflowSenderUniverseTotal > 0 ? workflowSenderUniverseTotal.toLocaleString() : '—'}
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-cyan-100/80" data-time-context-truth-note="true">
+              {metricTruthNote}
+            </p>
           </div>
 
           <div className={`${neutralNestedSurfaceClass} mt-4 rounded-[22px] p-4`}>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Across this cleanup group</p>
               <span className="text-[11px] leading-5 text-slate-400">
-                These signals stay anchored to the focused period until you lock a different one.
+                These signals stay anchored to the default focus while hover previews another visible period.
               </span>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">

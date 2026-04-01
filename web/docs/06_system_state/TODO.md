@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-30 (subscription Sender Overview load stability accepted • 7d recovery preserved • cleanup-group restructuring still open)_
+_Last updated: 2026-03-31 (time-context truth-reconciliation accepted for validated routes • broader rebuild still open • empty-action runtime noise still open separately)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,21 @@ _Last updated: 2026-03-30 (subscription Sender Overview load stability accepted 
 ## 🔥 Current Focus (This Week)
 
 ----
+
+### Shared Analysis Rail — Time Context Rebuild
+- [x] Accept the scoped Time Context truth-reconciliation pass for the validated routes
+- [x] Materially reconcile `All Indexed` monthly truth on:
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `semantic.marketing_subscriptions`
+- [x] Keep `1M` and `1W` browser-valid in the validated cases
+- [x] Keep this accepted pass limited to pre-selection Time Context truth only
+- [ ] Complete the broader Time Context grammar lock
+- [ ] Lock the Time Context filtering contract
+- [ ] Implement and browser-prove bucket-driven workflow narrowing as a later lane
+- [ ] Prove interactive chart/workflow parity under that narrowing contract
+- [ ] Resolve residual empty `action:""` inbox-analysis runtime noise as a separate follow-up
+- [ ] Keep the runtime-noise follow-up separate from Time Context rebuild acceptance
 
 ### Sender Overview 7d Rail Bootstrap Recovery
 - [x] Prove whether `7d` was honestly empty or falsely empty under current product contract
@@ -55,6 +70,61 @@ _Last updated: 2026-03-30 (subscription Sender Overview load stability accepted 
 - [x] Accept as non-blocking for this lane:
   - sparse daily-bar density when recent activity is honestly sparse
   - future product/presentation decisions about zero-activity day rendering
+
+### Shared Analysis Rail — Phase 1 Foundation
+- [x] Add a shared tabbed analysis rail shell in Sender Overview
+- [x] Keep the rail tabs limited to:
+  - `Sender Distribution`
+  - `Time Context`
+- [x] Add the shared workflow-subset contract in `review/page.tsx`
+- [x] Keep `review/page.tsx` as the only authority for:
+  - shared workflow-subset contract
+  - active tab state
+  - workflow list integration
+  - guided Decision Mode handoff
+  - no-rehydrate safeguards
+- [x] Keep `GmailCleanupComponents.tsx` presentation-only
+- [x] Keep `Sender Distribution` as a strict placeholder shell only in Phase 1
+- [x] Make no backend/API/query changes in this lane
+- [x] Introduce no page-wide rehydrate behavior in this lane
+
+### Shared Analysis Rail — Phase 2 Sender Distribution Chart
+- [ ] Replace the Phase 1 placeholder with the actual Sender Distribution chart on top of the shared rail foundation
+- [ ] Keep `review/page.tsx` as the single source of truth for the shared workflow-subset contract and active tab state
+- [ ] Preserve the Phase 1 no-rehydrate boundary while adding the chart
+- [ ] Keep Time Context workflow behavior unchanged until the later dedicated interaction phase
+
+### Cleanup Groups Rediscovery (Scoped Roadmap Complete)
+- [x] Complete Phase A canonical model + alias layer
+- [x] Add the single canonical cleanup-group registry
+- [x] Add the alias layer to cleanup-cluster identity resolution
+- [x] Preserve sender membership exactly in Phase A
+- [x] Preserve current UI and workflow behavior in Phase A
+- [x] Complete Phase B runtime identity normalization
+- [x] Normalize runtime ingress points to canonical-first cleanup-group refs
+- [x] Preserve soft compatibility for legacy cleanup-group ids during Phase B
+- [x] Prove no membership drift between legacy and canonical runtime routes
+- [x] Keep UI migration out of Phase B
+- [x] Complete Phase C Cleanup Groups UI migration
+- [x] Render the canonical lane-first Cleanup Groups structure
+- [x] Keep `Secondary` and `Context` collapsed by default
+- [x] Keep review units nested inside parent groups only
+- [x] Update the live audit harness to validate the canonical runtime cleanup-group contract
+- [x] Complete Phase D workflow integration
+- [x] Normalize workflow ingress to canonical cleanup-group identity across Intelligence, Review, Management, memory, and destinations
+- [x] Keep authoritative workflow identity limited to:
+  - `canonicalClusterId`
+  - optional parent-scoped `reviewUnitKey`
+- [x] Keep legacy/source ids as read-normalization metadata only after ingress
+- [x] Prove canonical-first equality, snapshot matching, persistence, and management reopen behavior
+- [x] Complete Phase E alias cleanup / hardening
+- [x] Harden regression coverage around canonical mapping, legacy alias reads, transitional alias reads, and canonical payload persistence
+- [x] Prepare the future canonical-publish artifact path as default-off
+- [x] Preserve current runtime behavior during the compatibility window
+- [x] Keep alias retirement deferred until a later compatibility-window decision
+- [ ] Follow on with Cleanup Groups card-compression / summary-first UI refinement as a separate slice
+- [ ] Decide later whether and when to retire cleanup-group aliases after compatibility-window review
+- [ ] Decide separately whether to activate the prepared canonical artifact-publish switch
 
 ### Gmail Phase 1 Baseline Lock
 - [x] Restore published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555`

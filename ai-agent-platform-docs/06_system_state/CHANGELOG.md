@@ -1,3 +1,81 @@
+### April 1, 2026 — ACE-008 Codex Prompt Standardization Propagation Pass
+
+What changed:
+- Propagated `ACE-008 — Codex Prompt Standardization` across the active control-plane and PM handoff docs.
+- Standardized non-trivial PM -> Codex execution prompts on `07_reference/CODEX_PROMPT_TEMPLATES.md`.
+- Explicitly required `Skill` + `Skill Location` whenever a skill is referenced in a Codex task.
+- Aligned docs so documentation-only propagation work points to the change-propagation workflow/template instead of ad hoc prompting.
+
+Verified unchanged:
+- `AGENTS.md`
+
+Accepted outcome:
+- PM -> Codex communication now points to one prompt-template source of truth for non-trivial work.
+- Skill usage is now explicitly enforced in the active PM-facing docs.
+- The `Oliver -> Project Manager -> Codex` operating model remains unchanged and is now described with a tighter execution contract.
+- This pass changed documentation only; no runtime, UI, schema, or API behavior changed.
+
+Still open:
+- Future PM/Codex prompt additions should extend `CODEX_PROMPT_TEMPLATES.md` instead of introducing ad hoc execution formats.
+
+### April 1, 2026 — ACE-007 Context Migration Propagation Pass
+
+What changed:
+- Propagated `ACE-007 — Context Migration — Multi-Thread Work Capture` across the active control-plane and orientation docs.
+- Captured the active cross-thread state for:
+  - Cleanup Groups multi-phase rebuild
+  - Shared Analysis Rail / Time Context / Charts
+- Reframed active top-of-doc language so the Control Plane + `ACTIVE_CHANGE_EVENTS.md` replace chat-held continuity.
+- Preserved earlier lane-local milestone entries as historical context where needed instead of treating them as current open-work truth.
+
+Verified unchanged:
+- `07_reference/SYSTEM_MEMORY_MAP.md`
+- `AGENTS.md`
+- `00_core_context/agent_activation_checklist.md`
+
+Accepted outcome:
+- Cleanup Groups current state now records Lane A accepted, Lane B partially closed, Lane B final closeout still open, and Lane C not started.
+- Time Context current state now records Lane A implemented, Lane B bucket-to-workflow filtering still open, residual reconciliation still open, and empty `action:""` runtime noise still open.
+- A new Project Manager can now resume from the Control Plane + `ACTIVE_CHANGE_EVENTS.md` without prior chat history.
+
+Still open:
+- Cleanup Groups Lane B final closure
+- Cleanup Groups Lane C
+- Time Context Lane B filtering contract and reconciliation
+- residual empty `action:""` runtime-noise investigation
+
+### April 1, 2026 — Codex Operating System Implementation Propagation Pass
+
+What changed:
+- Propagated `ACE-006 — Codex Operating System Implementation` across the active control-plane and orientation docs.
+- Standardized active language around the four operating layers:
+  - `Control Plane`
+  - `Orientation`
+  - `Routing`
+  - `Skills`
+- Reframed `07_PROJECT_MANAGER_CONTEXT.md` and `system_overview.md` around the active execution chain:
+  - `Oliver -> Project Manager -> Codex`
+- Rebuilt `PM_ONBOARDING_BRIEF.md` into one canonical onboarding brief aligned with the new operating model.
+- Added explicit ACE-006 propagation tracking back into `ACTIVE_CHANGE_EVENTS.md`.
+
+Verified unchanged:
+- `07_reference/SYSTEM_MEMORY_MAP.md`
+- `AGENTS.md`
+- `00_core_context/agent_activation_checklist.md`
+
+Accepted outcome:
+- Control-plane, orientation, and changelog docs now describe the Codex Operating System consistently.
+- `SYSTEM_MEMORY_MAP.md` remains the routing system rather than a static index.
+- `AGENTS.md` remains the enforceable Codex behavior contract.
+- PM activation remains the standardized three-message handoff:
+  - `Control Plane`
+  - `Orientation`
+  - `Execution Continuity`
+- This pass changed documentation only; no runtime, UI, schema, or API behavior changed.
+
+Still open:
+- Future documentation changes must preserve ACE-006 language so operating-model drift does not return.
+
 ### March 31, 2026 — Shared Analysis Rail Time Context Truth-Reconciliation Accepted
 
 What changed:

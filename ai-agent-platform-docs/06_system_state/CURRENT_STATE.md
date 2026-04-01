@@ -1,9 +1,73 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-31  
-Project Manager: v10 (finalized — preparing transition to v11)
+Last updated: 2026-04-01
+Project Manager: Codex Operating System active (`Oliver -> Project Manager -> Codex`)
 
 ---
+
+## 🚀 April 1 — ACE-008 Codex Prompt Standardization Propagated
+
+### What changed
+
+- PM -> Codex non-trivial execution prompts now standardize on `07_reference/CODEX_PROMPT_TEMPLATES.md`.
+- Named-skill execution now requires both `Skill` and `Skill Location` in the prompt.
+- Codex skill loading is now treated as explicit execution setup, not an implied behavior.
+- Verified unchanged during this propagation pass:
+  - `AGENTS.md`
+
+### Current accepted state
+
+- The active PM -> Codex communication model remains `Oliver -> Project Manager -> Codex`.
+- Non-trivial Codex tasks should be issued through the template structure, not ad hoc execution prompts.
+- Documentation-only propagation work should use the change-propagation template/workflow.
+- Reduced prompts remain acceptable only for truly lightweight tasks; they do not override the skill-loading requirement when a skill is named.
+
+### Explicit boundary
+
+- This pass standardizes documentation and execution language only.
+- No runtime, UI, schema, or product behavior changed in this pass.
+
+## 🚀 April 1 — ACE-007 Context Migration Captured
+
+### What changed
+
+- ACE-007 now captures the active multi-thread work that had been living only in chat.
+- Control Plane + `ACTIVE_CHANGE_EVENTS.md` are now the required continuity source for future work.
+- The Codex Operating System remains the active project operating model:
+  - Control Plane
+  - Orientation
+  - Routing
+  - Skills
+- Verified unchanged during this propagation pass:
+  - `SYSTEM_MEMORY_MAP.md`
+  - `AGENTS.md`
+  - `agent_activation_checklist.md`
+
+### Current accepted state
+
+- Cleanup Groups multi-phase rebuild is the live current work stream:
+  - Lane A is accepted for root-surface behavior.
+  - Lane B is partially closed with marketing unit-only entry, review-unit integrity, spillover as a first-class unit, unit-scoped hero truth, unit-scoped decision handoff, and invalid/missing/blank unit guards.
+  - Lane B final closeout remains open.
+  - Lane C has not started.
+- Analysis Rail / Time Context / Charts is the parallel worktree stream:
+  - Lane A Time Context rebuild is implemented.
+  - Row-backed monthly aggregation, same-array truth enforcement, non-additive bucket truth, axis readability improvements, and ghost-slot rendering are part of current reality.
+  - Lane B bucket-to-workflow filtering, residual data validation/reconciliation, and empty `action:""` runtime-noise investigation remain open.
+- Current active boundaries remain explicit:
+  - no new taxonomy work
+  - no root-surface redesign
+  - no artifact redesign
+  - focus stays on correctness, propagation, and system stability
+
+### Explicit boundary
+
+- This pass migrates and aligns system context only; it does not implement new product or runtime behavior.
+- Historical milestone entries below are preserved as lane-local snapshots. If any statement below conflicts with this section or `ACTIVE_CHANGE_EVENTS.md`, treat ACE-007 and the control plane as authoritative current reality.
+
+## Historical Milestone Log
+
+Entries below preserve earlier pass-local acceptances and closeouts. They remain useful for reconstruction, but they do not override the active ACE-007 continuity snapshot above.
 
 ## 🚀 March 31 — Shared Analysis Rail Time Context Truth-Reconciliation Pass Accepted
 

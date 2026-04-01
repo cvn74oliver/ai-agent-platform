@@ -1,31 +1,52 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-31 (time-context truth-reconciliation accepted for validated routes • broader rebuild still open • empty-action runtime noise still open separately)_
+_Last updated: 2026-04-01 (ACE-008 prompt standardization propagated • ACE-007 multi-thread work captured in the control plane • Cleanup Groups and Time Context follow-up remain open)_
 
-- Project Manager — healthy (v8 active)
-- Architect — healthy
-- Backend — healthy
-- Frontend — healthy
-- Workflow — healthy
-- LLM Trainer — healthy
-- Avatar & Voice — healthy
-- Prompt Engineer — healthy
+- Operating model — healthy (`Oliver -> Project Manager -> Codex`)
+- Control Plane — active
+- Orientation layer — active
+- Routing system — active
+- Skills layer — active
+- `/web/docs` mirror discipline — active
 
 ## 🔥 Current Focus (This Week)
 
 ----
 
+### ACE-008 — Codex Prompt Standardization
+- [x] Standardize non-trivial PM -> Codex prompts on `07_reference/CODEX_PROMPT_TEMPLATES.md`
+- [x] Require `Skill` + `Skill Location` whenever a skill is referenced
+- [x] Record that documentation-only propagation uses the change-propagation workflow/template
+- [x] Align active control-plane and PM handoff docs to the same prompt contract
+- [x] Verify `AGENTS.md` already enforces the same skill-loading and execution model
+
+### ACE-007 — Context Migration / Multi-Thread Work Capture
+- [x] Propagate ACE-007 across the required control-plane and orientation docs
+- [x] Capture multi-thread work from:
+  - Cleanup Groups
+  - Shared Analysis Rail / Time Context / Charts
+- [x] Record that Control Plane + `ACTIVE_CHANGE_EVENTS.md` replace chat-held continuity
+- [x] Verify unchanged:
+  - `07_reference/SYSTEM_MEMORY_MAP.md`
+  - `AGENTS.md`
+  - `00_core_context/agent_activation_checklist.md`
+- [x] Preserve ACE-006 operating-model language while migrating current work into the control plane
+
 ### Shared Analysis Rail — Time Context Rebuild
-- [x] Accept the scoped Time Context truth-reconciliation pass for the validated routes
-- [x] Materially reconcile `All Indexed` monthly truth on:
-  - `structural.unresolved`
-  - `structural.protected_trust`
-  - `semantic.marketing_subscriptions`
-- [x] Keep `1M` and `1W` browser-valid in the validated cases
-- [x] Keep this accepted pass limited to pre-selection Time Context truth only
+- [x] Capture Lane A as implemented for:
+  - scope strip enforcement on `All Indexed`, `1M`, and `1W`
+  - monthly/daily bucket grammar correctness
+  - empty interval preservation
+- [x] Capture the current Time Context truth fixes:
+  - row-backed monthly aggregation
+  - same-array truth enforcement between chart and workflow
+  - removal of artifact-seeded timeline mismatch
+  - non-additive bucket truth clarification
+  - axis readability improvements
+  - ghost-slot rendering for zero buckets
 - [ ] Complete the broader Time Context grammar lock
-- [ ] Lock the Time Context filtering contract
-- [ ] Implement and browser-prove bucket-driven workflow narrowing as a later lane
+- [ ] Lock the bucket-to-workflow filtering contract (Lane B)
 - [ ] Prove interactive chart/workflow parity under that narrowing contract
+- [ ] Finish residual data validation and reconciliation
 - [ ] Resolve residual empty `action:""` inbox-analysis runtime noise as a separate follow-up
 - [ ] Keep the runtime-noise follow-up separate from Time Context rebuild acceptance
 
@@ -94,37 +115,22 @@ _Last updated: 2026-03-31 (time-context truth-reconciliation accepted for valida
 - [ ] Preserve the Phase 1 no-rehydrate boundary while adding the chart
 - [ ] Keep Time Context workflow behavior unchanged until the later dedicated interaction phase
 
-### Cleanup Groups Rediscovery (Scoped Roadmap Complete)
-- [x] Complete Phase A canonical model + alias layer
-- [x] Add the single canonical cleanup-group registry
-- [x] Add the alias layer to cleanup-cluster identity resolution
-- [x] Preserve sender membership exactly in Phase A
-- [x] Preserve current UI and workflow behavior in Phase A
-- [x] Complete Phase B runtime identity normalization
-- [x] Normalize runtime ingress points to canonical-first cleanup-group refs
-- [x] Preserve soft compatibility for legacy cleanup-group ids during Phase B
-- [x] Prove no membership drift between legacy and canonical runtime routes
-- [x] Keep UI migration out of Phase B
-- [x] Complete Phase C Cleanup Groups UI migration
-- [x] Render the canonical lane-first Cleanup Groups structure
-- [x] Keep `Secondary` and `Context` collapsed by default
-- [x] Keep review units nested inside parent groups only
-- [x] Update the live audit harness to validate the canonical runtime cleanup-group contract
-- [x] Complete Phase D workflow integration
-- [x] Normalize workflow ingress to canonical cleanup-group identity across Intelligence, Review, Management, memory, and destinations
-- [x] Keep authoritative workflow identity limited to:
-  - `canonicalClusterId`
-  - optional parent-scoped `reviewUnitKey`
-- [x] Keep legacy/source ids as read-normalization metadata only after ingress
-- [x] Prove canonical-first equality, snapshot matching, persistence, and management reopen behavior
-- [x] Complete Phase E alias cleanup / hardening
-- [x] Harden regression coverage around canonical mapping, legacy alias reads, transitional alias reads, and canonical payload persistence
-- [x] Prepare the future canonical-publish artifact path as default-off
-- [x] Preserve current runtime behavior during the compatibility window
-- [x] Keep alias retirement deferred until a later compatibility-window decision
-- [ ] Follow on with Cleanup Groups card-compression / summary-first UI refinement as a separate slice
-- [ ] Decide later whether and when to retire cleanup-group aliases after compatibility-window review
-- [ ] Decide separately whether to activate the prepared canonical artifact-publish switch
+### Cleanup Groups — Multi-Phase Rebuild
+- [x] Record Phase 0-4 planning as locked
+- [x] Capture Lane A as implemented and accepted for root-surface behavior
+- [x] Capture Lane B as partially closed with:
+  - marketing unit-only entry model
+  - review-unit integrity
+  - spillover as a first-class unit
+  - unit-scoped hero / top-summary truth
+  - unit-scoped decision handoff truth
+  - invalid / missing / blank unit guards
+- [ ] Close Lane B final guard coverage and oversized-handling validation
+- [ ] Start Lane C
+- [ ] Keep current boundaries explicit:
+  - no new taxonomy work
+  - no root-surface redesign
+  - no artifact redesign
 
 ### Gmail Phase 1 Baseline Lock
 - [x] Restore published `all_indexed` Gmail artifact baseline to `full-mailbox-20260325230627555`

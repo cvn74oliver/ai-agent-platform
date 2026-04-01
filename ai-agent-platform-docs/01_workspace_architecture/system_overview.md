@@ -1,54 +1,79 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: March 24, 2026_
+_Last Updated: April 1, 2026_
 
 ---
 
 ## 🧠 Purpose
-This document explains how the **AI Agent Platform development system** works — for the human operator.
-It summarizes all the moving parts, automation scripts, and daily routines in one place so you can re-orient yourself anytime.
+This document explains how the **AI Agent Platform operating system** works for the human operator.
+It summarizes the active execution model, documentation layers, and current platform/runtime architecture so you can re-orient quickly without relying on chat memory.
 
 ---
 
-## 🧱 Core Concept
-The project is built around a **modular AI engineering team** running inside ChatGPT, powered by local documentation and automation.
+## 🧱 Core Operating Model
 
-Each AI "agent" (chat) acts as a specialized software engineer:
-- Architect
-- Frontend
-- Backend
-- Workflow Integrator
-- LLM Trainer
-- Avatar/Voice
-- Project Manager (PM)
+The project now runs on a **Codex Operating System**.
 
+Active execution chain:
+- Oliver defines intent and approves direction
+- Project Manager defines scope, routing, impact, and review standard
+- Codex executes implementation, validation, and documentation propagation
 
-These AI agents reference the project’s authoritative `.md` files in `/ai-agent-platform-docs/`.  
-`/web/docs/` is treated as generated mirror output, not source of truth.
+The operating model is split into four layers:
 
-### 🆕 Execution Architecture (Codex-Driven Development)
+1. **Control Plane**
+   - Active truth and active motion
+   - `CURRENT_STATE.md`
+   - `TODO.md`
+   - `07_PROJECT_MANAGER_CONTEXT.md`
+   - `ACTIVE_CHANGE_EVENTS.md`
+2. **Orientation**
+   - Big-picture system understanding
+   - `system_overview.md`
+   - `PM_ONBOARDING_BRIEF.md`
+3. **Routing**
+   - Load only what the task requires
+   - `SYSTEM_MEMORY_MAP.md`
+4. **Skills**
+   - Repeatable execution workflows
+   - `.agents/skills/`
 
-As of March 2026, development operates under a Codex-driven execution model.
+Control-plane files always win when there is conflict.
 
-Separation of Responsibilities:
-- ChatGPT (Architect / PM / Specialist Roles)
-  • Designs architecture
-  • Defines constraints
-  • Controls feature boundaries
-  • Prevents regression or silent contract drift
+### 🧭 Execution Rules
 
-- Codex
-  • Writes and edits code
-  • Executes terminal commands
-  • Runs compile/debug loops
-  • Performs multi-file refactors
-  • Confirms working state
-  • Updates authoritative docs after major milestones (especially CHANGELOG.md, CURRENT_STATE.md, TODO.md, and system_overview.md)
+- `ai-agent-platform-docs/` is the authoritative documentation tree.
+- `/web/docs/` is a generated mirror only.
+- `AGENTS.md` defines enforceable Codex behavior.
+- `SYSTEM_MEMORY_MAP.md` routes document loading.
+- Project Manager activation uses a three-message handoff:
+  - `Control Plane`
+  - `Orientation`
+  - `Execution Continuity`
+- Default execution loop:
+  - `Plan -> Approve -> Execute -> Validate`
 
-This separation ensures:
-- Architecture-first development
-- Reduced hallucination risk
-- Controlled rate-limit usage
-- Clear feature-domain isolation
+When this document conflicts with the control plane, the control plane is authoritative.
+
+### 🔄 Current Continuity Checkpoint (ACE-007)
+
+ACE-007 is the active migration point from chat-held continuity into the control plane.
+
+Current cross-thread work now captured in the docs:
+- Cleanup Groups
+  - Phase 0-4 planning is locked.
+  - Lane A is accepted for root-surface behavior.
+  - Lane B is partially closed with marketing unit-entry and review-unit truth fixes.
+  - Lane B final closeout remains open and Lane C has not started.
+- Analysis Rail / Time Context / Charts
+  - Lane A Time Context rebuild is implemented.
+  - Current truth includes row-backed monthly aggregation, same-array chart/workflow truth, non-additive bucket counts, axis readability improvements, and ghost-slot rendering.
+  - Lane B bucket-to-workflow filtering, residual reconciliation, and empty `action:""` runtime-noise investigation remain open.
+
+Active boundaries:
+- no new taxonomy work
+- no root-surface redesign
+- no artifact redesign
+- focus stays on correctness, propagation, and system stability
 
 ### ⚙️ Runtime Containment Layer (March 2026)
 
@@ -556,7 +581,7 @@ Below is the full list of all major systems, APIs, and platforms that power the 
 | **Vercel** | Frontend Hosting | Hosts the deployed version of the Next.js frontend (production build). | Linked to GitHub main branch for auto-deploys. |
 | **Render** | Backend Hosting | Handles long-running API routes or background jobs (if needed). | Deploys selected backend services and APIs. |
 | **GitHub** | Version Control & Public Docs | Stores the source code (private repo) and the `/ai-agent-platform-docs` public documentation repo. | Sync handled via `sync_docs_to_github.sh`. |
-| **ChatGPT (OpenAI)** | AI Development & Collaboration | Used as the “virtual dev team” (Architect, Frontend, Backend, etc.) and for generating/refining code, prompts, and strategies. | Uses `.md` context files for memory. |
+| **ChatGPT + Codex (OpenAI)** | PM Review + Execution Layer | Used for Project Manager planning/review and Codex execution within the Codex Operating System. | Grounded by the control plane, `SYSTEM_MEMORY_MAP.md`, and `AGENTS.md`. |
 | **OpenAI API** | Core LLM Engine | Powers agent creation, chat interactions, prompt engineering, fine-tuning, embeddings, and model routing. | Accessed in backend routes (e.g., `/api/generate-agent`, `/api/fine-tune`). |
 | **RAG Background Worker (Custom API)** | Backend Job Processor | Processes `rag_jobs`, crawls URLs, generates embeddings, writes `rag_documents`, updates job status. | Triggered automatically by `/api/rag/schedule` (run_now=true) or manually via `/api/rag/run`. |
 | **Firecrawl API** | Data Ingestion / Crawling | Crawls and indexes external pages for RAG training and agent knowledge updates. | Called by `/api/crawl/route.ts`. |
@@ -834,11 +859,17 @@ Firecrawl / External Crawlers
    - `automation/sync_docs_to_github.sh` → pushes docs to GitHub.
    - Future scripts (optional): deploy builds, auto-run backups.
 
-5. **AI Agent Workflows**
-   - Each ChatGPT chat uses a short "kernel" (summary of its `.md` file).
-   - When you open a chat, you paste the kernel or link the GitHub doc.
-   - Agents produce results → you paste them into the appropriate `.md` file.
-   - Run `update_memory.sh` at the end of each session.
+5. **Codex Operating Workflow**
+   - Project Manager activation uses the three-message package:
+     - `Control Plane`
+     - `Orientation`
+     - `Execution Continuity`
+   - Every task starts with the control plane, then routes through `SYSTEM_MEMORY_MAP.md`.
+   - PM selects one execution path per Codex pass:
+     - implementation
+     - change propagation
+     - turnover / handoff
+   - Codex executes, validates, updates authoritative docs, and returns a PM review packet.
 
 6. **Daily, Weekly, Monthly Checklists**
    - `daily_checklist.md` → what to do each morning, during work, and end-of-day.
@@ -852,15 +883,15 @@ Firecrawl / External Crawlers
 
 ---
 
-## 🧭 The ChatGPT Workflow
+## 🧭 Codex Operating Workflow
 | Phase | What You Do | What Happens |
 |--------|--------------|--------------|
-| Start of Day | Run memory update + ask PM Agent for top 3 priorities | Refreshes project brain + creates daily plan |
-| During Work | Use the relevant Agent chat | Agents generate code ideas, improvements, or task lists |
-| End of Day | Summarize sessions + run both scripts | Saves progress, merges docs, and pushes updates |
-| Weekly | Friday check-ins + changelog review | Ensures team direction and documentation accuracy |
-| Monthly | Backups + API key rotation + planning | Keeps system secure and future-ready |
-| RAG Sync | Click Sync New/Changed or Force Full Resync | Creates rag_jobs + seeds rag_documents + background crawl + embedding generation |
+| PM activation / reset | Send Message 1, Message 2, then Message 3 | Restores truth, orientation, and task continuity without relying on chat memory |
+| New task | PM reads control plane and routes only the required docs | Keeps scope explicit and prevents preload drift |
+| Codex pass | Codex executes one scoped task using the selected workflow/skill | Implementation or propagation stays narrow and reviewable |
+| PM review | Review screenshots, output, and PM REVIEW PACKET | Declares pass/fail and writes the next instruction |
+| Closeout | Update authoritative docs, then run memory/sync scripts as needed | Captures system truth and keeps mirrors/backups aligned |
+| Recovery | Re-open control plane and ACTIVE_CHANGE_EVENTS first | Restores system state without memory-based coordination |
 
 ### 🧠 Feature Domain Protocol
 
@@ -1030,13 +1061,17 @@ Each file tracks:
 
 ## 💡 Recovery Guide
 If you ever lose context:
-1. Pull latest public docs from GitHub.
-2. Open a new ChatGPT session for the role.
-3. Paste that role’s `.md` content (or link to it) between:
-—BEGIN CONTEXT—
-(file contents)
-—END CONTEXT—
-4. Ask the agent to summarize and resume work.
+1. Load the control plane:
+   - `CURRENT_STATE.md`
+   - `TODO.md`
+   - `07_PROJECT_MANAGER_CONTEXT.md`
+   - `ACTIVE_CHANGE_EVENTS.md`
+2. Use `SYSTEM_MEMORY_MAP.md` to route only the additional docs needed for the task.
+3. If the Project Manager session needs to be reset, re-run the three-message PM activation flow:
+   - `Control Plane`
+   - `Orientation`
+   - `Execution Continuity`
+4. Resume from the latest active change event and the latest PM review packet rather than relying on memory.
 
 ---
 
@@ -1046,11 +1081,11 @@ If you ever lose context:
 	•	macOS Shortcut → runs both scripts
 	•	Backups created automatically with timestamps
 
-⚙️ Semi-Automated (AI + Human)
-	•	Project Manager Agent reads 00_MASTER_PROJECT.md, updates TODO.md
-	•	Weekly summary auto-updates CHANGELOG.md
-	•	AI roles (Architect, Frontend, etc.) work inside ChatGPT, you only start/resume them
-	•	Fine-tuning readiness checks and data logging
+⚙️ Semi-Automated (PM + Codex)
+	•	Project Manager loads the control plane, routes the task, and defines scope
+	•	Codex executes the scoped pass and propagates authoritative docs
+	•	Weekly summary and milestone logging continue in CHANGELOG.md
+	•	Fine-tuning readiness checks and data logging remain task-specific follow-on work
 
 🧍 Manual (You)
 	•	Run daily, weekly, monthly checklists
@@ -1061,9 +1096,13 @@ If you ever lose context:
 ---
 
 ## 📜 Summary
-This system turns ChatGPT into a structured, multi-agent development team that never forgets context, stays version-controlled, and keeps human oversight simple.
+This system now runs as a Codex Operating System with a clear split between control plane, orientation, routing, and skills.
 
-When in doubt, **run your checklists** and **update memory** — those two things keep everything working flawlessly.
+When in doubt:
+- load the control plane first
+- route with `SYSTEM_MEMORY_MAP.md`
+- follow `AGENTS.md`
+- keep the PM -> Codex loop narrow and explicit
 
 ## RAG Architecture (Phase 3 – Incremental + Background Processing)
 

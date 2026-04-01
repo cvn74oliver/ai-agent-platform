@@ -1,669 +1,435 @@
-
-
 # AI Agent Platform — System Memory Map
 
 ## Purpose
-This document is the **top-level memory and navigation layer** for the AI Agent Platform.
 
-It exists to help the Project Manager, Codex, and future agents quickly answer:
+This document is the **routing layer** for the AI Agent Platform documentation system.
 
-- What are the most important source-of-truth documents?
-- Which document governs which part of the system?
-- Which documents matter for Gmail Workspace work vs broader platform work?
-- Which files should be consulted before implementation, testing, or handoff?
+It exists to answer three questions quickly and consistently:
 
-This document is **not** the product spec itself.
-It is the **memory index and operating map** for the documentation system.
+- What documents exist?
+- When should they be loaded?
+- Which documents are mandatory vs optional vs reference-only?
 
----
-
-# Core Rule
-
-When reasoning about the project, follow this order:
-
-1. **Core project intent**
-2. **Workspace architecture**
-3. **Active product/workstream specs**
-4. **Current system state**
-5. **Codex execution rules**
-
-This prevents implementation from drifting away from the documented product vision.
+This file is **not** the product spec.
+It is **not** a repo tree dump.
+It is the **decision-based routing guide** for the Project Manager and Codex.
 
 ---
 
-# Source-of-Truth Hierarchy
+# Routing Philosophy (Critical)
 
-## Layer 1 — Core Project Intent
-These files define the overall mission, scope, and operating model of the AI Agent Platform.
+This system routes in layers:
 
-### Primary file
-- `00_core_context/00_MASTER_PROJECT.md`
+1. Control Plane (truth + motion)
+2. System Layer (RAG / LLM / Workspace / Runtime)
+3. Feature Domain (e.g., Gmail)
+4. Execution Layer (Codex rules)
+5. Data Layer (schema / queries)
+6. Archive Layer (history only)
 
-### Supporting execution files
+All routing decisions must follow this hierarchy.
+
+Gmail is a feature domain, not the system.
+
+The platform must always be reasoned at the system level first, then routed into feature domains.
+
+---
+
+# Core Routing Rule
+
+Always load the **Control Plane** first.
+Then load only the minimum additional document set required by the task.
+
+Routing order:
+
+1. **Control Plane**
+2. **Feature or system domain docs**
+3. **Execution protocol docs**
+4. **Reference / schema docs if needed**
+5. **Archive / proof docs only when explicitly needed**
+
+Do not load large parts of the doc system by default.
+Do not use memory as a substitute for routing.
+
+---
+
+# 1. Control Plane (ALWAYS LOAD)
+
+These files must always be loaded first:
+
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
 - `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
-- `00_core_context/09_CODEX_EXECUTION_PROTOCOL.md`
-- `00_core_context/10_CODEX_SESSION_CHECKLIST.md`
+- `06_system_state/ACTIVE_CHANGE_EVENTS.md`
 
-### Use this layer when
-- deciding if a feature fits the product vision
-- determining project priorities
-- activating or directing Codex
-- resolving ambiguity about how the Project Manager should operate
+## Why this layer matters
+These files define:
+
+- what is true right now
+- what is changing right now
+- what the PM is responsible for
+- what work is still open
+
+## Rules
+- These files are mandatory for every task.
+- No task should begin without them.
+- No system state should be assumed outside them.
 
 ---
 
-## Layer 2 — Workspace Architecture
-These files define the stable architectural model of the overall platform.
+# 2. Core System Architecture (LOAD WHEN NEEDED)
 
-### Primary files
+Load this layer when the task involves:
+
+- architecture decisions
+- cross-workspace logic
+- system design
+- modularity questions
+- deciding where a feature belongs
+
+## Required subset when routing here
 - `01_workspace_architecture/AI_WORKSPACE_ARCHITECTURE.md`
 - `01_workspace_architecture/AI_WORKSPACE_IMPLEMENTATION_RULES.md`
 - `01_workspace_architecture/AI_WORKSPACE_SYSTEM_INDEX.md`
 - `01_workspace_architecture/system_overview.md`
 
-### Use this layer when
-- checking whether a UI or workflow violates platform architecture
-- deciding where a feature belongs
-- validating that implementation stays modular
-- updating system-state summaries after a milestone
+## Optional supporting subset
+- relevant files under `02_agent_runtime/`
+
+## Why this layer matters
+This layer defines the stable architecture of the platform and prevents feature work from drifting into the wrong system layer.
 
 ---
 
-## Layer 3 — Active Product System: Gmail Workspace
-These files define the Gmail Workspace product, architecture, UX, intelligence layer, ingestion model, sender-decision system, and management/execution behavior.
+# 3. Gmail Workspace (Feature Domain Routing)
 
-This is currently the **most active product system** in the project.
+Load this layer when the task is specifically about Gmail Workspace behavior.
 
-### Core Gmail overview files
+Start with the overview docs, then route into the correct Gmail subdomain.
+
+## Gmail overview docs
+Load first when entering the Gmail feature domain:
+
 - `03_gmail_workspace/00_overview/gmail_workspace_phase_plan.md`
 - `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
 - `03_gmail_workspace/00_overview/final_product_spec.md`
 - `03_gmail_workspace/09_reference/gmail_workspace_system_index.md`
 
-### Gmail ingestion files
+## 3A. Ingestion
+Load when the task involves:
+
+- syncing
+- indexing
+- ingestion logic
+- mailbox scan behavior
+- Smart Sync / maintenance traversal
+
+### Required subset
 - `03_gmail_workspace/01_ingestion/inbox_ingestion_spec.md`
 - `03_gmail_workspace/01_ingestion/smart_sync_and_maintenance_spec.md`
 
-### Gmail intelligence files
+## 3B. Intelligence
+Load when the task involves:
+
+- analytics
+- inbox health
+- intelligence-layer truth
+- dashboard intelligence
+- orchestrated health or insight generation
+
+### Required subset
 - `03_gmail_workspace/02_intelligence/inbox_health_spec.md`
-- `03_gmail_workspace/02_intelligence/inbox_health_algorithm.md`
 - `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
 - `03_gmail_workspace/02_intelligence/intelligence_orchestrator.md`
 - `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
+
+### Optional supporting subset
+- `03_gmail_workspace/02_intelligence/inbox_health_algorithm.md`
 - `03_gmail_workspace/02_intelligence/analytics_spec.md`
 - `03_gmail_workspace/02_intelligence/health_engine.md`
 
-### Gmail decision-system files
+## 3C. Decision System
+Load when the task involves:
+
+- decision logic
+- scoring
+- sender classification
+- storage of decisions
+- routing decision outcomes
+
+### Required subset
 - `03_gmail_workspace/03_decision_system/decision_model_spec.md`
 - `03_gmail_workspace/03_decision_system/decision_storage_spec.md`
 - `03_gmail_workspace/03_decision_system/decision_destinations_spec.md`
 - `03_gmail_workspace/03_decision_system/decision_engine_spec.md`
+
+### Optional supporting subset
 - `03_gmail_workspace/03_decision_system/decision_scoring_advanced.md`
+- `03_gmail_workspace/03_decision_system/sender_surface_unification_spec.md`
 
-### Gmail sender-decision UI files
-- `03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md`
-- `03_gmail_workspace/04_sender_decision_ui/decision_ui_flow.md`
-- `03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md`
-- `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
-- `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
-- `03_gmail_workspace/04_sender_decision_ui/decision_mode_animation_spec.md`
-- `03_gmail_workspace/04_sender_decision_ui/decision_mode_component_map.md`
-- `03_gmail_workspace/04_sender_decision_ui/decision_mode_ui_final_build_spec.md`
+## 3D. Sender Decision UI
+Load when the task involves:
 
-### Gmail management / execution files
+- UI behavior
+- workflow transitions
+- interaction design
+- sender review surfaces
+- Cleanup Groups
+- Sender Overview
+- Decision Mode
+- Shared Analysis Rail
+- Time Context
+- Sender Distribution
+
+### Required foundation subset
+- `03_gmail_workspace/04_sender_decision_ui/00_foundation/workspace_ui_structure.md`
+- `03_gmail_workspace/04_sender_decision_ui/00_foundation/workspace_ux_spec.md`
+
+### Route further by sub-surface
+- Shared Analysis Rail:
+  - `03_gmail_workspace/04_sender_decision_ui/01_analysis_rail/Shared_Rail_Analysis_spec.md`
+  - `03_gmail_workspace/04_sender_decision_ui/01_analysis_rail/SHARED_ANALYSIS_RAIL_IMPLEMENTATION_PLAN.md`
+- Sender Distribution:
+  - `03_gmail_workspace/04_sender_decision_ui/02_distribution_chart/SENDER_DISTRIBUTION_CHART_SPEC.md`
+- Time Context:
+  - `03_gmail_workspace/04_sender_decision_ui/03_time_context/TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md`
+- Workflow integration:
+  - `03_gmail_workspace/04_sender_decision_ui/04_workflow_integration/decision_ui_flow.md`
+- Decision Mode:
+  - `03_gmail_workspace/04_sender_decision_ui/05_decision_mode/sender_decision_mode_spec.md`
+  - `03_gmail_workspace/04_sender_decision_ui/05_decision_mode/decision_mode_full_build_spec.md`
+  - `03_gmail_workspace/04_sender_decision_ui/05_decision_mode/decision_mode_ui_final_build_spec.md`
+- Cleanup Groups:
+  - `03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/CLEANUP_GROUPS_REBUILD_PHASED_EXECUTION_PLAN.md`
+  - `03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md`
+  - `03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md`
+  - `03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/Cleanup_Groups_spec_phase_plan.md`
+
+## 3E. Management Execution
+Load when the task involves:
+
+- execution queues
+- action previews
+- management flows
+- push-to-Gmail logic
+- execution safety behavior
+
+### Required subset
 - `03_gmail_workspace/05_management_execution/management_flow_spec.md`
 - `03_gmail_workspace/05_management_execution/management_execution_engine.md`
 - `03_gmail_workspace/05_management_execution/execution_queue_spec.md`
 - `03_gmail_workspace/05_management_execution/execution_safety_preview.md`
 
-### Gmail learning / reinforcement files
-- `03_gmail_workspace/06_learning_system/ai_learning_layer_moat.md`
+## 3F. Learning System
+Load when the task involves:
+
+- learning loops
+- feedback systems
+- self-improving automation
+- reinforcement behavior
+- long-term adaptation
+
+### Required subset
 - `03_gmail_workspace/06_learning_system/system_feedback_and_reinforcement.md`
 - `03_gmail_workspace/06_learning_system/self_learning_pipeline.md`
+
+### Optional supporting subset
+- `03_gmail_workspace/06_learning_system/ai_learning_layer_moat.md`
 - `03_gmail_workspace/06_learning_system/autonomous_inbox_evolution_loop.md`
 
-### Gmail engine / supporting files
+## 3G. Engines / Gamification
+Load when the task involves:
+
+- recommendation systems
+- trust / relationship engines
+- gamification
+- engine-specific logic outside the main UI flow
+
+### Required subset
 - `03_gmail_workspace/07_engines/recommendation_engine_spec.md`
 - `03_gmail_workspace/07_engines/sender_trust_graph.md`
+
+### Optional supporting subset
 - `03_gmail_workspace/08_gamification/gamification_reward_system.md`
-- `03_gmail_workspace/09_reference/codex_safeguards.md`
-- `03_gmail_workspace/09_reference/engineering_spec.md`
-- `03_gmail_workspace/09_reference/implementation_phase_1.md`
-- `03_gmail_workspace/09_reference/performance_spec.md`
-
-### Use this layer when
-- reviewing Mailbox Intelligence screenshots
-- reviewing Cleanup Groups screenshots
-- reviewing Sender Decisions screenshots
-- reviewing Management / execution behavior
-- deciding whether a requested improvement belongs to ingestion, intelligence, decision UI, or management execution
-- instructing Codex on Gmail implementation
-- deciding what belongs in current scope vs later optimization
 
 ---
 
-## Layer 4 — Current System State
-These files define what is actually implemented now and what still remains.
+# 4. Product Design Layer (LOAD WHEN NEEDED)
 
-### Primary files
-- `06_system_state/CHANGELOG.md`
-- `06_system_state/CURRENT_STATE.md`
-- `06_system_state/TODO.md`
-- `06_system_state/ARCHIVE_TODO_HISTORY.md`
+Load this layer when the task involves:
 
-### Use this layer when
-- validating whether something was already implemented
-- checking the latest milestone outcome
-- identifying what remains in the current phase
-- preparing Codex follow-up tasks
-- producing PM summaries and handoffs
+- product flow
+- UX decisions
+- PM operating structure
+- broader workflow design
+- onboarding or operational framing
+
+## Required subset
+- `04_product_design/AI_WORKSPACE_PRODUCT_FLOW.md`
+- `04_product_design/operational_workflow.md`
+- `04_product_design/PM_CODEX_EXECUTION_SYSTEM.md`
+
+## Optional supporting subset
+- `04_product_design/playground-runtime-architecture.md`
+- `04_product_design/PM_ONBOARDING_BRIEF.md`
+
+## Why this layer matters
+This layer helps distinguish product intent and workflow design from implementation mechanics.
 
 ---
 
-## Layer 5 — Codex Control System
-These files define how Codex should be managed, constrained, and evaluated.
+# 5. Codex Instruction Layer (LOAD WHEN NEEDED)
 
-### Primary files
-- `08_codex_instructions/CODEX_ARCHITECTURE_LOCK.md`
-- `08_codex_instructions/CODEX_DEBUG_PLAYBOOK.md`
-- `08_codex_instructions/CODEX_EXECUTION_CHECKLIST.md`
-- `08_codex_instructions/CODEX_EXECUTION_RULES.md`
-- `08_codex_instructions/PM_CODEX_UI_REVIEW_PROTOCOL.md`
+Load this layer when the task involves:
+
+- executing a complex Codex task
+- debugging execution quality
+- enforcing protocol
+- preparing PM review expectations
+- reducing implementation drift
+
+## Required subset
 - `00_core_context/09_CODEX_EXECUTION_PROTOCOL.md`
 - `00_core_context/10_CODEX_SESSION_CHECKLIST.md`
+- `08_codex_instructions/CODEX_EXECUTION_RULES.md`
+- `08_codex_instructions/CODEX_SOURCE_OF_TRUTH.md`
 
-### Use this layer when
-- preparing a Codex task
-- keeping Codex in scope
-- reducing architecture drift
-- deciding whether to use the same Codex thread or a new one
-- determining the correct PM review expectations
+## Optional supporting subset
+- `08_codex_instructions/CODEX_DEBUG_PLAYBOOK.md`
+- `08_codex_instructions/CODEX_EXECUTION_CHECKLIST.md`
+- `08_codex_instructions/CODEX_RELIABILITY_SYSTEM.md`
+- `08_codex_instructions/CODEX_IMPLEMENTATION_GUARDRAILS.md`
+- `08_codex_instructions/PM_CODEX_UI_REVIEW_PROTOCOL.md`
+- `08_codex_instructions/CODEX_PM_REVIEW_PACKET_SPEC.md`
 
----
-
-# Recommended Reasoning Order by Task Type
-
-## If reviewing UI screenshots
-Consult in this order:
-
-1. `00_MASTER_PROJECT.md`
-2. `07_PROJECT_MANAGER_CONTEXT.md`
-3. `system_overview.md`
-4. `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
-5. `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
-6. `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
-7. `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
-8. `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
-9. `CURRENT_STATE.md`
-10. `TODO.md`
+## Why this layer matters
+This layer governs how Codex executes work, how scope is controlled, and how PM review should be structured.
 
 ---
 
-## If sending Codex a new implementation task
-Consult in this order:
+# 6. Data / Schema / Reference Layer (LOAD WHEN NEEDED)
 
-1. `00_MASTER_PROJECT.md`
-2. `07_PROJECT_MANAGER_CONTEXT.md`
-3. relevant Gmail spec from:
-   - `03_gmail_workspace/00_overview/`
-   - `03_gmail_workspace/03_decision_system/`
-   - `03_gmail_workspace/04_sender_decision_ui/`
-   - `03_gmail_workspace/05_management_execution/`
-4. `CURRENT_STATE.md`
-5. `TODO.md`
-6. `09_CODEX_EXECUTION_PROTOCOL.md`
-7. `10_CODEX_SESSION_CHECKLIST.md`
-8. `PM_CODEX_UI_REVIEW_PROTOCOL.md` (for UI tasks)
+Load this layer when the task involves:
 
----
+- database changes
+- schema questions
+- query behavior
+- table definitions
+- automation logic
+- workflow engine mechanics
+- RAG / memory model reasoning
 
-## If reviewing a PM REVIEW PACKET
-Consult in this order:
+## Required subset by task
+- Schema / table work:
+  - `07_reference/AI_WORKSPACE_TABLE_SCHEMAS.md`
+  - `07_reference/schema_comparison_checklist.md`
+- Data / event model work:
+  - `07_reference/AI_WORKSPACE_DATA_MODEL.md`
+  - `07_reference/AI_WORKSPACE_EVENT_MODEL.md`
+  - `07_reference/AI_WORKSPACE_ACTION_MODEL.md`
+- Query / automation work:
+  - `07_reference/AI_WORKSPACE_QUERY_PATTERNS.md`
+  - `07_reference/automation_map.md`
+- Workflow engine work:
+  - `07_reference/AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md`
+- Memory / RAG work:
+  - `07_reference/AI_WORKSPACE_LLM_MEMORY_MODEL.md`
+  - `07_reference/AI_WORKSPACE_RAG_PIPELINE.md`
 
-1. relevant active phase file
-2. `CURRENT_STATE.md`
-3. `TODO.md`
-4. `system_overview.md`
-5. Codex instruction files if scope drift is suspected
-
----
-
-## If deciding whether something is Phase 1 or later
-Consult in this order:
-
-1. `03_gmail_workspace/00_overview/gmail_workspace_phase_plan.md`
-2. `03_gmail_workspace/09_reference/implementation_phase_1.md`
-3. `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
-4. `03_gmail_workspace/00_overview/final_product_spec.md`
-5. `TODO.md`
+## Why this layer matters
+This layer is reference-heavy and should only be loaded when the task truly touches data contracts, schema, queries, or automation logic.
 
 ---
 
-# Gmail Workspace Quick Memory Model
+# 7. Archive / Historical / Proof Layer (LOAD ONLY WHEN NEEDED)
 
-```text
-Mailbox Intelligence
-→ high-level mission dashboard and macro inbox understanding
+Load this layer only when:
 
-Cleanup Groups
-→ cluster selection and handoff into sender review
+- debugging historical behavior
+- validating a previous milestone
+- auditing what happened in an earlier thread or build
+- checking generated proof artifacts
+- comparing rollback / publish / postpublish states
 
-Sender Overview
-→ high-level sender analytics for the chosen group
+## Includes
+- `03_gmail_workspace/10_archive_legacy/`
+- `03_gmail_workspace/04_sender_decision_ui/07_archived_legacy/`
+- `06_system_state/ARCHIVE_TODO_HISTORY.md`
+- generated proof bundles / publication readiness JSON and proof files
+- historical rollout / stabilization evidence docs
 
-Decision Mode
-→ primary one-sender-at-a-time Tinder-style decision engine
-
-Management
-→ execution buckets, preview, push-to-Gmail, undo
-
-Rules / Monitoring / Maintenance
-→ learning, automation evolution, and Smart Sync-driven upkeep
-```
-
-And hold these product truths:
-
-- the system is **sender-first**, not message-first
-- Mailbox Intelligence should not become a second Sender Overview page
-- Cleanup Groups should not become a full review workspace
-- Sender Overview provides the macro context before Decision Mode starts
-- Decision Mode is the deepest focused interaction layer and must remain one-sender-at-a-time
-- Management is where actions become real and trust is won or lost
-- Smart Sync handles incremental maintenance only; historical traversal belongs to Continue Backfill
-- runtime stability should be preserved while UX improves incrementally
+## Rule
+These files must NOT be part of default task context.
+They are audit material, not active operating context.
 
 ---
 
-# Gmail Workspace Intelligence Memory Model
+# Mandatory vs Optional vs Reference-Only
 
-```text
-Inbox Ingestion
-→ Inbox Health Engine
-→ Intelligence Orchestrator
-→ Sender Decision Model
-→ Decision Storage
-→ Sender Decision UI
-→ Management Execution Engine
-→ Learning / Reinforcement Layer
-→ Smart Sync Maintenance Layer
-```
+## Mandatory every time
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `06_system_state/ACTIVE_CHANGE_EVENTS.md`
 
-These systems should be consulted conceptually when determining whether a dashboard, recommendation, sender workflow, or execution behavior is aligned with the documented product.
+## Mandatory when task enters a domain
+Load the smallest required subset from:
+- Core System Architecture
+- Gmail Workspace subdomain routing
+- Product Design
+- Codex Instruction Layer
+- Data / Schema / Reference Layer
 
----
-
-# What This File Replaces
-
-This file reduces the need to repeatedly paste:
-
-- full project trees
-- folder structures
-- reminders about which documents matter most
-
-Instead, this file should become the **single memory entry point** for documentation-driven reasoning.
+## Reference-only by default
+- archive docs
+- legacy docs
+- generated proof artifacts
+- low-level reference docs not touched by the task
 
 ---
 
-# What This File Does Not Replace
+# Practical Routing Rules
 
-This file does **not** replace:
+## If the task is a UI review
+Load:
+1. Control Plane
+2. Gmail overview docs
+3. relevant Sender Decision UI subdomain docs
+4. Product Design docs if workflow/UX ambiguity exists
+5. Codex UI review docs only if execution guidance is needed
 
-- the actual product specs
-- the active phase plan
-- the current system-state documents
-- Codex execution constraints
+## If the task is a new Codex implementation prompt
+Load:
+1. Control Plane
+2. relevant domain docs
+3. Codex Instruction Layer
+4. Data / schema docs only if touched
 
-It only tells the system **where to look first and why**.
+## If the task is architecture or system-boundary reasoning
+Load:
+1. Control Plane
+2. Core System Architecture
+3. relevant Product Design docs
+4. Agent Runtime docs if runtime architecture is involved
 
----
+## If the task is debugging historical behavior
+Load:
+1. Control Plane
+2. current active domain docs
+3. Archive / Historical / Proof docs only for the exact historical question
 
-# Repository Document Tree (Reference Snapshot)
-
-This section provides a compact structural snapshot of the current documentation layout so the PM, Codex, and future agents can quickly remember where major document families live.
-
-It is a **reference snapshot**, not the source of truth for individual file contents.
-If the repo structure changes materially, this section should be refreshed.
-
-```text
-├── ai-agent-platform-docs
-│   ├── 00_core_context
-│   │   ├── 00_MASTER_PROJECT.md
-│   │   ├── 01_ARCHITECT_CONTEXT.md
-│   │   ├── 02_FRONTEND_CONTEXT.md
-│   │   ├── 03_BACKEND_CONTEXT.md
-│   │   ├── 04_WORKFLOWS_CONTEXT.md
-│   │   ├── 05_LLM_TRAINER_CONTEXT.md
-│   │   ├── 06_AVATAR_VOICE_CONTEXT.md
-│   │   ├── 07_PROJECT_MANAGER_CONTEXT.md
-│   │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
-│   │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
-│   │   ├── 10_CODEX_SESSION_CHECKLIST.md
-│   │   └── agent_activation_checklist.md
-│   ├── 01_workspace_architecture
-│   │   ├── AI_WORKSPACE_ARCHITECTURE.md
-│   │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
-│   │   ├── AI_WORKSPACE_MASTER_BLUEPRINT.md
-│   │   ├── AI_WORKSPACE_PRODUCT_ARCHITECTURE.md
-│   │   ├── AI_WORKSPACE_SYSTEM_INDEX.md
-│   │   └── system_overview.md
-│   ├── 02_agent_runtime
-│   │   ├── AGENT_MEMORY_AND_DECISION_ENGINE.md
-│   │   ├── AI_AGENT_RUNTIME.md
-│   │   ├── AI_WORKSPACE_AGENT_BEHAVIOR.md
-│   │   ├── AI_WORKSPACE_AGENT_EXECUTION_ENGINE.md
-│   │   ├── AI_WORKSPACE_AGENT_RUNTIME_SPEC.md
-│   │   └── AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md
-│   ├── 03_gmail_workspace
-│   │   ├── 00_overview
-│   │   │   ├── final_product_spec.md
-│   │   │   ├── gmail_workspace_phase_plan.md
-│   │   │   └── gmail_workspace_product_flow.md
-│   │   ├── 01_ingestion
-│   │   │   ├── inbox_ingestion_spec.md
-│   │   │   └── smart_sync_and_maintenance_spec.md
-│   │   ├── 02_intelligence
-│   │   │   ├── analytics_spec.md
-│   │   │   ├── health_engine.md
-│   │   │   ├── inbox_health_algorithm.md
-│   │   │   ├── inbox_health_spec.md
-│   │   │   ├── intelligence_dashboard_spec.md
-│   │   │   ├── intelligence_orchestrator.md
-│   │   │   └── visual_intelligence_spec.md
-│   │   ├── 03_decision_system
-│   │   │   ├── decision_destinations_spec.md
-│   │   │   ├── decision_engine_spec.md
-│   │   │   ├── decision_model_spec.md
-│   │   │   ├── decision_scoring_advanced.md
-│   │   │   ├── decision_storage_spec.md
-│   │   │   └── sender_surface_unification_spec.md
-│   │   ├── 04_sender_decision_ui
-│   │   │   ├── Cleanup_Groups_spec_phase_plan.md
-│   │   │   ├── decision_mode_animation_spec.md
-│   │   │   ├── decision_mode_component_map.md
-│   │   │   ├── decision_mode_full_build_spec.md
-│   │   │   ├── decision_mode_ui_final_build_spec.md
-│   │   │   ├── decision_ui_flow.md
-│   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
-│   │   │   ├── sender_decision_mode_spec.md
-│   │   │   ├── sender_distribution_chart_spec_Phase_2.md
-│   │   │   ├── SENDER_DISTRIBUTION_CHART_SPEC.md
-│   │   │   ├── sender_overview_card_target_spec.md
-│   │   │   ├── SENDER_OVERVIEW_MIDDLE_STRUCTURE_SPEC.md
-│   │   │   ├── Sender_Overview_Recovery_and_Improvement_Plan.md
-│   │   │   ├── Shared_Rail_Analysis_spec.md
-│   │   │   ├── workspace_ui_structure.md
-│   │   │   └── workspace_ux_spec.md
-│   │   ├── 05_management_execution
-│   │   │   ├── execution_queue_spec.md
-│   │   │   ├── execution_safety_preview.md
-│   │   │   ├── management_execution_engine.md
-│   │   │   └── management_flow_spec.md
-│   │   ├── 06_learning_system
-│   │   │   ├── ai_learning_layer_moat.md
-│   │   │   ├── autonomous_inbox_evolution_loop.md
-│   │   │   ├── self_learning_pipeline.md
-│   │   │   └── system_feedback_and_reinforcement.md
-│   │   ├── 07_engines
-│   │   │   ├── recommendation_engine_spec.md
-│   │   │   └── sender_trust_graph.md
-│   │   ├── 08_gamification
-│   │   │   └── gamification_reward_system.md
-│   │   ├── 09_reference
-│   │   │   ├── codex_safeguards.md
-│   │   │   ├── engineering_spec.md
-│   │   │   ├── gmail_artifact_refresh_and_sync_protocol.md
-│   │   │   ├── gmail_workspace_canonical_engine_pattern.md
-│   │   │   ├── gmail_workspace_data_access_stabilization_acceptance.md
-│   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.json
-│   │   │   ├── gmail_workspace_data_access_stabilization_proof_bundle.md
-│   │   │   ├── gmail_workspace_data_access_stabilization_rollout.md
-│   │   │   ├── gmail_workspace_data_access_stabilization_spec.md
-│   │   │   ├── gmail_workspace_full_mailbox_coverage_proof.json
-│   │   │   ├── gmail_workspace_system_index.md
-│   │   │   ├── implementation_phase_1.md
-│   │   │   ├── performance_spec.md
-│   │   │   ├── sender_intelligence_system_build_plan.md
-│   │   │   └── sender_overview_semantic_rebuild_handoff.md
-│   │   └── 10_archive_legacy
-│   │       ├── legacy_cleanup_rebuild_plan.md
-│   │       └── legacy_product_flow_v2.md
-│   ├── 04_product_design
-│   │   ├── AI_WORKSPACE_PRODUCT_FLOW.md
-│   │   ├── operational_workflow.md
-│   │   ├── playground-runtime-architecture.md
-│   │   ├── PM_CODEX_EXECUTION_SYSTEM.md
-│   │   └── PM_ONBOARDING_BRIEF.md
-│   ├── 05_operational_playbooks
-│   │   ├── daily_checklist.md
-│   │   ├── monthly_checklist.md
-│   │   ├── troubleshooting_recovery.md
-│   │   └── weekly_checklist.md
-│   ├── 06_system_state
-│   │   ├── ARCHIVE_TODO_HISTORY.md
-│   │   ├── CHANGELOG.md
-│   │   ├── CURRENT_STATE.md
-│   │   └── TODO.md
-│   ├── 07_reference
-│   │   ├── AI_WORKSPACE_ACTION_MODEL.md
-│   │   ├── AI_WORKSPACE_DATA_MODEL.md
-│   │   ├── AI_WORKSPACE_EVENT_MODEL.md
-│   │   ├── AI_WORKSPACE_LLM_MEMORY_MODEL.md
-│   │   ├── AI_WORKSPACE_QUERY_PATTERNS.md
-│   │   ├── AI_WORKSPACE_RAG_PIPELINE.md
-│   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
-│   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
-│   │   ├── automation_map.md
-│   │   ├── phase1_clarify_spec.md
-│   │   ├── project_structure.txt
-│   │   ├── schema_comparison_checklist.md
-│   │   └── SYSTEM_MEMORY_MAP.md
-│   ├── 08_codex_instructions
-│   │   ├── CODEX_ARCHITECTURE_LOCK.md
-│   │   ├── CODEX_DEBUG_PLAYBOOK.md
-│   │   ├── CODEX_DUAL_THREAD_CONTROL_SYSTEM.md
-│   │   ├── CODEX_EXECUTION_CHECKLIST.md
-│   │   ├── CODEX_EXECUTION_RULES.md
-│   │   ├── CODEX_IMPLEMENTATION_GUARDRAILS.md
-│   │   ├── CODEX_MASTER_INSTRUCTION_PACKET.md
-│   │   ├── CODEX_PHASE_EXECUTION_PLAN.md
-│   │   ├── CODEX_PHASE_EXECUTION_PROMPT_TEMPLATE.md
-│   │   ├── CODEX_PM_REVIEW_PACKET_SPEC.md
-│   │   ├── CODEX_REBUILD_PROTOCOL.md
-│   │   ├── CODEX_RELIABILITY_SYSTEM.md
-│   │   ├── CODEX_SESSION_START_PROMPT.md
-│   │   ├── CODEX_SOURCE_OF_TRUTH.md
-│   │   └── PM_CODEX_UI_REVIEW_PROTOCOL.md
-│   ├── 09_artifact_engine
-│   │   ├── ARTIFACT_ENGINE_BLUEPRINT.md
-│   │   ├── ARTIFACT_ENGINE_DECISIONS.md
-│   │   ├── ARTIFACT_ENGINE_TODO.md
-│   │   ├── ARTIFACT_REBUILD_PLAN.md
-│   │   └── WORKSPACE_ARTIFACT_METHODOLOGY.md
-│   ├── 10_agent_architecture
-│   │   ├── AGENT_ARCHITECTURE_TODO.md
-│   │   ├── AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md
-│   │   ├── MANAGER_AGENT_DECISION_MODEL.md
-│   │   └── MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md
-│   ├── 11_product_strategy
-│   │   └── PRODUCT_ROADMAP.md
-│   ├── 12_operating_model
-│   │   └── CLOSEOUT_CHECKLIST.md
-│   └── visuals
-│       ├── Agent Next Training Suggestion Prompt.png
-│       ├── Agent Playground.png
-│       ├── Agent Summary.png
-│       ├── Agents.png
-│       ├── Automations Tab.png
-│       ├── Cleanup Groups.png
-│       ├── Confirmation.png
-│       ├── Dashboard.png
-│       ├── Executed Actions.png
-│       ├── Fine Tune Dataset Preview p1.png
-│       ├── Fine Tune Dataset Preview p2.png
-│       ├── Mailbox Intelligence.png
-│       ├── Management.png
-│       ├── New Agent Prompt.png
-│       ├── Pending Approvals.png
-│       ├── PM_VISUAL_REFERENCE.md
-│       ├── Review Timeline.png
-│       ├── Sender Decisions.png
-│       └── Settings Tab.png
-```
-
-## Practical Folder Meanings
-- `00_core_context/` = core mission, PM role, Codex execution protocol, and activation/checklist files
-- `01_workspace_architecture/` = stable platform architecture and implementation rules
-- `02_agent_runtime/` = runtime behavior, decision-engine, and execution-model docs
-- `03_gmail_workspace/` = active Gmail Workspace product, UX, intelligence, and phase-specific specs
-- `04_product_design/` = broader design / product flow support docs
-- `05_operational_playbooks/` = recurring operating checklists and troubleshooting docs
-- `06_system_state/` = authoritative project state, changelog, and active work tracking
-- `07_reference/` = models, schemas, query patterns, structure references, and memory navigation docs
-- `08_codex_instructions/` = Codex control system, guardrails, review packet standards, and execution rules
+## If the task is doc propagation
+Load:
+1. Control Plane
+2. ACTIVE_CHANGE_EVENTS.md
+3. only the docs listed in the relevant change event
+4. Codex Instruction Layer if execution protocol is needed
 
 ---
 
-# Recommended Source Priority
+# Current Workflow Reality
 
-If source/file limits exist, prioritize these groups in order:
-
-1. `00_core_context`
-2. `01_workspace_architecture`
-3. `06_system_state`
-4. `03_gmail_workspace/00_overview`
-5. `03_gmail_workspace/03_decision_system`
-6. `03_gmail_workspace/04_sender_decision_ui`
-7. `03_gmail_workspace/05_management_execution`
-8. `03_gmail_workspace/01_ingestion` and `03_gmail_workspace/02_intelligence`
-9. `08_codex_instructions`
-10. `07_reference`
-
-### Active 40-File Source Strategy (March 2026 — PM Turnover Refresh)
-
-The current preferred 40-file source set is optimized for:
-  - Project Manager startup speed
-  - Gmail Workspace execution accuracy
-  - Sender Overview / Decision workflow quality
-  - Codex prompt quality
-  - current system-state awareness
-  - Phase 1B UI + runtime reliability work
-  - upcoming roadmap awareness (what comes after Gmail Phase 1B)
-  - artifact methodology awareness
-  - agent/workspace architecture awareness
-  - platform-level training / RAG direction awareness
-
-The current preferred 40-file source set is:
-
-1. `00_core_context/00_MASTER_PROJECT.md`
-2. `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
-3. `00_core_context/09_CODEX_EXECUTION_PROTOCOL.md`
-4. `00_core_context/10_CODEX_SESSION_CHECKLIST.md`
-5. `00_core_context/agent_activation_checklist.md`
-6. `01_workspace_architecture/AI_WORKSPACE_ARCHITECTURE.md`
-7. `01_workspace_architecture/AI_WORKSPACE_IMPLEMENTATION_RULES.md`
-8. `01_workspace_architecture/AI_WORKSPACE_SYSTEM_INDEX.md`
-9. `01_workspace_architecture/system_overview.md`
-10. `06_system_state/CHANGELOG.md`
-11. `06_system_state/CURRENT_STATE.md`
-12. `06_system_state/TODO.md`
-13. `07_reference/SYSTEM_MEMORY_MAP.md`
-14. `03_gmail_workspace/09_reference/gmail_workspace_system_index.md`
-15. `03_gmail_workspace/00_overview/gmail_workspace_phase_plan.md`
-16. `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
-17. `03_gmail_workspace/00_overview/final_product_spec.md`
-18. `03_gmail_workspace/01_ingestion/inbox_ingestion_spec.md`
-19. `03_gmail_workspace/02_intelligence/inbox_health_spec.md`
-20. `03_gmail_workspace/02_intelligence/intelligence_dashboard_spec.md`
-21. `03_gmail_workspace/02_intelligence/intelligence_orchestrator.md`
-22. `03_gmail_workspace/02_intelligence/visual_intelligence_spec.md`
-23. `03_gmail_workspace/03_decision_system/decision_model_spec.md`
-24. `03_gmail_workspace/03_decision_system/decision_storage_spec.md`
-25. `03_gmail_workspace/03_decision_system/decision_destinations_spec.md`
-26. `03_gmail_workspace/03_decision_system/decision_engine_spec.md`
-27. `03_gmail_workspace/03_decision_system/sender_surface_unification_spec.md`
-28. `03_gmail_workspace/04_sender_decision_ui/sender_decision_mode_spec.md`
-29. `03_gmail_workspace/04_sender_decision_ui/decision_ui_flow.md`
-30. `03_gmail_workspace/04_sender_decision_ui/decision_mode_full_build_spec.md`
-31. `03_gmail_workspace/04_sender_decision_ui/workspace_ui_structure.md`
-32. `03_gmail_workspace/04_sender_decision_ui/workspace_ux_spec.md`
-33. `03_gmail_workspace/05_management_execution/management_flow_spec.md`
-34. `03_gmail_workspace/05_management_execution/management_execution_engine.md`
-35. `04_product_design/operational_workflow.md`
-36. `04_product_design/PM_CODEX_EXECUTION_SYSTEM.md`
-37. `08_codex_instructions/PM_CODEX_UI_REVIEW_PROTOCOL.md`
-38. `09_artifact_engine/WORKSPACE_ARTIFACT_METHODOLOGY.md`
-39. `10_agent_architecture/AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md`
-40. `11_product_strategy/PRODUCT_ROADMAP.md`
-
-Why this set changed:
-  - It removes outdated path assumptions and uses the actual current repo structure.
-  - It keeps the strongest Gmail execution docs for the current Sender Overview / Decision / Management phase.
-  - It adds the platform documents the next PM needs to understand what comes next:
-    - roadmap
-    - artifact methodology
-    - agent/workspace hierarchy
-  - It favors PM review quality over low-value deep technical references that are not active in the current phase.
-  - It keeps one slot for `SYSTEM_MEMORY_MAP.md` and 39 additional high-value files.
-
-### Why certain files were intentionally removed from the active 40
-
-The following documents remain important, but were removed from the always-loaded 40 because they are lower priority for the next PM’s day-to-day reasoning during the current phase:
-
-- `03_gmail_workspace/01_ingestion/smart_sync_and_maintenance_spec.md`
-- `03_gmail_workspace/02_intelligence/inbox_health_algorithm.md`
-- `03_gmail_workspace/02_intelligence/analytics_spec.md`
-
-Reason:
-- they are more implementation-specific or lower-value for the current PM loop
-- they can still be consulted on demand
-- they are less important than:
-  - `PRODUCT_ROADMAP.md`
-  - `WORKSPACE_ARTIFACT_METHODOLOGY.md`
-  - `AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md`
-
-When source limits are tight, deprioritize first:
-- legacy archive docs under `03_gmail_workspace/10_archive_legacy/`
-- low-use future-facing learning docs
-- generated mirror docs under `/web/docs`
-- support/reference docs that are not active in the current phase
-
----
-
-# Operating Rule for the Project Manager
-
-When new screenshots, PM packets, or UX feedback arrive:
-
-1. interpret the issue against the product/architecture specs
-2. decide whether the issue is:
-   - runtime
-   - UX hierarchy
-   - wording/copy
-   - workflow scope
-   - future phase work
-3. respond with a **narrow next action**, not a broad re-review of the whole system
-4. minimize repeated explanation burden on Oliver
-
-That rule is central to speeding up this project.
-
----
-
-# Summary
-
-`SYSTEM_MEMORY_MAP.md` is the documentation-memory entry point for the AI Agent Platform.
-
-It tells the system:
-
-- what the most important documents are
-- which order to consult them in
-- which files govern the Gmail Workspace
-- how to reason about implementation, review, and Codex direction without repeatedly reconstructing the architecture from scratch
-
-This file should be treated as the **memory navigation layer** for the project.
-It now also includes a compact repository-tree snapshot so the PM and Codex can quickly remember where major document families live without requiring Oliver to repeatedly paste the full documentation tree into chat.
-
-# Current Workflow Reality (March 2026)
-
-The AI Agent Platform is currently operating on a simplified execution model:
+The current operating model is:
 
 ```text
 Oliver
@@ -671,17 +437,317 @@ Oliver
 → Codex
 ```
 
-This has replaced the earlier multi-agent execution concept in day-to-day practice.
-
 Operational truths:
-- PM is the primary product thinker and reviewer
-- Codex is the primary implementation engine
-- Oliver provides lightweight validation, screenshots, and approvals
-- UI work must be spec-driven, not improvisational
+- Oliver defines intent, approvals, and final direction
+- Project Manager defines scope, routing, impact, and review standard
+- Codex executes scoped work and propagates truth
 
-This should be assumed when reasoning about active project execution unless a future system explicitly reintroduces specialist execution agents.
+This routing system exists to reduce:
+- memory-based coordination
+- document overload
+- turnover time
+- repeated explanations
+- system drift
 
-For the current Sender Decisions project, this also means:
-- the PM should drive spec interpretation and Codex correction
-- Oliver should not need to repeatedly restate the product direction
-- Sources must stay tightly curated so the PM can reason from the correct merged Gmail docs without drift
+---
+
+# Summary
+
+`SYSTEM_MEMORY_MAP.md` is the routing layer for project documentation.
+
+It should be used to decide:
+- what to load first
+- what to load next
+- what not to load unless required
+
+It is not a tree dump.
+It is not a spec.
+It is the document-loading decision system for PM and Codex.
+# AI Agent Platform — System Memory Map (Routing System)
+
+## Purpose
+This document is the **routing system** for the entire AI Agent Platform.
+
+It defines:
+- what documents exist
+- when they should be loaded
+- how the system is mentally organized
+- how Codex and PM navigate the system without drift
+
+This is a **decision system**, not a document list.
+
+---
+
+# System Overview (Big Picture)
+
+The AI Agent Platform consists of three major systems:
+
+1. **Workspace System** (Applications like Gmail Workspace)
+2. **RAG System** (knowledge ingestion, retrieval, memory)
+3. **LLM System** (reasoning, prompting, execution intelligence)
+
+Supporting layers:
+- Agent Runtime
+- Artifact Engine
+- Decision System
+- Execution System
+
+This memory map must allow routing across ALL of these.
+
+---
+
+# Core Routing Rule
+
+Always follow this order:
+
+1. **Control Plane (ALWAYS)**
+2. **System Layer (RAG / LLM / Workspace / Runtime)**
+3. **Feature Domain (e.g., Gmail)**
+4. **Execution / Codex Rules (if implementing)**
+5. **Data / Schema (if needed)**
+6. **Archive (only if debugging history)**
+
+Do NOT preload the system.
+Only load what is required.
+
+---
+
+# 1. Control Plane (ALWAYS LOAD)
+
+Load FIRST for every task:
+
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `06_system_state/ACTIVE_CHANGE_EVENTS.md`
+
+## Why
+Defines:
+- system truth
+- active work
+- decision context
+- change tracking
+
+## Rule
+No task starts without this.
+
+---
+
+# 2. Core Context Layer (SYSTEM FOUNDATIONS)
+
+Load when:
+- understanding the system at a high level
+- onboarding
+- resolving ambiguity across domains
+
+## Required subset
+- `00_core_context/00_MASTER_PROJECT.md`
+- `00_core_context/01_ARCHITECT_CONTEXT.md`
+- `00_core_context/02_FRONTEND_CONTEXT.md`
+- `00_core_context/03_BACKEND_CONTEXT.md`
+- `00_core_context/04_WORKFLOWS_CONTEXT.md`
+
+## Optional
+- `00_core_context/05_LLM_TRAINER_CONTEXT.md`
+- `00_core_context/06_AVATAR_VOICE_CONTEXT.md`
+- `00_core_context/08_PROMPT_ENGINEER_CONTEXT.md`
+- `00_core_context/agent_activation_checklist.md`
+
+## Why
+This defines the **mental model of the system**.
+
+---
+
+# 3. Workspace System (APPLICATION LAYER)
+
+Load when:
+- working on app features
+- UI workflows
+- user-facing behavior
+
+## Core Workspace Architecture
+- `01_workspace_architecture/AI_WORKSPACE_ARCHITECTURE.md`
+- `01_workspace_architecture/AI_WORKSPACE_MASTER_BLUEPRINT.md`
+- `01_workspace_architecture/AI_WORKSPACE_PRODUCT_ARCHITECTURE.md`
+- `01_workspace_architecture/system_overview.md`
+
+## Why
+Defines how apps like Gmail fit into the system.
+
+---
+
+# 4. Agent Runtime Layer
+
+Load when:
+- reasoning about agent behavior
+- execution logic
+- decision orchestration
+
+## Required subset
+- `02_agent_runtime/AI_AGENT_RUNTIME.md`
+- `02_agent_runtime/AI_WORKSPACE_RUNTIME_EXECUTION_MODEL.md`
+- `02_agent_runtime/AGENT_MEMORY_AND_DECISION_ENGINE.md`
+
+## Why
+Defines how intelligence actually executes.
+
+---
+
+# 5. Gmail Workspace (Feature Domain)
+
+Load ONLY when working on Gmail.
+
+## Start with
+- `03_gmail_workspace/00_overview/gmail_workspace_product_flow.md`
+- `03_gmail_workspace/00_overview/final_product_spec.md`
+
+## Then route to subdomains
+
+### Ingestion
+- `03_gmail_workspace/01_ingestion/*`
+
+### Intelligence
+- `03_gmail_workspace/02_intelligence/*`
+
+### Decision System
+- `03_gmail_workspace/03_decision_system/*`
+
+### Sender Decision UI
+- `03_gmail_workspace/04_sender_decision_ui/*`
+
+### Management Execution
+- `03_gmail_workspace/05_management_execution/*`
+
+### Learning System
+- `03_gmail_workspace/06_learning_system/*`
+
+### Engines / Gamification
+- `03_gmail_workspace/07_engines/*`
+
+## Important Rule
+Gmail is a **feature domain**, not the system.
+
+---
+
+# 6. Artifact Engine (DATA + TRUTH SYSTEM)
+
+Load when:
+- working with artifacts
+- publishing datasets
+- validation logic
+
+## Required subset
+- `09_artifact_engine/ARTIFACT_ENGINE_BLUEPRINT.md`
+- `09_artifact_engine/WORKSPACE_ARTIFACT_METHODOLOGY.md`
+
+## Why
+Artifacts define **system truth at scale**.
+
+---
+
+# 7. Agent Architecture Layer
+
+Load when:
+- multi-agent systems
+- orchestration
+- hierarchy logic
+
+## Required subset
+- `10_agent_architecture/AGENT_WORKSPACE_HIERARCHY_BLUEPRINT.md`
+- `10_agent_architecture/MULTI_AGENT_ORCHESTRATION_METHODOLOGY.md`
+
+---
+
+# 8. Product Design Layer
+
+Load when:
+- UX decisions
+- workflows
+- product direction
+
+## Required subset
+- `04_product_design/AI_WORKSPACE_PRODUCT_FLOW.md`
+- `04_product_design/operational_workflow.md`
+
+---
+
+# 9. Codex Instruction Layer
+
+Load when:
+- executing tasks
+- debugging
+- enforcing discipline
+
+## Required subset
+- `08_codex_instructions/CODEX_SOURCE_OF_TRUTH.md`
+- `08_codex_instructions/CODEX_EXECUTION_RULES.md`
+- `00_core_context/09_CODEX_EXECUTION_PROTOCOL.md`
+
+---
+
+# 10. Data / Schema Layer
+
+Load when:
+- touching database
+- queries
+- schema
+
+## Required subset
+- `07_reference/AI_WORKSPACE_TABLE_SCHEMAS.md`
+- `07_reference/AI_WORKSPACE_DATA_MODEL.md`
+- `07_reference/AI_WORKSPACE_QUERY_PATTERNS.md`
+
+---
+
+# 11. Operational Layer
+
+Load when:
+- running system
+- checklists
+- maintenance
+
+## Required subset
+- `05_operational_playbooks/*`
+
+---
+
+# 12. Archive / Proof Layer
+
+Load ONLY when:
+- debugging
+- auditing
+
+## Includes
+- `03_gmail_workspace/10_archive_legacy/*`
+- generated proofs
+
+## Rule
+Never load by default.
+
+---
+
+# Worktree Rule (IMPORTANT)
+
+There may be:
+- main repo docs
+- worktree docs (active experimental lanes)
+
+Routing must prefer:
+
+1. Control Plane truth
+2. Active change events
+3. Worktree docs if they are part of active implementation
+
+---
+
+# Summary
+
+This file is the **navigation system for the entire platform**.
+
+It ensures:
+- no context overload
+- no drift
+- fast execution
+- correct document usage
+
+It is a routing system, not a reference list.

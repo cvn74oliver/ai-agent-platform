@@ -130,6 +130,7 @@ function heavyInboxAnalysisRequestKey(params: {
         analysis_scope: payload.analysis_scope ?? null,
         cache_version: payload.cache_version ?? null,
         selected_cluster: payload.selected_cluster ?? null,
+        semantic_focus: payload.semantic_focus ?? null,
       }),
     ].join('::')
   }
@@ -804,6 +805,11 @@ export async function POST(req: Request) {
         body.preview_evidence_sender_key.trim().length > 0
           ? body.preview_evidence_sender_key.trim()
           : null
+      const timeContextBucketLabel =
+        typeof body?.time_context_bucket_label === 'string' &&
+        body.time_context_bucket_label.trim().length > 0
+          ? body.time_context_bucket_label.trim()
+          : null
       const semanticFocus =
         typeof body?.semantic_focus === 'object' && body.semantic_focus !== null
           ? (body.semantic_focus as {
@@ -891,6 +897,7 @@ export async function POST(req: Request) {
         direction,
         includeClusterSenderKeys,
         previewEvidenceSenderKey,
+        timeContextBucketLabel,
         requestAgentId: requestMeta.agentId,
         semanticFocus:
           semanticFocus &&
@@ -939,6 +946,7 @@ export async function POST(req: Request) {
           workspace.data.pagination.page_size === effectivePageSize &&
           workspace.data.cluster_global.sender_keys_complete === includeClusterSenderKeys,
         include_cluster_sender_keys: includeClusterSenderKeys,
+        time_context_bucket_label: timeContextBucketLabel,
         semantic_focus_active: semanticFocus != null,
       })
       return NextResponse.json({ ok: true, data: workspace.data })
@@ -946,6 +954,10 @@ export async function POST(req: Request) {
 
     if (action === 'sender_distribution') {
       const analysisScope = normalizeMailboxProfileScope(body?.analysis_scope)
+      const cacheVersion =
+        typeof body?.cache_version === 'string' && body.cache_version.trim()
+          ? body.cache_version.trim()
+          : null
       const selectedCluster =
         typeof body?.selected_cluster === 'object' && body.selected_cluster !== null
           ? (body.selected_cluster as {
@@ -958,6 +970,15 @@ export async function POST(req: Request) {
               query?: string
               sender_count?: number
               message_count?: number
+            })
+          : null
+      const semanticFocus =
+        typeof body?.semantic_focus === 'object' && body.semantic_focus !== null
+          ? (body.semantic_focus as {
+              family?: string
+              kind?: string
+              subtype_key?: string
+              surfaced_subtype_keys?: unknown
             })
           : null
 
@@ -978,6 +999,8 @@ export async function POST(req: Request) {
         supabase: auth.supabase,
         tenantId: auth.tenantId,
         analysisScope,
+        cacheVersion,
+        requestAgentId: requestMeta.agentId,
         selectedCluster: {
           cluster_id: selectedCluster.cluster_id,
           canonical_cluster_id:
@@ -1009,6 +1032,29 @@ export async function POST(req: Request) {
               ? selectedCluster.message_count
               : null,
         },
+        semanticFocus:
+          semanticFocus
+            ? {
+                family: semanticFocus.family as
+                  | 'marketing_promotional'
+                  | 'commerce_transactional'
+                  | 'account_notification'
+                  | 'security_alert'
+                  | 'social_community'
+                  | 'human_personal',
+                kind: semanticFocus.kind as 'family' | 'subtype' | 'remainder',
+                subtypeKey:
+                  typeof semanticFocus.subtype_key === 'string' &&
+                  semanticFocus.subtype_key.trim()
+                    ? semanticFocus.subtype_key.trim()
+                    : null,
+                surfacedSubtypeKeys: Array.isArray(semanticFocus.surfaced_subtype_keys)
+                  ? semanticFocus.surfaced_subtype_keys
+                      .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                      .map((entry) => entry.trim())
+                  : [],
+              }
+            : null,
       })
 
       if (!distribution.ok) {
