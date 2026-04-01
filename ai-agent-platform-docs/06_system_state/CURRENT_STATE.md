@@ -1,9 +1,40 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-03-30  
+Last updated: 2026-03-31  
 Project Manager: v10 (finalized — preparing transition to v11)
 
 ---
+
+## 🚀 March 31 — Shared Analysis Rail Time Context Truth-Reconciliation Pass Accepted
+
+### What changed
+
+- The scoped Time Context truth-reconciliation pass is now accepted for the validated Shared Analysis Rail routes.
+- `All Indexed` Time Context now reads like a truthful monthly selected-cluster timeline instead of a tiny recent slice on the validated routes.
+- `1M` and `1W` remain browser-valid in the validated cases.
+- Focused-bucket truth now appears materially aligned with rendered bucket data in the validated cases.
+
+### Current accepted state
+
+- Accepted only for the scoped Time Context truth-reconciliation target.
+- Validated routes include:
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `semantic.marketing_subscriptions`
+- `All Indexed` monthly truth is materially reconciled on those validated routes.
+- `1M` and `1W` remain browser-valid in the validated cases.
+- No Lane B bucket-driven workflow narrowing behavior was mixed into this pass.
+- No route-shape or API-shape widening was introduced in this pass.
+
+### Explicit boundary
+
+- The broader Time Context rebuild remains open.
+- This acceptance does **not** close:
+  - full Time Context grammar lock
+  - filtering-contract lock
+  - bucket-driven workflow narrowing
+  - interactive chart/workflow parity proof
+- Residual empty `action:""` inbox-analysis runtime noise remains open as a separate follow-up and was **not** closed by this pass.
 
 ## 🚀 March 30 — Cleanup Groups Rediscovery Lane Complete
 

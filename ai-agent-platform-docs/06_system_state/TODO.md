@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-30 (cleanup groups rediscovery lane complete • canonical runtime model live • future canonical publish prepared default-off)_
+_Last updated: 2026-03-31 (time-context truth-reconciliation accepted for validated routes • broader rebuild still open • empty-action runtime noise still open separately)_
 
 - Project Manager — healthy (v8 active)
 - Architect — healthy
@@ -13,6 +13,21 @@ _Last updated: 2026-03-30 (cleanup groups rediscovery lane complete • canonica
 ## 🔥 Current Focus (This Week)
 
 ----
+
+### Shared Analysis Rail — Time Context Rebuild
+- [x] Accept the scoped Time Context truth-reconciliation pass for the validated routes
+- [x] Materially reconcile `All Indexed` monthly truth on:
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `semantic.marketing_subscriptions`
+- [x] Keep `1M` and `1W` browser-valid in the validated cases
+- [x] Keep this accepted pass limited to pre-selection Time Context truth only
+- [ ] Complete the broader Time Context grammar lock
+- [ ] Lock the Time Context filtering contract
+- [ ] Implement and browser-prove bucket-driven workflow narrowing as a later lane
+- [ ] Prove interactive chart/workflow parity under that narrowing contract
+- [ ] Resolve residual empty `action:""` inbox-analysis runtime noise as a separate follow-up
+- [ ] Keep the runtime-noise follow-up separate from Time Context rebuild acceptance
 
 ### Sender Overview 7d Rail Bootstrap Recovery
 - [x] Prove whether `7d` was honestly empty or falsely empty under current product contract

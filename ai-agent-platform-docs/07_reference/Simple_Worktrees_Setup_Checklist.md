@@ -190,6 +190,35 @@ Notes:
 
 ---
 
+### H. Fix login / magic link redirect (Supabase)
+
+If login redirects to the wrong URL (for example production instead of localhost), do this:
+
+1. Go to your Supabase project dashboard
+2. Navigate to:
+   Authentication → URL Configuration
+
+3. In "Redirect URLs" (or "Additional Redirect URLs"), add all local ports you plan to use:
+
+   ```
+   http://localhost:3000
+   http://localhost:3000/**
+   http://localhost:3001
+   http://localhost:3001/**
+   ```
+
+4. Save changes
+
+5. Restart your local dev server if needed
+
+6. Generate a NEW magic link (old ones will still use the wrong redirect)
+
+Notes:
+- Each worktree runs on a different port, so each port must be whitelisted in Supabase
+- This is usually the only step needed to fix login issues across worktrees
+
+---
+
 ## Part 2 — Close Out a Worktree
 
 ### A. Finish the thread work inside the worktree

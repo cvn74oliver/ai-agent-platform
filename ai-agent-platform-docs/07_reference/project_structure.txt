@@ -1,4 +1,5 @@
 .
+├── AGENTS.md
 ├── ai-agent-platform-docs
 │   ├── 00_core_context
 │   │   ├── 00_MASTER_PROJECT.md
@@ -59,12 +60,14 @@
 │   │   │   │   └── workspace_ux_spec.md
 │   │   │   ├── 01_analysis_rail
 │   │   │   │   ├── SENDER_ANALYSIS_RAIL_SPEC.md
+│   │   │   │   ├── SENDER_OVERVIEW_VALIDATION_AND_CORRECTIONS.md
 │   │   │   │   ├── SHARED_ANALYSIS_RAIL_IMPLEMENTATION_PLAN.md
 │   │   │   │   └── Shared_Rail_Analysis_spec.md
 │   │   │   ├── 02_distribution_chart
 │   │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
 │   │   │   │   └── SENDER_DISTRIBUTION_CHART_SPEC.md
 │   │   │   ├── 03_time_context
+│   │   │   │   └── TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md
 │   │   │   ├── 04_workflow_integration
 │   │   │   │   └── decision_ui_flow.md
 │   │   │   ├── 05_decision_mode
@@ -124,6 +127,7 @@
 │   │   ├── troubleshooting_recovery.md
 │   │   └── weekly_checklist.md
 │   ├── 06_system_state
+│   │   ├── ACTIVE_CHANGE_EVENTS.md
 │   │   ├── ARCHIVE_TODO_HISTORY.md
 │   │   ├── CHANGELOG.md
 │   │   ├── CURRENT_STATE.md
@@ -427,9 +431,11 @@
     │   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
     │   │   ├── automation_map.md
     │   │   ├── CLOSEOUT_CHECKLIST.md
+    │   │   ├── Git_GitHub_Worktrees_Backups_operating_Model.md
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
     │   │   ├── schema_comparison_checklist.md
+    │   │   ├── Simple_Worktrees_Setup_Checklist.md
     │   │   └── SYSTEM_MEMORY_MAP.md
     │   ├── 08_codex_instructions
     │   │   ├── CODEX_ARCHITECTURE_LOCK.md
@@ -720,4 +726,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-162 directories, 559 files
+162 directories, 565 files

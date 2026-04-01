@@ -1,3 +1,28 @@
+### March 31, 2026 — Shared Analysis Rail Time Context Truth-Reconciliation Accepted
+
+What changed:
+- Accepted the scoped Time Context truth-reconciliation pass for the validated Shared Analysis Rail routes.
+- `All Indexed` now reads as a materially reconciled monthly selected-cluster timeline on the validated routes.
+- `1M` and `1W` remain browser-valid in the validated cases.
+- Focused-bucket truth now appears aligned with rendered bucket data in the validated cases.
+
+Accepted outcome:
+- This closes the specific `All Indexed` monthly truth-mismatch problem for the validated routes.
+- The accepted validated routes are:
+  - `structural.unresolved`
+  - `structural.protected_trust`
+  - `semantic.marketing_subscriptions`
+- No Lane B workflow-narrowing behavior was introduced in this pass.
+- No route-shape or API-shape widening was introduced in this pass.
+
+Explicitly still open:
+- the broader Time Context rebuild
+- full Time Context grammar lock
+- filtering-contract lock
+- bucket-driven workflow narrowing
+- interactive chart/workflow parity proof
+- residual empty `action:""` inbox-analysis runtime noise as a separate follow-up
+
 ### March 30, 2026 — Cleanup Groups Rediscovery Lane Complete
 
 What changed:
