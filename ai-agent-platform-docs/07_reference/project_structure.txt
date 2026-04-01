@@ -436,6 +436,7 @@
     │   │   ├── automation_map.md
     │   │   ├── CLOSEOUT_CHECKLIST.md
     │   │   ├── Git_GitHub_Worktrees_Backups_operating_Model.md
+    │   │   ├── OLIVER_OPERATING_CHECKLIST.md
     │   │   ├── phase1_clarify_spec.md
     │   │   ├── project_structure.txt
     │   │   ├── schema_comparison_checklist.md
@@ -730,4 +731,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-162 directories, 569 files
+162 directories, 570 files

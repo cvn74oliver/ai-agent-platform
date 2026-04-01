@@ -1,13 +1,14 @@
 # ACTIVE_CHANGE_EVENTS.md
 
-## Purpose:
-This file tracks active architectural, product, workflow, and UI decisions that have changed and still require propagation across code, documentation, and operating context.
+## Purpose
+This file tracks active architectural, product, workflow, UI, and operating-model decisions that have changed and still require propagation across code, documentation, and operating context.
 
-## Rules:
-- Only include changes that are still “live” and not fully propagated.
+## Rules
+- Only include changes that are still live and not fully propagated.
 - Each change event must be specific and scoped.
 - When all related docs/code are updated, mark the event completed or move it to a completed section later.
 - This file is a control-plane document, not a brainstorming document.
+- Propagation status must be explicit.
 
 ---
 
@@ -20,35 +21,35 @@ This file tracks active architectural, product, workflow, and UI decisions that 
 Date: 2026-04-01  
 Owner: PM  
 Status: Active  
-Propagation Owner: Codex  
+Propagation Owner: Codex
 
 Decision:
-- Marketing cleanup group (`semantic.marketing_subscriptions`) is now strictly unit-entry only
-- Parent-level broad review is blocked
-- All entry must go through a valid review unit
-- Invalid/missing/blank unit routes are explicitly blocked (no fallback)
+- Marketing cleanup group (`semantic.marketing_subscriptions`) is now strictly unit-entry only.
+- Parent-level broad review is blocked.
+- All entry must go through a valid review unit.
+- Invalid, missing, and blank unit routes are explicitly blocked with no fallback.
 
 Reason:
-- Prevents ambiguity in review scope  
-- Enforces Phase 3 first-click workflow contract  
-- Eliminates silent broad-parent fallback  
+- Prevents ambiguity in review scope.
+- Enforces the first-click workflow contract.
+- Eliminates silent broad-parent fallback.
 
 Affected product areas:
-- Cleanup Groups  
-- Review Page (Marketing only)  
+- Cleanup Groups
+- Review Page (Marketing only)
 
 Affected code areas:
-- review/page.tsx  
+- `review/page.tsx`
 
 Docs requiring propagation:
-- 03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/Cleanup_Groups_spec_phase_plan.md  
-- 03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md  
-- 06_system_state/CURRENT_STATE.md  
-- 06_system_state/TODO.md  
-- 00_core_context/07_PROJECT_MANAGER_CONTEXT.md  
+- `03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/Cleanup_Groups_spec_phase_plan.md`
+- `03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md`
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
 
 Notes:
-- Behavior is implemented but not fully reflected across all Cleanup Groups documentation  
+- Behavior is implemented but not fully reflected across all Cleanup Groups documentation.
 
 ---
 
@@ -57,33 +58,33 @@ Notes:
 Date: 2026-04-01  
 Owner: PM  
 Status: Active  
-Propagation Owner: Codex  
+Propagation Owner: Codex
 
 Decision:
-- Marketing review page hero and decision handoff now use unit-scoped truth only  
-- Parent totals are no longer allowed in KPI positions  
-- Unit counts must come from full unit dataset (not page slice)  
+- Marketing review page hero and decision handoff now use unit-scoped truth only.
+- Parent totals are no longer allowed in KPI positions.
+- Unit counts must come from the full unit dataset, not the page slice.
 
 Reason:
-- Eliminates “what am I reviewing?” confusion  
-- Aligns top-of-page truth with workflow truth  
+- Eliminates “what am I reviewing?” confusion.
+- Aligns top-of-page truth with workflow truth.
 
 Affected product areas:
-- Cleanup Groups  
-- Review Page  
+- Cleanup Groups
+- Review Page
 
 Affected code areas:
-- review/page.tsx  
+- `review/page.tsx`
 
 Docs requiring propagation:
-- 03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md  
-- 03_gmail_workspace/04_sender_decision_ui/04_workflow_integration/decision_ui_flow.md  
-- 06_system_state/CURRENT_STATE.md  
-- 06_system_state/TODO.md  
-- 00_core_context/07_PROJECT_MANAGER_CONTEXT.md  
+- `03_gmail_workspace/04_sender_decision_ui/06_cleanup_groups/Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md`
+- `03_gmail_workspace/04_sender_decision_ui/04_workflow_integration/decision_ui_flow.md`
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
 
 Notes:
-- Docs still partially describe parent-scoped summaries  
+- Docs still partially describe parent-scoped summaries.
 
 ---
 
@@ -92,35 +93,35 @@ Notes:
 Date: 2026-04-01  
 Owner: PM  
 Status: Active  
-Propagation Owner: Codex  
+Propagation Owner: Codex
 
 Decision:
-- All Indexed timeline is now built from real selected-cluster rows  
-- Bucket counts = distinct senders active in that month  
-- Message counts = real indexed messages in that month  
+- `All Indexed` timeline is now built from real selected-cluster rows.
+- Bucket counts = distinct senders active in that month.
+- Message counts = real indexed messages in that month.
 
 Reason:
-- Previous implementation produced misleading data  
-- Required for trust in analysis rail  
+- Previous implementation produced misleading data.
+- Required for trust in the Shared Analysis Rail.
 
 Affected product areas:
-- Time Context  
-- Shared Analysis Rail  
+- Time Context
+- Shared Analysis Rail
 
 Affected code areas:
-- inboxAnalysis.ts  
-- gmailCleanupWorkspace.ts  
-- GmailCleanupComponents.tsx  
+- `inboxAnalysis.ts`
+- `gmailCleanupWorkspace.ts`
+- `GmailCleanupComponents.tsx`
 
 Docs requiring propagation:
-- 03_gmail_workspace/04_sender_decision_ui/03_time_context/TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md  
-- 03_gmail_workspace/04_sender_decision_ui/01_analysis_rail/Shared_Rail_Analysis_spec.md  
-- 06_system_state/CURRENT_STATE.md  
-- 06_system_state/TODO.md  
-- 00_core_context/07_PROJECT_MANAGER_CONTEXT.md  
+- `03_gmail_workspace/04_sender_decision_ui/03_time_context/TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md`
+- `03_gmail_workspace/04_sender_decision_ui/01_analysis_rail/Shared_Rail_Analysis_spec.md`
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
 
 Notes:
-- Docs still reference old timeline logic  
+- Docs still reference older timeline logic.
 
 ---
 
@@ -129,33 +130,33 @@ Notes:
 Date: 2026-04-01  
 Owner: PM  
 Status: Active  
-Propagation Owner: Codex  
+Propagation Owner: Codex
 
 Decision:
-- Bucket bars = distinct active senders  
-- Supporting messages = email volume  
-- Bucket counts are non-additive  
-- Workflow scope remains authoritative  
+- Bucket bars = distinct active senders.
+- Supporting messages = email volume.
+- Bucket counts are non-additive.
+- Workflow scope remains authoritative.
 
 Reason:
-- Prevents misinterpretation of chart data  
+- Prevents misinterpretation of chart data.
 
 Affected product areas:
-- Time Context  
-- Analysis Rail  
+- Time Context
+- Shared Analysis Rail
 
 Affected code areas:
-- GmailCleanupComponents.tsx  
+- `GmailCleanupComponents.tsx`
 
 Docs requiring propagation:
-- 03_gmail_workspace/04_sender_decision_ui/03_time_context/TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md  
-- 03_gmail_workspace/04_sender_decision_ui/01_analysis_rail/Shared_Rail_Analysis_spec.md  
-- 02_distribution_chart/SENDER_DISTRIBUTION_CHART_SPEC.md  
-- 06_system_state/CURRENT_STATE.md  
-- 06_system_state/TODO.md  
+- `03_gmail_workspace/04_sender_decision_ui/03_time_context/TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md`
+- `03_gmail_workspace/04_sender_decision_ui/01_analysis_rail/Shared_Rail_Analysis_spec.md`
+- `03_gmail_workspace/04_sender_decision_ui/02_distribution_chart/SENDER_DISTRIBUTION_CHART_SPEC.md`
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
 
 Notes:
-- Spec docs still mix additive vs non-additive logic  
+- Spec docs still mix additive vs non-additive logic.
 
 ---
 
@@ -164,34 +165,89 @@ Notes:
 Date: 2026-04-01  
 Owner: PM  
 Status: Active  
-Propagation Owner: Codex  
+Propagation Owner: Codex
 
 Decision:
-- Empty `action:""` inbox-analysis requests are invalid and must be eliminated  
+- Empty `action:""` inbox-analysis requests are invalid and must be eliminated.
 
 Reason:
-- Indicates malformed request path  
-- Creates runtime instability risk  
+- Indicates malformed request path.
+- Creates runtime instability risk.
 
 Affected product areas:
-- Gmail Workspace runtime  
-- API layer  
+- Gmail Workspace runtime
+- API layer
 
 Affected code areas:
-- operationsWorkspace.ts  
-- gmailCleanupWorkspace.ts  
-- inbox-analysis API route  
+- `operationsWorkspace.ts`
+- `gmailCleanupWorkspace.ts`
+- `inbox-analysis` API route
 
 Docs requiring propagation:
-- 06_system_state/CURRENT_STATE.md  
-- 06_system_state/TODO.md  
-- 00_core_context/07_PROJECT_MANAGER_CONTEXT.md  
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
 
 Notes:
-- Not blocking feature acceptance, but must be resolved before system hardening  
+- Not blocking feature acceptance, but must be resolved before system hardening.
+
+---
+
+### [ACE-006] Codex Operating System Implementation
+
+Date: 2026-04-01  
+Owner: PM  
+Status: Active  
+Propagation Owner: Codex
+
+Decision:
+- The project now runs on a Codex Operating System.
+- The operating model is now split into Control Plane, Orientation, Routing, and Skills layers.
+- Control Plane files define active truth.
+- `SYSTEM_MEMORY_MAP.md` is now a routing system, not a static index.
+- `AGENTS.md` defines enforceable Codex behavior.
+- PM activation now uses a 3-message model: Control Plane, Orientation, Execution Continuity.
+- Skills under `.agents/skills/` define repeatable execution workflows.
+
+Reason:
+- Reduce drift.
+- Reduce manual document coordination.
+- Reduce turnover time.
+- Eliminate memory-based workflow management.
+- Make PM → Codex execution repeatable and enforceable.
+
+Affected system areas:
+- Control Plane
+- Core Context
+- Workspace Architecture
+- Agent Runtime
+- Gmail Workspace
+- Product Design
+- Codex Instruction Layer
+- Data / Schema / Reference Layer
+- Operating Model
+- Skills Layer
+
+Affected code areas:
+- Documentation and operating-system layer only in this pass.
+
+Docs requiring propagation:
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `01_workspace_architecture/system_overview.md`
+- `04_product_design/PM_ONBOARDING_BRIEF.md`
+- `07_reference/SYSTEM_MEMORY_MAP.md`
+- `AGENTS.md`
+- `00_core_context/agent_activation_checklist.md`
+- `06_system_state/CHANGELOG.md`
+
+Notes:
+- This is the first full-system propagation test of the new operating model.
+- `SYSTEM_MEMORY_MAP.md`, `AGENTS.md`, and `agent_activation_checklist.md` may already be aligned, but they must be verified against the new operating model rather than assumed.
 
 ---
 
 ## Completed Change Events
 
-(None yet — Phase 1 intentionally starts without backfilling)
+(None yet — this file is still in active rollout mode.)
