@@ -307,6 +307,32 @@ This layer governs how Codex executes work, how scope is controlled, and how PM 
 
 ---
 
+# 5A. Worktree Sync / Merge Recovery Routing (LOAD WHEN NEEDED)
+
+Load this route when the task involves:
+
+- syncing docs between `main` and a worktree
+- merge recovery after an unsafe full merge
+- hot-file overlap classification
+- PM activation or turnover blocked on worktree sync
+
+## Required subset
+- `06_system_state/ACTIVE_CHANGE_EVENTS.md`
+- `07_reference/Shared_Hot_File_Merge_Protocol.md`
+- `07_reference/Git_GitHub_Worktrees_Backups_operating_Model.md`
+- `07_reference/Simple_Worktrees_Setup_Checklist.md`
+- `07_reference/OLIVER_OPERATING_CHECKLIST.md`
+
+## Optional supporting subset
+- `00_core_context/Project Manager Activation & Turnover Protocol.md`
+- `07_reference/CODEX_PROMPT_TEMPLATES.md`
+- `AGENTS.md`
+
+## Why this layer matters
+This route separates docs-only sync from shared hot-file integration and routes merge work through one authoritative protocol so PM/Codex do not fall back to manual merge triage.
+
+---
+
 # 6. Data / Schema / Reference Layer (LOAD WHEN NEEDED)
 
 Load this layer when the task involves:

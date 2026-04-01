@@ -1,5 +1,5 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-04-01 (ACE-008 prompt standardization propagated • ACE-007 multi-thread work captured in the control plane • Cleanup Groups and Time Context follow-up remain open) (cleanup-groups Lane B review-page unit truth accepted • Lane B still active)_
+_Last updated: 2026-04-01 (ACE-012 hot-file merge hardening propagated • ACE-009/ACE-010 worktree sync and hot-file merge protocol propagated • ACE-008 prompt standardization propagated • ACE-007 multi-thread work captured in the control plane • Cleanup Groups and Time Context follow-up remain open) (cleanup-groups Lane B review-page unit truth accepted • Lane B still active)_
 
 - Operating model — healthy (`Oliver -> Project Manager -> Codex`)
 - Control Plane — active
@@ -11,6 +11,35 @@ _Last updated: 2026-04-01 (ACE-008 prompt standardization propagated • ACE-007
 ## 🔥 Current Focus (This Week)
 
 ----
+
+### ACE-009 — Worktree Sync Automation + Conflict Recovery System
+- [x] Define docs-only sync as the official control-plane / documentation sync path between `main` and active worktrees
+- [x] Document docs-only sync in both directions:
+  - `main -> worktree`
+  - `worktree -> main`
+- [x] Add explicit unsafe full-merge abort rules for control-plane alignment
+- [x] Add conflict-recovery steps for restoring resolved docs and completing docs-only sync safely
+- [x] Record that control-plane/doc sync and shared hot-file code integration are separate operations
+- [x] Align PM / Codex operating docs so Oliver does not have to reconstruct the recovery flow manually
+
+### ACE-010 — Shared Hot-File Merge Protocol + Codex-Assisted Integration
+- [x] Define `shared hot files` as a separate integration class from docs/control-plane files
+- [x] Record the current hot-file set:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+- [x] Add preflight classification before any attempted full merge between `main` and a worktree
+- [x] Document that shared hot-file overlap is not resolved through default manual human merge triage
+- [x] Add the dedicated Codex-assisted hot-file integration workflow to PM/Codex operating docs and prompt templates
+- [x] Preserve `ACE-011` as completed historical recovery context only
+
+### ACE-012 — Shared Hot-File Merge System Hardening
+- [x] Add `07_reference/Shared_Hot_File_Merge_Protocol.md` as the authoritative hot-file merge workflow
+- [x] Tighten merge preflight to merge-base, two-sided overlap classification
+- [x] Add the hard rule that `hot_file_integration_required` prohibits full git merge
+- [x] Record default merge bias rules for UI, runtime logic, imports, and types/interfaces
+- [x] Require PM preflight packets for shared hot-file integration passes
+- [x] Add the two-failure escalation rule that returns hot-file integration to PM
 
 ### ACE-008 — Codex Prompt Standardization
 - [x] Standardize non-trivial PM -> Codex prompts on `07_reference/CODEX_PROMPT_TEMPLATES.md`

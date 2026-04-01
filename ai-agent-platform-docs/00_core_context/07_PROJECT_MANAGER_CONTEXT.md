@@ -44,6 +44,34 @@ Rules:
 - Codex must explicitly load the named skill file from `/Users/olivercarlin/.codex/skills/<skill_name>/SKILL.md` before execution.
 - Do not send ambiguous or unscoped execution prompts to Codex for non-trivial work.
 
+## Worktree Sync + Hot-File Merge Protocol (ACE-009 / ACE-010 / ACE-012)
+
+Authoritative workflow reference:
+- `07_reference/Shared_Hot_File_Merge_Protocol.md`
+
+Rules:
+- Treat `docs / control-plane sync` and `shared hot-file code integration` as separate operations.
+- Use `docs-only sync` for control-plane, operating-model, and documentation propagation between `main` and active worktrees.
+- Before any attempted full merge, classify overlap from the merge base using both sides of the diff.
+- If classification = `hot_file_integration_required`, full git merge is prohibited.
+- If a full merge becomes unsafe during control-plane alignment:
+  - preserve any resolved docs needed for the docs-only sync
+  - abort the full merge
+  - complete docs-only sync separately
+  - route shared hot-file work into a dedicated Codex-assisted integration pass
+- `ACE-011` is completed historical context that documents a recovery example; do not reopen it as active work.
+
+Current shared hot files:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+
+Default merge bias rules:
+- UI files prefer `main` unless PM explicitly overrides
+- Runtime logic prefers the active worktree lane when it is part of the approved lane scope
+- Imports union unless the conflict is semantic
+- Types/interfaces prefer the superset, not reduction
+
 ## Operating-System Layers
 
 The project now runs on four layers:
@@ -118,8 +146,10 @@ Every Codex task should explicitly include:
 Additional rules:
 - Use `07_reference/CODEX_PROMPT_TEMPLATES.md` for all non-trivial Codex task construction.
 - If the task is documentation-only propagation, use the change-propagation workflow.
+- If the task is shared hot-file integration, run merge-base preflight first and issue a dedicated Codex-assisted integration pass instead of a generic merge request.
+- Shared hot-file integration prompts must include the preflight packet defined in `07_reference/Shared_Hot_File_Merge_Protocol.md`.
 - Reduced prompts are acceptable only for lightweight tasks; if a skill is referenced, `Skill Location` is still mandatory.
-- If Codex fails twice on the same issue, stop and clarify architecturally.
+- If Codex fails the same hot-file integration twice, stop and return to PM for decision instead of retrying blindly.
 - Every major Codex pass ends with a PM REVIEW PACKET.
 - When available, Codex should run `npm --prefix web run review-packet` before finalizing the packet.
 

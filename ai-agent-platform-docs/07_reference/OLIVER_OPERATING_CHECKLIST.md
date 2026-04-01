@@ -59,6 +59,10 @@ PM must select ONE:
 - change_propagation_pass → update docs
 - turnover_pack_builder → prepare handoff
 
+If the task involves worktree sync:
+- use `change_propagation_pass` for docs / control-plane sync
+- use a dedicated Codex-assisted implementation pass for shared hot-file integration
+
 ---
 
 ## Step 5 — Run Codex
@@ -113,6 +117,22 @@ PM must:
 - define scope
 - choose Skill
 - THEN call Codex
+
+## Rule 5 — No Manual Shared Hot-File Merge Resolution
+Oliver does NOT manually reconcile shared hot-file merges as the default workflow.
+
+If worktree sync touches shared hot files:
+- PM must classify the merge first
+- if classification = `hot_file_integration_required`, full git merge is prohibited
+- docs should move through docs-only sync if possible
+- Codex should own the dedicated hot-file integration pass
+
+If Codex fails the same hot-file integration twice:
+- stop
+- return to PM for decision
+- do not retry blindly
+
+`ACE-011` remains completed recovery history, not an open task to repeat manually.
 
 ---
 

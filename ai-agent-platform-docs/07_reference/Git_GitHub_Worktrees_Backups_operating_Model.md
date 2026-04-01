@@ -140,6 +140,73 @@ Worktrees merge through Git:
 4. test main
 5. deploy
 
+### Two Sync Classes (ACE-009 / ACE-010)
+
+Not every worktree sync should use the same merge path.
+
+We now treat sync as two separate classes:
+- `docs / control-plane sync`
+- `shared hot-file code integration`
+
+Docs / control-plane sync includes:
+- `ai-agent-platform-docs/`
+- `AGENTS.md`
+- other approved operating-model or proof files for the current pass
+
+Shared hot files currently include:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+
+Authoritative detailed workflow:
+- `07_reference/Shared_Hot_File_Merge_Protocol.md`
+
+Rule:
+- do not use the default full-merge path when the immediate goal is only control-plane or documentation alignment
+- do not force shared hot-file integration just to complete a docs sync
+
+### Docs-Only Sync Procedure
+
+Use this when the change is documentation / control-plane propagation only.
+
+1. Fetch the latest branches.
+2. Review the diff and confirm the sync scope is limited to approved docs / operating files.
+3. Copy only the approved docs paths from the source branch into the target branch.
+4. Review the docs-only diff.
+5. Commit and push the docs-only sync.
+
+This procedure is valid in both directions:
+- `worktree -> main`
+- `main -> worktree`
+
+### Shared Hot-File Preflight
+
+Before any attempted full merge between `main` and a worktree:
+
+1. compare both sides from the merge base
+2. check whether overlap touches any shared hot file
+3. classify the merge:
+   - safe for docs-only sync
+   - unsafe for full merge
+   - requires dedicated hot-file integration
+
+If shared hot files overlap:
+- stop treating the task as a normal merge
+- full git merge is prohibited
+- route it to a dedicated Codex-assisted hot-file integration pass
+
+### Conflict Recovery For Unsafe Full Merges
+
+If a full merge has already started and the conflict set includes shared hot files while you are trying to align control-plane docs:
+
+1. preserve any resolved docs needed for the docs-only sync
+2. abort the unsafe full merge
+3. restore the approved docs paths only
+4. complete and commit the docs-only sync
+5. run shared hot-file integration as a separate Codex-assisted pass later
+
+`ACE-011` is the historical example of this recovery path. It is completed context, not open work.
+
 ---
 
 ## Backup Strategy
@@ -253,9 +320,12 @@ ui-polish
 Always:
 1. finish worktree changes
 2. commit
-3. merge into main
-4. test main environment
-5. then remove worktree
+3. classify the sync first:
+   - docs-only sync
+   - shared hot-file integration
+4. merge only through the correct path
+5. test main environment
+6. then remove worktree
 
 ---
 
@@ -265,6 +335,7 @@ Always:
 - Local backups are still required
 - Worktrees isolate changes, not replace Git
 - Merging happens through Git, not folders
+- Docs-only sync and shared hot-file integration are different operations
 - Always test main after merging
 - Never trust uncommitted work as safe
 

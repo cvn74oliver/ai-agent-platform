@@ -66,6 +66,12 @@ All communication happens through:
 - ACTIVE_CHANGE_EVENTS.md
 - PROJECT_MANAGER_CONTEXT.md
 
+When activation or turnover spans multiple worktrees:
+- sync control-plane docs through docs-only sync first
+- do not block PM activation on unresolved shared hot-file code merges
+- route shared hot-file overlap into a separate Codex-assisted integration pass
+- carry forward the preflight packet instead of handing Oliver a raw merge state
+
 ---
 
 # 🚀 ACTIVATION (3 MESSAGE SYSTEM)
@@ -187,6 +193,27 @@ If Codex made the change:
 
 If humans made the decision:
 - MUST log change event
+
+If the immediate goal is only control-plane or operating-doc alignment between `main` and a worktree:
+- use docs-only sync
+- do not force a full merge just to prepare activation or turnover
+
+If a full merge becomes unsafe because shared hot files overlap:
+- preserve resolved docs
+- abort the merge
+- complete docs-only sync
+- handle shared hot-file integration separately
+
+If classification = `hot_file_integration_required`:
+- full git merge is prohibited
+- the next PM handoff must include the preflight packet from `07_reference/Shared_Hot_File_Merge_Protocol.md`
+
+If Codex fails the same hot-file integration twice:
+- stop
+- return to PM for decision
+- do not retry blindly
+
+`ACE-011` is the completed historical recovery example for this path.
 
 ---
 

@@ -5,6 +5,65 @@ Project Manager: Codex Operating System active (`Oliver -> Project Manager -> Co
 
 ---
 
+## 🚀 April 1 — ACE-012 Hot-File Merge System Hardening Propagated
+
+### What changed
+
+- Added `07_reference/Shared_Hot_File_Merge_Protocol.md` as the authoritative operating-model reference for shared hot-file merge work.
+- Tightened merge preflight from a one-sided changed-file view to merge-base, two-sided overlap classification.
+- Added the hard rule that if classification = `hot_file_integration_required`, full git merge is prohibited and the work must route to a dedicated Codex integration pass.
+- Locked the default merge bias rules:
+  - UI files prefer `main` unless PM overrides
+  - runtime logic prefers the active worktree lane
+  - imports union unless the conflict is semantic
+  - types/interfaces prefer the superset, not reduction
+- Added the failure escalation rule: if Codex fails the same hot-file integration twice, stop and return to PM instead of retrying blindly.
+
+### Current accepted state
+
+- The system still uses the same two-track model:
+  - docs / control-plane sync
+  - shared hot-file integration
+- Shared hot-file merge work now has one authoritative detailed protocol instead of relying on checklist fragments alone.
+- PM handoff for shared hot-file integration now requires a preflight packet.
+- `ACE-009`, `ACE-010`, and `ACE-011` remain completed historical context and were not reopened.
+
+### Explicit boundary
+
+- This pass hardens documentation, routing, and execution rules only.
+- No runtime, UI, schema, API, or product behavior changed in this pass.
+
+---
+
+## 🚀 April 1 — ACE-009 + ACE-010 Worktree Sync And Hot-File Merge Protocol Propagated
+
+### What changed
+
+- The operating model now separates `control-plane / documentation sync` from `shared hot-file code integration`.
+- `Docs-only sync` is now the official control-plane propagation path between `main` and active worktrees in both directions.
+- The system now defines an explicit `conflict recovery` workflow for aborting unsafe full merges, restoring resolved docs, and finishing docs-only sync safely.
+- Shared hot files now require preflight classification before merge attempts, and Codex owns the dedicated hot-file integration workflow instead of Oliver manually reconciling those files.
+- `ACE-011` remains preserved as completed historical execution context and is not reopened by this pass.
+
+### Current accepted state
+
+- Worktree sync is now a two-track model:
+  - docs / control-plane sync
+  - shared hot-file integration
+- PM and Codex should use docs-only sync when the task is operating-model or control-plane propagation.
+- If a full merge exposes shared hot-file overlap during control-plane alignment, the merge should be aborted and rerouted:
+  - complete docs-only sync first
+  - run a separate Codex-assisted hot-file integration pass afterward
+- Current shared hot files explicitly include:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+
+### Explicit boundary
+
+- This pass updates documentation and operating-model truth only.
+- No runtime, UI, schema, or product behavior changed in this pass.
+
 ## 🚀 April 1 — ACE-008 Codex Prompt Standardization Propagated
 
 ### What changed

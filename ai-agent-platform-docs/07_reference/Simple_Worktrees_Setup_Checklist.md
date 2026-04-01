@@ -331,57 +331,136 @@ Only do this after:
 
 ## Part 3 — Syncing Changes Between Main and Worktrees
 
-### A. Push changes from worktree → main
+### A. Run merge preflight first
 
-Use this when you finish work in a worktree and want it in main.
+Before any sync, classify the change.
 
-1. In the worktree:
+1. Check the merge base and what changed on both sides:
+
+   ```bash
+   git fetch origin
+   git merge-base origin/main HEAD
+   git diff --name-only "$(git merge-base origin/main HEAD)" origin/main
+   git diff --name-only "$(git merge-base origin/main HEAD)" HEAD
+   ```
+
+2. Compare the two changed-file lists and identify:
+   - overlap
+   - overlapping shared hot files
+   - whether the task is only docs / control-plane propagation
+
+3. Treat these as shared hot files right now:
+   - `web/src/app/agents/[id]/operations/review/page.tsx`
+   - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+   - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+
+4. Classify the sync:
+   - `docs_only_sync`
+   - `standard_merge_allowed`
+   - `hot_file_integration_required`
+   - `stop_and_rescope`
+
+If classification = `hot_file_integration_required`, do **not** use the default full-merge flow below.
+Full git merge is prohibited.
+
+---
+
+### B. Docs-only sync from worktree -> main
+
+Use this when the worktree needs to propagate only docs / control-plane files into `main`.
+
+1. In the worktree, commit and push the docs changes:
 
    ```bash
    cd /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
-   git add .
-   git commit -m "Worktree changes"
+   git add ai-agent-platform-docs AGENTS.md
+   git commit -m "Docs-only sync from worktree"
    git push origin cleanup-taxonomy-rebuild
    ```
 
-2. In the main repo:
+2. In the main repo, pull only the approved docs paths:
 
    ```bash
    cd /Users/olivercarlin/Documents/ai-agent-platform
    git checkout main
    git pull origin main
-   git merge cleanup-taxonomy-rebuild
+   git checkout cleanup-taxonomy-rebuild -- ai-agent-platform-docs AGENTS.md
+   git status
+   git commit -m "Sync docs from cleanup-taxonomy-rebuild"
    git push origin main
    ```
 
+Review the diff before committing if the docs set is narrower than `ai-agent-platform-docs` plus `AGENTS.md`.
+
 ---
 
-### B. Pull changes from main → worktree
+### C. Docs-only sync from main -> worktree
 
-Use this when main has new changes and your worktree needs them.
+Use this when the worktree needs the latest control-plane or operating docs from `main`.
 
 1. In the worktree:
 
    ```bash
    cd /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
    git fetch origin
-   git merge origin/main
+   git checkout origin/main -- ai-agent-platform-docs AGENTS.md
+   git status
+   git commit -m "Sync docs from main"
+   git push origin cleanup-taxonomy-rebuild
    ```
 
-Alternative (cleaner history):
+2. If the required docs set is smaller, check out only the approved paths.
 
-```bash
-git fetch origin
-git rebase origin/main
-```
+---
+
+### D. Shared hot-file overlap -> dedicated Codex-assisted integration
+
+If merge preflight shows shared hot-file overlap:
+
+1. Stop the default merge flow.
+2. Do not run a full git merge.
+3. Prepare the integration packet required by `07_reference/Shared_Hot_File_Merge_Protocol.md`.
+4. Apply the default merge bias rules unless PM explicitly overrides them:
+   - UI files prefer `main`
+   - Runtime logic prefers the active worktree lane
+   - Imports union unless the conflict is semantic
+   - Types/interfaces prefer the superset, not reduction
+5. If docs still need to move, complete that part as a docs-only sync.
+6. Run a dedicated Codex-assisted hot-file integration pass for the shared code files.
+7. If Codex fails the same integration twice, stop and return to PM.
+8. Do not ask Oliver to manually reconcile the shared files.
+
+---
+
+### E. Conflict recovery after an unsafe full merge
+
+Use this when a full merge already started but the conflict set proves it was the wrong path.
+
+1. Preserve any resolved docs you still need.
+2. Abort the full merge:
+
+   ```bash
+   git merge --abort
+   ```
+
+3. Restore only the approved docs paths from the source branch.
+4. Review the docs-only diff.
+5. Commit and push the docs-only sync.
+6. Handle shared hot-file integration separately afterward.
+
+`ACE-011` is the completed historical example of this recovery path.
 
 ---
 
 ### Important Sync Rules
 
 - Changes do NOT automatically sync between main and worktrees
-- You must manually merge or rebase
+- Always run merge preflight before syncing
+- Docs-only sync and shared hot-file integration are separate operations
+- Shared hot-file preflight must use merge-base, two-sided overlap detection
+- If classification = `hot_file_integration_required`, full git merge is prohibited
 - Backend data (database, artifacts) may be shared, but code is NOT
+- Do not use Oliver as the default manual resolver for shared hot-file conflicts
 - Always test after syncing changes
 
 ---
