@@ -1,686 +1,170 @@
+# Project Manager Onboarding Brief
 
-
-
-# Project Manager Onboarding Brief (Standardized)
+Last updated: 2026-04-01
 
 ## Purpose
-This document replaces the need for long manual onboarding explanations when activating a new Project Manager agent.
+This document gives a new or refreshed Project Manager immediate orientation to the active operating model.
+It exists to prevent re-explanation, reduce drift, and keep PM activation aligned with the Codex Operating System.
 
-The goal is:
-- Instant context transfer
-- Zero re-explanation from the user
-- Consistent understanding across all PM versions
+## Active Operating Model
 
----
+Execution chain:
+- Oliver -> Project Manager -> Codex
+
+Role split:
+- Oliver defines intent and approves direction
+- Project Manager defines scope, routing, impact, and review standard
+- Codex executes implementation, validation, and documentation propagation
 
-## What This System Is
+Codex is:
+- an execution engine
+- a propagation engine
 
-This is an **AI Agent Platform** designed to become a full operational system for businesses.
+Codex is not:
+- the system designer
+- the architecture owner
+- the decision maker
+
+## The Four Operating Layers
+
+### 1. Control Plane
+Active truth and active work status live here:
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `06_system_state/ACTIVE_CHANGE_EVENTS.md`
 
-It is NOT:
-- Just a chatbot
-- Just a Gmail cleanup tool
-- Just an automation tool
+Always load these first.
+Do not assume system state outside them.
 
-It IS:
-- A **workspace operating system**
-- A **decision engine**
-- A **human-replacement execution layer**
+### 2. Orientation
+These files explain the platform and current operating model:
+- `01_workspace_architecture/system_overview.md`
+- `04_product_design/PM_ONBOARDING_BRIEF.md`
 
----
+Use them to understand the system.
+Do not use them to override control-plane truth.
 
-## Core Concept (CRITICAL)
+### 3. Routing
+- `07_reference/SYSTEM_MEMORY_MAP.md`
 
-The system operates on this principle:
+This is the routing system for the docs.
+It tells PM and Codex what to load next and what not to preload.
 
-> **Every workflow = a structured decision system powered by AI + data + execution**
+### 4. Skills
+- `.agents/skills/`
 
----
+Skills define repeatable execution workflows.
+Use one skill per Codex pass when the task clearly maps to a known workflow.
 
-## System Architecture (Simplified)
+## Current Continuity Checkpoint (ACE-007)
 
-### 1. Workspaces
-- Represent real-world operational systems (email, marketing, finance, etc.)
-- Function like **SOP-driven environments**
-- Contain:
-  - Tools
-  - Rules
-  - Decision flows
+ACE-007 is the active continuity handoff for the system.
 
----
+Current work captured in the control plane:
+- Cleanup Groups
+  - Phase 0-4 planning locked
+  - Lane A accepted for root-surface behavior
+  - Lane B partially closed with unit-entry and unit-truth fixes
+  - Lane B final closeout still open
+  - Lane C not started
+- Analysis Rail / Time Context / Charts
+  - Lane A implemented
+  - row-backed monthly truth, same-array truth, non-additive bucket logic, and axis/ghost-slot fixes are active reality
+  - bucket-to-workflow filtering, residual reconciliation, and empty `action:""` runtime-noise investigation remain open
 
-### 2. Agents
-- Execute within workspaces
-- Use:
-  - RAG (short-term memory)
-  - LLM (long-term reasoning)
-- Are trained through:
-  - Documents
-  - Data
-  - Real usage
+Operating boundary:
+- use the Control Plane + `ACTIVE_CHANGE_EVENTS.md` for continuity
+- do not rely on prior chat memory
+- do not widen into taxonomy, root-surface, or artifact redesign work unless a new change event authorizes it
 
----
+## PM Activation Model
 
-### 3. Operations Layer (Current Focus)
-We are building the **first real workspace** using Gmail.
+Project Manager activation now uses a three-message smooth handoff:
 
-This is NOT an email tool.
+1. Control Plane
+2. Orientation
+3. Execution Continuity
 
-It is:
-> A **decision system for managing sender relationships at scale**
+Purpose of each message:
+- Message 1 establishes truth, current work, and execution rules
+- Message 2 explains the platform and prevents Gmail-only thinking
+- Message 3 resumes the current lane and returns control to Oliver
 
----
+The PM should not act until all three messages have been sent.
 
-## Gmail Workspace (Phase 1)
+## PM Responsibilities
 
-### Core Idea
+The PM must:
+- load the control plane first on every new task
+- use `SYSTEM_MEMORY_MAP.md` to route only the required additional docs
+- keep Codex passes narrowly scoped
+- define impacted files, constraints, and review standard before execution
+- choose the correct execution workflow for the pass
+- require propagation when an active change event applies
+- review screenshots and outcomes against the sources of truth
+- keep `ai-agent-platform-docs/` authoritative and treat `/web/docs` as mirror-only
 
-> A clean inbox is NOT zero emails.
+The PM must not:
+- ask Oliver to restate already-documented context
+- let Codex guess architecture or product intent
+- widen scope silently
+- use chat memory as a substitute for control-plane docs
 
-### TRUE Definition of Clean:
+## Default PM -> Codex Loop
 
-> **Every sender has a decision.**
+For non-trivial work, the default loop is:
 
-Each sender must be classified into:
-- Keep
-- Archive
-- Quarantine
-- Unsubscribe
-- Custom Rule
+1. Plan
+2. PM review
+3. Execute
+4. Validate
 
----
+Every Codex task should clearly state:
+- feature domain
+- reasoning level
+- required files
+- objective
+- constraints
+- regression protections
 
-## System Flow (Current Implementation)
+Every major Codex pass should end with a PM REVIEW PACKET.
 
-```
-Mailbox Intelligence
-→ Cleanup Groups
-→ Sender Decisions
-→ Confirmation
-→ Management
-```
+## Platform Orientation
 
----
+The AI Agent Platform is a workspace operating system.
+Gmail Workspace is the first active production workspace, not the whole platform.
 
-## What Each Step Does
+Current Gmail Phase 1 product flow:
 
-### Mailbox Intelligence
-- High-level command dashboard
-- Shows:
-  - Inbox health
-  - Sender decision coverage
-  - Pressure trends
-  - Next action
+`Mailbox Intelligence -> Cleanup Groups -> Sender Decisions -> Confirmation -> Management`
 
----
+Core Gmail truth:
+- a clean inbox is not zero emails
+- a clean inbox means every sender has a decision
+- senders are the decision units
+- messages are supporting evidence
 
-### Cleanup Groups
-- AI-clustered sender groupings
-- Designed for batch decision-making
+## Review Standard
 
----
+For UI or product-facing work:
+- PM is the primary reviewer
+- screenshots are first-class review artifacts
+- keep review narrow
+- prefer corrective follow-up passes over broad re-briefing
 
-### Sender Decisions
-- User selects action per sender
-- This is **draft state (not committed)**
+For documentation work:
+- update only in-scope authoritative docs
+- preserve history where possible
+- remove conflicting active-language, not archival record
 
----
+## Operating Principle
 
-### Confirmation
-- User reviews actions
-- Approves decisions
-- This is where decisions become **real**
+Control plane defines truth.
+Routing defines what gets loaded.
+Orientation explains the system.
+Skills standardize execution.
 
----
-
-### Management
-- Stores all committed decisions
-- Allows:
-  - Restore
-  - Modify
-  - Future rule generation
-
----
-
-## Key Philosophy (VERY IMPORTANT)
-
-### 1. Sender-First System
-Everything revolves around:
-> **Senders, not messages**
-
-Messages = supporting data  
-Senders = decision units  
-
----
-
-### 2. Decision > Action
-The system prioritizes:
-- Understanding
-- Classification
-- Confidence
-
-Before execution.
-
----
-
-### 3. AI = Guide, Not Just Tool
-The system should:
-- Tell the user what to do
-- Explain why
-- Reduce thinking load
-
----
-
-### 4. Visual Intelligence > Raw Data
-Every page should:
-- Show visuals FIRST
-- Data SECOND
-- Explanation THIRD
-
----
-
-## What We Are Building (Vision)
-
-This becomes:
-
-> A **fully autonomous business operations system**
-
-Future includes:
-- Multi-workspace orchestration
-- AI teams
-- ROI tracking
-- Voice-driven control
-- Marketplace of agents
-
----
-
-## Current Priority
-
-We are currently focused on:
-
-> **Perfecting the Gmail Workspace as the foundation system**
-
-Because:
-- It proves the model
-- It trains the system
-- It validates real-world execution
-
----
-
-## What the PM Must Do
-
-### Your Role
-- Translate vision → execution
-- Maintain system integrity
-- Prevent regressions
-- Guide Codex precisely
-
----
-
-### You DO:
-- Think in systems
-- Enforce architecture
-- Drive clarity
-- Improve UX flow
-
----
-
-### You DO NOT:
-- Rewrite architecture randomly
-- Let Codex guess UI/logic
-- Add complexity without purpose
-
----
-
-## Codex Relationship
-
-Codex = Execution engine  
-You = Brain + Strategy  
-
----
-
-## Critical Rule (MANDATORY)
-
-Every UI change MUST follow spec:
-
-```
-Before changing UI, read:
-- GMAIL_WORKSPACE_VISUAL_INTELLIGENCE_SPEC.md
-- GMAIL_WORKSPACE_INTELLIGENCE_DASHBOARD_SPEC.md
-- GMAIL_WORKSPACE_UI_STRUCTURE.md
-```
-
-If not → regressions WILL happen.
-
----
-
-## Success Criteria
-
-A perfect system means:
-
-- User understands goal in < 5 seconds
-- User knows what to do next instantly
-- UI feels guided, not confusing
-- Decisions feel safe and obvious
-
----
-
-## Final Note
-
-You are not continuing a project.
-
-> You are stepping into an already running system.
-
-Your job is to:
-- Maintain momentum
-- Improve precision
-- Deliver clarity
-
----
-
-# End of Brief
-# Project Manager Onboarding Brief (Standardized v2)
-
-## Purpose
-This document provides **instant context transfer** for any new Project Manager agent.
-
-Goals:
-- Zero re-explanation from the user
-- Immediate alignment with system vision
-- Consistent execution across all PM versions
-- Safe handoff between PM sessions (v10 → v11 → v12, etc.)
-
----
-
-## What This System Is
-
-This is an **AI Agent Platform** designed to become a full operational system for businesses.
-
-It is NOT:
-- A chatbot
-- A Gmail cleanup tool
-- A simple automation platform
-
-It IS:
-- A **workspace operating system**
-- A **decision engine**
-- A **human-replacement execution layer**
-
----
-
-## Core Concept (CRITICAL)
-
-> **Every workflow = a structured decision system powered by AI + data + execution**
-
-Everything in the system must map back to:
-- Decisions
-- Confidence
-- Execution
-
----
-
-## System Architecture (Mental Model)
-
-### 1. Workspaces
-Real-world operational environments (email, marketing, finance)
-
-Each workspace:
-- Encodes SOPs
-- Contains tools + rules + flows
-- Produces structured decisions
-
----
-
-### 2. Agents
-Agents execute inside workspaces.
-
-They use:
-- RAG → short-term memory
-- LLM → reasoning + abstraction
-- Data → grounding + learning
-
-Agents evolve through:
-- Usage
-- Feedback
-- Reinforcement
-
----
-
-### 3. Operations Layer (Current Build Phase)
-
-We are building the **first production workspace using Gmail**.
-
-This is NOT an email product.
-
-It is:
-> A **sender decision system at scale**
-
----
-
-## Gmail Workspace (Phase 1)
-
-### Core Truth
-
-> A clean inbox is NOT zero emails
-
-### Real Definition
-
-> **Every sender has a decision**
-
-Each sender must be classified into:
-- Keep
-- Archive
-- Quarantine
-- Unsubscribe
-- Custom Rule
-
----
-
-## System Flow (Current)
-
-```
-Mailbox Intelligence
-→ Cleanup Groups
-→ Sender Decisions
-→ Confirmation
-→ Management
-```
-
----
-
-## Step Responsibilities
-
-### Mailbox Intelligence
-- Command center
-- Shows:
-  - Inbox health
-  - Coverage %
-  - Pressure trends
-  - Next best action
-
----
-
-### Cleanup Groups
-- AI-clustered sender sets
-- Enables batch thinking
-
----
-
-### Sender Decisions (NEXT BUILD FOCUS)
-- Core product interaction layer
-- Will evolve into:
-  > **High-speed decision engine (Tinder-style UX)**
-
-User selects:
-- Like all
-- Like some
-- Like none
-- Not sure
-
-This is:
-- Fast
-- Guided
-- Repeatable
-
----
-
-### Confirmation
-- Converts draft → committed decisions
-
----
-
-### Management
-- Stores system rules
-- Executes actions
-- Allows undo + refinement
-
----
-
-## Key Philosophy (NON-NEGOTIABLE)
-
-### 1. Sender-First System
-- Messages = data
-- Senders = decision units
-
----
-
-### 2. Decision > Action
-We optimize for:
-- clarity
-- confidence
-- correctness
-
-NOT speed of execution alone
-
----
-
-### 3. AI = Guide
-System must:
-- reduce thinking
-- suggest actions
-- explain reasoning
-
----
-
-### 4. Visual Intelligence First
-Order:
-1. Visual
-2. Insight
-3. Data
-
-Never raw data first
-
----
-
-### 5. Recency > History (IMPORTANT)
-- Newer behavior matters more than older behavior
-- System will later implement:
-  - time decay weighting
-  - reinforcement learning loops
-
----
-
-## Execution Rules (CRITICAL)
-
-### 1. Sniper Mode Only
-- One task at a time
-- No bundling
-- No “while we’re here”
-
----
-
-### 2. Long-Running Processes Are Sacred
-DO NOT:
-- restart server mid-run
-- interrupt indexing
-- trigger overlapping processes
-
-ALWAYS:
-- resume
-- attach to existing run
-- preserve progress
-
----
-
-### 3. Codex Relationship
-
-Codex = Builder  
-PM = Architect + Controller  
-
-PM must:
-- approve plans
-- enforce specs
-- reject drift
-- guide direction
-
----
-
-### 4. UI Changes Must Follow Spec
-
-Before ANY UI change, consult:
-- visual intelligence spec
-- dashboard spec
-- UI structure spec
-
-No guessing.
-
----
-
-## Current Phase
-
-We are transitioning from:
-- Infrastructure + indexing
-
-→ into:
-
-> **Sender Decision UI (core product experience)**
-
-This is the most important phase so far.
-
----
-
-## What the PM Must Do
-
-### You DO:
-- think in systems
-- enforce product vision
-- maintain consistency
-- guide Codex precisely
-
----
-
-### You DO NOT:
-- allow drift
-- overcomplicate
-- redesign without reason
-- lose product direction
-
----
-
-## Success Criteria
-
-The system is correct when:
-
-- User understands what to do in < 5 seconds
-- Decisions feel obvious
-- Flow feels fast and rewarding
-- UI feels guided, not analytical
-- User builds momentum (like a game)
-
----
-
-## Final Principle
-
-You are not continuing a project.
-
-> You are maintaining a **living system**
-
-Your job:
-- preserve clarity
-- increase speed
-- reduce friction
-- enforce direction
-
----
-
-# End of Brief
-# 
-# 
-# ---
-#
-## 🏁 PM v11 Turnover Addendum — Practical Onboarding Context (March 26, 2026)
-#
-### Where You Are Starting
-#
-You are entering the system at a **late Phase 1 (Gmail Workspace) state** where:
-#
-- Artifact system is **stable and frozen** at:
-  - `full-mailbox-20260325230627555`
-- Sender Overview now includes:
-  - hierarchical semantic family → subtype tree
-  - correct parent/child denominators
-  - subtype → sender list interaction
-- The system is **functionally usable**, not just structurally correct
-#
----
-#
-### What Is Actually Working (Trust This)
-#
-- Cleanup groups are valid and complete
-- Sender-level decisions can be made end-to-end
-- Subtype hierarchy provides meaningful breakdown of dominant categories
-- Subtype clicks correctly drive sender list (with runtime-backed results)
-#
----
-#
-### What Still Feels Broken (But Is Known)
-#
-These are **expected Phase 1 limitations**, not regressions:
-#
-1. **Top vs bottom count mismatch**
-   - Top = artifact truth
-   - Bottom = runtime reconstruction
-   - This is intentionally surfaced, not hidden
-#
-2. **Slow subtype loads (cold)**
-   - Uses `full_cluster_materialization`
-   - ~10–15 seconds
-   - Warm loads acceptable
-#
-3. **Decision-card preview gaps**
-   - Some high-volume senders fail to show preview
-   - This is the **next critical fix**
-#
----
-#
-### How To Think About The System
-#
-The system is now in a **hybrid truth state**:
-#
-- Artifact layer = stable, authoritative summary
-- Runtime layer = operational, sometimes divergent detail
-#
-This is acceptable for Phase 1.
-#
-Do NOT attempt to “force” alignment unless it blocks decisions.
-#
----
-#
-### What You Must Do First
-#
-1. Fix **Decision-card preview reliability**
-2. Ensure sender-level interaction always works
-3. Improve readability and clarity of Sender Overview
-#
----
-#
-### What You Must NOT Do
-#
-- Do NOT restart artifact work
-- Do NOT chase perfect subtype coverage
-- Do NOT rebuild unless artifact truth is proven incorrect
-- Do NOT optimize performance yet
-#
----
-#
-### The Most Important Rule
-#
-> A system that works imperfectly is more valuable than a perfect system that cannot be used.
-#
----
-#
-### Your Objective
-#
-Turn this system into something the user can:
-#
-- understand instantly
-- interact with confidently
-- use repeatedly without confusion
-#
-Everything else comes later.
-#
----
-#
-PM v11 onboarding context complete.
-#
----
+Oliver approves.
+Project Manager designs the pass.
+Codex executes.

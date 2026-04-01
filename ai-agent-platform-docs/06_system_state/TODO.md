@@ -1,17 +1,54 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-03-31 (cleanup-groups Lane B review-page unit truth accepted • Lane B still active)_
+_Last updated: 2026-04-01 (ACE-008 prompt standardization propagated • ACE-007 multi-thread work captured in the control plane • Cleanup Groups and Time Context follow-up remain open) (cleanup-groups Lane B review-page unit truth accepted • Lane B still active)_
 
-- Project Manager — healthy (v8 active)
-- Architect — healthy
-- Backend — healthy
-- Frontend — healthy
-- Workflow — healthy
-- LLM Trainer — healthy
-- Avatar & Voice — healthy
-- Prompt Engineer — healthy
+- Operating model — healthy (`Oliver -> Project Manager -> Codex`)
+- Control Plane — active
+- Orientation layer — active
+- Routing system — active
+- Skills layer — active
+- `/web/docs` mirror discipline — active
 
 ## 🔥 Current Focus (This Week)
 
+----
+
+### ACE-008 — Codex Prompt Standardization
+- [x] Standardize non-trivial PM -> Codex prompts on `07_reference/CODEX_PROMPT_TEMPLATES.md`
+- [x] Require `Skill` + `Skill Location` whenever a skill is referenced
+- [x] Record that documentation-only propagation uses the change-propagation workflow/template
+- [x] Align active control-plane and PM handoff docs to the same prompt contract
+- [x] Verify `AGENTS.md` already enforces the same skill-loading and execution model
+
+### ACE-007 — Context Migration / Multi-Thread Work Capture
+- [x] Propagate ACE-007 across the required control-plane and orientation docs
+- [x] Capture multi-thread work from:
+  - Cleanup Groups
+  - Shared Analysis Rail / Time Context / Charts
+- [x] Record that Control Plane + `ACTIVE_CHANGE_EVENTS.md` replace chat-held continuity
+- [x] Verify unchanged:
+  - `07_reference/SYSTEM_MEMORY_MAP.md`
+  - `AGENTS.md`
+  - `00_core_context/agent_activation_checklist.md` (new file is called something else)
+- [x] Preserve ACE-006 operating-model language while migrating current work into the control plane
+
+### Shared Analysis Rail — Time Context Rebuild
+- [x] Capture Lane A as implemented for:
+  - scope strip enforcement on `All Indexed`, `1M`, and `1W`
+  - monthly/daily bucket grammar correctness
+  - empty interval preservation
+- [x] Capture the current Time Context truth fixes:
+  - row-backed monthly aggregation
+  - same-array truth enforcement between chart and workflow
+  - removal of artifact-seeded timeline mismatch
+  - non-additive bucket truth clarification
+  - axis readability improvements
+  - ghost-slot rendering for zero buckets
+- [ ] Complete the broader Time Context grammar lock
+- [ ] Lock the bucket-to-workflow filtering contract (Lane B)
+- [ ] Prove interactive chart/workflow parity under that narrowing contract
+- [ ] Finish residual data validation and reconciliation
+- [ ] Resolve residual empty `action:""` inbox-analysis runtime noise as a separate follow-up
+- [ ] Keep the runtime-noise follow-up separate from Time Context rebuild acceptance
 ### 🚧 Cleanup Groups — Structural Rebuild (NEW PRIMARY FOCUS)
 
 - [x] Phase 0 — Baseline lock
@@ -185,6 +222,22 @@ Notes:
 - [ ] Preserve the Phase 1 no-rehydrate boundary while adding the chart
 - [ ] Keep Time Context workflow behavior unchanged until the later dedicated interaction phase
 
+### Cleanup Groups — Multi-Phase Rebuild
+- [x] Record Phase 0-4 planning as locked
+- [x] Capture Lane A as implemented and accepted for root-surface behavior
+- [x] Capture Lane B as partially closed with:
+  - marketing unit-only entry model
+  - review-unit integrity
+  - spillover as a first-class unit
+  - unit-scoped hero / top-summary truth
+  - unit-scoped decision handoff truth
+  - invalid / missing / blank unit guards
+- [ ] Close Lane B final guard coverage and oversized-handling validation
+- [ ] Start Lane C
+- [ ] Keep current boundaries explicit:
+  - no new taxonomy work
+  - no root-surface redesign
+  - no artifact redesign
 ### Cleanup Groups Rediscovery (Scoped Roadmap Complete)
 - [x] Complete Phase A canonical model + alias layer
 - [x] Add the single canonical cleanup-group registry

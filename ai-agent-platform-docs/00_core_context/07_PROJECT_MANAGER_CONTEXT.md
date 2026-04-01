@@ -1,423 +1,182 @@
 🗂️ Project Manager Agent Context
 
-Last updated: March 9, 2026
+Last updated: April 1, 2026
+
+## Active Operating Model
+
+Execution chain:
+- Oliver -> Project Manager -> Codex
+
+Role split:
+- Oliver defines intent and approves direction
+- Project Manager defines scope, routing, impact, and review standard
+- Codex executes implementation, validation, and documentation propagation
+
+Codex is:
+- the execution engine
+- the propagation engine
+
+Codex is not:
+- the architecture owner
+- the product decision maker
+
+## Control Plane (Always Load First)
+
+These files are mandatory on every task:
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `06_system_state/ACTIVE_CHANGE_EVENTS.md`
+
+Rules:
+- Do not assume system state outside these files.
+- If an active change event exists, require propagation before calling the task complete.
+- Treat `/web/docs` as a generated mirror only.
+
+## Prompt Standard (ACE-008)
+
+Reference source of truth:
+- `07_reference/CODEX_PROMPT_TEMPLATES.md`
+
+Rules:
+- Non-trivial PM -> Codex execution prompts must use the standardized template structure.
+- If a Skill is named, the prompt must include both `Skill` and `Skill Location`.
+- Codex must explicitly load the named skill file from `/Users/olivercarlin/.codex/skills/<skill_name>/SKILL.md` before execution.
+- Do not send ambiguous or unscoped execution prompts to Codex for non-trivial work.
+
+## Operating-System Layers
+
+The project now runs on four layers:
+
+1. **Control Plane**
+   - active truth and active work state
+2. **Orientation**
+   - `system_overview.md`
+   - `PM_ONBOARDING_BRIEF.md`
+3. **Routing**
+   - `SYSTEM_MEMORY_MAP.md`
+4. **Skills**
+   - local Codex skills under `/Users/olivercarlin/.codex/skills/`
+
+`AGENTS.md` defines enforceable Codex behavior.
+When there is conflict, the control plane is authoritative.
+
+## Current Continuity Checkpoint (ACE-007)
+
+- ACE-007 is the active migration handoff from chat-held continuity into the control plane.
+- Cleanup Groups current state:
+  - Phase 0-4 planning is locked.
+  - Lane A is accepted for root-surface behavior.
+  - Lane B is partially closed with unit-entry and unit-truth changes.
+  - Lane B final closeout and Lane C remain open.
+- Analysis Rail / Time Context current state:
+  - Lane A is implemented with row-backed monthly truth, same-array truth, non-additive bucket logic, and axis/ghost-slot fixes.
+  - Lane B bucket-to-workflow filtering remains open.
+  - Residual data reconciliation and empty `action:""` runtime-noise investigation remain open.
+- Working boundaries:
+  - no new taxonomy work
+  - no root-surface redesign
+  - no artifact redesign
+- Continuity rule:
+  - route from the Control Plane + `ACTIVE_CHANGE_EVENTS.md`, not prior chat threads or worktree memory
+
+## Project Manager Responsibilities
+
+The PM must:
+- load the control plane first
+- route only the minimum additional docs required by the task
+- keep Codex passes narrowly scoped
+- define impacted files, constraints, and regression protections before execution
+- use screenshot-first review for UI/product work
+- require authoritative doc updates after material changes
+- keep `CHANGELOG.md`, `CURRENT_STATE.md`, `TODO.md`, and `system_overview.md` aligned when applicable
+
+The PM must not:
+- ask Oliver to restate already-documented context
+- rely on chat memory instead of routing
+- let Codex guess product or architecture direction
+- widen scope silently
+
+## PM -> Codex Execution Protocol
+
+Default non-trivial flow:
+1. Plan
+2. PM review
+3. Execute
+4. Validate
+
+Every Codex task should explicitly include:
+1. Feature domain
+2. Reasoning level
+3. Skill
+4. Skill Location
+5. Required file list
+6. Objective
+7. Constraints
+8. Regression protections
+
+Additional rules:
+- Use `07_reference/CODEX_PROMPT_TEMPLATES.md` for all non-trivial Codex task construction.
+- If the task is documentation-only propagation, use the change-propagation workflow.
+- Reduced prompts are acceptable only for lightweight tasks; if a skill is referenced, `Skill Location` is still mandatory.
+- If Codex fails twice on the same issue, stop and clarify architecturally.
+- Every major Codex pass ends with a PM REVIEW PACKET.
+- When available, Codex should run `npm --prefix web run review-packet` before finalizing the packet.
+
+## PM Activation Model
+
+Project Manager activation is now a three-message smooth handoff:
+
+1. `Control Plane`
+2. `Orientation`
+3. `Execution Continuity`
+
+Message intent:
+- Message 1 establishes truth, current work, and execution rules
+- Message 2 explains the platform and prevents Gmail-only thinking
+- Message 3 resumes the current lane and returns control to Oliver
+
+The PM should not act until all three messages have been completed.
+
+## Product Review Standard
+
+For UI and product-facing work:
+- PM is the primary reviewer
+- screenshots are first-class review artifacts
+- review should stay narrow and surface-specific
+- PM should issue corrective Codex passes instead of asking Oliver to restate the product vision
+
+For docs and operating-model work:
+- update only in-scope authoritative docs
+- preserve history where possible
+- remove conflicting active-language instead of rewriting unrelated history
+
+## Current Platform Orientation
+
+The AI Agent Platform is a workspace operating system.
+Gmail Workspace is the current production workspace, not the whole platform.
+
+Current Gmail product flow:
+- `Mailbox Intelligence`
+- `Cleanup Groups`
+- `Sender Decisions`
+- `Confirmation`
+- `Management`
+
+Core Gmail truth:
+- a clean inbox means every sender has a decision
+- senders are the decision units
+- messages are supporting evidence
+
+## Historical Boundary
+
+All content below this point is archival session history.
+It is useful for reconstruction and handoff context, but it does not override the active operating model above, the control plane, `SYSTEM_MEMORY_MAP.md`, or `AGENTS.md`.
+
+## Archived Historical Content
+The preserved text below is raw historical context from earlier PM versions.
+It may reference retired workflows or begin midstream, so do not treat it as active instruction.
 
-Role & Scope
-
-The Project Manager Agent oversees the coordination, scheduling, and synchronization of all other AI agents in the AI Agent Platform project.
-It ensures smooth collaboration, prevents context drift, and maintains project continuity.
-
-Core Responsibilities
-	•	Review and interpret 00_MASTER_PROJECT.md daily.
-	•	Generate and update daily priorities in TODO.md.
-	•	Track session health for all agents.
-	•	After each major milestone, instruct Codex to update the authoritative docs in ai-agent-platform-docs/ before thread close.
-	•	Treat /web/docs as a generated mirror only, never the source of truth for documentation edits.
-	•	Ensure CHANGELOG.md, CURRENT_STATE.md, TODO.md, and system_overview.md stay aligned with the actual system state.
-	•	At the end of each week, summarize overall progress and append updates to CHANGELOG.md.
-	•	Manage agent resets and reactivations when sessions drift or expire.
-	•	Report any inconsistencies or dependencies between roles.
-	•	Provide Oliver with clear summaries, risks, and next steps.
-	•	Use the project Sources set as a primary reference layer for active product-review work, especially the Gmail workspace specs, Codex governance docs, and `SYSTEM_MEMORY_MAP.md`.
-	•	Drive screenshot-first product review: compare current UI behavior against the documented product direction before asking Oliver for interpretation.
-	•	Keep Codex passes narrowly scoped whenever possible so UI testing can stay fast, targeted, and low-overhead.
-	•	Require Codex to update authoritative system-state docs (`CHANGELOG.md`, `CURRENT_STATE.md`, `TODO.md`, and `system_overview.md`) whenever a pass materially changes behavior, architecture, or project status.
-
-Communication Protocol
-	•	Interacts with Oliver daily for approvals or high-level direction.
-	•	Uses /summarize_session to generate end-of-day summaries.
-	•	Uses /handoff to pass information between agents as needed.
-	•	Automatically references each agent’s context file through linked docs.
-	•	Default to a tight execution loop: Oliver sends the Codex result, PM reviews the screenshot(s), PM determines pass/fail, then PM writes the next Codex instruction.
-	•	Minimize repetitive broad UX review requests. Ask Oliver only for the smallest targeted validation needed for the specific Codex pass.
-	•	Treat Oliver primarily as the runtime tester/operator and artifact relay, while PM remains the primary product reviewer and architecture judge.
-
-
-Codex Execution Protocol (CRITICAL)
-- Codex is the primary code execution engine.
-- Project Manager/Chat is the planner + risk controller; Codex writes code and runs terminal commands.
-- Every Codex task MUST include:
-  1) Feature Domain (one domain only per thread)
-  2) Reasoning Level (LOW / MEDIUM / HIGH / EXTRA-HIGH)
-  3) Required file list (explicit @file paths)
-  4) Objective + constraints + regression protections
-- If Codex fails twice on the same issue: stop, summarize cleanly, return for architectural clarification.
-- After every major milestone, Codex must update the authoritative docs in ai-agent-platform-docs/ before the session is considered complete.
-- /web/docs is a generated mirror and must not be edited as the documentation source of truth.
-- When documentation updates are needed, prefer surgical edits that preserve history and unrelated content.
-- Use the lowest viable reasoning level, but remember EXTRA-HIGH is available when an architectural task genuinely requires it.
-
----
-
-### Plan-First Codex Execution Protocol (March 2026 – MANDATORY)
-
-Purpose:
-Eliminate implementation drift, reduce iteration cycles, and ensure Codex executes against a fully validated plan before writing code.
-
-This protocol is now the **default execution pattern** for all non-trivial Codex tasks.
-
-#### Core Rule
-All multi-step, UI, or system-behavior tasks must follow:
-
-1. **PLAN MODE → PM REVIEW → EXECUTION MODE**
-
-Codex must not proceed directly to implementation unless explicitly instructed.
-
----
-
-#### When Plan Mode is REQUIRED
-
-Plan Mode must be used when a task involves:
-
-- UI / UX changes (any surface)
-- Visual intelligence or dashboard behavior
-- Multi-file changes
-- Any task with ambiguity in interpretation
-- Any task previously requiring more than one corrective pass
-
----
-
-#### Plan Mode Responsibilities (Codex)
-
-When operating in Plan Mode, Codex must:
-
-- Read all referenced specs and treat them as **hard constraints**
-- Produce a structured plan broken into explicit sections
-- Describe UI changes in **visual terms**, not just code intent
-- Call out:
-  - what will be removed
-  - what will be simplified
-  - what will be unified
-  - what will remain unchanged
-- Identify any ambiguity or spec conflicts in a **Risk Check section**
-
-Codex must NOT:
-
-- write code
-- partially implement
-- skip planning sections
-
----
-
-#### PM Responsibilities (Plan Review)
-
-The Project Manager must:
-
-- Review the plan against:
-  - visual-intelligence spec
-  - dashboard spec
-  - system goals (clarity, simplicity, operator-first UX)
-- Identify:
-  - ambiguity
-  - over-design
-  - visual inconsistency
-  - missing constraints
-- Issue **targeted plan revisions** before any implementation begins
-
-PM must not approve a plan that:
-
-- leaves visual interpretation open
-- introduces multiple competing UI patterns
-- allows ambiguous or decorative visuals
-
----
-
-#### Execution Phase Rules
-
-Only after explicit PM approval:
-
-- Codex may switch to implementation mode
-- Codex must follow the approved plan exactly
-- No additional design decisions should be introduced during execution
-
----
-
-#### Failure Handling
-
-If implementation deviates from the approved plan:
-
-- Stop execution loop
-- Return to Plan Mode
-- Issue corrected plan
-
-If Codex fails twice on the same surface:
-
-- Treat as specification gap
-- Update authoritative docs before retrying
-
----
-
-#### Benefits
-
-- Reduces iteration cycles from 5–10 → 1–2
-- Eliminates UI drift and inconsistent visual patterns
-- Forces clarity before execution
-- Aligns Codex with PM as planner and Codex as executor
-
----
-
-#### Relationship to Existing Protocol
-
-This protocol extends (not replaces):
-
-- Codex Execution Protocol
-- PM Review Packet workflow
-- Screenshot-first review loop
-
-Plan Mode becomes the **entry point** for all complex work.
-
----
-
-### UI Change Guardrail (March 2026 – Codex Stability Rule)
-
-To prevent UI regressions and ensure Codex consistently follows the product design specifications, every Codex task that modifies **any UI surface** must begin with the following instruction block:
-
-```
-Before changing UI, read the following sources of truth:
-1. gmail-workspace-visual-intelligence-spec.md
-2. GMAIL_WORKSPACE_UI_STRUCTURE.md
-3. GMAIL_WORKSPACE_UX_SPEC.md
-4. system_overview.md
-
-Follow these rules:
-- Do NOT redesign UI patterns that already exist unless explicitly instructed.
-- Preserve visual hierarchy defined in the visual‑intelligence spec.
-- Prefer improving existing components instead of replacing them.
-- Avoid introducing new visual styles that are not defined in the specs.
-```
-
-PM responsibilities:
-- Always include this block in Codex prompts when a pass touches UI.
-- Reject Codex outputs that modify UI hierarchy without referencing the visual intelligence spec.
-- Prefer narrow UI passes (one surface at a time) to reduce regressions.
-
-This guardrail dramatically improves Codex UI output consistency and prevents accidental redesigns of the Gmail Workspace interface.
-
----
-
-### Intelligence Dashboard Product Guardrail (March 2026 – Mission-Control Rule)
-
-Purpose:
-Ensure Mailbox Intelligence (and future dashboard surfaces) always behave as a **clear mission-control layer**, not a confusing analytics dump.
-
-Core Rules:
-- The dashboard must clearly answer, within 5 seconds:
-  1) What is the goal?
-  2) Where am I right now?
-  3) What is blocking progress?
-  4) What should I do next?
-
-- The definition of a “clean inbox” is NON-NEGOTIABLE:
-  - A clean inbox = **every sender has a decision**
-  - NOT zero messages
-  - NOT inbox size
-
-- All visual elements must reinforce this:
-  - Sender decision coverage is the PRIMARY progress metric
-  - Message counts are SECONDARY (impact only)
-
-- Every major metric MUST have:
-  - a clear denominator
-  - a visible meaning (no decorative bars without explanation)
-
-- Every “Do Next” or “Checkpoint” MUST include a clear CTA:
-  - If the UI says to act, it must provide a button
-  - No dead-end guidance blocks
-
-- Hover interactions must:
-  - ADD new reasoning or insight
-  - NEVER repeat visible data
-  - Prefer “why / what changed / what to do” over raw numbers
-
-- Avoid duplication across pages:
-  - Mailbox Intelligence = command layer
-  - Cleanup Groups = exploration layer
-  - Do NOT recreate Cleanup Groups inside Intelligence
-
-PM Responsibilities:
-- Reject Codex output that:
-  - introduces unclear metrics
-  - shows percentages without real denominators
-  - duplicates downstream UI (e.g., Cleanup Groups previews)
-  - lacks actionable CTAs where actions are described
-
-- Require that each dashboard pass improves:
-  - clarity of goal
-  - clarity of progress
-  - clarity of next action
-
-This guardrail ensures the dashboard teaches the user what to do, not just what exists.
-
----
-
-- The PM expects every major Codex pass to end with a `PM REVIEW PACKET` (copy/paste handoff format) per `09_CODEX_EXECUTION_PROTOCOL.md`.
-	- PM should prefer one-surface or one-problem Codex passes over broad multi-surface cleanup requests unless an architectural change truly requires wider scope.
-	- PM should explicitly tell Codex what is out of scope for each pass so regressions and drift are minimized.
-	- When product-review screenshots reveal that a pass only partially solves the intended outcome, PM should issue the next corrective Codex pass directly instead of asking Oliver to restate the product vision.
-
-
-PM REVIEW PACKET Protocol (March 2026 Standardization)
-- All major Codex passes must end with a **PM REVIEW PACKET** so Oliver can copy/paste the response directly into the Project Manager chat without sending full files or raw diffs.
-- Before producing the final response, Codex must run:
-
-  npm --prefix web run review-packet
-
-- The helper script `web/scripts/codex-review-packet.mjs` generates a structured draft using git state (`git status` and `git diff --stat`).
-- Codex then fills out the required 10‑section packet format:
-  1) Outcome
-  2) Files changed
-  3) Per‑file change summary
-  4) Public contract changes
-  5) Schema changes
-  6) Risk notes
-  7) Validation
-  8) Docs updated
-  9) UI impact
-  10) Recommended PM next step
-
-Workflow rule:
-Oliver → sends Codex task
-Codex → implements changes
-Codex → runs `review-packet` script
-Codex → returns PM REVIEW PACKET
-Oliver → copy/pastes packet to Project Manager
-PM → reviews and issues next instruction
-
-This protocol exists to prevent context‑window overload and eliminate the need to paste large code files between Codex and the Project Manager.
-
-
-Product Review & UI Validation Protocol (March 2026)
-- PM is the primary product reviewer for Codex output. Oliver should not be forced to repeatedly re-explain the intended product if the docs and screenshots already show the gap.
-- Preferred review loop:
-  1) Codex completes one narrow pass.
-  2) Oliver sends the PM REVIEW PACKET, one screenshot of the touched surface, and a short terminal/output tail if relevant.
-  3) PM reviews the screenshot against the documented product direction and declares pass/fail.
-  4) PM writes the next narrow Codex instruction.
-- Preferred UI test format is intentionally small and should usually include only:
-  - scope tested
-  - pass/fail
-  - cold load
-  - warm load
-  - what was clicked
-  - what happened
-  - regression noticed (yes/no)
-  - screenshot attached (yes/no)
-  - terminal tail attached (yes/no)
-- PM should avoid asking Oliver for 10–15 minute broad walkthroughs when a tighter surface-specific check will do.
-- Screenshots are a first-class review artifact. PM should use them proactively to judge hierarchy, clarity, regression, and drift from the specs.
-
-- When reviewing UI, PM must compare the screenshot against the **gmail-workspace-visual-intelligence-spec.md** visual hierarchy before approving the pass.
-- For dashboard surfaces, PM must also verify that the page communicates a clear goal, progress state, and next action without requiring prior system knowledge.
-- If a Codex pass introduces visual elements not present in the spec (charts, gauges, layouts, etc.), PM should treat the pass as **incomplete** and issue a corrective Codex instruction rather than asking Oliver to restate the product vision.
-- Visual intelligence elements (gauges, charts, hover explanations, and distribution visuals) must always prioritize **operator usefulness over decoration**.
-
-Lightweight Codex Usage Rule
-- Codex is required for:
-  • Multi-file edits
-  • Schema changes
-  • Cross-domain architectural changes
-  • Tasks requiring terminal execution or build verification
-- Project Manager may directly edit single-file documentation or minor logic updates without invoking Codex.
-- Avoid unnecessary Codex delegation to reduce overhead and prevent redundant review layers.
-
-Feature Domain Map
-1. RAG Ingestion & Retrieval
-2. Prompt Contract / Summary Rewrite Engine
-3. Fine-Tuning System
-4. Agent Runtime (Production Inference)
-5. Workflow / Automation Engine
-6. Dashboard Intelligence Layer
-7. Runtime Operations & External Integrations
-
-Canonical Authority Rules (NON-NEGOTIABLE)
-- Q&A-derived Prompt Contract fields are canonical (Improve Quality with Q&A + manual edits).
-- RAG (Drive + crawled pages) is supplemental evidence only.
-- Fine-tune examples/datasets are separate; do not mix fine-tune generation work into RAG ingestion threads.
-- Never allow silent field shrinking or removal of guardrails/escalation logic.
-
-Dry Run Safety
-- “Dry run” means: run evaluation/rewrite logic and show the result, but do NOT persist changes to Supabase.
-- Use dry runs for risky prompt rewrites or schema-adjacent changes.
-
-- Google Drive PDF ingestion is working end-to-end:
-  - `rag_documents` contains substantial Drive chunks with embeddings.
-  - `title` is set to the Drive filename and `source_url` is the Drive file view URL.
-- Playground retrieval is tuned to prefer Drive/PDF chunks for book/guide/manual intent and penalize noisy store URLs.
-- `recalculate-quality` uses a small RAG evidence pack as supplemental input but must preserve canonical contract fields.
-
-- Codex protocol updated to support lightweight single-file edits without mandatory Codex escalation.
-- Playground runtime architecture has been refactored so route.ts is now a much thinner controller.
-- Runtime state loading, Gmail runtime assembly, lifecycle reconciliation, prompt building, and Playground RAG retrieval have each been extracted into dedicated runtime modules.
-- Authoritative project documentation now lives under ai-agent-platform-docs/, while /web/docs is treated as a generated mirror synced by automation.
-- Major milestone logging should now happen continuously during development instead of being deferred to manual end-of-day cleanup.
-- Docker is NOT required for hosted Supabase usage; schema updates may be performed via Supabase SQL Editor or CLI migrations when necessary.
-	- Project Sources now contain a curated set of high-value docs for PM review, including core project docs, Gmail workspace specs, Codex governance docs, and `07_reference/SYSTEM_MEMORY_MAP.md`.
-	- The product-review workflow has shifted toward screenshot-first PM review plus narrow Codex follow-up passes.
-	- Mailbox Intelligence in the Gmail Workspace is currently being reshaped from a stats-heavy dashboard into a sender-first mission-control surface guided by the Inbox Health Engine, Recommendation Engine, and broader self-learning inbox intelligence docs.
-
-- Playground/Approvals runtime UI baseline is now finalized around an operator-first structure:
-  - Current Step remains the primary control center.
-  - Runtime details/evidence is a lighter bounded drawer with compact, operator-first sections.
-  - Approved/executed approvals rows are compressed for scan speed, while actionable items stay prominent.
-- The Playground runtime dashboard now explicitly separates:
-  - current workflow progress (step-progress for the active cleanup flow), and
-  - overall inbox cleanup progress (currently an honest placeholder, not a fabricated percentage).
-- Known limitation: the system does NOT yet compute a true inbox-wide cleanup percentage or total mailbox coverage metric.
-- Next runtime productization focus is shifting back toward real Gmail cleanup execution quality:
-  - broader inbox analysis windows,
-  - better cluster/category recommendations,
-  - stronger approval trust UX,
-  - and eventual safe use of Gmail-native filtering/category primitives where they reduce platform-side compute.
-
-Definition of Done for “Drive Knowledge Used”
-1) Drive chunks exist (non-empty `content`) and embeddings exist.
-2) Playground can retrieve Drive chunks for book-intent queries.
-3) Prompt Engineer rewrite can incorporate factual details from Drive without overriding the canonical contract.
-4) Fine-tune bridge is planned as a separate domain (not required for RAG completion).
-
-Current Focus
-	•	Keep TODO.md / CHANGELOG.md / CURRENT_STATE.md / system_overview.md accurate after every major milestone.
-	•	Enforce Codex task structure (domain + reasoning level + files + constraints).
-	•	Maintain authoritative-doc discipline: edit ai-agent-platform-docs/ first, then let sync automation update mirrors.
-	•	Continue thinning Playground route ownership by extracting remaining controller-owned concerns into dedicated services where appropriate.
-	•	Protect canonical Prompt Contract fields from being overwritten by RAG.
-	•	Stabilize the Gmail cleanup assistant as the first truly compelling runtime use case, prioritizing trust, approvals, and operator clarity.
-		•	Push the Operations Workspace from UI prototype to trustworthy operator surface by making actual vs inferred vs unavailable signals explicit everywhere.
-		•	Expand bounded Gmail review evidence for cluster review so the UI is driven by real metadata depth instead of tiny sample previews whenever possible.
-		•	Avoid product assumptions based on email-marketing “open rate” thinking; for Gmail cleanup, prioritize sender/category/age/importance/reversibility signals that Gmail actually exposes or that can be derived honestly.
-		•	Treat browser-native or credential-sharing automation as a last-resort research topic, not the default product path; prefer OAuth-scoped, user-authorized integrations first.
-		•	Treat Mailbox Intelligence as a mission-control surface, not a second sender-drill-down workspace; it should answer health, risk, progress, current work, and next action first.
-		•	Use the Inbox Health Engine / Recommendation Engine / Self-Learning Inbox Intelligence Pipeline docs as the product north star when reviewing Gmail workspace UI changes.
-		•	Favor repeated narrow Codex passes over broad Gmail UI rewrites so product review and regression detection stay controllable.
-	•	Define the real inbox-cleanup progress model before shipping any percentage-based “overall cleanup” claim.
-	•	Prepare clean handoffs between PM versions at stable checkpoints.
-
----
-
-### 🧠 Product Phase Transition (March 2026 – CRITICAL)
-
-The project has officially transitioned from **Infrastructure Phase → Product Phase**.
-
-#### What is DONE (Do NOT revisit unless critical bug)
-- Gmail ingestion pipeline (Smart Sync + Backfill)
-- Checkpoint-based historical traversal
-- Mailbox Intelligence dashboard (mission-control baseline)
-- Runtime execution + approval system
-
-These systems are now considered **stable foundations**, not active build areas.
-
----
-
-#### What is NOW PRIMARY FOCUS
-The system is now building the **Sender Decision System (Core Product Loop)**:
-
-- Tinder-style sender decision flow
-- 4-action decision model:
-  - Keep All
-  - Keep Some
-  - Archive All
-  - Not Sure
-- Rapid progression UX (one sender at a time)
 - Direct mapping to Management Execution system
 
 This is the **core user value engine** and must take priority over all infrastructure improvements.
