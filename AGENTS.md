@@ -51,6 +51,9 @@ Additional documents:
 - must follow routing logic
 - must not be preloaded unnecessarily
 
+For worktree sync, merge recovery, or shared hot-file integration tasks, Codex MUST also load:
+- `07_reference/Shared_Hot_File_Merge_Protocol.md`
+
 ---
 
 ## 3. Execution Rules
@@ -72,6 +75,21 @@ Before coding, Codex MUST:
    - side effects
 
 Codex must not proceed if scope is unclear.
+
+For worktree sync or merge work, Codex MUST classify the task before execution:
+- docs / control-plane sync
+- shared hot-file integration
+
+Classification must be based on two-sided overlap from the merge base, not a one-sided diff.
+
+Current shared hot files:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+
+Codex must not treat shared hot-file integration as part of routine docs propagation.
+Codex must follow the default merge bias rules in `07_reference/Shared_Hot_File_Merge_Protocol.md` unless PM explicitly overrides them.
+If classification = `hot_file_integration_required`, full git merge is prohibited and Codex must route the work into a dedicated integration pass.
 
 ---
 
@@ -111,6 +129,17 @@ Rules:
 - No “mental tracking” of changes is allowed
 - All active changes must be tracked in ACTIVE_CHANGE_EVENTS.md
 
+If the task is control-plane or documentation sync between `main` and a worktree:
+- use docs-only sync as the default safe path
+
+If a full merge becomes unsafe because shared hot files overlap:
+- preserve any resolved docs needed for the docs-only sync
+- abort the unsafe full merge
+- complete docs-only sync separately
+- route the shared hot files into a dedicated Codex-assisted integration pass
+
+`ACE-011` is completed historical context for this recovery path and must not be reopened as an active change.
+
 ---
 
 ## 6. Post-Execution Report
@@ -136,6 +165,7 @@ Codex MUST STOP and request PM approval if:
 - schema or data model changes are required
 - multiple subsystems are impacted unexpectedly
 - source-of-truth documents conflict
+- hot-file integration fails twice on the same issue
 
 Codex must not guess.
 

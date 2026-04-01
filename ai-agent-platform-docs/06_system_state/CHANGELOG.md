@@ -1,3 +1,49 @@
+### April 1, 2026 — ACE-012 Shared Hot-File Merge System Hardening
+
+What changed:
+- Added `07_reference/Shared_Hot_File_Merge_Protocol.md` as the authoritative reference for shared hot-file merge work.
+- Tightened merge preflight from a one-sided changed-file check to merge-base, two-sided overlap detection.
+- Added a hard prohibition on full git merge when classification = `hot_file_integration_required`.
+- Recorded the default merge bias rules:
+  - UI files prefer `main` unless PM overrides
+  - runtime logic prefers the active worktree lane
+  - imports union unless the conflict is semantic
+  - types/interfaces prefer the superset, not reduction
+- Added the failure escalation rule that returns the decision to PM after two failed Codex integration attempts.
+
+Accepted outcome:
+- Shared hot-file merge work now has one authoritative operating-model doc instead of relying on scattered checklist instructions.
+- PM handoffs now require a preflight packet for dedicated hot-file integration passes.
+- The system remains lightweight and repeatable while removing full git merge as an option for true shared hot-file overlap.
+- This pass changed documentation only; no runtime, UI, schema, or API behavior changed.
+
+Still open:
+- Any future change to the shared hot-file registry still requires explicit PM decision and propagation.
+
+### April 1, 2026 — ACE-009 + ACE-010 Worktree Sync / Hot-File Merge Propagation Pass
+
+What changed:
+- Propagated `ACE-009 — Worktree Sync Automation + Conflict Recovery System` and `ACE-010 — Shared Hot-File Merge Protocol + Codex-Assisted Integration` across the in-scope control-plane and operating-model docs.
+- Standardized `docs-only sync` as the official path for control-plane and documentation sync between `main` and active worktrees.
+- Added explicit `conflict recovery` guidance for aborting unsafe full merges, restoring resolved docs, and finishing docs-only sync safely.
+- Defined `shared hot files` as a separate integration class and recorded the current hot-file list:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+- Added PM/Codex-facing merge preflight and Codex-assisted hot-file integration instructions so Oliver is no longer the default manual merge resolver.
+- Preserved `ACE-011` as completed historical context documenting the recovery that already happened.
+
+Accepted outcome:
+- Control-plane/doc sync and shared hot-file integration are now explicitly separate operating paths.
+- Docs-only sync can now be executed in either direction without relying on unsafe full merges.
+- Full merges that surface shared hot-file overlap during control-plane alignment now route to:
+  - docs-only sync first
+  - dedicated Codex-assisted hot-file integration second
+- This pass changed documentation only; no runtime, UI, schema, or API behavior changed.
+
+Still open:
+- Future hot-file overlaps still require a scoped Codex integration pass when they occur; this propagation pass only established the operating protocol.
+
 ### April 1, 2026 — ACE-008 Codex Prompt Standardization Propagation Pass
 
 What changed:

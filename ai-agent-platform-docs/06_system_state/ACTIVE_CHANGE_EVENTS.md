@@ -15,8 +15,6 @@ This file tracks active architectural, product, workflow, UI, and operating-mode
 
 ## Active Change Events
 
----
-
 ### [ACE-001] Cleanup Groups — Marketing Unit-Only Entry Model
 
 Date: 2026-04-01  
@@ -195,6 +193,214 @@ Notes:
 ---
 
 ## Completed Change Events
+
+### [ACE-012] Shared Hot-File Merge System Hardening
+
+Date: 2026-04-01
+Owner: PM
+Status: Completed
+Propagation Owner: Codex
+Propagation Status: Fully Propagated
+
+Decision:
+- The hot-file merge system is refined through one authoritative protocol document instead of relying on scattered checklist-only guidance.
+- Merge preflight must use merge-base, two-sided overlap detection rather than a one-sided changed-file view.
+- If classification = `hot_file_integration_required`, full git merge is prohibited and the work must route to a dedicated Codex integration pass.
+- Default merge bias rules are now explicit:
+  - UI files prefer `main` unless PM overrides
+  - runtime logic prefers the active worktree lane
+  - imports union unless the conflict is semantic
+  - types/interfaces prefer the superset, not reduction
+- If Codex fails the same hot-file integration twice, execution must stop and return to PM instead of retrying blindly.
+
+Reason:
+- The April 1 baseline established the operating model, but the system still needed one authoritative protocol and tighter enforcement for preflight, merge prohibition, and escalation.
+- The goal is to keep Oliver out of manual shared-file triage by default while preserving a lightweight and repeatable workflow.
+
+Affected system areas:
+- Codex execution system
+- PM routing and review workflow
+- worktree sync operating model
+- hot-file integration workflow
+
+Affected code areas:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+- future PM-designated shared hot files
+
+Docs requiring propagation:
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `06_system_state/CHANGELOG.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `00_core_context/Project Manager Activation & Turnover Protocol.md`
+- `07_reference/Shared_Hot_File_Merge_Protocol.md`
+- `07_reference/Git_GitHub_Worktrees_Backups_operating_Model.md`
+- `07_reference/Simple_Worktrees_Setup_Checklist.md`
+- `07_reference/OLIVER_OPERATING_CHECKLIST.md`
+- `07_reference/CODEX_PROMPT_TEMPLATES.md`
+- `07_reference/SYSTEM_MEMORY_MAP.md`
+- `AGENTS.md`
+
+What was propagated:
+- Added `Shared_Hot_File_Merge_Protocol.md` as the authoritative human-readable merge workflow.
+- Tightened merge preflight to require merge-base, two-sided overlap classification.
+- Added the hard prohibition on full git merge for `hot_file_integration_required`.
+- Recorded the default merge bias rules for UI, runtime logic, imports, and types/interfaces.
+- Added the two-failure escalation rule that returns the decision to PM.
+
+Notes:
+- `ACE-009`, `ACE-010`, and `ACE-011` remain completed historical context and were not reopened by this pass.
+- No runtime, UI, schema, or product behavior changed in this pass.
+
+### [ACE-010] Shared Hot-File Merge Protocol + Codex-Assisted Integration
+
+Date: 2026-04-01
+Owner: PM
+Status: Completed
+Propagation Owner: Codex
+Propagation Status: Fully Propagated
+
+Decision:
+- Shared hot files must be explicitly identified and treated as a separate integration class from docs/control-plane files.
+- Codex should perform preflight detection of overlapping hot-file edits between `main` and active worktrees before any attempted merge.
+- Hot shared code merges should be handled through a dedicated Codex-assisted integration pass instead of ad hoc manual comparison by Oliver.
+
+Reason:
+- Files such as `review/page.tsx`, `gmailCleanupWorkspace.ts`, and `inboxAnalysis.ts` produced high-friction manual merge conflicts.
+- These files are shared runtime surfaces that multiple lanes may touch concurrently.
+- The system needs a repeatable mechanism to detect, classify, and route these merges safely.
+
+Affected system areas:
+- Codex execution system
+- Worktree operating model
+- Runtime integration workflow
+- PM review workflow
+
+Affected code areas:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+- Any future files designated as shared hot files
+
+Docs requiring propagation:
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `06_system_state/CHANGELOG.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `07_reference/Git_GitHub_Worktrees_Backups_operating_Model.md`
+- `07_reference/Simple_Worktrees_Setup_Checklist.md`
+- `07_reference/OLIVER_OPERATING_CHECKLIST.md`
+- `07_reference/CODEX_PROMPT_TEMPLATES.md`
+- `AGENTS.md`
+
+What was propagated:
+- Defined `shared hot files` in the active operating model and prompt templates.
+- Added merge preflight rules that classify overlap before any attempted full merge.
+- Added a dedicated Codex-assisted hot-file integration workflow and explicitly removed Oliver as the default manual merge resolver.
+- Locked the current shared hot-file list into the operating docs.
+
+Notes:
+- Human review may still be required for final product judgment, but Codex owns the comparison/proposal/integration workflow.
+- `ACE-011` remains completed historical recovery context and is not reopened by this event.
+
+---
+
+### [ACE-009] Worktree Sync Automation + Conflict Recovery System
+
+Date: 2026-04-01
+Owner: PM
+Status: Completed
+Propagation Owner: Codex
+Propagation Status: Fully Propagated
+
+Decision:
+- Worktree synchronization must no longer rely on manual human conflict resolution for control-plane and documentation files.
+- The system must introduce a documented and automatable docs-only sync workflow between `main` and active worktrees.
+- The system must introduce a documented conflict-recovery workflow for aborting unsafe full merges, restoring resolved docs, and completing docs-only sync safely.
+- Control-plane sync and shared-code integration are now treated as separate operations.
+
+Reason:
+- Manual worktree sync created excessive operator overhead and unacceptable time cost.
+- The current merge process exposed that control-plane/doc sync and hot shared code merges have different risk profiles.
+- Future PM activation and turnover must not depend on repeating manual merge triage.
+
+Affected system areas:
+- Worktree operating model
+- Control Plane
+- PM activation / turnover workflow
+- Codex execution system
+- Local Git operating process
+
+Affected code areas:
+- Documentation / operating-model layer in this pass
+- Optional future automation scripts / skills layer
+
+Docs requiring propagation:
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `06_system_state/CHANGELOG.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `01_workspace_architecture/system_overview.md`
+- `07_reference/Git_GitHub_Worktrees_Backups_operating_Model.md`
+- `07_reference/Simple_Worktrees_Setup_Checklist.md`
+- `07_reference/OLIVER_OPERATING_CHECKLIST.md`
+- `00_core_context/Project Manager Activation & Turnover Protocol.md`
+- `07_reference/SYSTEM_MEMORY_MAP.md`
+- `07_reference/CODEX_PROMPT_TEMPLATES.md`
+
+What was propagated:
+- Added formal `docs-only sync` procedures for `main -> worktree` and `worktree -> main`.
+- Added formal `conflict recovery` steps for unsafe full merges.
+- Added explicit rules for aborting a full merge and falling back to docs-only sync.
+- Added PM/Codex-facing execution guidance so the recovery flow no longer depends on Oliver reconstructing it manually.
+
+Notes:
+- This event produced the official automation-ready documentation for the merge-recovery workflow.
+- `ACE-011` remains the completed historical execution record for the recovery example itself.
+
+---
+
+### [ACE-011] Docs-Only Worktree Sync Recovery Executed
+
+Date: 2026-04-01
+Owner: PM
+Status: Completed
+Propagation Owner: Human + Git
+Propagation Status: Fully Executed
+
+Decision:
+- The failed full merge between `main` and `cleanup-taxonomy-rebuild` was intentionally split into:
+  - a docs/control-plane sync
+  - deferred shared-code integration
+- Resolved control-plane documents were preserved, the unsafe full merge was aborted, and docs-only sync was completed in both directions.
+
+Reason:
+- Full merge included shared hot-file conflicts that were not appropriate to resolve during control-plane alignment and PM activation prep.
+- The immediate goal was to unify operating docs and control-plane truth without forcing risky code integration.
+
+What was done:
+- Backed up resolved doc merges from the interrupted main-repo merge.
+- Aborted the unsafe full merge on `main`.
+- Restored resolved control-plane docs into `main`.
+- Pulled docs/proofs from `cleanup-taxonomy-rebuild` into `main` and committed/pushed a docs-only sync.
+- Aborted the unsafe repo -> worktree full merge in `cleanup-taxonomy-rebuild`.
+- Pulled updated control-plane / operating docs from `origin/main` into the cleanup worktree and committed/pushed a docs-only sync.
+
+Files / areas affected:
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `06_system_state/CHANGELOG.md`
+- `07_reference/project_structure.txt`
+- cleanup-group docs / proofs
+- PM / Codex operating docs synced into both repo contexts
+
+Notes:
+- This event records what was already executed.
+- Shared hot-file code integration remains intentionally deferred and should be handled under a separate active protocol.
+
+---
 
 ### [ACE-008] Codex Prompt Standardization
 
