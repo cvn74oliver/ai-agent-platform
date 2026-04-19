@@ -793,7 +793,7 @@ export default function OperationsClustersPage() {
                                 Review units inside this parent
                               </p>
                               <p className="mt-2 text-sm leading-6 text-gray-200">
-                                {group.internalStructure.summary}
+                                {group.internalStructure?.summary}
                               </p>
                               <p className="mt-2 text-xs leading-5 text-slate-300">
                                 These derived review units come from current artifact truth. Opening one
