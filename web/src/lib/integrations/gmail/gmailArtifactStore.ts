@@ -661,11 +661,16 @@ function normalizeRailTimelineFromHeader(
   }
 }
 
+type SelectedClusterRailSemanticResolutionDistribution = Array<{
+  scope: 'family' | 'pattern'
+  resolution: 'clear' | 'mixed' | 'thin_history'
+  sender_count: number
+  share_pct: number
+}>
+
 function normalizeSemanticResolutionDistributionFromHeader(
   header: SelectedClusterRailHeaderSurfaceRow | null | undefined
-): OperationsSelectedClusterRailFamilyScopeEntry['signal'] extends { semantic_resolution_distribution: infer T }
-  ? T
-  : never {
+): SelectedClusterRailSemanticResolutionDistribution {
   const analytics = normalizeJsonObject(header?.analytics)
   return Array.isArray(analytics.semantic_resolution_distribution)
     ? analytics.semantic_resolution_distribution
@@ -751,7 +756,8 @@ export function buildSelectedClusterRailFamily(params: {
       const scopeSummaries = clusterSummariesByScope.get(scope) || []
       const selectedSummary = selectedSummaryByScope.get(scope) || null
       const selectedHeader = selectedHeaderByScope.get(scope) || null
-      const snapshotFallback = params.snapshotFallbackByScope?.[scope] || null
+      const snapshotFallback: SelectedClusterRailSnapshotScopeFallback | null =
+        params.snapshotFallbackByScope?.[scope] || null
       const clusterTitle =
         normalizeNullableText(selectedHeader?.title) ||
         normalizeNullableText(selectedSummary?.title) ||
@@ -821,7 +827,7 @@ export function buildSelectedClusterRailFamily(params: {
           artifact_version: artifactVersion,
           visible_cluster_count: scopeSummaries.length,
           snapshot_available: snapshotFallback != null,
-          selected_cluster_present_in_snapshot: snapshotFallback?.cluster_present === true,
+          selected_cluster_present_in_snapshot: false,
           published_header_present: true,
           published_cluster_present: selectedSummary != null,
         })
@@ -850,7 +856,7 @@ export function buildSelectedClusterRailFamily(params: {
           artifact_version: artifactVersion,
           visible_cluster_count: scopeSummaries.length,
           snapshot_available: snapshotFallback != null,
-          selected_cluster_present_in_snapshot: snapshotFallback?.cluster_present === true,
+          selected_cluster_present_in_snapshot: false,
           published_header_present: false,
           published_cluster_present: false,
         })

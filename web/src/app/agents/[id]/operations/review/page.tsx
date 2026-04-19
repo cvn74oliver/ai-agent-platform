@@ -5258,92 +5258,96 @@ export default function OperationsReviewPage() {
     selectedCluster,
     senderOverviewWindowSelection,
   ])
-  const shouldDeferLiveFetchForDefaultOverview =
+const requiresCanonicalDefaultOverviewBaseline = useMemo(
+  () =>
     mode === 'overview' &&
     isDefaultOverviewContext &&
     resolvedTimeContextState.mode === 'default_overview' &&
-    defaultOverviewRuntimeGate.clusterId === selectedCluster?.clusterId &&
-    defaultOverviewRuntimeGate.status === 'waiting' &&
-    hasDeferrableDefaultOverviewBaselineSeed
-  const requiresCanonicalDefaultOverviewBaseline = useMemo(
-    () =>
-      mode === 'overview' &&
-      isDefaultOverviewContext &&
-      resolvedTimeContextState.mode === 'default_overview' &&
-      effectiveWorkflowScope === normalizedAnalysisScope &&
-      normalizedAnalysisScope === 'all_indexed' &&
-      !timeContextBucketRequestActive &&
-      !senderOverviewWorkflowWindowActive &&
-      requestedTimeContextBucketLabel == null &&
-      senderOverviewWindowSelection == null,
-    [
-      effectiveWorkflowScope,
-      isDefaultOverviewContext,
-      mode,
-      normalizedAnalysisScope,
-      requestedTimeContextBucketLabel,
-      resolvedTimeContextState.mode,
-      senderOverviewWindowSelection,
-      senderOverviewWorkflowWindowActive,
-      timeContextBucketRequestActive,
-    ]
-  )
-  const hasCanonicalDefaultOverviewBaseline = useMemo(() => {
-    if (!selectedCluster || !requiresCanonicalDefaultOverviewBaseline) return false
-
-    const candidateSnapshots = [
-      cachedWorkspaceSnapshot,
-      currentMatchingWorkspaceSnapshot,
-      persistedOverviewWorkspaceSnapshot,
-      workflowCachedWorkspaceSnapshot,
-      workflowCachedDecisionWorkspaceSnapshot,
-      trustedRuntimeOverviewWorkspaceSnapshot,
-      continuityOverviewWorkspaceSnapshot,
-      scopedOverviewShellWorkspaceSnapshot,
-    ]
-
-    return candidateSnapshots.some((snapshot) => {
-      if (
-        !workspaceSnapshotMatchesClusterCoverageTruth({
-          snapshot,
-          clusterId: selectedCluster.clusterId,
-          analysisScope: effectiveWorkflowScope,
-          cacheVersion,
-          senderOverviewWindowSelection,
-          senderOverviewWindowTimeZone: browserTimeZone,
-        })
-      ) {
-        return false
-      }
-
-      return workspaceHasCanonicalTimeContextTimeline(snapshot.data, effectiveWorkflowScope)
-    })
-  }, [
-    browserTimeZone,
-    cacheVersion,
-    continuityOverviewWorkspaceSnapshot,
-    currentMatchingWorkspaceSnapshot,
+    effectiveWorkflowScope === normalizedAnalysisScope &&
+    normalizedAnalysisScope === 'all_indexed' &&
+    !timeContextBucketRequestActive &&
+    !senderOverviewWorkflowWindowActive &&
+    requestedTimeContextBucketLabel == null &&
+    senderOverviewWindowSelection == null,
+  [
     effectiveWorkflowScope,
-    requiresCanonicalDefaultOverviewBaseline,
-    scopedOverviewShellWorkspaceSnapshot,
-    selectedCluster,
+    isDefaultOverviewContext,
+    mode,
+    normalizedAnalysisScope,
+    requestedTimeContextBucketLabel,
+    resolvedTimeContextState.mode,
     senderOverviewWindowSelection,
+    senderOverviewWorkflowWindowActive,
+    timeContextBucketRequestActive,
+  ]
+)
+const hasCanonicalDefaultOverviewBaseline = useMemo(() => {
+  if (!selectedCluster || !requiresCanonicalDefaultOverviewBaseline) return false
+
+  const candidateSnapshots = [
     cachedWorkspaceSnapshot,
+    currentMatchingWorkspaceSnapshot,
     persistedOverviewWorkspaceSnapshot,
-    trustedRuntimeOverviewWorkspaceSnapshot,
-    workflowCachedDecisionWorkspaceSnapshot,
     workflowCachedWorkspaceSnapshot,
-  ])
-  const hasDeferrableDefaultOverviewBaselineSeed =
-    requiresCanonicalDefaultOverviewBaseline
-      ? hasCanonicalDefaultOverviewBaseline
-      : Boolean(
-          cachedWorkspaceSnapshot ||
-            trustedRuntimeOverviewWorkspaceSnapshot ||
-            hasDefaultOverviewBootstrapRailSeed ||
-            hasDefaultOverviewShellSnapshot
-        )
-  const shouldFetchOverviewCoverageBackfill = useMemo(() => {
+    workflowCachedDecisionWorkspaceSnapshot,
+    trustedRuntimeOverviewWorkspaceSnapshot,
+    continuityOverviewWorkspaceSnapshot,
+    scopedOverviewShellWorkspaceSnapshot,
+  ]
+
+  return candidateSnapshots.some((snapshot) => {
+  if (!snapshot) {
+    return false
+  }
+
+  if (
+    !workspaceSnapshotMatchesClusterCoverageTruth({
+      snapshot,
+      clusterId: selectedCluster.clusterId,
+      analysisScope: effectiveWorkflowScope,
+      cacheVersion,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
+    })
+  ) {
+    return false
+  }
+
+  return workspaceHasCanonicalTimeContextTimeline(snapshot.data, effectiveWorkflowScope)
+  })
+}, [
+  browserTimeZone,
+  cacheVersion,
+  continuityOverviewWorkspaceSnapshot,
+  currentMatchingWorkspaceSnapshot,
+  effectiveWorkflowScope,
+  requiresCanonicalDefaultOverviewBaseline,
+  scopedOverviewShellWorkspaceSnapshot,
+  selectedCluster,
+  senderOverviewWindowSelection,
+  cachedWorkspaceSnapshot,
+  persistedOverviewWorkspaceSnapshot,
+  trustedRuntimeOverviewWorkspaceSnapshot,
+  workflowCachedDecisionWorkspaceSnapshot,
+  workflowCachedWorkspaceSnapshot,
+])
+const hasDeferrableDefaultOverviewBaselineSeed =
+  requiresCanonicalDefaultOverviewBaseline
+    ? hasCanonicalDefaultOverviewBaseline
+    : Boolean(
+        cachedWorkspaceSnapshot ||
+          trustedRuntimeOverviewWorkspaceSnapshot ||
+          hasDefaultOverviewBootstrapRailSeed ||
+          hasDefaultOverviewShellSnapshot
+      )
+const shouldDeferLiveFetchForDefaultOverview =
+  mode === 'overview' &&
+  isDefaultOverviewContext &&
+  resolvedTimeContextState.mode === 'default_overview' &&
+  defaultOverviewRuntimeGate.clusterId === selectedCluster?.clusterId &&
+  defaultOverviewRuntimeGate.status === 'waiting' &&
+  hasDeferrableDefaultOverviewBaselineSeed
+const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     if (!selectedCluster || mode !== 'overview') return false
     const snapshotsToCheck = [
       currentMatchingWorkspaceSnapshot,
@@ -11628,9 +11632,11 @@ export default function OperationsReviewPage() {
       : effectiveRuntimeContinuityPhase === 'ready'
         ? 'Updated results are ready'
         : null
+  const stableRuntimeContinuitySnapshotVersion =
+    runtime.runtimeContinuity?.stableSnapshotVersion || null
   const runtimeContinuityDetail =
     effectiveRuntimeContinuityPhase === 'build_pending'
-      ? `Smart Sync has already finished indexing, but published runtime results are still building. This page is intentionally keeping the last stable snapshot visible${runtime.runtimeContinuity.stableSnapshotVersion ? ` from ${new Date(runtime.runtimeContinuity.stableSnapshotVersion).toLocaleString()}` : ''} until the new published truth is ready.`
+      ? `Smart Sync has already finished indexing, but published runtime results are still building. This page is intentionally keeping the last stable snapshot visible${stableRuntimeContinuitySnapshotVersion ? ` from ${new Date(stableRuntimeContinuitySnapshotVersion).toLocaleString()}` : ''} until the new published truth is ready.`
       : effectiveRuntimeContinuityPhase === 'ready'
         ? 'The refreshed published runtime truth has loaded, and linked workflow surfaces are now re-reading from the new cache version.'
         : null
