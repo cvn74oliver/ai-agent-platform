@@ -44,3 +44,4 @@ next-env.d.ts
 .secrets/
 .secrets/google-service-account.json
 docs/backups/*.tgz
+.playwright-cli/
