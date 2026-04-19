@@ -14,6 +14,7 @@ import {
   normalizeOperationsAnalysisScope,
   type OperationsAnalysisScope,
   fetchOperationsRuntimeSnapshot,
+  deriveOperationsIntelligenceCacheVersion,
   type OperationsRuntimeData,
 } from '@/lib/runtime/operationsWorkspace'
 import {
@@ -30,6 +31,18 @@ type SnapshotStatus = {
   error: string | null
   data: OperationsRuntimeData | null
   loadedAt: number | null
+  runtimeContinuity:
+    | {
+        phase: 'build_pending' | 'ready'
+        stableSnapshotVersion: string | null
+        latestVersion: string | null
+        freshnessState: string | null
+        buildStatus: string | null
+        publishedVersion: string | null
+        buildingVersion: string | null
+        updatedAt: number
+      }
+    | null
   mailboxIndexHealth: MailboxIndexHealth | null
   manualMailboxReindexStarting: boolean
   smartMailboxSyncStarting: boolean
@@ -43,6 +56,7 @@ type SnapshotRefreshOptions = {
   silent?: boolean
   forceMailboxProfileRefresh?: boolean
   refreshReason?: string
+  transitionEdge?: 'smart_sync_handoff' | 'build_pending_poll' | null
 }
 
 type SnapshotRefreshResult =
@@ -102,11 +116,44 @@ type ContextValue = SnapshotStatus & {
 type PersistedSnapshot = {
   loadedAt: number
   data: OperationsRuntimeData
+  runtimeContinuity:
+    | {
+        phase: 'build_pending' | 'ready'
+        stableSnapshotVersion: string | null
+        latestVersion: string | null
+        freshnessState: string | null
+        buildStatus: string | null
+        publishedVersion: string | null
+        buildingVersion: string | null
+        updatedAt: number
+      }
+    | null
+}
+
+type RuntimeRehydrateDiagnostics = {
+  derived_cache_version?: string | null
+  runtime_cleanup_plan_generated_at?: string | null
+  manual_cleanup_regeneration_diagnostics?: {
+    cleanupProfileStatus?: string | null
+    cleanupProfileRefreshReason?: string | null
+    continuityState?: 'standard' | 'build_pending_showing_stable_snapshot'
+    buildPending?: boolean
+    stableSnapshotServed?: boolean
+    swapReady?: boolean
+    publicationFreshnessState?: string | null
+    publicationBuildStatus?: string | null
+    publishedVersion?: string | null
+    buildingVersion?: string | null
+  } | null
 }
 
 type CachedMailboxIndexHealthEntry = {
   expiresAtMs: number
   data: MailboxIndexHealth
+}
+
+type MailboxIndexHealthRefreshOptions = {
+  force?: boolean
 }
 
 type MailboxIndexExecutionState =
@@ -357,10 +404,16 @@ function reconcileMailboxIndexHealthState(
   }
 }
 
-async function fetchMailboxIndexHealth(): Promise<MailboxIndexHealth | null> {
+async function fetchMailboxIndexHealth(
+  options?: MailboxIndexHealthRefreshOptions
+): Promise<MailboxIndexHealth | null> {
   const nowMs = Date.now()
-  const cachedHealth = readCachedMailboxIndexHealth(nowMs)
-  if (cachedHealth) return cachedHealth
+  if (options?.force === true) {
+    clearCachedMailboxIndexHealth()
+  } else {
+    const cachedHealth = readCachedMailboxIndexHealth(nowMs)
+    if (cachedHealth) return cachedHealth
+  }
   if (mailboxIndexHealthInflight) {
     return mailboxIndexHealthInflight
   }
@@ -660,11 +713,23 @@ function readCachedMailboxIndexHealth(nowMs = Date.now()): MailboxIndexHealth | 
   return null
 }
 
+function clearCachedMailboxIndexHealth() {
+  mailboxIndexHealthCache = null
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(MAILBOX_INDEX_HEALTH_STORAGE_KEY)
+  } catch {
+    // Ignore storage failures; the next network fetch remains authoritative.
+  }
+}
+
 const OperationsRuntimeContext = createContext<ContextValue | null>(null)
 
 const STORAGE_PREFIX = 'operations.runtime.snapshot.v2'
 const MAILBOX_INDEX_HEALTH_STORAGE_KEY = 'operations.mailbox-index.health.v1'
 const MAILBOX_INDEX_HEALTH_CACHE_TTL_MS = 15 * 1000
+const BUILD_PENDING_READY_POLL_INTERVAL_MS = 15000
+
 const MEMORY_CACHE = new Map<string, PersistedSnapshot>()
 let mailboxIndexHealthCache: CachedMailboxIndexHealthEntry | null = null
 let mailboxIndexHealthInflight: Promise<MailboxIndexHealth | null> | null = null
@@ -696,10 +761,81 @@ function parsePersisted(value: string | null): PersistedSnapshot | null {
     return {
       loadedAt: parsed.loadedAt,
       data: parsed.data as OperationsRuntimeData,
+      runtimeContinuity:
+        parsed.runtimeContinuity &&
+        typeof parsed.runtimeContinuity === 'object' &&
+        (parsed.runtimeContinuity.phase === 'build_pending' ||
+          parsed.runtimeContinuity.phase === 'ready')
+          ? {
+              phase: parsed.runtimeContinuity.phase,
+              stableSnapshotVersion:
+                typeof parsed.runtimeContinuity.stableSnapshotVersion === 'string'
+                  ? parsed.runtimeContinuity.stableSnapshotVersion
+                  : null,
+              latestVersion:
+                typeof parsed.runtimeContinuity.latestVersion === 'string'
+                  ? parsed.runtimeContinuity.latestVersion
+                  : null,
+              freshnessState:
+                typeof parsed.runtimeContinuity.freshnessState === 'string'
+                  ? parsed.runtimeContinuity.freshnessState
+                  : null,
+              buildStatus:
+                typeof parsed.runtimeContinuity.buildStatus === 'string'
+                  ? parsed.runtimeContinuity.buildStatus
+                  : null,
+              publishedVersion:
+                typeof parsed.runtimeContinuity.publishedVersion === 'string'
+                  ? parsed.runtimeContinuity.publishedVersion
+                  : null,
+              buildingVersion:
+                typeof parsed.runtimeContinuity.buildingVersion === 'string'
+                  ? parsed.runtimeContinuity.buildingVersion
+                  : null,
+              updatedAt:
+                typeof parsed.runtimeContinuity.updatedAt === 'number'
+                  ? parsed.runtimeContinuity.updatedAt
+                  : parsed.loadedAt,
+            }
+          : null,
     }
   } catch {
     return null
   }
+}
+
+function readRuntimeRehydrateDiagnostics(
+  runtimeData: OperationsRuntimeData | null | undefined
+): RuntimeRehydrateDiagnostics | null {
+  if (!runtimeData || typeof runtimeData !== 'object') return null
+  const diagnostics = (
+    runtimeData as OperationsRuntimeData & {
+      runtime_rehydrate_diagnostics?: RuntimeRehydrateDiagnostics
+    }
+  ).runtime_rehydrate_diagnostics
+  return diagnostics && typeof diagnostics === 'object' ? diagnostics : null
+}
+
+function isFailedArtifactStandardRehydrateState(
+  runtimeData: OperationsRuntimeData | null | undefined
+): boolean {
+  const diagnostics = readRuntimeRehydrateDiagnostics(runtimeData)
+  const regenerationDiagnostics = diagnostics?.manual_cleanup_regeneration_diagnostics
+  if (!regenerationDiagnostics) return false
+
+  const continuityState = regenerationDiagnostics.continuityState || 'standard'
+  const freshnessState = regenerationDiagnostics.publicationFreshnessState || null
+  const buildStatus = regenerationDiagnostics.publicationBuildStatus || null
+  const cleanupProfileStatus = regenerationDiagnostics.cleanupProfileStatus || null
+  const cleanupProfileRefreshReason = regenerationDiagnostics.cleanupProfileRefreshReason || null
+
+  return (
+    continuityState === 'standard' &&
+    freshnessState === 'refresh_failed' &&
+    buildStatus === 'failed' &&
+    cleanupProfileStatus === 'cached' &&
+    cleanupProfileRefreshReason === 'artifact_fresh'
+  )
 }
 
 function mailboxIndexSnapshotChanged(
@@ -726,6 +862,35 @@ function mailboxIndexSnapshotChanged(
   return false
 }
 
+function mergeBuildPendingRuntimeData(
+  previousData: OperationsRuntimeData,
+  incomingData: OperationsRuntimeData
+): OperationsRuntimeData {
+  return {
+    session_id: incomingData.session_id ?? previousData.session_id,
+    runtime_evidence: incomingData.runtime_evidence ?? previousData.runtime_evidence,
+    runtime_cleanup_plan: incomingData.runtime_cleanup_plan ?? previousData.runtime_cleanup_plan,
+    runtime_review_results: incomingData.runtime_review_results ?? previousData.runtime_review_results,
+    runtime_suggestion_sets:
+      incomingData.runtime_suggestion_sets ?? previousData.runtime_suggestion_sets,
+    runtime_approval_queue_summary:
+      incomingData.runtime_approval_queue_summary ?? previousData.runtime_approval_queue_summary,
+    runtime_approval_queue_items:
+      incomingData.runtime_approval_queue_items ?? previousData.runtime_approval_queue_items,
+    runtime_mailbox_profile:
+      incomingData.runtime_mailbox_profile ?? previousData.runtime_mailbox_profile,
+    runtime_mailbox_intelligence:
+      incomingData.runtime_mailbox_intelligence ?? previousData.runtime_mailbox_intelligence,
+    runtime_sender_overview:
+      incomingData.runtime_sender_overview ?? previousData.runtime_sender_overview,
+    runtime_selected_cluster_rail_family:
+      incomingData.runtime_selected_cluster_rail_family ??
+      previousData.runtime_selected_cluster_rail_family,
+    runtime_cleanup_strategy:
+      incomingData.runtime_cleanup_strategy ?? previousData.runtime_cleanup_strategy,
+  }
+}
+
 export function OperationsRuntimeProvider(props: {
   agentId: string
   sessionId: string | null
@@ -741,6 +906,7 @@ export function OperationsRuntimeProvider(props: {
     error: null,
     data: null,
     loadedAt: null,
+    runtimeContinuity: null,
     mailboxIndexHealth: null,
     manualMailboxReindexStarting: false,
     smartMailboxSyncStarting: false,
@@ -750,20 +916,68 @@ export function OperationsRuntimeProvider(props: {
   })
   const requestInFlightRef = useRef<{
     key: string
+    forceMailboxProfileRefresh: boolean
     promise: Promise<SnapshotRefreshResult>
   } | null>(null)
   const latestRequestKeyRef = useRef<string | null>(null)
   const lastRefreshReasonRef = useRef<string | null>(null)
+  const latestSnapshotVersionRef = useRef<string | null>(null)
+  const latestRuntimeContinuityRef = useRef<SnapshotStatus['runtimeContinuity']>(null)
+  const runtimeProviderUnmountedRef = useRef(false)
+  const hydratedStorageKeyRef = useRef<string | null>(null)
+  const smartSyncWasRunningRef = useRef(false)
+  const smartSyncObservedCycleRef = useRef<{
+    awaitingCompletion: boolean
+    runKey: string | null
+    runId: string | null
+    baselineCompletionKey: string | null
+  } | null>(null)
+  const handledSmartSyncCompletionKeyRef = useRef<string | null>(null)
+  const smartSyncContinuityRefreshRef = useRef<{
+    completionKey: string
+    cancelled: boolean
+  } | null>(null)
   const storageKey = useMemo(
     () => buildStorageKey(props.agentId, sessionId, analysisScope, props.preferredClusterId),
     [analysisScope, props.agentId, props.preferredClusterId, sessionId]
   )
 
-  const refreshMailboxIndexHealth = useCallback(async (): Promise<MailboxIndexHealth | null> => {
-    const nextHealth = await fetchMailboxIndexHealth()
-    if (!nextHealth) return null
-    setStatus((prev) => reconcileMailboxIndexHealthState(prev, nextHealth))
-    return nextHealth
+  const refreshMailboxIndexHealth = useCallback(
+    async (options?: MailboxIndexHealthRefreshOptions): Promise<MailboxIndexHealth | null> => {
+      const nextHealth = await fetchMailboxIndexHealth(options)
+      if (!nextHealth) return null
+      setStatus((prev) => reconcileMailboxIndexHealthState(prev, nextHealth))
+      return nextHealth
+    },
+    []
+  )
+
+  const runtimeSnapshotVersion = useMemo(
+    () => deriveOperationsIntelligenceCacheVersion(status.data, status.loadedAt),
+    [status.data, status.loadedAt]
+  )
+  const failedArtifactRehydrateHoldActive = useMemo(
+    () => isFailedArtifactStandardRehydrateState(status.data),
+    [status.data]
+  )
+
+  useEffect(() => {
+    latestSnapshotVersionRef.current = runtimeSnapshotVersion
+  }, [runtimeSnapshotVersion])
+
+  useEffect(() => {
+    latestRuntimeContinuityRef.current = status.runtimeContinuity
+  }, [status.runtimeContinuity])
+
+  useEffect(() => {
+    runtimeProviderUnmountedRef.current = false
+    return () => {
+      runtimeProviderUnmountedRef.current = true
+      if (smartSyncContinuityRefreshRef.current) {
+        smartSyncContinuityRefreshRef.current.cancelled = true
+        smartSyncContinuityRefreshRef.current = null
+      }
+    }
   }, [])
 
   const maybeBootstrapMailboxIndex = useCallback(
@@ -785,7 +999,7 @@ export function OperationsRuntimeProvider(props: {
 
   const triggerManualFullMailboxReindex = useCallback(async (): Promise<TriggerManualReindexResult> => {
     setStatus((prev) => ({ ...prev, manualMailboxReindexStarting: true }))
-    void refreshMailboxIndexHealth()
+    void refreshMailboxIndexHealth({ force: true })
     try {
       const res = await fetch('/api/integrations/gmail/mailbox-index', {
         method: 'POST',
@@ -805,7 +1019,7 @@ export function OperationsRuntimeProvider(props: {
           }
         | null
 
-      await refreshMailboxIndexHealth()
+      await refreshMailboxIndexHealth({ force: true })
 
       if (res.status === 409 && payload?.reason === 'already_running') {
         return { ok: true, attached: true }
@@ -821,17 +1035,18 @@ export function OperationsRuntimeProvider(props: {
       return { ok: false, error: 'Failed to start full mailbox reindex.' }
     } finally {
       setStatus((prev) => ({ ...prev, manualMailboxReindexStarting: false }))
-      await refreshMailboxIndexHealth()
+      await refreshMailboxIndexHealth({ force: true })
     }
   }, [refreshMailboxIndexHealth])
 
   const triggerSmartMailboxSync = useCallback(async (): Promise<TriggerSmartSyncResult> => {
     setStatus((prev) => ({
       ...prev,
+      runtimeContinuity: null,
       smartMailboxSyncStarting: true,
       pendingSmartMailboxSyncRun: null,
     }))
-    void refreshMailboxIndexHealth()
+    void refreshMailboxIndexHealth({ force: true })
     try {
       const res = await fetch('/api/integrations/gmail/mailbox-index', {
         method: 'POST',
@@ -853,7 +1068,7 @@ export function OperationsRuntimeProvider(props: {
           }
         | null
 
-      await refreshMailboxIndexHealth()
+      await refreshMailboxIndexHealth({ force: true })
 
       if (res.status === 409 && payload?.reason === 'already_running') {
         return { ok: true, attached: true }
@@ -877,7 +1092,7 @@ export function OperationsRuntimeProvider(props: {
       return { ok: false, error: 'Failed to start Smart Sync.' }
     } finally {
       setStatus((prev) => ({ ...prev, smartMailboxSyncStarting: false }))
-      await refreshMailboxIndexHealth()
+      await refreshMailboxIndexHealth({ force: true })
     }
   }, [refreshMailboxIndexHealth])
 
@@ -890,7 +1105,7 @@ export function OperationsRuntimeProvider(props: {
         operatorMailboxBackfillStarting: true,
         pendingOperatorMailboxBackfillRun: null,
       }))
-      void refreshMailboxIndexHealth()
+      void refreshMailboxIndexHealth({ force: true })
       try {
         const res = await fetch('/api/integrations/gmail/mailbox-index', {
           method: 'POST',
@@ -915,7 +1130,7 @@ export function OperationsRuntimeProvider(props: {
             }
           | null
 
-        await refreshMailboxIndexHealth()
+        await refreshMailboxIndexHealth({ force: true })
 
         if (res.status === 409 && payload?.reason === 'already_running') {
           return { ok: true, attached: true, backfillWindowMonths }
@@ -950,7 +1165,7 @@ export function OperationsRuntimeProvider(props: {
         return { ok: false, error: 'Failed to start Continue Backfill.' }
       } finally {
         setStatus((prev) => ({ ...prev, operatorMailboxBackfillStarting: false }))
-        await refreshMailboxIndexHealth()
+        await refreshMailboxIndexHealth({ force: true })
       }
     },
     [refreshMailboxIndexHealth]
@@ -967,11 +1182,15 @@ export function OperationsRuntimeProvider(props: {
   )
 
   const persistSnapshot = useCallback(
-    (loadedAt: number, data: OperationsRuntimeData) => {
-      MEMORY_CACHE.set(storageKey, { loadedAt, data })
+    (
+      loadedAt: number,
+      data: OperationsRuntimeData,
+      runtimeContinuity: SnapshotStatus['runtimeContinuity']
+    ) => {
+      MEMORY_CACHE.set(storageKey, { loadedAt, data, runtimeContinuity })
       if (typeof window === 'undefined') return
       try {
-        const payload: PersistedSnapshot = { loadedAt, data }
+        const payload: PersistedSnapshot = { loadedAt, data, runtimeContinuity }
         window.sessionStorage.setItem(storageKey, JSON.stringify(payload))
       } catch {
         // ignore storage failure
@@ -993,8 +1212,14 @@ export function OperationsRuntimeProvider(props: {
       ].join('::')
       latestRequestKeyRef.current = requestKey
       if (requestInFlightRef.current?.key === requestKey) {
+        const inflightRequest = requestInFlightRef.current
         await requestInFlightRef.current.promise
-        return { ok: true }
+        if (
+          options?.forceMailboxProfileRefresh !== true ||
+          inflightRequest.forceMailboxProfileRefresh
+        ) {
+          return { ok: true }
+        }
       }
 
       const request = (async (): Promise<SnapshotRefreshResult> => {
@@ -1008,8 +1233,10 @@ export function OperationsRuntimeProvider(props: {
         try {
           const mailboxIndexHealthPromise =
             options?.forceMailboxProfileRefresh === true
-              ? fetchMailboxIndexHealth()
-              : Promise.resolve(readCachedMailboxIndexHealth())
+              ? fetchMailboxIndexHealth({ force: true })
+              : status.mailboxIndexHealth
+                ? Promise.resolve(status.mailboxIndexHealth)
+                : fetchMailboxIndexHealth()
           const [payload, mailboxIndexHealth] = await Promise.all([
             fetchOperationsRuntimeSnapshot({
               agentId: props.agentId,
@@ -1017,6 +1244,7 @@ export function OperationsRuntimeProvider(props: {
               analysisScope,
               forceMailboxProfileRefresh: options?.forceMailboxProfileRefresh === true,
               preferredClusterId: props.preferredClusterId,
+              transitionEdge: options?.transitionEdge ?? null,
             }),
             mailboxIndexHealthPromise,
           ])
@@ -1030,7 +1258,7 @@ export function OperationsRuntimeProvider(props: {
                 loading: false,
                 refreshing: false,
                 error: payload.error || 'Failed to load runtime snapshot.',
-                mailboxIndexHealth: mailboxIndexHealth ?? null,
+                mailboxIndexHealth: mailboxIndexHealth ?? prev.mailboxIndexHealth,
               }
               return mailboxIndexHealth
                 ? reconcileMailboxIndexHealthState(nextStatus, mailboxIndexHealth)
@@ -1044,21 +1272,85 @@ export function OperationsRuntimeProvider(props: {
           }
           const runtimeData = payload.data as OperationsRuntimeData
           const loadedAt = Date.now()
-          persistSnapshot(loadedAt, runtimeData)
+          const rehydrateDiagnostics = readRuntimeRehydrateDiagnostics(runtimeData)
+          const regenerationDiagnostics =
+            rehydrateDiagnostics?.manual_cleanup_regeneration_diagnostics || null
+          const buildPending =
+            regenerationDiagnostics?.continuityState === 'build_pending_showing_stable_snapshot' ||
+            regenerationDiagnostics?.buildPending === true
+          let persistedLoadedAt: number | null = null
+          let persistedData: OperationsRuntimeData | null = null
+          let persistedRuntimeContinuity: SnapshotStatus['runtimeContinuity'] = null
           setStatus((prev) => {
+            const shouldKeepStableSnapshotMounted = buildPending && prev.data != null
+            const nextData: OperationsRuntimeData = shouldKeepStableSnapshotMounted
+              ? mergeBuildPendingRuntimeData(prev.data as OperationsRuntimeData, runtimeData)
+              : runtimeData
+            const nextLoadedAt =
+              shouldKeepStableSnapshotMounted && prev.loadedAt != null ? prev.loadedAt : loadedAt
+            const nextDerivedVersion = deriveOperationsIntelligenceCacheVersion(nextData, nextLoadedAt)
+            let nextRuntimeContinuity = prev.runtimeContinuity
+
+            if (buildPending) {
+              nextRuntimeContinuity = {
+                phase: 'build_pending',
+                stableSnapshotVersion:
+                  prev.runtimeContinuity?.stableSnapshotVersion ||
+                  latestSnapshotVersionRef.current ||
+                  nextDerivedVersion ||
+                  rehydrateDiagnostics?.derived_cache_version ||
+                  rehydrateDiagnostics?.runtime_cleanup_plan_generated_at ||
+                  null,
+                latestVersion: nextDerivedVersion,
+                freshnessState: regenerationDiagnostics?.publicationFreshnessState || null,
+                buildStatus: regenerationDiagnostics?.publicationBuildStatus || null,
+                publishedVersion: regenerationDiagnostics?.publishedVersion || null,
+                buildingVersion: regenerationDiagnostics?.buildingVersion || null,
+                updatedAt: Date.now(),
+              }
+            } else if (
+              prev.runtimeContinuity?.phase === 'build_pending' &&
+              nextDerivedVersion &&
+              nextDerivedVersion !== prev.runtimeContinuity.stableSnapshotVersion
+            ) {
+              nextRuntimeContinuity = {
+                phase: 'ready',
+                stableSnapshotVersion: prev.runtimeContinuity.stableSnapshotVersion,
+                latestVersion: nextDerivedVersion,
+                freshnessState: regenerationDiagnostics?.publicationFreshnessState || null,
+                buildStatus: regenerationDiagnostics?.publicationBuildStatus || null,
+                publishedVersion: regenerationDiagnostics?.publishedVersion || null,
+                buildingVersion: regenerationDiagnostics?.buildingVersion || null,
+                updatedAt: Date.now(),
+              }
+            } else if (prev.runtimeContinuity?.phase !== 'ready') {
+              nextRuntimeContinuity = null
+            }
+
+            persistedLoadedAt = nextLoadedAt
+            persistedData = nextData
+            persistedRuntimeContinuity = nextRuntimeContinuity
             const nextStatus: SnapshotStatus = {
               ...prev,
               loading: false,
               refreshing: false,
               error: null,
-              data: runtimeData,
-              loadedAt,
-              mailboxIndexHealth: mailboxIndexHealth ?? null,
+              data: nextData,
+              loadedAt: nextLoadedAt,
+              runtimeContinuity: nextRuntimeContinuity,
+              mailboxIndexHealth: mailboxIndexHealth ?? prev.mailboxIndexHealth,
             }
             return mailboxIndexHealth
               ? reconcileMailboxIndexHealthState(nextStatus, mailboxIndexHealth)
               : nextStatus
           })
+          if (persistedData) {
+            persistSnapshot(
+              persistedLoadedAt ?? loadedAt,
+              persistedData,
+              persistedRuntimeContinuity
+            )
+          }
           const effectiveRefreshReason =
             options?.refreshReason?.trim() ||
             (options?.forceMailboxProfileRefresh ? 'manual_regenerate' : null)
@@ -1086,6 +1378,7 @@ export function OperationsRuntimeProvider(props: {
 
       requestInFlightRef.current = {
         key: requestKey,
+        forceMailboxProfileRefresh: options?.forceMailboxProfileRefresh === true,
         promise: request,
       }
       try {
@@ -1108,12 +1401,198 @@ export function OperationsRuntimeProvider(props: {
       persistSnapshot,
       props.agentId,
       props.preferredClusterId,
+      status.mailboxIndexHealth,
       sessionId,
     ]
   )
 
   useEffect(() => {
+    const mailboxIndexHealth = status.mailboxIndexHealth
+    const activeSmartSyncRun =
+      mailboxIndexHealth?.active_run?.trigger === 'smart_sync' ? mailboxIndexHealth.active_run : null
+    const pendingSmartSyncRun =
+      status.pendingSmartMailboxSyncRun?.trigger === 'smart_sync'
+        ? status.pendingSmartMailboxSyncRun
+        : null
+    const lastSmartSyncResult =
+      mailboxIndexHealth?.last_result?.trigger === 'smart_sync' ? mailboxIndexHealth.last_result : null
+    const smartSyncRunning =
+      activeSmartSyncRun != null || status.smartMailboxSyncStarting || pendingSmartSyncRun != null
+    const completionKey = lastSmartSyncResult
+      ? [
+          lastSmartSyncResult.run_id || 'no-run-id',
+          lastSmartSyncResult.completed_at || 'no-completed-at',
+          lastSmartSyncResult.status || 'no-status',
+        ].join('::')
+      : null
+
+    if (smartSyncRunning) {
+      const runKey = activeSmartSyncRun
+        ? [
+            'active',
+            activeSmartSyncRun.run_id || 'no-run-id',
+            activeSmartSyncRun.started_at || 'no-started-at',
+          ].join('::')
+        : pendingSmartSyncRun
+          ? [
+              'pending',
+              pendingSmartSyncRun.run_id || 'no-run-id',
+              pendingSmartSyncRun.started_at || 'no-started-at',
+            ].join('::')
+          : 'starting'
+
+      if (
+        !smartSyncObservedCycleRef.current ||
+        !smartSyncObservedCycleRef.current.awaitingCompletion ||
+        smartSyncObservedCycleRef.current.runKey !== runKey
+      ) {
+        smartSyncObservedCycleRef.current = {
+          awaitingCompletion: true,
+          runKey,
+          runId: activeSmartSyncRun?.run_id || pendingSmartSyncRun?.run_id || null,
+          baselineCompletionKey: completionKey,
+        }
+      } else if (
+        !smartSyncObservedCycleRef.current.runId &&
+        (activeSmartSyncRun?.run_id || pendingSmartSyncRun?.run_id)
+      ) {
+        smartSyncObservedCycleRef.current = {
+          ...smartSyncObservedCycleRef.current,
+          runId: activeSmartSyncRun?.run_id || pendingSmartSyncRun?.run_id || null,
+        }
+      }
+
+      smartSyncWasRunningRef.current = true
+      return
+    }
+
+    const settledAfterRunning = smartSyncWasRunningRef.current
+    smartSyncWasRunningRef.current = false
+
+    if (!settledAfterRunning || !lastSmartSyncResult || !completionKey) {
+      return
+    }
+
+    const observedCycle = smartSyncObservedCycleRef.current
+    if (!observedCycle?.awaitingCompletion) {
+      return
+    }
+
+    const completionMatchesObservedRun =
+      !observedCycle.runId || observedCycle.runId === lastSmartSyncResult.run_id
+    const completionAdvanced =
+      observedCycle.baselineCompletionKey == null ||
+      observedCycle.baselineCompletionKey !== completionKey
+
+    if (!completionMatchesObservedRun || !completionAdvanced) {
+      return
+    }
+
+    if (handledSmartSyncCompletionKeyRef.current === completionKey) {
+      smartSyncObservedCycleRef.current = {
+        ...observedCycle,
+        awaitingCompletion: false,
+      }
+      return
+    }
+
+    if (smartSyncContinuityRefreshRef.current?.completionKey === completionKey) {
+      return
+    }
+
+    if (
+      smartSyncContinuityRefreshRef.current &&
+      smartSyncContinuityRefreshRef.current.completionKey !== completionKey
+    ) {
+      smartSyncContinuityRefreshRef.current.cancelled = true
+      smartSyncContinuityRefreshRef.current = null
+    }
+
+    const run = {
+      completionKey,
+      cancelled: false,
+    }
+    smartSyncObservedCycleRef.current = {
+      ...observedCycle,
+      awaitingCompletion: false,
+    }
+    handledSmartSyncCompletionKeyRef.current = completionKey
+    smartSyncContinuityRefreshRef.current = run
+
+    void (async () => {
+      await refreshRuntimeSnapshot({
+        force: true,
+        silent: true,
+        forceMailboxProfileRefresh: true,
+        refreshReason: 'smart_sync_continuity_refresh',
+        transitionEdge: 'smart_sync_handoff',
+      })
+
+      if (smartSyncContinuityRefreshRef.current?.completionKey === completionKey) {
+        smartSyncContinuityRefreshRef.current = null
+      }
+    })()
+  }, [
+    refreshRuntimeSnapshot,
+    status.mailboxIndexHealth,
+    status.pendingSmartMailboxSyncRun,
+    status.smartMailboxSyncStarting,
+  ])
+
+  useEffect(() => {
+    if (status.runtimeContinuity?.phase !== 'build_pending') return
+
+    let cancelled = false
+    let pollTimeoutId: number | null = null
+
+    const scheduleNextPoll = () => {
+      if (cancelled) return
+      pollTimeoutId = window.setTimeout(() => {
+        void (async () => {
+          await refreshRuntimeSnapshot({
+            silent: true,
+            refreshReason: 'smart_sync_build_ready_poll',
+            transitionEdge: 'build_pending_poll',
+          })
+          scheduleNextPoll()
+        })()
+      }, BUILD_PENDING_READY_POLL_INTERVAL_MS)
+    }
+
+    scheduleNextPoll()
+
+    return () => {
+      cancelled = true
+      if (pollTimeoutId != null) {
+        window.clearTimeout(pollTimeoutId)
+      }
+    }
+  }, [refreshRuntimeSnapshot, status.runtimeContinuity?.phase])
+
+  useEffect(() => {
+    if (status.runtimeContinuity?.phase !== 'ready') return
+
+    const clearId = window.setTimeout(() => {
+      if (status.data) {
+        persistSnapshot(status.loadedAt ?? Date.now(), status.data, null)
+      }
+      setStatus((prev) =>
+        prev.runtimeContinuity?.phase === 'ready'
+          ? {
+              ...prev,
+              runtimeContinuity: null,
+            }
+          : prev
+      )
+    }, 12000)
+
+    return () => window.clearTimeout(clearId)
+  }, [persistSnapshot, status.data, status.loadedAt, status.runtimeContinuity])
+
+  useEffect(() => {
     if (!props.agentId.trim()) return
+    if (hydratedStorageKeyRef.current === storageKey) return
+    hydratedStorageKeyRef.current = storageKey
 
     let cachedSnapshot: PersistedSnapshot | null = MEMORY_CACHE.get(storageKey) || null
     if (!cachedSnapshot && typeof window !== 'undefined') {
@@ -1130,6 +1609,7 @@ export function OperationsRuntimeProvider(props: {
         error: null,
         data: cachedSnapshot.data,
         loadedAt: cachedSnapshot.loadedAt,
+        runtimeContinuity: cachedSnapshot.runtimeContinuity || null,
         mailboxIndexHealth: null,
         manualMailboxReindexStarting: false,
         smartMailboxSyncStarting: false,
@@ -1144,6 +1624,7 @@ export function OperationsRuntimeProvider(props: {
         error: null,
         data: null,
         loadedAt: null,
+        runtimeContinuity: null,
         mailboxIndexHealth: null,
         manualMailboxReindexStarting: false,
         smartMailboxSyncStarting: false,
@@ -1162,10 +1643,16 @@ export function OperationsRuntimeProvider(props: {
     }
 
     const cachedHealth = readCachedMailboxIndexHealth()
-    if (!cachedHealth) return
+    if (!cachedHealth) {
+      void refreshMailboxIndexHealth()
+      return
+    }
     setStatus((prev) => reconcileMailboxIndexHealthState(prev, cachedHealth))
     void maybeBootstrapMailboxIndex(cachedHealth)
     void maybeRecoverDegradedIndexSync(cachedHealth, null)
+    if (isFailedArtifactStandardRehydrateState(cachedSnapshot?.data)) {
+      return
+    }
     const cachedClusterCount =
       cachedSnapshot?.data?.runtime_cleanup_plan?.clusters?.length ?? 0
     if (cachedSnapshot && cachedClusterCount === 0 && cachedHealth.indexed_message_count > 0) {
@@ -1185,12 +1672,18 @@ export function OperationsRuntimeProvider(props: {
     maybeBootstrapMailboxIndex,
     maybeRecoverDegradedIndexSync,
     props.agentId,
+    refreshMailboxIndexHealth,
     refreshRuntimeSnapshot,
     storageKey,
   ])
 
   useEffect(() => {
+    const hasActiveMailboxIndexRun = status.mailboxIndexHealth?.execution_state === 'running'
+    const buildPendingContinuityActive = status.runtimeContinuity?.phase === 'build_pending'
     if (
+      failedArtifactRehydrateHoldActive ||
+      buildPendingContinuityActive ||
+      !hasActiveMailboxIndexRun &&
       !status.manualMailboxReindexStarting &&
       !status.smartMailboxSyncStarting &&
       !status.operatorMailboxBackfillStarting &&
@@ -1201,17 +1694,20 @@ export function OperationsRuntimeProvider(props: {
     }
 
     const pollId = window.setInterval(() => {
-      void refreshMailboxIndexHealth()
+      void refreshMailboxIndexHealth({ force: true })
     }, 5000)
 
     return () => window.clearInterval(pollId)
   }, [
     refreshMailboxIndexHealth,
+    status.mailboxIndexHealth,
     status.manualMailboxReindexStarting,
     status.operatorMailboxBackfillStarting,
     status.pendingOperatorMailboxBackfillRun,
     status.pendingSmartMailboxSyncRun,
     status.smartMailboxSyncStarting,
+    failedArtifactRehydrateHoldActive,
+    status.runtimeContinuity?.phase,
   ])
 
   const value: ContextValue = useMemo(

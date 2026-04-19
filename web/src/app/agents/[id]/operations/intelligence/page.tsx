@@ -189,7 +189,7 @@ function dateInputValueFromDate(date: Date, timeZone: string): string {
 function dateInputValueFromIso(value: string | null | undefined, timeZone: string): string | null {
   if (!value) return null
   const parsed = Date.parse(value)
-  if (!Number.isFinite(parsed)) return null
+  if (!Number.isFinite(parsed) || parsed < Date.UTC(1971, 0, 1)) return null
   return dateInputValueFromDate(new Date(parsed), timeZone)
 }
 
@@ -254,8 +254,18 @@ function pressureTrendDateRangeLabel(data: GmailPressureTrendData): string {
   if (!data.window.effective_start || !data.window.effective_end) {
     return `Showing ${data.window.label.toLowerCase()}`
   }
-  const start = new Date(data.window.effective_start)
-  const end = new Date(data.window.effective_end)
+  const startMs = Date.parse(data.window.effective_start)
+  const endMs = Date.parse(data.window.effective_end)
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isFinite(endMs) ||
+    startMs < Date.UTC(1971, 0, 1) ||
+    endMs < Date.UTC(1971, 0, 1)
+  ) {
+    return `Showing ${data.window.label.toLowerCase()}`
+  }
+  const start = new Date(startMs)
+  const end = new Date(endMs)
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: data.time_zone,
     month: 'short',

@@ -122,10 +122,10 @@ type RuntimeCleanupArtifactClusterInput = {
   why_selected: string
   risk_note: string
   safety_note: string
-  surface_tier?: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_tier'] | null
-  surface_kind?: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_kind'] | null
-  surface_visibility?: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_visibility'] | null
-  top_level_rank?: number | null
+  surface_tier: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_tier'] | null
+  surface_kind: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_kind'] | null
+  surface_visibility: GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_visibility'] | null
+  top_level_rank: number | null
 }
 
 export type PlaygroundRuntimeStateServiceResult = {
@@ -134,6 +134,18 @@ export type PlaygroundRuntimeStateServiceResult = {
   runtimeApprovalQueueSummary: RuntimeApprovalQueueSummary
   runtimeApprovalQueueItems: RuntimeApprovalQueueItem[]
   manualCleanupRegenerationDiagnostics: {
+    analysisScope: OperationsAnalysisScope
+    cleanupProfileStatus: 'fresh' | 'cached' | 'stale' | 'none'
+    cleanupProfileRefreshReason: string | null
+    snapshotScope: OperationsAnalysisScope | null
+    snapshotVersionBefore: string | null
+    snapshotVersionAfter: string | null
+    previousSnapshotServedWhileRefreshing: boolean
+    runtimeCleanupPlanGeneratedAt: string | null
+    runtimeMailboxProfileGeneratedAt: string | null
+    runtimeMailboxProfileFreshnessLastGeneratedAt: string | null
+    derivedCacheVersion: string | null
+    runtimeCleanupPlanClusterCount: number
     cleanupPlanMs: number
     runtimeStateTotalMs: number
     discoveryTotalMs: number | null
@@ -144,7 +156,155 @@ export type PlaygroundRuntimeStateServiceResult = {
     indexSyncDisabledByRequest: boolean | null
     snapshotSaveMode: string | null
     finalRuntimeAssembleMs: number | null
+    continuityState: 'standard' | 'build_pending_showing_stable_snapshot'
+    buildPending: boolean
+    stableSnapshotServed: boolean
+    swapReady: boolean
+    publicationFreshnessState: string | null
+    publicationBuildStatus: string | null
+    publishedVersion: string | null
+    buildingVersion: string | null
   } | null
+}
+
+export type PlaygroundRuntimeRefreshPhaseName =
+  | 'artifact_publication_read'
+  | 'cached_intelligence_read'
+  | 'cleanup_discovery_data_build'
+  | 'runtime_assembly'
+
+export type PlaygroundRuntimeRefreshPhaseResult = {
+  phase: PlaygroundRuntimeRefreshPhaseName
+  status: 'success' | 'failure'
+  errorMessage: string | null
+  stackTrace: string | null
+  loggedAt: string
+}
+
+export type PlaygroundRuntimeRefreshFailureDiagnostics = {
+  analysisScope: OperationsAnalysisScope | null
+  requestMode: 'rehydrate_only' | 'full_chat' | 'unknown'
+  forceMailboxProfileRefresh: boolean
+  freshnessState: string | null
+  buildStatus: string | null
+  publishedVersion: string | null
+  buildingVersion: string | null
+  failingPhase: PlaygroundRuntimeRefreshPhaseName
+  phases: PlaygroundRuntimeRefreshPhaseResult[]
+}
+
+type PlaygroundRuntimeRefreshDiagnosticContext = {
+  analysisScope: OperationsAnalysisScope | null
+  requestMode: 'rehydrate_only' | 'full_chat' | 'unknown'
+  forceMailboxProfileRefresh: boolean
+  freshnessState: string | null
+  buildStatus: string | null
+  publishedVersion: string | null
+  buildingVersion: string | null
+  phases: PlaygroundRuntimeRefreshPhaseResult[]
+}
+
+function createRuntimeRefreshDiagnosticContext(params: {
+  analysisScope: OperationsAnalysisScope | null
+  requestMode?: 'rehydrate_only' | 'full_chat'
+  forceMailboxProfileRefresh?: boolean
+}): PlaygroundRuntimeRefreshDiagnosticContext {
+  return {
+    analysisScope: params.analysisScope,
+    requestMode: params.requestMode ?? 'unknown',
+    forceMailboxProfileRefresh: params.forceMailboxProfileRefresh === true,
+    freshnessState: null,
+    buildStatus: null,
+    publishedVersion: null,
+    buildingVersion: null,
+    phases: [],
+  }
+}
+
+function updateRuntimeRefreshDiagnosticContextFromPublication(
+  context: PlaygroundRuntimeRefreshDiagnosticContext,
+  publication: GmailArtifactPublicationRow | null
+): void {
+  context.freshnessState = publication?.freshness_state ?? null
+  context.buildStatus = publication?.build_status ?? null
+  context.publishedVersion = publication?.published_version ?? null
+  context.buildingVersion = publication?.building_version ?? null
+}
+
+function recordRuntimeRefreshPhaseResult(params: {
+  context: PlaygroundRuntimeRefreshDiagnosticContext
+  phase: PlaygroundRuntimeRefreshPhaseName
+  status: 'success' | 'failure'
+  error?: unknown
+}): void {
+  const error =
+    params.error instanceof Error
+      ? params.error
+      : params.error == null
+        ? null
+        : new Error(String(params.error))
+  const entry: PlaygroundRuntimeRefreshPhaseResult = {
+    phase: params.phase,
+    status: params.status,
+    errorMessage: error?.message ?? null,
+    stackTrace: error?.stack ?? null,
+    loggedAt: new Date().toISOString(),
+  }
+  params.context.phases.push(entry)
+
+  const payload = {
+    phase: params.phase,
+    status: params.status,
+    analysis_scope: params.context.analysisScope,
+    request_mode: params.context.requestMode,
+    force_mailbox_profile_refresh: params.context.forceMailboxProfileRefresh,
+    freshness_state: params.context.freshnessState,
+    build_status: params.context.buildStatus,
+    published_version: params.context.publishedVersion,
+    building_version: params.context.buildingVersion,
+    error_message: entry.errorMessage,
+    stack_trace: entry.stackTrace,
+  }
+
+  if (params.status === 'failure') {
+    console.error('[playground][manual-regeneration-phase] failure', payload)
+    return
+  }
+
+  console.info(`[playground][manual-regeneration-phase] ${JSON.stringify(payload)}`)
+}
+
+function createRuntimeRefreshPhaseError(params: {
+  context: PlaygroundRuntimeRefreshDiagnosticContext
+  phase: PlaygroundRuntimeRefreshPhaseName
+  error: unknown
+}): Error & {
+  playgroundRuntimeRefreshDiagnostics: PlaygroundRuntimeRefreshFailureDiagnostics
+} {
+  recordRuntimeRefreshPhaseResult({
+    context: params.context,
+    phase: params.phase,
+    status: 'failure',
+    error: params.error,
+  })
+
+  const baseError =
+    params.error instanceof Error ? params.error : new Error(String(params.error))
+  const wrappedError = baseError as Error & {
+    playgroundRuntimeRefreshDiagnostics: PlaygroundRuntimeRefreshFailureDiagnostics
+  }
+  wrappedError.playgroundRuntimeRefreshDiagnostics = {
+    analysisScope: params.context.analysisScope,
+    requestMode: params.context.requestMode,
+    forceMailboxProfileRefresh: params.context.forceMailboxProfileRefresh,
+    freshnessState: params.context.freshnessState,
+    buildStatus: params.context.buildStatus,
+    publishedVersion: params.context.publishedVersion,
+    buildingVersion: params.context.buildingVersion,
+    failingPhase: params.phase,
+    phases: [...params.context.phases],
+  }
+  return wrappedError
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -225,6 +385,9 @@ async function readCachedRuntimeMailboxArtifact(params: {
   supabase: SupabaseAdminClient
   tenantId: string
   analysisScope: OperationsAnalysisScope
+  forceRefresh?: boolean
+  awaitRefreshHandoff?: boolean
+  bypassCache?: boolean
 }): Promise<Awaited<ReturnType<typeof loadPublishedGmailMailboxIntelligenceArtifact>>> {
   const cacheKey = runtimeMailboxArtifactCacheKey({
     tenantId: params.tenantId,
@@ -232,7 +395,7 @@ async function readCachedRuntimeMailboxArtifact(params: {
   })
   const now = Date.now()
   const cached = runtimeMailboxArtifactCache.get(cacheKey) || null
-  if (cached && cached.expiresAtMs > now) {
+  if (!params.forceRefresh && !params.bypassCache && cached && cached.expiresAtMs > now) {
     return cached.data
   }
 
@@ -243,6 +406,10 @@ async function readCachedRuntimeMailboxArtifact(params: {
     includeSnapshot: true,
     includeClusterSummaries: true,
     includeBuckets: false,
+    reconcileBuildLiveness: true,
+    buildLivenessLogPrefix: '[playground][cleanup-runtime-artifact-liveness]',
+    bypassPublicationCache: params.forceRefresh === true || params.bypassCache === true,
+    awaitRefreshHandoff: params.awaitRefreshHandoff === true,
   })
 
   runtimeMailboxArtifactCache.set(cacheKey, {
@@ -932,16 +1099,39 @@ function normalizeRailTimelineFromSenderOverviewSnapshot(
           return {
             label,
             count: runtimeArtifactInteger(entry?.sender_count),
+            contract_version: runtimeArtifactText(entry?.contract_version) || null,
+            metric_family: runtimeArtifactText(entry?.metric_family) || null,
+            scope_key: runtimeArtifactText(entry?.scope_key) || null,
+            grouping: runtimeArtifactText(entry?.grouping) || null,
+            time_zone: runtimeArtifactText(entry?.time_zone) || null,
+            bucket_start_iso: runtimeArtifactText(entry?.bucket_start_iso) || null,
+            bucket_end_exclusive_iso: runtimeArtifactText(entry?.bucket_end_exclusive_iso) || null,
           }
         })
-        .filter((entry): entry is { label: string; count: number } => entry != null)
+        .filter(
+          (
+            entry
+          ): entry is {
+            label: string
+            count: number
+            contract_version: string | null
+            metric_family: string | null
+            scope_key: string | null
+            grouping: string | null
+            time_zone: string | null
+            bucket_start_iso: string | null
+            bucket_end_exclusive_iso: string | null
+          } => entry != null
+        )
     : []
 
   if (timelineItems.length === 0) return null
 
   return {
     granularity:
-      workspace?.analytics?.sender_activity_timeline_granularity === 'day'
+      workspace?.analytics?.sender_activity_timeline_granularity === 'hour'
+        ? 'hour'
+        : workspace?.analytics?.sender_activity_timeline_granularity === 'day'
         ? 'day'
         : workspace?.analytics?.sender_activity_timeline_granularity === 'week'
           ? 'week'
@@ -1064,13 +1254,124 @@ function buildSelectedClusterRailSnapshotFallback(params: {
   }
 }
 
+function buildBaselineSelectedClusterRailFamilyFromCleanupDiscoveryData(params: {
+  cleanupDiscoveryData: GmailCleanupDiscoveryData | null
+  preferredClusterId: string
+  analysisScope: OperationsAnalysisScope
+}): OperationsSelectedClusterRailFamily | null {
+  const cleanupDiscoveryData = params.cleanupDiscoveryData
+  const preferredClusterId = params.preferredClusterId.trim()
+  if (!cleanupDiscoveryData || !preferredClusterId) return null
+
+  const preferredClusterIdentity = resolveCleanupClusterIdentity(
+    preferredClusterId,
+    cleanupDiscoveryData.clusters.map((cluster) => ({
+      clusterId: runtimeArtifactText(cluster.cluster_id),
+      canonicalClusterId:
+        runtimeArtifactText((cluster as { canonical_cluster_id?: unknown }).canonical_cluster_id) ||
+        runtimeArtifactText(cluster.cluster_id),
+      legacyClusterIds: Array.isArray((cluster as { legacy_cluster_ids?: unknown }).legacy_cluster_ids)
+        ? (cluster as { legacy_cluster_ids: unknown[] }).legacy_cluster_ids
+            .map((entry) => runtimeArtifactText(entry))
+            .filter(Boolean)
+        : [],
+      sourceClusterIds: Array.isArray((cluster as { source_cluster_ids?: unknown }).source_cluster_ids)
+        ? (cluster as { source_cluster_ids: unknown[] }).source_cluster_ids
+            .map((entry) => runtimeArtifactText(entry))
+            .filter(Boolean)
+        : [],
+    }))
+  )
+  const resolvedClusterId = runtimeCanonicalClusterIdFromIdentity(
+    preferredClusterIdentity,
+    preferredClusterId
+  )
+  const candidateClusterIds = runtimeUniqueClusterIds([
+    resolvedClusterId,
+    preferredClusterId,
+    ...preferredClusterIdentity.legacyClusterIds,
+    ...preferredClusterIdentity.sourceClusterIds,
+  ])
+  const selectedCluster =
+    cleanupDiscoveryData.clusters.find((cluster) =>
+      candidateClusterIds.includes(runtimeArtifactText(cluster.cluster_id))
+    ) || null
+  const selectedCleanupGroup =
+    cleanupDiscoveryData.mailbox_intelligence_snapshot?.cleanup_groups.find((group) => {
+      const groupClusterIds = runtimeUniqueClusterIds([
+        group.cluster_id,
+        group.canonical_cluster_id,
+        ...group.legacy_cluster_ids,
+        ...group.source_cluster_ids,
+      ])
+      return groupClusterIds.some((clusterId) => candidateClusterIds.includes(clusterId))
+    }) || null
+
+  if (!selectedCluster && !selectedCleanupGroup) return null
+
+  const nowIso = new Date().toISOString()
+  const snapshotFallback = buildSelectedClusterRailSnapshotFallback({
+    snapshot: {
+      cleanupDiscoveryData,
+      generatedAt: cleanupDiscoveryData.generated_at || nowIso,
+      expiresAt: new Date(Date.now() + CLEANUP_PROFILE_CACHE_TTL_MS).toISOString(),
+      analysisScope: params.analysisScope,
+    },
+    preferredClusterId,
+  })
+  const clusterTitle =
+    snapshotFallback?.cluster_title ||
+    runtimeArtifactNullableText(selectedCleanupGroup?.title) ||
+    runtimeArtifactNullableText(selectedCluster?.title) ||
+    null
+  const messageCount =
+    snapshotFallback?.message_count ??
+    (selectedCleanupGroup
+      ? runtimeArtifactInteger(selectedCleanupGroup.message_count)
+      : runtimeArtifactInteger(selectedCluster?.message_count ?? selectedCluster?.estimated_count))
+  const dominantSender =
+    snapshotFallback?.dominant_sender ||
+    runtimeArtifactNullableText(selectedCleanupGroup?.dominant_sender) ||
+    null
+  const semanticResolutionDistribution =
+    snapshotFallback?.semantic_resolution_distribution &&
+    snapshotFallback.semantic_resolution_distribution.length > 0
+      ? snapshotFallback.semantic_resolution_distribution
+      : selectedCleanupGroup?.semantic_resolution_distribution || []
+
+  return {
+    cluster_id: resolvedClusterId,
+    cluster_title: clusterTitle,
+    scopes: [
+      {
+        scope: params.analysisScope,
+        cluster_id: resolvedClusterId,
+        cluster_title: clusterTitle,
+        artifact_version: null,
+        state: 'ready',
+        visible_cluster_count: snapshotFallback?.visible_cluster_count || cleanupDiscoveryData.clusters.length,
+        timeline: snapshotFallback?.timeline || null,
+        signal: {
+          message_count: messageCount,
+          dominant_sender: dominantSender,
+          semantic_resolution_distribution: semanticResolutionDistribution,
+        },
+      },
+    ],
+  }
+}
+
 function cleanupSnapshotTimelineLabelsMatchGranularity(params: {
   labels: string[]
-  granularity: 'day' | 'week' | 'month'
+  granularity: 'hour' | 'day' | 'week' | 'month'
 }): boolean {
   if (params.labels.length === 0) return false
   const pattern =
-    params.granularity === 'month' ? /^\d{4}-\d{2}$/ : /^\d{4}-\d{2}-\d{2}$/
+    params.granularity === 'hour'
+      ? /^\d{4}-\d{2}-\d{2}T\d{2}$/
+      : params.granularity === 'month'
+        ? /^\d{4}-\d{2}$/
+        : /^\d{4}-\d{2}-\d{2}$/
   return params.labels.every((label) => pattern.test(runtimeArtifactText(label)))
 }
 
@@ -1121,6 +1422,7 @@ function scopedCleanupSnapshotSupportsPreferredCluster(params: {
 
   const timelineGranularity = selectedWorkspace.analytics?.sender_activity_timeline_granularity
   if (
+    timelineGranularity !== 'hour' &&
     timelineGranularity !== 'day' &&
     timelineGranularity !== 'week' &&
     timelineGranularity !== 'month'
@@ -1864,8 +2166,14 @@ function enqueueCleanupDiscoveryRefreshInBackground(params: {
   analysisScope: OperationsAnalysisScope
   topSenders: string[]
   refreshReason: string
+  allowWhenFlagDisabled?: boolean
 }): boolean {
-  if (!isGmailArtifactFlagEnabled('runtime_background_refresh')) return false
+  if (
+    !params.allowWhenFlagDisabled &&
+    !isGmailArtifactFlagEnabled('runtime_background_refresh')
+  ) {
+    return false
+  }
 
   const topSenders = Array.from(
     new Set(params.topSenders.map((sender) => runtimeArtifactText(sender)).filter(Boolean))
@@ -2031,6 +2339,7 @@ export async function loadPlaygroundRuntimeState(params: {
   forceMailboxProfileRefresh?: boolean
   analysisScope?: OperationsAnalysisScope
   preferredClusterId?: string | null
+  transitionEdge?: 'smart_sync_handoff' | 'build_pending_poll' | null
   requestMode?: 'rehydrate_only' | 'full_chat'
 }): Promise<PlaygroundRuntimeStateServiceResult> {
   const runtimeStateStartedAt = Date.now()
@@ -2043,12 +2352,14 @@ export async function loadPlaygroundRuntimeState(params: {
     | 'force'
     | 'artifact_fresh'
     | 'index_advanced'
+    | 'failed_artifact_recovery'
     | 'missing_artifact'
     | 'snapshot_expired'
     | 'snapshot_fresh'
     | 'snapshot_missing'
     | 'scoped_discovery'
     | 'zero_cluster_artifact'
+    | 'build_pending_stable_snapshot'
     | 'rehydrate_skip' = 'none'
   let selectedAnalysisScope: OperationsAnalysisScope | null = null
   let snapshotScope: OperationsAnalysisScope | null = null
@@ -2058,12 +2369,19 @@ export async function loadPlaygroundRuntimeState(params: {
   let snapshotVersionBefore: string | null = null
   let snapshotVersionAfter: string | null = null
   let previousSnapshotServedWhileRefreshing = false
+  let continuityState: 'standard' | 'build_pending_showing_stable_snapshot' = 'standard'
+  let buildPendingWhileServingStableSnapshot = false
   let cleanupDiscoveryData: GmailCleanupDiscoveryData | null = null
   let selectedClusterRailFamily: OperationsSelectedClusterRailFamily | null = null
   let selectedClusterRailFamilyLoadMs = 0
   let preferredClusterReviewBootstrapMs = 0
   let selectedClusterRailFamilyLoadMode = 'skipped'
   let selectedClusterRailFamilyCacheStatus = 'skipped'
+  const runtimeRefreshDiagnosticContext = createRuntimeRefreshDiagnosticContext({
+    analysisScope: params.analysisScope ?? null,
+    requestMode: params.requestMode,
+    forceMailboxProfileRefresh: params.forceMailboxProfileRefresh,
+  })
   const phaseMs = {
     inbox_cleanup_intent_gate_ms: 0,
     analyze_inbox_evidence_ms: 0,
@@ -2151,10 +2469,24 @@ export async function loadPlaygroundRuntimeState(params: {
         ? params.preferredClusterId.trim()
         : null
     selectedAnalysisScope = analysisScope
+    runtimeRefreshDiagnosticContext.analysisScope = analysisScope
     reviewScope = analysisScope
     const cacheKey = `${params.agentId}:${analysisScope}`
     const now = Date.now()
     const forceRefresh = params.forceMailboxProfileRefresh === true
+    const transitionEdge =
+      params.transitionEdge === 'smart_sync_handoff' || params.transitionEdge === 'build_pending_poll'
+        ? params.transitionEdge
+        : null
+    const criticalArtifactTransitionRead =
+      analysisScope === 'all_indexed' &&
+      params.requestMode === 'rehydrate_only' &&
+      (transitionEdge === 'smart_sync_handoff' || transitionEdge === 'build_pending_poll')
+    const mandatoryArtifactRefreshHandoff =
+      analysisScope === 'all_indexed' &&
+      params.requestMode === 'rehydrate_only' &&
+      forceRefresh &&
+      transitionEdge === 'smart_sync_handoff'
     const tenantId = await loadTenantIdForUser({
       supabase: params.supabase,
       userId: params.agentUserId,
@@ -2207,14 +2539,38 @@ export async function loadPlaygroundRuntimeState(params: {
     } else {
       if (analysisScope === 'all_indexed') {
         const artifactReadStartedAt = Date.now()
-        const artifactRead = await readCachedRuntimeMailboxArtifact({
-          supabase: params.supabase,
-          tenantId,
-          analysisScope,
-        })
+        const artifactRead = await (async () => {
+          try {
+            const result = await readCachedRuntimeMailboxArtifact({
+              supabase: params.supabase,
+              tenantId,
+              analysisScope,
+              forceRefresh,
+              awaitRefreshHandoff: forceRefresh || transitionEdge === 'smart_sync_handoff',
+              bypassCache: forceRefresh || criticalArtifactTransitionRead,
+            })
+            updateRuntimeRefreshDiagnosticContextFromPublication(
+              runtimeRefreshDiagnosticContext,
+              result.publication
+            )
+            recordRuntimeRefreshPhaseResult({
+              context: runtimeRefreshDiagnosticContext,
+              phase: 'artifact_publication_read',
+              status: 'success',
+            })
+            return result
+          } catch (error) {
+            throw createRuntimeRefreshPhaseError({
+              context: runtimeRefreshDiagnosticContext,
+              phase: 'artifact_publication_read',
+              error,
+            })
+          }
+        })()
         artifactPublicationLoadMs = Math.max(0, Date.now() - artifactReadStartedAt)
 
         const publication = artifactRead.publication
+        const buildLiveness = artifactRead.build_liveness
         const summaries = artifactRead.cluster_summaries
         const clusterInputs = buildRuntimeCleanupArtifactClusterInputs(summaries)
         const artifactIsPublished = Boolean(publication?.published_version)
@@ -2223,11 +2579,27 @@ export async function loadPlaygroundRuntimeState(params: {
           indexState,
           indexCoverage,
         })
+        const failedArtifactNeedsRecovery =
+          artifactIsPublished &&
+          (publication?.freshness_state === 'refresh_failed' ||
+            publication?.build_status === 'failed')
         const indexHasData = cleanupIndexStateIndexedCount > 0
         const zeroClusterArtifactNeedsRefresh = Boolean(
           artifactIsPublished && indexHasData && clusterInputs.length === 0
         )
         const missingArtifactNeedsRefresh = !artifactIsPublished
+        const publicationBuildActive =
+          buildLiveness?.build_is_live ??
+          (publication?.build_status === 'building' &&
+            typeof publication?.building_version === 'string' &&
+            publication.building_version.length > 0 &&
+            publication.building_version !== publication.published_version)
+
+        buildPendingWhileServingStableSnapshot =
+          params.requestMode === 'rehydrate_only' &&
+          analysisScope === 'all_indexed' &&
+          artifactIsPublished &&
+          publicationBuildActive
 
         snapshotScope = artifactIsPublished ? analysisScope : null
         snapshotVersionBefore = artifactRead.artifact_version
@@ -2237,24 +2609,43 @@ export async function loadPlaygroundRuntimeState(params: {
         let mailboxIntelligenceLoadMs = 0
         let senderOverviewSnapshotLoadMs = 0
         const shouldLoadMailboxIntelligence = clusterInputs.length > 0
-        const shouldPreloadSenderOverviewSnapshot = false
+        const shouldPreloadSenderOverviewSnapshot =
+          params.requestMode === 'rehydrate_only' &&
+          artifactIsPublished &&
+          failedArtifactNeedsRecovery &&
+          clusterInputs.length > 0 &&
+          Boolean(params.preferredClusterId) &&
+          !buildPendingWhileServingStableSnapshot
 
         const [mailboxIntelligence, senderOverviewSnapshot] = await Promise.all([
           shouldLoadMailboxIntelligence
             ? (async () => {
-                const mailboxIntelligenceStartedAt = Date.now()
-                const mailboxIntelligence = await readCachedRuntimeMailboxIntelligence({
-                  supabase: params.supabase,
-                  tenantId,
-                  analysisScope,
-                  clusters: clusterInputs,
-                  artifactRead,
-                })
-                mailboxIntelligenceLoadMs = Math.max(
-                  0,
-                  Date.now() - mailboxIntelligenceStartedAt
-                )
-                return mailboxIntelligence
+                try {
+                  const mailboxIntelligenceStartedAt = Date.now()
+                  const mailboxIntelligence = await readCachedRuntimeMailboxIntelligence({
+                    supabase: params.supabase,
+                    tenantId,
+                    analysisScope,
+                    clusters: clusterInputs,
+                    artifactRead,
+                  })
+                  mailboxIntelligenceLoadMs = Math.max(
+                    0,
+                    Date.now() - mailboxIntelligenceStartedAt
+                  )
+                  recordRuntimeRefreshPhaseResult({
+                    context: runtimeRefreshDiagnosticContext,
+                    phase: 'cached_intelligence_read',
+                    status: 'success',
+                  })
+                  return mailboxIntelligence
+                } catch (error) {
+                  throw createRuntimeRefreshPhaseError({
+                    context: runtimeRefreshDiagnosticContext,
+                    phase: 'cached_intelligence_read',
+                    error,
+                  })
+                }
               })()
             : Promise.resolve(null),
           shouldPreloadSenderOverviewSnapshot
@@ -2280,17 +2671,25 @@ export async function loadPlaygroundRuntimeState(params: {
           ? 'force'
           : artifactIsStale
             ? 'index_advanced'
+            : failedArtifactNeedsRecovery
+              ? 'failed_artifact_recovery'
             : zeroClusterArtifactNeedsRefresh
               ? 'zero_cluster_artifact'
               : missingArtifactNeedsRefresh
                 ? 'missing_artifact'
                 : 'artifact_fresh'
+        if (buildPendingWhileServingStableSnapshot) {
+          cleanupProfileRefreshReason = 'build_pending_stable_snapshot'
+          continuityState = 'build_pending_showing_stable_snapshot'
+        }
 
         const shouldAttemptBackgroundRefresh =
-          forceRefresh ||
-          artifactIsStale ||
-          zeroClusterArtifactNeedsRefresh ||
-          missingArtifactNeedsRefresh
+          !buildPendingWhileServingStableSnapshot &&
+          (forceRefresh ||
+            artifactIsStale ||
+            failedArtifactNeedsRecovery ||
+            zeroClusterArtifactNeedsRefresh ||
+            missingArtifactNeedsRefresh)
         let backgroundRefreshEnqueued = false
         let backgroundRefreshMode = 'not_needed'
 
@@ -2312,25 +2711,45 @@ export async function loadPlaygroundRuntimeState(params: {
                 runtimeInputs.runtimeEvidence?.inbox_analysis.top_senders.map((entry) => entry.sender) ||
                 [],
               refreshReason: cleanupProfileRefreshReason,
+              allowWhenFlagDisabled: mandatoryArtifactRefreshHandoff,
             })
             backgroundRefreshMode = backgroundRefreshEnqueued ? 'enqueued' : 'flag_disabled'
           } else {
             backgroundRefreshMode = 'cooldown'
           }
+        } else if (buildPendingWhileServingStableSnapshot) {
+          backgroundRefreshMode = 'build_in_progress'
         }
 
-        cleanupDiscoveryData = buildRuntimeCleanupDiscoveryDataFromArtifacts({
-          analysisScope,
-          publication,
-          summaries,
-          mailboxIntelligence,
-          senderOverviewSnapshot,
-          freshness: artifactIsPublished && !artifactIsStale ? 'cached' : 'stale',
-          currentIndexedTotal: cleanupIndexStateIndexedCount,
-          currentIndexedInbox: cleanupIndexStateInboxCount,
-        })
+        cleanupDiscoveryData = (() => {
+          try {
+            const result = buildRuntimeCleanupDiscoveryDataFromArtifacts({
+              analysisScope,
+              publication,
+              summaries,
+              mailboxIntelligence,
+              senderOverviewSnapshot,
+              freshness: artifactIsPublished && !artifactIsStale ? 'cached' : 'stale',
+              currentIndexedTotal: cleanupIndexStateIndexedCount,
+              currentIndexedInbox: cleanupIndexStateInboxCount,
+            })
+            recordRuntimeRefreshPhaseResult({
+              context: runtimeRefreshDiagnosticContext,
+              phase: 'cleanup_discovery_data_build',
+              status: 'success',
+            })
+            return result
+          } catch (error) {
+            throw createRuntimeRefreshPhaseError({
+              context: runtimeRefreshDiagnosticContext,
+              phase: 'cleanup_discovery_data_build',
+              error,
+            })
+          }
+        })()
         cleanupProfileStatus = artifactIsPublished ? (artifactIsStale ? 'stale' : 'cached') : 'stale'
-        previousSnapshotServedWhileRefreshing = backgroundRefreshEnqueued && artifactIsPublished
+        previousSnapshotServedWhileRefreshing =
+          (backgroundRefreshEnqueued && artifactIsPublished) || buildPendingWhileServingStableSnapshot
 
         cleanupPlanDetailMs = {
           wrapper_snapshot_preload_ms: 0,
@@ -2342,15 +2761,30 @@ export async function loadPlaygroundRuntimeState(params: {
           sender_overview_snapshot_load_ms: senderOverviewSnapshotLoadMs,
           artifact_mode: artifactIsPublished ? 'published_artifact' : 'safe_partial',
           artifact_version: artifactRead.artifact_version,
+          artifact_freshness_state: publication?.freshness_state ?? null,
+          artifact_build_status: publication?.build_status ?? null,
+          artifact_build_liveness_status: buildLiveness?.status ?? null,
+          artifact_build_reclaim_reason: buildLiveness?.reclaim_reason ?? null,
+          artifact_build_reclaim_applied: buildLiveness?.reclaim_applied ?? false,
+          artifact_published_version: publication?.published_version ?? null,
+          artifact_building_version: publication?.building_version ?? null,
           artifact_cluster_summary_count: summaries.length,
           mailbox_intelligence_present: mailboxIntelligence != null,
           sender_overview_cluster_count: senderOverviewSnapshot
             ? Object.keys(senderOverviewSnapshot).length
             : 0,
-          sender_overview_preload_scope: senderOverviewSnapshot ? 'selected_cluster_only' : 'skipped',
+          sender_overview_preload_scope: senderOverviewSnapshot
+            ? failedArtifactNeedsRecovery
+              ? 'preferred_cluster_failed_artifact_recovery'
+              : 'selected_cluster_only'
+            : 'skipped',
           sender_overview_preferred_cluster_id: params.preferredClusterId || null,
           background_refresh_enqueued: backgroundRefreshEnqueued,
           background_refresh_mode: backgroundRefreshMode,
+          continuity_state: continuityState,
+          continuity_build_pending: buildPendingWhileServingStableSnapshot,
+          continuity_stable_snapshot_served: buildPendingWhileServingStableSnapshot,
+          continuity_swap_ready: !buildPendingWhileServingStableSnapshot,
           snapshot_save_mode: backgroundRefreshEnqueued
             ? 'background_enqueued'
             : backgroundRefreshMode === 'cooldown'
@@ -2375,7 +2809,9 @@ export async function loadPlaygroundRuntimeState(params: {
               ? Object.keys(senderOverviewSnapshot).length
               : 0,
             sender_overview_preload_scope: senderOverviewSnapshot
-              ? 'selected_cluster_only'
+              ? failedArtifactNeedsRecovery
+                ? 'preferred_cluster_failed_artifact_recovery'
+                : 'selected_cluster_only'
               : 'skipped',
             sender_overview_preferred_cluster_id: params.preferredClusterId || null,
             cleanup_profile_status: cleanupProfileStatus,
@@ -2416,7 +2852,7 @@ export async function loadPlaygroundRuntimeState(params: {
         snapshotScope = cleanupSnapshot?.analysisScope ?? null
         snapshotVersionBefore = cleanupSnapshot ? CLEANUP_DISCOVERY_SNAPSHOT_VERSION : null
 
-        if (requiresCurrentScopeRediscovery) {
+        if (forceRefresh || requiresCurrentScopeRediscovery) {
           const topSenders = Array.from(
             new Set(
               (
@@ -2432,7 +2868,9 @@ export async function loadPlaygroundRuntimeState(params: {
             tenantId,
             topSenders,
             analysisScope,
-            logPrefix: '[playground/cleanup-discovery/current-scope-refresh]',
+            logPrefix: forceRefresh
+              ? '[playground/cleanup-discovery/force-refresh]'
+              : '[playground/cleanup-discovery/current-scope-refresh]',
             disableInlineIndexSync: true,
             preferExistingIndexedCoverage: true,
             skipIndexSyncIfRecentMs: CLEANUP_PROFILE_CACHE_TTL_MS,
@@ -2458,7 +2896,7 @@ export async function loadPlaygroundRuntimeState(params: {
               expiresAt: expiresAtIso,
             })
             cleanupProfileStatus = 'fresh'
-            cleanupProfileRefreshReason = 'scoped_discovery'
+            cleanupProfileRefreshReason = forceRefresh ? 'force' : 'scoped_discovery'
             cleanupSnapshotClusterCount = cleanupDiscovery.data.clusters.length
             snapshotScope = analysisScope
             snapshotVersionAfter = CLEANUP_DISCOVERY_SNAPSHOT_VERSION
@@ -2468,7 +2906,9 @@ export async function loadPlaygroundRuntimeState(params: {
               wrapper_index_metadata_preload_ms: indexMetadataLoadMs,
               wrapper_index_metadata_preload_skipped: true,
               artifact_publication_load_ms: 0,
-              artifact_mode: 'scoped_discovery_snapshot_refreshed',
+              artifact_mode: forceRefresh
+                ? 'scoped_discovery_snapshot_force_refreshed'
+                : 'scoped_discovery_snapshot_refreshed',
               scoped_snapshot_found: true,
               scoped_snapshot_expired: false,
               scoped_snapshot_index_advanced: false,
@@ -2705,97 +3145,37 @@ export async function loadPlaygroundRuntimeState(params: {
         )
       }
 
-      if (tenantId && preferredClusterId) {
-        const preferredClusterReviewBootstrapStartedAt = Date.now()
-        const preferredClusterIdentity = cleanupDiscoveryData
-          ? resolveCleanupClusterIdentity(
-              preferredClusterId,
-              cleanupDiscoveryData.clusters.map((cluster) => ({
-                clusterId: cluster.cluster_id,
-                canonicalClusterId: cluster.canonical_cluster_id || cluster.cluster_id,
-                legacyClusterIds: cluster.legacy_cluster_ids || [],
-                sourceClusterIds:
-                  'source_cluster_ids' in cluster && Array.isArray(cluster.source_cluster_ids)
-                    ? cluster.source_cluster_ids
-                    : [],
-              }))
-            )
-          : null
-        const preferredClusterCandidateIds = preferredClusterIdentity
-          ? runtimeUniqueClusterIds([
-              runtimeCanonicalClusterIdFromIdentity(preferredClusterIdentity, preferredClusterId),
-              preferredClusterId,
-              ...preferredClusterIdentity.legacyClusterIds,
-              ...preferredClusterIdentity.sourceClusterIds,
-            ])
-          : [preferredClusterId]
-        const selectedClusterTitle =
-          cleanupDiscoveryData?.clusters.find(
-            (cluster) => preferredClusterCandidateIds.includes(cluster.cluster_id)
-          )?.title || null
-        if (!indexCoverage) {
-          indexCoverage = await loadGmailMailboxIndexCoverageForTenant({
-            supabase: params.supabase,
-            tenantId,
-          })
-        }
-        const normalizedCurrentScope =
-          selectedAnalysisScope && GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS.includes(selectedAnalysisScope)
-            ? selectedAnalysisScope
-            : null
-        const scopedRailBootstrap = await resolveSelectedClusterRailBootstrapSnapshots({
-          supabase: params.supabase,
-          agentId: params.agentId,
-          tenantId,
-          preferredClusterId,
-          analysisScopes: [...GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS],
-          currentScope: normalizedCurrentScope,
-          currentScopeCleanupDiscoveryData: cleanupDiscoveryData,
-          indexState,
-          indexCoverage,
-          nowMs: Date.now(),
-          allowReadonlyScopedDiscovery: params.requestMode !== 'rehydrate_only',
-        })
-        const snapshotFallbackByScope = Object.fromEntries(
-          GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS.map((scope) => [
-            scope,
-            buildSelectedClusterRailSnapshotFallback({
-              snapshot: scopedRailBootstrap.snapshotsByScope[scope] || null,
-              preferredClusterId,
-            }),
-          ])
-        ) as Partial<
-          Record<GmailArtifactAnalysisScope, SelectedClusterRailSnapshotScopeFallback | null>
-        >
-        const selectedClusterRailFamilyStartedAt = Date.now()
-        try {
-          const railFamilyResult = await loadSelectedClusterRailFamily({
-            supabase: params.supabase,
-            tenantId,
+      const deferSelectedClusterRailFamilyForBaselineSnapshot =
+        params.requestMode === 'rehydrate_only' &&
+        Boolean(preferredClusterId) &&
+        transitionEdge == null &&
+        !buildPendingWhileServingStableSnapshot
+
+      if (tenantId && preferredClusterId && !buildPendingWhileServingStableSnapshot) {
+        if (deferSelectedClusterRailFamilyForBaselineSnapshot) {
+          const selectedClusterRailFamilyBaselineStartedAt = Date.now()
+          selectedClusterRailFamily = buildBaselineSelectedClusterRailFamilyFromCleanupDiscoveryData({
+            cleanupDiscoveryData,
             preferredClusterId,
-            clusterTitle: selectedClusterTitle,
-            snapshotFallbackByScope,
+            analysisScope,
           })
-          selectedClusterRailFamily = railFamilyResult.family
-          selectedClusterRailFamilyCacheStatus = railFamilyResult.cache_status
           selectedClusterRailFamilyLoadMs = Math.max(
             0,
-            Date.now() - selectedClusterRailFamilyStartedAt
+            Date.now() - selectedClusterRailFamilyBaselineStartedAt
           )
-          preferredClusterReviewBootstrapMs = Math.max(
-            0,
-            Date.now() - preferredClusterReviewBootstrapStartedAt
-          )
-          selectedClusterRailFamilyLoadMode = railFamilyResult.scope_resolution.some(
-            (entry) => entry.source.startsWith('snapshot_')
-          )
-            ? 'batched_published_surfaces_with_scoped_snapshots'
-            : 'batched_published_surfaces'
+          preferredClusterReviewBootstrapMs = 0
+          selectedClusterRailFamilyLoadMode = selectedClusterRailFamily
+            ? 'baseline_snapshot_seed'
+            : 'deferred_for_baseline_snapshot'
+          selectedClusterRailFamilyCacheStatus = selectedClusterRailFamily
+            ? 'baseline_seed'
+            : 'deferred'
           if (cleanupPlanDetailMs) {
-            cleanupPlanDetailMs.selected_cluster_rail_family_scope_resolution =
-              railFamilyResult.scope_resolution
-            cleanupPlanDetailMs.selected_cluster_rail_family_snapshot_resolution =
-              scopedRailBootstrap.resolutions
+            cleanupPlanDetailMs.selected_cluster_rail_family_deferred = true
+            cleanupPlanDetailMs.selected_cluster_rail_family_defer_reason =
+              'baseline_snapshot_unblock'
+            cleanupPlanDetailMs.selected_cluster_rail_family_baseline_seeded =
+              selectedClusterRailFamily != null
           }
           console.info(
             `[playground][selected-cluster-rail-family] ${JSON.stringify({
@@ -2806,31 +3186,184 @@ export async function loadPlaygroundRuntimeState(params: {
               selected_cluster_rail_family_load_ms: selectedClusterRailFamilyLoadMs,
               preferred_cluster_review_bootstrap_ms: preferredClusterReviewBootstrapMs,
               mode: selectedClusterRailFamilyLoadMode,
-              snapshot_resolution: scopedRailBootstrap.resolutions,
-              scope_resolution: railFamilyResult.scope_resolution,
+              defer_reason: 'baseline_snapshot_unblock',
+              baseline_seeded: selectedClusterRailFamily != null,
+              scope_count: selectedClusterRailFamily?.scopes.length || 0,
             })}`
           )
-        } catch (error) {
-          selectedClusterRailFamily = null
-          selectedClusterRailFamilyCacheStatus = 'failed'
-          selectedClusterRailFamilyLoadMs = Math.max(
-            0,
-            Date.now() - selectedClusterRailFamilyStartedAt
-          )
-          preferredClusterReviewBootstrapMs = Math.max(
-            0,
-            Date.now() - preferredClusterReviewBootstrapStartedAt
-          )
-          selectedClusterRailFamilyLoadMode = 'failed'
-          console.error('[playground][selected-cluster-rail-family] failed', {
-            request_mode: params.requestMode ?? 'unknown',
-            selected_analysis_scope: analysisScope,
-            preferred_cluster_id: preferredClusterId,
-            cache_status: selectedClusterRailFamilyCacheStatus,
-            selected_cluster_rail_family_load_ms: selectedClusterRailFamilyLoadMs,
-            preferred_cluster_review_bootstrap_ms: preferredClusterReviewBootstrapMs,
-            error: error instanceof Error ? error.message : String(error),
-          })
+        } else {
+          const preferredClusterReviewBootstrapStartedAt = Date.now()
+          const preferredClusterIdentity = cleanupDiscoveryData
+            ? resolveCleanupClusterIdentity(
+                preferredClusterId,
+                cleanupDiscoveryData.clusters.map((cluster) => ({
+                  clusterId: cluster.cluster_id,
+                  canonicalClusterId: cluster.canonical_cluster_id || cluster.cluster_id,
+                  legacyClusterIds: cluster.legacy_cluster_ids || [],
+                  sourceClusterIds:
+                    'source_cluster_ids' in cluster && Array.isArray(cluster.source_cluster_ids)
+                      ? cluster.source_cluster_ids
+                      : [],
+                }))
+              )
+            : null
+          const preferredClusterCandidateIds = preferredClusterIdentity
+            ? runtimeUniqueClusterIds([
+                runtimeCanonicalClusterIdFromIdentity(preferredClusterIdentity, preferredClusterId),
+                preferredClusterId,
+                ...preferredClusterIdentity.legacyClusterIds,
+                ...preferredClusterIdentity.sourceClusterIds,
+              ])
+            : [preferredClusterId]
+          const selectedClusterTitle =
+            cleanupDiscoveryData?.clusters.find(
+              (cluster) => preferredClusterCandidateIds.includes(cluster.cluster_id)
+            )?.title || null
+          if (!indexCoverage) {
+            indexCoverage = await loadGmailMailboxIndexCoverageForTenant({
+              supabase: params.supabase,
+              tenantId,
+            })
+          }
+          const normalizedCurrentScope =
+            selectedAnalysisScope && GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS.includes(selectedAnalysisScope)
+              ? selectedAnalysisScope
+              : null
+          const selectedClusterRailFamilyStartedAt = Date.now()
+          try {
+            const scopedRailBootstrap = await resolveSelectedClusterRailBootstrapSnapshots({
+              supabase: params.supabase,
+              agentId: params.agentId,
+              tenantId,
+              preferredClusterId,
+              analysisScopes: [...GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS],
+              currentScope: normalizedCurrentScope,
+              currentScopeCleanupDiscoveryData: cleanupDiscoveryData,
+              indexState,
+              indexCoverage,
+              nowMs: Date.now(),
+              allowReadonlyScopedDiscovery: params.requestMode !== 'rehydrate_only',
+            })
+            const snapshotFallbackByScope = Object.fromEntries(
+              GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS.map((scope) => [
+                scope,
+                buildSelectedClusterRailSnapshotFallback({
+                  snapshot: scopedRailBootstrap.snapshotsByScope[scope] || null,
+                  preferredClusterId,
+                }),
+              ])
+            ) as Partial<
+              Record<GmailArtifactAnalysisScope, SelectedClusterRailSnapshotScopeFallback | null>
+            >
+            try {
+              const railFamilyResult = await loadSelectedClusterRailFamily({
+                supabase: params.supabase,
+                tenantId,
+                preferredClusterId,
+                clusterTitle: selectedClusterTitle,
+                snapshotFallbackByScope,
+              })
+              selectedClusterRailFamily = railFamilyResult.family
+              selectedClusterRailFamilyCacheStatus = railFamilyResult.cache_status
+              selectedClusterRailFamilyLoadMs = Math.max(
+                0,
+                Date.now() - selectedClusterRailFamilyStartedAt
+              )
+              preferredClusterReviewBootstrapMs = Math.max(
+                0,
+                Date.now() - preferredClusterReviewBootstrapStartedAt
+              )
+              selectedClusterRailFamilyLoadMode = railFamilyResult.scope_resolution.some(
+                (entry) => entry.source.startsWith('snapshot_')
+              )
+                ? 'batched_published_surfaces_with_scoped_snapshots'
+                : 'batched_published_surfaces'
+              if (cleanupPlanDetailMs) {
+                cleanupPlanDetailMs.selected_cluster_rail_family_scope_resolution =
+                  railFamilyResult.scope_resolution
+                cleanupPlanDetailMs.selected_cluster_rail_family_snapshot_resolution =
+                  scopedRailBootstrap.resolutions
+              }
+              console.info(
+                `[playground][selected-cluster-rail-family] ${JSON.stringify({
+                  request_mode: params.requestMode ?? 'unknown',
+                  selected_analysis_scope: analysisScope,
+                  preferred_cluster_id: preferredClusterId,
+                  cache_status: selectedClusterRailFamilyCacheStatus,
+                  selected_cluster_rail_family_load_ms: selectedClusterRailFamilyLoadMs,
+                  preferred_cluster_review_bootstrap_ms: preferredClusterReviewBootstrapMs,
+                  mode: selectedClusterRailFamilyLoadMode,
+                  snapshot_resolution: scopedRailBootstrap.resolutions,
+                  scope_resolution: railFamilyResult.scope_resolution,
+                })}`
+              )
+            } catch (error) {
+              selectedClusterRailFamily = null
+              selectedClusterRailFamilyCacheStatus = 'failed'
+              selectedClusterRailFamilyLoadMs = Math.max(
+                0,
+                Date.now() - selectedClusterRailFamilyStartedAt
+              )
+              preferredClusterReviewBootstrapMs = Math.max(
+                0,
+                Date.now() - preferredClusterReviewBootstrapStartedAt
+              )
+              selectedClusterRailFamilyLoadMode = 'failed'
+              console.error('[playground][selected-cluster-rail-family] failed', {
+                request_mode: params.requestMode ?? 'unknown',
+                selected_analysis_scope: analysisScope,
+                preferred_cluster_id: preferredClusterId,
+                cache_status: selectedClusterRailFamilyCacheStatus,
+                selected_cluster_rail_family_load_ms: selectedClusterRailFamilyLoadMs,
+                preferred_cluster_review_bootstrap_ms: preferredClusterReviewBootstrapMs,
+                error: error instanceof Error ? error.message : String(error),
+              })
+            }
+          } catch (error) {
+            selectedClusterRailFamily = null
+            selectedClusterRailFamilyCacheStatus = 'bootstrap_failed'
+            selectedClusterRailFamilyLoadMs = Math.max(
+              0,
+              Date.now() - selectedClusterRailFamilyStartedAt
+            )
+            preferredClusterReviewBootstrapMs = Math.max(
+              0,
+              Date.now() - preferredClusterReviewBootstrapStartedAt
+            )
+            selectedClusterRailFamilyLoadMode = 'bootstrap_skipped_after_failure'
+            if (cleanupPlanDetailMs) {
+              cleanupPlanDetailMs.selected_cluster_rail_family_bootstrap_failed = true
+              cleanupPlanDetailMs.selected_cluster_rail_family_bootstrap_failure_message =
+                error instanceof Error ? error.message : String(error)
+            }
+            console.warn('[playground][selected-cluster-rail-family] bootstrap failed; continuing without rail family', {
+              request_mode: params.requestMode ?? 'unknown',
+              selected_analysis_scope: analysisScope,
+              preferred_cluster_id: preferredClusterId,
+              cache_status: selectedClusterRailFamilyCacheStatus,
+              selected_cluster_rail_family_load_ms: selectedClusterRailFamilyLoadMs,
+              preferred_cluster_review_bootstrap_ms: preferredClusterReviewBootstrapMs,
+              freshness_state: readRecordString(cleanupPlanDetailMs, 'artifact_freshness_state'),
+              build_status: readRecordString(cleanupPlanDetailMs, 'artifact_build_status'),
+              published_version: readRecordString(cleanupPlanDetailMs, 'artifact_published_version'),
+              building_version: readRecordString(cleanupPlanDetailMs, 'artifact_building_version'),
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
+      }
+
+      if (tenantId && preferredClusterId && buildPendingWhileServingStableSnapshot) {
+        selectedClusterRailFamily = null
+        selectedClusterRailFamilyLoadMs = 0
+        preferredClusterReviewBootstrapMs = 0
+        selectedClusterRailFamilyLoadMode = 'stable_snapshot_while_building'
+        selectedClusterRailFamilyCacheStatus = 'build_pending'
+        if (cleanupPlanDetailMs) {
+          cleanupPlanDetailMs.selected_cluster_rail_family_mode =
+            'stable_snapshot_while_building'
+          cleanupPlanDetailMs.selected_cluster_rail_family_cache_status = 'build_pending'
+          cleanupPlanDetailMs.selected_cluster_rail_family_build_pending = true
         }
       }
 
@@ -2850,15 +3383,31 @@ export async function loadPlaygroundRuntimeState(params: {
   }
 
   const assembleFinalStartedAt = Date.now()
-  const runtimeState = assembleGmailRuntimeState({
-    runtimeEvidence: runtimeInputs.runtimeEvidence,
-    latestRuntimeReviewEvidence: runtimeInputs.latestRuntimeReviewEvidence,
-    latestRuntimeQueryReviewEvidence: runtimeInputs.latestRuntimeQueryReviewEvidence,
-    latestRuntimeArchiveEvidence: runtimeInputs.latestRuntimeArchiveEvidence,
-    runtimeSuggestionHistory: runtimeInputs.runtimeSuggestionHistory,
-    cleanupDiscoveryData,
-    selectedClusterRailFamily,
-  })
+  const runtimeState = (() => {
+    try {
+      const result = assembleGmailRuntimeState({
+        runtimeEvidence: runtimeInputs.runtimeEvidence,
+        latestRuntimeReviewEvidence: runtimeInputs.latestRuntimeReviewEvidence,
+        latestRuntimeQueryReviewEvidence: runtimeInputs.latestRuntimeQueryReviewEvidence,
+        latestRuntimeArchiveEvidence: runtimeInputs.latestRuntimeArchiveEvidence,
+        runtimeSuggestionHistory: runtimeInputs.runtimeSuggestionHistory,
+        cleanupDiscoveryData,
+        selectedClusterRailFamily,
+      })
+      recordRuntimeRefreshPhaseResult({
+        context: runtimeRefreshDiagnosticContext,
+        phase: 'runtime_assembly',
+        status: 'success',
+      })
+      return result
+    } catch (error) {
+      throw createRuntimeRefreshPhaseError({
+        context: runtimeRefreshDiagnosticContext,
+        phase: 'runtime_assembly',
+        error,
+      })
+    }
+  })()
   const assembleFinalMs = Date.now() - assembleFinalStartedAt
   phaseMs.batch_suggestions_ms += assembleFinalMs
   if (cleanupPlanDetailMs) {
@@ -2915,9 +3464,33 @@ export async function loadPlaygroundRuntimeState(params: {
     })}`
   )
 
+  const manualCleanupRegenerationAnalysisScope =
+    selectedAnalysisScope ?? normalizeOperationsAnalysisScope(params.analysisScope)
+  const manualCleanupContinuityState: 'standard' | 'build_pending_showing_stable_snapshot' =
+    readRecordString(cleanupPlanDetailMs, 'continuity_state') ===
+    'build_pending_showing_stable_snapshot'
+      ? 'build_pending_showing_stable_snapshot'
+      : 'standard'
   const manualCleanupRegenerationDiagnostics =
-    params.requestMode === 'rehydrate_only' && params.forceMailboxProfileRefresh === true
+    params.requestMode === 'rehydrate_only'
       ? {
+          analysisScope: manualCleanupRegenerationAnalysisScope,
+          cleanupProfileStatus,
+          cleanupProfileRefreshReason,
+          snapshotScope,
+          snapshotVersionBefore,
+          snapshotVersionAfter,
+          previousSnapshotServedWhileRefreshing,
+          runtimeCleanupPlanGeneratedAt: runtimeState.runtimeCleanupPlan?.generated_at || null,
+          runtimeMailboxProfileGeneratedAt: runtimeState.runtimeMailboxProfile?.generated_at || null,
+          runtimeMailboxProfileFreshnessLastGeneratedAt:
+            runtimeState.runtimeMailboxProfile?.freshness?.last_generated_at || null,
+          derivedCacheVersion:
+            runtimeState.runtimeCleanupPlan?.generated_at ||
+            runtimeState.runtimeMailboxProfile?.freshness?.last_generated_at ||
+            runtimeState.runtimeMailboxProfile?.generated_at ||
+            null,
+          runtimeCleanupPlanClusterCount: runtimeState.runtimeCleanupPlan?.clusters.length ?? 0,
           cleanupPlanMs: phaseMs.cleanup_plan_ms,
           runtimeStateTotalMs: phaseMs.runtime_state_total_ms,
           discoveryTotalMs: readRecordNumber(cleanupPlanDetailMs, 'total_ms'),
@@ -2934,6 +3507,19 @@ export async function loadPlaygroundRuntimeState(params: {
           ),
           snapshotSaveMode: readRecordString(cleanupPlanDetailMs, 'snapshot_save_mode'),
           finalRuntimeAssembleMs: readRecordNumber(cleanupPlanDetailMs, 'final_runtime_assemble_ms'),
+          continuityState: manualCleanupContinuityState,
+          buildPending:
+            readRecordBoolean(cleanupPlanDetailMs, 'continuity_build_pending') === true,
+          stableSnapshotServed:
+            readRecordBoolean(cleanupPlanDetailMs, 'continuity_stable_snapshot_served') === true,
+          swapReady: readRecordBoolean(cleanupPlanDetailMs, 'continuity_swap_ready') === true,
+          publicationFreshnessState: readRecordString(
+            cleanupPlanDetailMs,
+            'artifact_freshness_state'
+          ),
+          publicationBuildStatus: readRecordString(cleanupPlanDetailMs, 'artifact_build_status'),
+          publishedVersion: readRecordString(cleanupPlanDetailMs, 'artifact_published_version'),
+          buildingVersion: readRecordString(cleanupPlanDetailMs, 'artifact_building_version'),
         }
       : null
 

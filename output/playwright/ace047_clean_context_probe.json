@@ -1,0 +1,15 @@
+{
+  "storage": {
+    "href": "http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust",
+    "title": "Automata",
+    "bodyPreview": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\nLoading...\n\nLogout\n\nOPERATIONS WORKSPACE\n\nSession-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.\n\nWORKFLOW SCOPE\n\nThis control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.\n\n1W\n1M\n2M\n1Q\n6M\n1Y\nAll indexed\nRefresh cleanup analysis\n\nRefreshing cleanup analysis does not increase indexed mailbox coverage.\n\nSmart SyncContinue BackfillRun full mailbox reindex\n\nWorkflow scope view: All indexed · Last refresh: —\n\nEffective discovery window: —\n\nLast regenerated: —\n\nRefreshing cleanup analysis in the background. Current cleanup groups stay visible until the new results are ready.\n\nMAILBOX INDEX\n\nMailbox index status unavailable\n\nMailbox index health has not loaded yet.\n\nCONTROL CENTER\n\nManagement is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.\n\nWORKFLOW\n\nMailbox Intelligence\n\nMission, status, and high-level cleanup summary\n\nCleanup Groups\n\nFull sender-group selection surface\n\nSender Overview\n\nOrientation, scope, and progress before focused review\n\nDecision Mode\n\nOne sender at a time, four actions, no Gmail mutation\n\nManagement\n\nDestination states, execution truth, and follow-up\n\nLEGACY & AUDIT\n\nPending Approvals\n\nLegacy queue surface kept route-safe for older runtime flows\n\nExecuted Actions\n\nLegacy execution audit view\n\nHistory\n\nLegacy audit timeline and runtime history\n\nTOOLS\n\nAI Playground Chat\n\nGeneral chat/testing surface\n\nLoading sender decisions workspace…\n\nAI ASSISTANT\n\nContextual help (secondary)\n\nSyncing…\n\nUse the suggested prompts for this page, or ask any context-specific question.\n\nSUGGESTED PROMPTS\n\nWhat does this cleanup group represent before I start decisions?\nHow many senders are already managed versus still eligible?\nWhen should I leave Overview and enter Decision Mode?\nAsk",
+    "hasLoginHeading": false,
+    "localStorageKeys": [
+      "gmail.runtime.summary.v1:decision_management::d256b48e-5acf-4b3d-af22-003d52e7e582"
+    ],
+    "sessionStorageKeys": [],
+    "operationsWorkspaceVisible": true,
+    "selectedCleanupGroupVisible": false
+  },
+  "cookies": []
+}

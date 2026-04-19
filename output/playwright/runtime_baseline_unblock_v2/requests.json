@@ -1,0 +1,517 @@
+[
+  {
+    "id": 0,
+    "family": "other",
+    "url": "http://localhost:3000/api/runtime/gmail-memory?agent_id=d256b48e-5acf-4b3d-af22-003d52e7e582&view=decision_management",
+    "method": "GET",
+    "startedAtMs": 705,
+    "durationMs": 1503,
+    "status": 200,
+    "failed": null,
+    "requestBody": null,
+    "responseSummary": null
+  },
+  {
+    "id": 1,
+    "family": "mailbox-index",
+    "url": "http://localhost:3000/api/integrations/gmail/mailbox-index",
+    "method": "GET",
+    "startedAtMs": 705,
+    "durationMs": 2020,
+    "status": 200,
+    "failed": null,
+    "requestBody": null,
+    "responseSummary": null
+  },
+  {
+    "id": 2,
+    "family": "playground",
+    "url": "http://localhost:3000/api/agents/playground",
+    "method": "POST",
+    "startedAtMs": 705,
+    "durationMs": 13118,
+    "status": 200,
+    "failed": null,
+    "requestBody": {
+      "agent_id": "d256b48e-5acf-4b3d-af22-003d52e7e582",
+      "messages": [],
+      "session_id": null,
+      "rehydrate_only": true,
+      "request_mode": "playground",
+      "analysis_scope": "all_indexed",
+      "refresh_mailbox_profile": false,
+      "preferred_cluster_id": "structural.protected_trust",
+      "transition_edge": null
+    },
+    "action": null,
+    "request_phase": null,
+    "request_reason": null,
+    "analysis_scope": "all_indexed",
+    "rehydrate_only": true,
+    "transition_edge": null,
+    "responseSummary": {
+      "ok": true,
+      "error": null,
+      "diagnostics": null,
+      "runtimeDataPresent": true,
+      "selectedRailFamilyPresent": true,
+      "selectedRailFamilyScopeCount": 1
+    }
+  },
+  {
+    "id": 3,
+    "family": "inbox-analysis",
+    "url": "http://localhost:3000/api/integrations/gmail/inbox-analysis",
+    "method": "POST",
+    "startedAtMs": 13972,
+    "durationMs": null,
+    "status": null,
+    "failed": null,
+    "requestBody": {
+      "analysis_scope": "all_indexed",
+      "cache_version": "2026-04-15T23:06:44.292+00:00",
+      "selected_cluster": {
+        "cluster_id": "structural.protected_trust",
+        "canonical_cluster_id": "structural.protected_trust",
+        "legacy_cluster_ids": [
+          "protected-trusted-senders"
+        ],
+        "cluster_type": "protected_trusted",
+        "title": "Protected / trusted senders",
+        "query": "system:protected_trusted",
+        "why_selected": "Captures senders with explicit protected signals or strong human-priority evidence so they remain visible without falling out of cleanup grouping.",
+        "risk_note": "High caution; these senders are protected first and should only be overridden deliberately.",
+        "safety_note": "Sender-first review keeps protected traffic visible.",
+        "sender_count": 1844,
+        "message_count": 134237,
+        "estimated_count": 134237
+      },
+      "clusters": [
+        {
+          "cluster_id": "structural.protected_trust",
+          "canonical_cluster_id": "structural.protected_trust",
+          "legacy_cluster_ids": [
+            "protected-trusted-senders"
+          ],
+          "cluster_type": "protected_trusted",
+          "title": "Protected / trusted senders",
+          "query": "system:protected_trusted",
+          "sender_count": 1844,
+          "message_count": 134237,
+          "estimated_count": 134237
+        },
+        {
+          "cluster_id": "semantic.family.marketing_promotional",
+          "canonical_cluster_id": "semantic.family.marketing_promotional",
+          "cluster_type": "semantic_parent",
+          "title": "Marketing / promotional",
+          "query": "Marketing / promotional",
+          "sender_count": 1759,
+          "message_count": 122708,
+          "estimated_count": 122708
+        },
+        {
+          "cluster_id": "semantic.family.account_notification",
+          "canonical_cluster_id": "semantic.family.account_notification",
+          "cluster_type": "semantic_parent",
+          "title": "Account notifications",
+          "query": "Account notifications",
+          "sender_count": 1601,
+          "message_count": 71503,
+          "estimated_count": 71503
+        },
+        {
+          "cluster_id": "semantic.marketing_subscriptions",
+          "canonical_cluster_id": "semantic.marketing_subscriptions",
+          "legacy_cluster_ids": [
+            "subscription-senders"
+          ],
+          "cluster_type": "newsletters",
+          "title": "Marketing / promotional subscriptions",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (category:promotions OR subject:(newsletter OR digest OR roundup OR unsubscribe OR \"manage preferences\"))",
+          "sender_count": 857,
+          "message_count": 70522,
+          "estimated_count": 70522
+        },
+        {
+          "cluster_id": "semantic.family.commerce_transactional",
+          "canonical_cluster_id": "semantic.family.commerce_transactional",
+          "cluster_type": "semantic_parent",
+          "title": "Commerce / transactional",
+          "query": "Commerce / transactional",
+          "sender_count": 1238,
+          "message_count": 30528,
+          "estimated_count": 30528
+        },
+        {
+          "cluster_id": "structural.backlog",
+          "canonical_cluster_id": "structural.backlog",
+          "legacy_cluster_ids": [
+            "dormant-backlog-senders"
+          ],
+          "cluster_type": "unread_clutter",
+          "title": "Dormant low-attention senders",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (older_than:45d OR (is:unread older_than:21d))",
+          "sender_count": 1003,
+          "message_count": 16776,
+          "estimated_count": 16776
+        },
+        {
+          "cluster_id": "context.historical",
+          "canonical_cluster_id": "context.historical",
+          "legacy_cluster_ids": [
+            "historical-out-of-inbox-senders"
+          ],
+          "cluster_type": "historical_out_of_inbox",
+          "title": "Historical / out-of-inbox senders",
+          "query": "system:historical_out_of_inbox",
+          "sender_count": 59,
+          "message_count": 4238,
+          "estimated_count": 4238
+        },
+        {
+          "cluster_id": "semantic.family.security_alert",
+          "canonical_cluster_id": "semantic.family.security_alert",
+          "cluster_type": "semantic_parent",
+          "title": "Security alerts",
+          "query": "Security alerts",
+          "sender_count": 179,
+          "message_count": 2393,
+          "estimated_count": 2393
+        },
+        {
+          "cluster_id": "secondary.account_updates",
+          "canonical_cluster_id": "secondary.account_updates",
+          "cluster_type": "noreply_automation",
+          "title": "System notification senders",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (from:noreply OR from:no-reply OR from:donotreply OR subject:(notification OR alert OR automated OR digest))",
+          "sender_count": 31,
+          "message_count": 1323,
+          "estimated_count": 1323
+        },
+        {
+          "cluster_id": "structural.unresolved",
+          "canonical_cluster_id": "structural.unresolved",
+          "legacy_cluster_ids": [
+            "needs-review-senders"
+          ],
+          "cluster_type": "needs_review",
+          "title": "Needs review senders",
+          "query": "system:needs_review",
+          "sender_count": 1118,
+          "message_count": 1133,
+          "estimated_count": 1133
+        },
+        {
+          "cluster_id": "semantic.family.social_community",
+          "canonical_cluster_id": "semantic.family.social_community",
+          "cluster_type": "semantic_parent",
+          "title": "Social / community",
+          "query": "Social / community",
+          "sender_count": 55,
+          "message_count": 875,
+          "estimated_count": 875
+        },
+        {
+          "cluster_id": "semantic.family.human_personal",
+          "canonical_cluster_id": "semantic.family.human_personal",
+          "cluster_type": "semantic_parent",
+          "title": "Human / personal",
+          "query": "Human / personal",
+          "sender_count": 91,
+          "message_count": 635,
+          "estimated_count": 635
+        },
+        {
+          "cluster_id": "secondary.social_community",
+          "canonical_cluster_id": "secondary.social_community",
+          "legacy_cluster_ids": [
+            "social-platform-senders"
+          ],
+          "cluster_type": "social_notifications",
+          "title": "Social platform senders",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (category:social OR subject:(mentioned OR follower OR comment OR liked OR reacted OR invite))",
+          "sender_count": 11,
+          "message_count": 413,
+          "estimated_count": 413
+        }
+      ],
+      "page": 1,
+      "page_size": 10,
+      "include_cluster_sender_keys": true,
+      "search": "",
+      "filter": "all",
+      "sort": "message_count",
+      "direction": "desc",
+      "preview_evidence_sender_key": null,
+      "time_context_bucket_label": null,
+      "time_context_bucket_start_at": null,
+      "time_context_bucket_end_exclusive_at": null,
+      "sender_overview_window": null,
+      "sender_overview_start": null,
+      "sender_overview_end": null,
+      "time_zone": "Asia/Bangkok",
+      "semantic_focus": null,
+      "request_source": "operations_review_page",
+      "request_component": "sender_overview",
+      "request_reason": "sender_overview",
+      "request_phase": "deferred",
+      "request_agent_id": "d256b48e-5acf-4b3d-af22-003d52e7e582",
+      "action": "sender_workspace"
+    },
+    "action": "sender_workspace",
+    "request_phase": "deferred",
+    "request_reason": "sender_overview",
+    "analysis_scope": "all_indexed",
+    "rehydrate_only": null,
+    "transition_edge": null,
+    "responseSummary": null
+  },
+  {
+    "id": 4,
+    "family": "inbox-analysis",
+    "url": "http://localhost:3000/api/integrations/gmail/inbox-analysis",
+    "method": "POST",
+    "startedAtMs": 13972,
+    "durationMs": 667,
+    "status": 409,
+    "failed": null,
+    "requestBody": {
+      "analysis_scope": "all_indexed",
+      "cache_version": "2026-04-15T23:06:44.292+00:00",
+      "selected_cluster": {
+        "cluster_id": "structural.protected_trust",
+        "canonical_cluster_id": "structural.protected_trust",
+        "legacy_cluster_ids": [
+          "protected-trusted-senders"
+        ],
+        "source_cluster_ids": [
+          "protected-trusted-senders"
+        ],
+        "cluster_type": "protected_trusted",
+        "title": "Protected / trusted senders",
+        "query": "system:protected_trusted",
+        "sender_count": 1844,
+        "message_count": 134237
+      },
+      "clusters": [
+        {
+          "cluster_id": "structural.protected_trust",
+          "canonical_cluster_id": "structural.protected_trust",
+          "legacy_cluster_ids": [
+            "protected-trusted-senders"
+          ],
+          "source_cluster_ids": [
+            "protected-trusted-senders"
+          ],
+          "cluster_type": "protected_trusted",
+          "title": "Protected / trusted senders",
+          "query": "system:protected_trusted",
+          "sender_count": 1844,
+          "message_count": 134237,
+          "estimated_count": 134237
+        },
+        {
+          "cluster_id": "semantic.family.marketing_promotional",
+          "canonical_cluster_id": "semantic.family.marketing_promotional",
+          "source_cluster_ids": [
+            "semantic.family.marketing_promotional"
+          ],
+          "cluster_type": "semantic_parent",
+          "title": "Marketing / promotional",
+          "query": "Marketing / promotional",
+          "sender_count": 1759,
+          "message_count": 122708,
+          "estimated_count": 122708
+        },
+        {
+          "cluster_id": "semantic.family.account_notification",
+          "canonical_cluster_id": "semantic.family.account_notification",
+          "source_cluster_ids": [
+            "semantic.family.account_notification"
+          ],
+          "cluster_type": "semantic_parent",
+          "title": "Account notifications",
+          "query": "Account notifications",
+          "sender_count": 1601,
+          "message_count": 71503,
+          "estimated_count": 71503
+        },
+        {
+          "cluster_id": "semantic.marketing_subscriptions",
+          "canonical_cluster_id": "semantic.marketing_subscriptions",
+          "legacy_cluster_ids": [
+            "subscription-senders"
+          ],
+          "source_cluster_ids": [
+            "semantic-parent:subscription-senders:family:marketing_promotional",
+            "subscription-senders"
+          ],
+          "cluster_type": "newsletters",
+          "title": "Marketing / promotional subscriptions",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (category:promotions OR subject:(newsletter OR digest OR roundup OR unsubscribe OR \"manage preferences\"))",
+          "sender_count": 857,
+          "message_count": 70522,
+          "estimated_count": 70522
+        },
+        {
+          "cluster_id": "semantic.family.commerce_transactional",
+          "canonical_cluster_id": "semantic.family.commerce_transactional",
+          "source_cluster_ids": [
+            "semantic.family.commerce_transactional"
+          ],
+          "cluster_type": "semantic_parent",
+          "title": "Commerce / transactional",
+          "query": "Commerce / transactional",
+          "sender_count": 1238,
+          "message_count": 30528,
+          "estimated_count": 30528
+        },
+        {
+          "cluster_id": "structural.backlog",
+          "canonical_cluster_id": "structural.backlog",
+          "legacy_cluster_ids": [
+            "dormant-backlog-senders"
+          ],
+          "source_cluster_ids": [
+            "dormant-backlog-senders"
+          ],
+          "cluster_type": "unread_clutter",
+          "title": "Dormant low-attention senders",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (older_than:45d OR (is:unread older_than:21d))",
+          "sender_count": 1003,
+          "message_count": 16776,
+          "estimated_count": 16776
+        },
+        {
+          "cluster_id": "context.historical",
+          "canonical_cluster_id": "context.historical",
+          "legacy_cluster_ids": [
+            "historical-out-of-inbox-senders"
+          ],
+          "source_cluster_ids": [
+            "historical-out-of-inbox-senders"
+          ],
+          "cluster_type": "historical_out_of_inbox",
+          "title": "Historical / out-of-inbox senders",
+          "query": "system:historical_out_of_inbox",
+          "sender_count": 59,
+          "message_count": 4238,
+          "estimated_count": 4238
+        },
+        {
+          "cluster_id": "semantic.family.security_alert",
+          "canonical_cluster_id": "semantic.family.security_alert",
+          "source_cluster_ids": [
+            "semantic.family.security_alert"
+          ],
+          "cluster_type": "semantic_parent",
+          "title": "Security alerts",
+          "query": "Security alerts",
+          "sender_count": 179,
+          "message_count": 2393,
+          "estimated_count": 2393
+        },
+        {
+          "cluster_id": "secondary.account_updates",
+          "canonical_cluster_id": "secondary.account_updates",
+          "source_cluster_ids": [
+            "secondary.account_updates"
+          ],
+          "cluster_type": "noreply_automation",
+          "title": "System notification senders",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (from:noreply OR from:no-reply OR from:donotreply OR subject:(notification OR alert OR automated OR digest))",
+          "sender_count": 31,
+          "message_count": 1323,
+          "estimated_count": 1323
+        },
+        {
+          "cluster_id": "structural.unresolved",
+          "canonical_cluster_id": "structural.unresolved",
+          "legacy_cluster_ids": [
+            "needs-review-senders"
+          ],
+          "source_cluster_ids": [
+            "needs-review-senders"
+          ],
+          "cluster_type": "needs_review",
+          "title": "Needs review senders",
+          "query": "system:needs_review",
+          "sender_count": 1118,
+          "message_count": 1133,
+          "estimated_count": 1133
+        },
+        {
+          "cluster_id": "semantic.family.social_community",
+          "canonical_cluster_id": "semantic.family.social_community",
+          "source_cluster_ids": [
+            "semantic.family.social_community"
+          ],
+          "cluster_type": "semantic_parent",
+          "title": "Social / community",
+          "query": "Social / community",
+          "sender_count": 55,
+          "message_count": 875,
+          "estimated_count": 875
+        },
+        {
+          "cluster_id": "semantic.family.human_personal",
+          "canonical_cluster_id": "semantic.family.human_personal",
+          "source_cluster_ids": [
+            "semantic.family.human_personal"
+          ],
+          "cluster_type": "semantic_parent",
+          "title": "Human / personal",
+          "query": "Human / personal",
+          "sender_count": 91,
+          "message_count": 635,
+          "estimated_count": 635
+        },
+        {
+          "cluster_id": "secondary.social_community",
+          "canonical_cluster_id": "secondary.social_community",
+          "legacy_cluster_ids": [
+            "social-platform-senders"
+          ],
+          "source_cluster_ids": [
+            "social-platform-senders"
+          ],
+          "cluster_type": "social_notifications",
+          "title": "Social platform senders",
+          "query": "in:inbox -is:starred -is:important -category:primary -from:me (category:social OR subject:(mentioned OR follower OR comment OR liked OR reacted OR invite))",
+          "sender_count": 11,
+          "message_count": 413,
+          "estimated_count": 413
+        }
+      ],
+      "time_context_bucket_label": null,
+      "time_context_bucket_start_at": null,
+      "time_context_bucket_end_exclusive_at": null,
+      "sender_overview_window": null,
+      "sender_overview_start": null,
+      "sender_overview_end": null,
+      "time_zone": "Asia/Bangkok",
+      "semantic_focus": null,
+      "request_source": "operations_review_page",
+      "request_component": "sender_distribution",
+      "request_reason": "sender_distribution_chart",
+      "request_phase": "initial_paint",
+      "request_agent_id": "d256b48e-5acf-4b3d-af22-003d52e7e582",
+      "action": "sender_distribution"
+    },
+    "action": "sender_distribution",
+    "request_phase": "initial_paint",
+    "request_reason": "sender_distribution_chart",
+    "analysis_scope": "all_indexed",
+    "rehydrate_only": null,
+    "transition_edge": null,
+    "responseSummary": {
+      "ok": false,
+      "error": "Initial page-load live analysis is temporarily disabled for safety.",
+      "diagnostics": null,
+      "runtimeDataPresent": false,
+      "selectedRailFamilyPresent": false,
+      "selectedRailFamilyScopeCount": null
+    }
+  }
+]

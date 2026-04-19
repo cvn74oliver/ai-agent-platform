@@ -1,0 +1,62 @@
+[
+  {
+    "url": "http://localhost:3000/api/integrations/gmail/mailbox-index",
+    "method": "GET",
+    "status": 200,
+    "durationMs": 2968,
+    "action": null,
+    "request_phase": null,
+    "request_reason": null,
+    "analysis_scope": null,
+    "rehydrate_only": null,
+    "transition_edge": null,
+    "ok": null,
+    "error": null,
+    "diagnostics": null
+  },
+  {
+    "url": "http://localhost:3000/api/agents/playground",
+    "method": "POST",
+    "status": 200,
+    "durationMs": 31421,
+    "action": null,
+    "request_phase": null,
+    "request_reason": null,
+    "analysis_scope": "all_indexed",
+    "rehydrate_only": true,
+    "transition_edge": null,
+    "ok": null,
+    "error": null,
+    "diagnostics": null
+  },
+  {
+    "url": "http://localhost:3000/api/integrations/gmail/inbox-analysis",
+    "method": "POST",
+    "status": null,
+    "durationMs": null,
+    "action": "sender_workspace",
+    "request_phase": "deferred",
+    "request_reason": "sender_overview",
+    "analysis_scope": "all_indexed",
+    "rehydrate_only": null,
+    "transition_edge": null,
+    "ok": null,
+    "error": null,
+    "diagnostics": null
+  },
+  {
+    "url": "http://localhost:3000/api/integrations/gmail/inbox-analysis",
+    "method": "POST",
+    "status": 409,
+    "durationMs": 635,
+    "action": "sender_distribution",
+    "request_phase": "initial_paint",
+    "request_reason": "sender_distribution_chart",
+    "analysis_scope": "all_indexed",
+    "rehydrate_only": null,
+    "transition_edge": null,
+    "ok": false,
+    "error": "Initial page-load live analysis is temporarily disabled for safety.",
+    "diagnostics": null
+  }
+]

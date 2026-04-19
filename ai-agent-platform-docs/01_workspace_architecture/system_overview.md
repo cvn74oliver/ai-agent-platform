@@ -52,7 +52,60 @@ Control-plane files always win when there is conflict.
 - Default execution loop:
   - `Plan -> Approve -> Execute -> Validate`
 
+
 When this document conflicts with the control plane, the control plane is authoritative.
+
+### 🧠 Accepted-Fix Recovery Model (ACE-029)
+
+The platform now enforces a recovery-grade memory model for accepted fixes.
+
+Principle:
+- The system must be able to deterministically REPLAY accepted fixes, not just remember that they occurred.
+
+Authoritative locations:
+- `CHANGELOG.md` = Accepted-Fix Recovery Ledger (authoritative)
+- `ACTIVE_CHANGE_EVENTS.md` = lifecycle tracker that points to recovery contracts
+- `CURRENT_STATE.md` / `TODO.md` = active truth and next-step continuity (NOT recovery storage)
+
+Recovery Contract (required for every accepted fix):
+- Accepted invariant
+- Source layer fixed (UI / runtime / artifact / API)
+- Touched files/functions (exact)
+- Canonical verification route (exact URL)
+- Acceptance proof (exact outputs / numbers)
+- Replay steps (deterministic)
+- Rollback guidance (if applicable)
+
+Rules:
+- An accepted fix is NOT complete without a Recovery Contract in `CHANGELOG.md`.
+- Completed ACE entries MUST reference the contract using:
+  - `Recovery Contract: CHANGELOG -> <entry>`
+- Do NOT duplicate the full contract across control-plane docs.
+- Turnover MUST include relevant recovery entries when the active lane depends on recent accepted fixes.
+
+Outcome:
+- Regressions are resolved via lookup + replay, not re-diagnosis.
+
+### 🔀 Worktree Sync + Merge Recovery Model (ACE-009 / ACE-010)
+
+The operating system now treats worktree sync as two different classes of work:
+- `docs / control-plane sync`
+- `shared hot-file code integration`
+
+Current rules:
+- Docs and control-plane propagation should use `docs-only sync`, not a risky full merge by default.
+- Shared hot files must be classified before any attempted full merge.
+- If control-plane alignment hits shared hot-file conflicts, the safe path is:
+  - preserve resolved docs
+  - abort the unsafe full merge
+  - complete docs-only sync
+  - run a separate Codex-assisted hot-file integration pass
+- `ACE-011` remains historical proof that this recovery path was executed successfully; it is not an open event.
+
+Current shared hot files:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- `web/src/lib/integrations/gmail/inboxAnalysis.ts`
 
 ### 🔄 Current Continuity Checkpoint (ACE-007)
 

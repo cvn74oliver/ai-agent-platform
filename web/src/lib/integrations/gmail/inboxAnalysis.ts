@@ -36,9 +36,13 @@ import {
   type GmailArtifactPublicationRow,
   type GmailClusterSummaryArtifactRow,
 } from '@/lib/integrations/gmail/gmailArtifactStore'
+import { GMAIL_CANONICAL_TIMELINE_CONTRACT_VERSION } from '@/lib/runtime/gmailCleanupWorkspace'
 import type {
   GmailAssignedCleanupGroupId,
+  GmailCanonicalSenderActivityTimelineBucket,
   GmailCanonicalSenderCategoryLabel,
+  GmailCanonicalTimelineFilterContract,
+  GmailCanonicalTimelineMetricFamily,
   GmailCategorySummarySource,
   GmailCleanupAssignmentReason,
   GmailCleanupExclusionReason,
@@ -65,8 +69,8 @@ import type {
   GmailSenderCategoryProfileMode,
   GmailSenderOperatorProfile,
   GmailSenderPatternMixEntry,
-  GmailSharedGroupSemanticRollup,
   GmailSenderWorkspaceData,
+  GmailSharedGroupSemanticRollup,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
@@ -259,7 +263,7 @@ async function loadDiscoveryIndexedRowsWithManualReuse(params: {
   const scopedWindowDays = scopeDays(params.analysisScope)
   const scopeBoundInternalDateMs =
     scopedWindowDays != null && scopedWindowDays <= 7
-      ? nowMs - scopedWindowDays * 24 * 60 * 60 * 1000
+      ? analysisScopeRowInclusionLowerBoundMs(params.analysisScope, nowMs)
       : null
   const cacheKey =
     scopeBoundInternalDateMs != null ? `${tenantId}::${params.analysisScope}` : tenantId
@@ -615,7 +619,14 @@ export type GmailPressureTimelineEvidenceSignal = {
   exactness: 'actual' | 'inferred'
 }
 
-export type GmailActivityTimelineGranularity = 'day' | 'week' | 'month'
+export type GmailActivityTimelineGranularity = 'hour' | 'day' | 'week' | 'month'
+
+function nonHourlyActivityTimelineGranularity(
+  granularity: GmailActivityTimelineGranularity
+): Exclude<GmailActivityTimelineGranularity, 'hour'> {
+  if (granularity === 'week' || granularity === 'month') return granularity
+  return 'day'
+}
 
 export type GmailCleanupGroupIntelligenceData = {
   analysis_scope: GmailAnalysisScope
@@ -1438,6 +1449,7 @@ type GmailCleanupBehavioralScoreSummary = {
   clusterId: GmailAssignedCleanupGroupId | null
   score: number
   secondScore: number
+  promotionsCount: number
   safeRatio: number
   safeRowCount: number
   protectedRatio: number
@@ -1546,6 +1558,7 @@ function summarizeBehavioralCleanupScores(params: {
     clusterId: scored[0]?.[0] || null,
     score: scored[0]?.[1] || 0,
     secondScore: scored[1]?.[1] || 0,
+    promotionsCount: categoryCounts.promotions,
     safeRatio: inboxRows.length > 0 ? safeRows.length / inboxRows.length : 0,
     safeRowCount: safeRows.length,
     protectedRatio: inboxRows.length > 0 ? protectedCount / inboxRows.length : 0,
@@ -1741,10 +1754,13 @@ export function assignSenderCleanupGroupDecision(params: {
     const broaderGroupId = broaderSummary.clusterId
     const broaderScore = broaderSummary.score
     const broaderMargin = broaderSummary.score - broaderSummary.secondScore
+    const broaderSubscriptionRescue =
+      broaderGroupId === 'subscription-senders' &&
+      broaderSummary.senderSignal !== 'likely_human' &&
+      (broaderSummary.promotionsCount > 0 || broaderScore >= 1)
     if (
       broaderGroupId &&
-      broaderScore >= 3 &&
-      broaderMargin >= 2 &&
+      ((broaderScore >= 3 && broaderMargin >= 2) || broaderSubscriptionRescue) &&
       isCleanupCandidateGroupId(broaderGroupId)
     ) {
       const broaderSpec = cleanupGroupSpecById(broaderGroupId)
@@ -2433,6 +2449,10 @@ function utcDayBucketKey(date: Date): string {
   ).padStart(2, '0')}`
 }
 
+function utcHourBucketKey(date: Date): string {
+  return `${utcDayBucketKey(date)}T${String(date.getUTCHours()).padStart(2, '0')}`
+}
+
 function utcMonthBucketKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
@@ -2450,13 +2470,33 @@ export function activityTimelineBucketKeyForTimestamp(
   granularity: GmailActivityTimelineGranularity
 ): string {
   const date = new Date(timestampMs)
+  if (granularity === 'hour') return utcHourBucketKey(date)
   if (granularity === 'day') return utcDayBucketKey(date)
   if (granularity === 'week') return utcWeekBucketKey(date)
   return utcMonthBucketKey(date)
 }
 
+function startOfUtcHour(date: Date): Date {
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      date.getUTCHours()
+    )
+  )
+}
+
 function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+}
+
+function startOfUtcWeek(date: Date): Date {
+  const start = startOfUtcDay(date)
+  const day = start.getUTCDay()
+  const diff = day === 0 ? 6 : day - 1
+  start.setUTCDate(start.getUTCDate() - diff)
+  return start
 }
 
 function startOfUtcMonth(date: Date): Date {
@@ -2469,252 +2509,701 @@ function addUtcDays(date: Date, days: number): Date {
   return next
 }
 
+function addUtcHours(date: Date, hours: number): Date {
+  const next = new Date(date.getTime())
+  next.setUTCHours(next.getUTCHours() + hours)
+  return next
+}
+
+function addUtcWeeks(date: Date, weeks: number): Date {
+  return addUtcDays(date, weeks * 7)
+}
+
 function addUtcMonths(date: Date, months: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1))
 }
 
-function senderTimelineFirstSeenMs(
-  sender: GmailSenderWorkspaceData['senders'][number]
+export function analysisScopeRowInclusionLowerBoundMs(
+  analysisScope: GmailAnalysisScope,
+  nowMs: number,
+  timeZone?: string | null
 ): number | null {
+  const scopeWindowDays = scopeDays(analysisScope)
+  if (scopeWindowDays == null) return null
+
+  const resolvedTimeZone = safePressureTrendTimeZone(timeZone)
+  const effectiveEndExclusiveMs = nowMs + 1
+  const anchorUtcMs = Math.max(effectiveEndExclusiveMs - 1, 0)
+
+  if (analysisScope === '90d') {
+    const anchorWeekStartMs = pressureTrendBucketStartUtcMs(anchorUtcMs, 'week', resolvedTimeZone)
+    const anchorWeekParts = pressureTrendPartsAt(anchorWeekStartMs, resolvedTimeZone)
+    return pressureTrendLocalDateTimeToUtcMs(
+      pressureTrendShiftLocalParts(
+        {
+          year: anchorWeekParts.year,
+          month: anchorWeekParts.month,
+          day: anchorWeekParts.day,
+          hour: 0,
+          minute: 0,
+          second: 0,
+        },
+        'week',
+        -12
+      ),
+      resolvedTimeZone
+    )
+  }
+
+  if (analysisScope === '7d') {
+    return pressureTrendRollingDayWindowFromAnchor({
+      anchorUtcMs,
+      timeZone: resolvedTimeZone,
+      dayCount: 7,
+      effectiveEndExclusiveMs,
+    }).effectiveStartMs
+  }
+
+  if (analysisScope === '30d') {
+    return pressureTrendRollingDayWindowFromAnchor({
+      anchorUtcMs,
+      timeZone: resolvedTimeZone,
+      dayCount: 30,
+      effectiveEndExclusiveMs,
+    }).effectiveStartMs
+  }
+
+  if (analysisScope === '365d') {
+    const anchorMonthStartMs = pressureTrendBucketStartUtcMs(anchorUtcMs, 'month', resolvedTimeZone)
+    const anchorMonthParts = pressureTrendPartsAt(anchorMonthStartMs, resolvedTimeZone)
+    return pressureTrendLocalDateTimeToUtcMs(
+      pressureTrendShiftLocalParts(
+        {
+          year: anchorMonthParts.year,
+          month: anchorMonthParts.month,
+          day: 1,
+          hour: 0,
+          minute: 0,
+          second: 0,
+        },
+        'month',
+        -11
+      ),
+      resolvedTimeZone
+    )
+  }
+
+  return nowMs - scopeWindowDays * 24 * 60 * 60 * 1000
+}
+
+type CanonicalTimelineSenderSource = {
+  sender_key?: string | null
+  cleanup_group_message_count: number
+  last_activity: string | null
+  first_seen?: string | null
+}
+
+function parseTimelineIsoMs(value: string | null | undefined): number | null {
   const parsed =
-    typeof sender.first_seen === 'string' && sender.first_seen.trim()
-      ? Date.parse(sender.first_seen)
-      : Number.NaN
+    typeof value === 'string' && value.trim().length > 0 ? Date.parse(value) : Number.NaN
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function senderTimelineLastSeenMs(
-  sender: GmailSenderWorkspaceData['senders'][number]
-): number | null {
-  const parsed =
-    typeof sender.last_activity === 'string' && sender.last_activity.trim()
-      ? Date.parse(sender.last_activity)
-      : Number.NaN
-  return Number.isFinite(parsed) ? parsed : null
+type CanonicalTimelineBucketRecord = {
+  label: string
+  bucketStartMs: number
+  bucketEndExclusiveMs: number
+  senderKeys: Set<string>
+  senderMessageCounts: Map<string, number>
+  senderCount: number
+  messageCount: number
 }
 
-function buildLaneATimeContextBucketKeys(params: {
-  senders: GmailSenderWorkspaceData['senders']
-  analysisScope: GmailAnalysisScope
-  nowMs?: number
-}): string[] | null {
-  if (params.analysisScope === '7d' || params.analysisScope === '30d') {
-    const bucketCount = params.analysisScope === '7d' ? 7 : 30
-    const end = startOfUtcDay(new Date(params.nowMs || Date.now()))
-    const start = addUtcDays(end, -(bucketCount - 1))
-    const keys: string[] = []
-    for (let index = 0; index < bucketCount; index += 1) {
-      keys.push(utcDayBucketKey(addUtcDays(start, index)))
-    }
-    return keys
-  }
-
-  if (params.analysisScope !== 'all_indexed') return null
-
-  let earliestMs: number | null = null
-  let latestMs: number | null = null
-  for (const sender of params.senders) {
-    const firstSeenMs = senderTimelineFirstSeenMs(sender)
-    const lastSeenMs = senderTimelineLastSeenMs(sender)
-    const candidateStartMs = firstSeenMs ?? lastSeenMs
-    const candidateEndMs = lastSeenMs ?? firstSeenMs
-    if (candidateStartMs != null && (earliestMs == null || candidateStartMs < earliestMs)) {
-      earliestMs = candidateStartMs
-    }
-    if (candidateEndMs != null && (latestMs == null || candidateEndMs > latestMs)) {
-      latestMs = candidateEndMs
-    }
-  }
-
-  if (earliestMs == null || latestMs == null) return []
-
-  const start = startOfUtcMonth(new Date(earliestMs))
-  const end = startOfUtcMonth(new Date(latestMs))
-  const keys: string[] = []
-  for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = addUtcMonths(cursor, 1)) {
-    keys.push(utcMonthBucketKey(cursor))
-  }
-  return keys
+type CanonicalTimelineBucketLookup = {
+  byBoundsSignature: Map<string, CanonicalTimelineBucketRecord>
+  byLabel: Map<string, CanonicalTimelineBucketRecord>
 }
 
-export function buildSenderWorkspaceActivityTimelineFromUniverse(params: {
-  senders: GmailSenderWorkspaceData['senders']
+function canonicalTimelineBoundsSignature(bucketStartMs: number, bucketEndExclusiveMs: number): string {
+  return `${bucketStartMs}::${bucketEndExclusiveMs}`
+}
+
+function rowSenderKey(row: GmailMailboxIndexRow): string | null {
+  const senderDisplay = rowSender(row) || row.sender || ''
+  return normalizeSender(senderDisplay) || senderDisplay.trim().toLowerCase() || null
+}
+
+function senderActivityPressureWindowForScope(
   analysisScope: GmailAnalysisScope
+): Extract<GmailPressureTrendWindow, 'all_indexed' | 'last_year' | 'last_quarter' | 'last_month' | 'last_week'> | null {
+  if (analysisScope === 'all_indexed') return 'all_indexed'
+  if (analysisScope === '365d') return 'last_year'
+  if (analysisScope === '90d') return 'last_quarter'
+  if (analysisScope === '30d') return 'last_month'
+  if (analysisScope === '7d') return 'last_week'
+  return null
+}
+
+export function resolveCanonicalSenderActivityWindow(params: {
+  analysisScope: GmailAnalysisScope
+  coverage: PressureTrendCoverage
+  pressureWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
   nowMs?: number
-}): {
-  items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
-  granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
-} {
-  const granularity = activityTimelineGranularityForScope(params.analysisScope)
+  rowStartMs?: number | null
+  rowEndMs?: number | null
+}): { ok: true; data: PressureTrendResolvedWindow } | { ok: false; error: string } {
+  if (params.pressureWindow === 'custom') {
+    return pressureTrendResolvedWindow({
+      coverage: params.coverage,
+      pressureWindow: 'custom',
+      pressureStart: params.pressureStart,
+      pressureEnd: params.pressureEnd,
+      timeZone: params.timeZone,
+      nowMs: params.nowMs,
+      rowStartMs: params.rowStartMs,
+      rowEndMs: params.rowEndMs,
+    })
+  }
 
-  if (params.analysisScope === 'all_indexed') {
-    const counts = new Map<string, number>()
-    const laneABucketKeys = buildLaneATimeContextBucketKeys(params) || []
+  const timeZone = safePressureTrendTimeZone(params.timeZone)
+  const nowMs =
+    typeof params.nowMs === 'number' && Number.isFinite(params.nowMs) ? params.nowMs : Date.now()
+  const liveEndExclusiveMs = nowMs + 1
+  const anchorUtcMs = Math.max(liveEndExclusiveMs - 1, 0)
 
-    for (const sender of params.senders) {
-      const firstSeenMs = senderTimelineFirstSeenMs(sender)
-      const lastSeenMs = senderTimelineLastSeenMs(sender)
-      const rangeStartMs = firstSeenMs ?? lastSeenMs
-      const rangeEndMs = lastSeenMs ?? firstSeenMs
-      if (rangeStartMs == null || rangeEndMs == null) continue
+  let resolvedWindow: PressureTrendResolvedWindow | null = null
 
-      const start = startOfUtcMonth(new Date(rangeStartMs))
-      const end = startOfUtcMonth(new Date(rangeEndMs))
-      for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = addUtcMonths(cursor, 1)) {
-        const label = utcMonthBucketKey(cursor)
-        counts.set(label, (counts.get(label) || 0) + 1)
+  if (params.pressureWindow === 'last_day') {
+    const lastDayWindow = pressureTrendLastDayWindowFromAnchor({
+      anchorUtcMs,
+      timeZone,
+      effectiveEndExclusiveMs: liveEndExclusiveMs,
+    })
+    resolvedWindow = {
+      grouping: 'hour',
+      label: pressureTrendWindowLabel('last_day'),
+      requestedStart: null,
+      requestedEnd: null,
+      effectiveStartMs: lastDayWindow.effectiveStartMs,
+      effectiveEndExclusiveMs: lastDayWindow.effectiveEndExclusiveMs,
+      limitedByIndexedCoverage: false,
+      timeZone,
+    }
+  } else if (params.analysisScope === '365d') {
+    const anchorMonthStartMs = pressureTrendBucketStartUtcMs(anchorUtcMs, 'month', timeZone)
+    const anchorMonthParts = pressureTrendPartsAt(anchorMonthStartMs, timeZone)
+    resolvedWindow = {
+      grouping: 'month',
+      label: pressureTrendWindowLabel('last_year'),
+      requestedStart: null,
+      requestedEnd: null,
+      effectiveStartMs: pressureTrendLocalDateTimeToUtcMs(
+        pressureTrendShiftLocalParts(
+          {
+            year: anchorMonthParts.year,
+            month: anchorMonthParts.month,
+            day: 1,
+            hour: 0,
+            minute: 0,
+            second: 0,
+          },
+          'month',
+          -11
+        ),
+        timeZone
+      ),
+      effectiveEndExclusiveMs: liveEndExclusiveMs,
+      limitedByIndexedCoverage: false,
+      timeZone,
+    }
+  } else if (params.analysisScope === '90d') {
+    const anchorWeekStartMs = pressureTrendBucketStartUtcMs(anchorUtcMs, 'week', timeZone)
+    const anchorWeekParts = pressureTrendPartsAt(anchorWeekStartMs, timeZone)
+    resolvedWindow = {
+      grouping: 'week',
+      label: pressureTrendWindowLabel('last_quarter'),
+      requestedStart: null,
+      requestedEnd: null,
+      effectiveStartMs: pressureTrendLocalDateTimeToUtcMs(
+        pressureTrendShiftLocalParts(
+          {
+            year: anchorWeekParts.year,
+            month: anchorWeekParts.month,
+            day: anchorWeekParts.day,
+            hour: 0,
+            minute: 0,
+            second: 0,
+          },
+          'week',
+          -12
+        ),
+        timeZone
+      ),
+      effectiveEndExclusiveMs: liveEndExclusiveMs,
+      limitedByIndexedCoverage: false,
+      timeZone,
+    }
+  } else if (params.analysisScope === '30d') {
+    const rollingMonthWindow = pressureTrendRollingDayWindowFromAnchor({
+      anchorUtcMs,
+      timeZone,
+      dayCount: 30,
+      effectiveEndExclusiveMs: liveEndExclusiveMs,
+    })
+    resolvedWindow = {
+      grouping: 'day',
+      label: pressureTrendWindowLabel('last_month'),
+      requestedStart: null,
+      requestedEnd: null,
+      effectiveStartMs: rollingMonthWindow.effectiveStartMs,
+      effectiveEndExclusiveMs: rollingMonthWindow.effectiveEndExclusiveMs,
+      limitedByIndexedCoverage: false,
+      timeZone,
+    }
+  } else if (params.analysisScope === '7d') {
+    const rollingWeekWindow = pressureTrendRollingDayWindowFromAnchor({
+      anchorUtcMs,
+      timeZone,
+      dayCount: 7,
+      effectiveEndExclusiveMs: liveEndExclusiveMs,
+    })
+    resolvedWindow = {
+      grouping: 'day',
+      label: pressureTrendWindowLabel('last_week'),
+      requestedStart: null,
+      requestedEnd: null,
+      effectiveStartMs: rollingWeekWindow.effectiveStartMs,
+      effectiveEndExclusiveMs: rollingWeekWindow.effectiveEndExclusiveMs,
+      limitedByIndexedCoverage: false,
+      timeZone,
+    }
+  } else {
+    const pressureWindow = senderActivityPressureWindowForScope(params.analysisScope)
+    if (!pressureWindow) {
+      return {
+        ok: true,
+        data: {
+          grouping: 'month',
+          label: '',
+          requestedStart: null,
+          requestedEnd: null,
+          effectiveStartMs: null,
+          effectiveEndExclusiveMs: null,
+          limitedByIndexedCoverage: false,
+          timeZone,
+        },
       }
     }
-
-    return {
-      items: laneABucketKeys.map((label) => ({
-        label,
-        sender_count: counts.get(label) || 0,
-        message_count: null,
-      })),
-      granularity: 'month',
+    return pressureTrendResolvedWindow({
+      coverage: params.coverage,
+      pressureWindow,
+      timeZone,
+      nowMs,
+      rowStartMs: params.rowStartMs,
+      rowEndMs: params.rowEndMs,
+    })
+  }
+  if (
+    resolvedWindow.effectiveStartMs != null &&
+    resolvedWindow.effectiveEndExclusiveMs != null &&
+    resolvedWindow.effectiveEndExclusiveMs <= resolvedWindow.effectiveStartMs
+  ) {
+    resolvedWindow = {
+      ...resolvedWindow,
+      effectiveStartMs: null,
+      effectiveEndExclusiveMs: null,
     }
   }
 
-  const counts = new Map<string, { senderCount: number; messageCount: number }>()
-
-  for (const sender of params.senders) {
-    const lastSeenMs = senderTimelineLastSeenMs(sender)
-    if (lastSeenMs == null) continue
-    const label = activityTimelineBucketKeyForTimestamp(lastSeenMs, granularity)
-    const current = counts.get(label) || { senderCount: 0, messageCount: 0 }
-    current.senderCount += 1
-    current.messageCount += Math.max(0, sender.cleanup_group_message_count || 0)
-    counts.set(label, current)
-  }
-
-  const laneABucketKeys = buildLaneATimeContextBucketKeys(params)
-  if (laneABucketKeys) {
-    return {
-      items: laneABucketKeys.map((label) => ({
-        label,
-        sender_count: counts.get(label)?.senderCount || 0,
-        message_count: counts.get(label)?.messageCount || 0,
-      })),
-      granularity,
-    }
-  }
-
-  return {
-    items: Array.from(counts.entries())
-      .sort((left, right) => left[0].localeCompare(right[0]))
-      .slice(-8)
-      .map(([label, entry]) => ({
-        label,
-        sender_count: entry.senderCount,
-        message_count: entry.messageCount,
-      })),
-    granularity,
-  }
+  return { ok: true, data: resolvedWindow }
 }
 
-function buildLaneATimeContextBucketKeysFromRows(params: {
+function resolveCanonicalTimelineBounds(params: {
   rows: GmailMailboxIndexRow[]
   analysisScope: GmailAnalysisScope
+  timeZone?: string | null
   nowMs?: number
-}): string[] | null {
-  if (params.analysisScope === '7d' || params.analysisScope === '30d') {
-    const bucketCount = params.analysisScope === '7d' ? 7 : 30
-    const end = startOfUtcDay(new Date(params.nowMs || Date.now()))
-    const start = addUtcDays(end, -(bucketCount - 1))
-    const keys: string[] = []
-    for (let index = 0; index < bucketCount; index += 1) {
-      keys.push(utcDayBucketKey(addUtcDays(start, index)))
-    }
-    return keys
-  }
+  coverageStartIso?: string | null
+  coverageEndIso?: string | null
+}): {
+  windowStartMs: number
+  windowEndExclusiveMs: number
+  timeZone: string
+  coverageStartAt: string | null
+  coverageEndAt: string | null
+} | null {
+  const pressureWindow = senderActivityPressureWindowForScope(params.analysisScope)
+  if (!pressureWindow) return null
 
-  if (params.analysisScope !== 'all_indexed') return null
-
-  let earliestMs: number | null = null
-  let latestMs: number | null = null
+  let rowStartMs: number | null = null
+  let rowEndMs: number | null = null
   for (const row of params.rows) {
     const timestamp =
       typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
         ? row.internal_date_ms
         : null
     if (timestamp == null) continue
-    if (earliestMs == null || timestamp < earliestMs) earliestMs = timestamp
-    if (latestMs == null || timestamp > latestMs) latestMs = timestamp
+    if (rowStartMs == null || timestamp < rowStartMs) rowStartMs = timestamp
+    if (rowEndMs == null || timestamp > rowEndMs) rowEndMs = timestamp
   }
 
-  if (earliestMs == null || latestMs == null) return []
-
-  const start = startOfUtcMonth(new Date(earliestMs))
-  const end = startOfUtcMonth(new Date(latestMs))
-  const keys: string[] = []
-  for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = addUtcMonths(cursor, 1)) {
-    keys.push(utcMonthBucketKey(cursor))
+  const coverage = {
+    indexed_total_rows: params.rows.length,
+    indexed_inbox_rows: params.rows.filter((row) => row.is_in_inbox).length,
+    indexed_date_span_start:
+      params.coverageStartIso ?? (rowStartMs != null ? new Date(rowStartMs).toISOString() : null),
+    indexed_date_span_end:
+      params.coverageEndIso ?? (rowEndMs != null ? new Date(rowEndMs).toISOString() : null),
   }
-  return keys
+  const resolvedWindow = resolveCanonicalSenderActivityWindow({
+    analysisScope: params.analysisScope,
+    coverage,
+    timeZone: params.timeZone,
+    nowMs: params.nowMs,
+    rowStartMs,
+    rowEndMs,
+  })
+  if (!resolvedWindow.ok) return null
+
+  const { effectiveStartMs, effectiveEndExclusiveMs, timeZone } = resolvedWindow.data
+  if (
+    effectiveStartMs == null ||
+    effectiveEndExclusiveMs == null ||
+    effectiveEndExclusiveMs <= effectiveStartMs
+  ) {
+    return null
+  }
+
+  return {
+    windowStartMs: effectiveStartMs,
+    windowEndExclusiveMs: effectiveEndExclusiveMs,
+    timeZone,
+    coverageStartAt: coverage.indexed_date_span_start,
+    coverageEndAt: coverage.indexed_date_span_end,
+  }
+}
+
+function buildCanonicalTimelineFilterContract(params: {
+  timeZone: string
+  coverageStartAt: string | null
+  coverageEndAt: string | null
+  allowedSenderKeys?: Set<string> | null
+}): GmailCanonicalTimelineFilterContract {
+  return {
+    source_dataset: 'gmail_index_rows',
+    time_zone: params.timeZone,
+    coverage_start_at: params.coverageStartAt,
+    coverage_end_at: params.coverageEndAt,
+    allowed_sender_key_count: params.allowedSenderKeys ? params.allowedSenderKeys.size : null,
+  }
+}
+
+function buildCanonicalTimelineBuckets(params: {
+  rows: GmailMailboxIndexRow[]
+  analysisScope: GmailAnalysisScope
+  granularity: Extract<GmailPressureTrendGrouping, 'hour' | 'day' | 'week' | 'month'>
+  windowStartMs: number
+  windowEndExclusiveMs: number
+  timeZone: string
+  allowedSenderKeys?: Set<string> | null
+  filterContract: GmailCanonicalTimelineFilterContract
+}): {
+  items: GmailCanonicalSenderActivityTimelineBucket[]
+  bucketLookup: CanonicalTimelineBucketLookup
+} {
+  const bucketRecords: CanonicalTimelineBucketRecord[] = []
+  const bucketLookup: CanonicalTimelineBucketLookup = {
+    byBoundsSignature: new Map<string, CanonicalTimelineBucketRecord>(),
+    byLabel: new Map<string, CanonicalTimelineBucketRecord>(),
+  }
+
+  let cursorMs = pressureTrendBucketStartUtcMs(
+    params.windowStartMs,
+    params.granularity,
+    params.timeZone
+  )
+  while (cursorMs < params.windowEndExclusiveMs) {
+    const nextCursorMs = pressureTrendNextBucketStartUtcMs(
+      cursorMs,
+      params.granularity,
+      params.timeZone
+    )
+    if (nextCursorMs <= cursorMs) break
+    const bucketStartMs = Math.max(cursorMs, params.windowStartMs)
+    const bucketEndExclusiveMs = Math.min(nextCursorMs, params.windowEndExclusiveMs)
+    if (bucketStartMs < bucketEndExclusiveMs) {
+      const record: CanonicalTimelineBucketRecord = {
+        label: pressureTrendBucketLabel(cursorMs, params.granularity, params.timeZone),
+        bucketStartMs,
+        bucketEndExclusiveMs,
+        senderKeys: new Set<string>(),
+        senderMessageCounts: new Map<string, number>(),
+        senderCount: 0,
+        messageCount: 0,
+      }
+      bucketRecords.push(record)
+      bucketLookup.byBoundsSignature.set(
+        canonicalTimelineBoundsSignature(bucketStartMs, bucketEndExclusiveMs),
+        record
+      )
+      if (!bucketLookup.byLabel.has(record.label)) {
+        bucketLookup.byLabel.set(record.label, record)
+      }
+    }
+    cursorMs = nextCursorMs
+  }
+
+  const bucketLookupByStartMs = new Map<number, CanonicalTimelineBucketRecord>(
+    bucketRecords.map((record) => [record.bucketStartMs, record])
+  )
+
+  for (const row of params.rows) {
+    const timestamp =
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+        ? row.internal_date_ms
+        : null
+    if (
+      timestamp == null ||
+      timestamp < params.windowStartMs ||
+      timestamp >= params.windowEndExclusiveMs
+    ) {
+      continue
+    }
+    const senderKey = rowSenderKey(row)
+    if (!senderKey) continue
+    if (params.allowedSenderKeys && !params.allowedSenderKeys.has(senderKey)) continue
+    const bucketStartMs = pressureTrendBucketStartUtcMs(timestamp, params.granularity, params.timeZone)
+    const bucket = bucketLookupByStartMs.get(Math.max(bucketStartMs, params.windowStartMs))
+    if (!bucket || timestamp < bucket.bucketStartMs || timestamp >= bucket.bucketEndExclusiveMs) continue
+    bucket.messageCount += 1
+    bucket.senderKeys.add(senderKey)
+    bucket.senderMessageCounts.set(senderKey, (bucket.senderMessageCounts.get(senderKey) || 0) + 1)
+  }
+
+  for (const bucket of bucketRecords) {
+    bucket.senderCount = bucket.senderKeys.size
+  }
+
+  return {
+    items: bucketRecords.map((bucket) => ({
+      label: bucket.label,
+      count: bucket.senderCount,
+      sender_count: bucket.senderCount,
+      message_count: bucket.messageCount,
+      bucket_start_iso: new Date(bucket.bucketStartMs).toISOString(),
+      bucket_end_exclusive_iso: new Date(bucket.bucketEndExclusiveMs).toISOString(),
+      contract_version: GMAIL_CANONICAL_TIMELINE_CONTRACT_VERSION,
+      metric_family: 'sender_activity',
+      scope_key: params.analysisScope,
+      grouping: params.granularity,
+      time_zone: params.timeZone,
+      source_dataset: 'gmail_index_rows',
+      filter_contract: params.filterContract,
+    })),
+    bucketLookup,
+  }
+}
+
+export function buildCanonicalSenderWorkspaceActivityTimelineForRange(params: {
+  rows: GmailMailboxIndexRow[]
+  allowedSenderKeys?: Set<string> | null
+  windowStartMs: number
+  windowEndExclusiveMs: number
+  granularity: Extract<GmailPressureTrendGrouping, 'hour' | 'day' | 'week' | 'month'>
+  analysisScope: GmailAnalysisScope
+  timeZone?: string | null
+  coverageStartIso?: string | null
+  coverageEndIso?: string | null
+}): {
+  items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
+  granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
+  bucketLookup: CanonicalTimelineBucketLookup
+} {
+  if (params.windowStartMs >= params.windowEndExclusiveMs) {
+    return {
+      items: [],
+      granularity: params.granularity,
+      bucketLookup: { byBoundsSignature: new Map(), byLabel: new Map() },
+    }
+  }
+  const timeZone = safePressureTrendTimeZone(params.timeZone)
+  const filterContract = buildCanonicalTimelineFilterContract({
+    timeZone,
+    coverageStartAt: params.coverageStartIso ?? null,
+    coverageEndAt: params.coverageEndIso ?? null,
+    allowedSenderKeys: params.allowedSenderKeys,
+  })
+  const buckets = buildCanonicalTimelineBuckets({
+    rows: params.rows,
+    analysisScope: params.analysisScope,
+    granularity: params.granularity,
+    windowStartMs: params.windowStartMs,
+    windowEndExclusiveMs: params.windowEndExclusiveMs,
+    timeZone,
+    allowedSenderKeys: params.allowedSenderKeys,
+    filterContract,
+  })
+  return {
+    items: buckets.items,
+    granularity: params.granularity,
+    bucketLookup: buckets.bucketLookup,
+  }
+}
+
+export function buildCanonicalSenderWorkspaceActivityTimeline(params: {
+  rows?: GmailMailboxIndexRow[]
+  analysisScope: GmailAnalysisScope
+  allowedSenderKeys?: Set<string> | null
+  timeZone?: string | null
+  nowMs?: number
+  coverageStartIso?: string | null
+  coverageEndIso?: string | null
+}): {
+  items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
+  granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
+  bucketLookup: CanonicalTimelineBucketLookup
+} {
+  const granularity = activityTimelineGranularityForScope(params.analysisScope)
+  const rows = Array.isArray(params.rows) ? params.rows : []
+  const bounds = resolveCanonicalTimelineBounds({
+    rows,
+    analysisScope: params.analysisScope,
+    timeZone: params.timeZone,
+    nowMs: params.nowMs,
+    coverageStartIso: params.coverageStartIso,
+    coverageEndIso: params.coverageEndIso,
+  })
+
+  if (!bounds) {
+    return {
+      items: [],
+      granularity,
+      bucketLookup: { byBoundsSignature: new Map(), byLabel: new Map() },
+    }
+  }
+  const filterContract = buildCanonicalTimelineFilterContract({
+    timeZone: bounds.timeZone,
+    coverageStartAt: bounds.coverageStartAt,
+    coverageEndAt: bounds.coverageEndAt,
+    allowedSenderKeys: params.allowedSenderKeys,
+  })
+  const buckets = buildCanonicalTimelineBuckets({
+    rows,
+    analysisScope: params.analysisScope,
+    granularity,
+    windowStartMs: bounds.windowStartMs,
+    windowEndExclusiveMs: bounds.windowEndExclusiveMs,
+    timeZone: bounds.timeZone,
+    allowedSenderKeys: params.allowedSenderKeys,
+    filterContract,
+  })
+  return { items: buckets.items, granularity, bucketLookup: buckets.bucketLookup }
+}
+
+export function resolveCanonicalSenderActivityBucketSelection(params: {
+  rows: GmailMailboxIndexRow[]
+  analysisScope: GmailAnalysisScope
+  bucketLabel?: string | null
+  bucketStartAt?: string | null
+  bucketEndExclusiveAt?: string | null
+  allowedSenderKeys?: Set<string> | null
+  timeZone?: string | null
+  nowMs?: number
+  coverageStartIso?: string | null
+  coverageEndIso?: string | null
+}): {
+  bucketExists: boolean
+  bucket: GmailCanonicalSenderActivityTimelineBucket | null
+  senderKeys: Set<string>
+  senderMessageCounts: Map<string, number>
+  scopedRows: GmailMailboxIndexRow[]
+} {
+  const canonical = buildCanonicalSenderWorkspaceActivityTimeline({
+    rows: params.rows,
+    analysisScope: params.analysisScope,
+    allowedSenderKeys: params.allowedSenderKeys,
+    timeZone: params.timeZone,
+    nowMs: params.nowMs,
+    coverageStartIso: params.coverageStartIso,
+    coverageEndIso: params.coverageEndIso,
+  })
+  const requestedBucketStartMs = parseTimelineIsoMs(params.bucketStartAt)
+  const requestedBucketEndExclusiveMs = parseTimelineIsoMs(params.bucketEndExclusiveAt)
+  const matchedBucketRecord =
+    requestedBucketStartMs != null && requestedBucketEndExclusiveMs != null
+      ? canonical.bucketLookup.byBoundsSignature.get(
+          canonicalTimelineBoundsSignature(requestedBucketStartMs, requestedBucketEndExclusiveMs)
+        ) || null
+      : typeof params.bucketLabel === 'string' && params.bucketLabel.trim()
+        ? canonical.bucketLookup.byLabel.get(params.bucketLabel.trim()) || null
+        : null
+  if (!matchedBucketRecord) {
+    return {
+      bucketExists: false,
+      bucket: null,
+      senderKeys: new Set<string>(),
+      senderMessageCounts: new Map<string, number>(),
+      scopedRows: [],
+    }
+  }
+  const bucket = canonical.items.find(
+    (item) =>
+      item.bucket_start_iso === new Date(matchedBucketRecord.bucketStartMs).toISOString() &&
+      item.bucket_end_exclusive_iso === new Date(matchedBucketRecord.bucketEndExclusiveMs).toISOString()
+  ) || null
+  const scopedRows = params.rows.filter((row) => {
+    const timestamp =
+      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+        ? row.internal_date_ms
+        : null
+    if (
+      timestamp == null ||
+      timestamp < matchedBucketRecord.bucketStartMs ||
+      timestamp >= matchedBucketRecord.bucketEndExclusiveMs
+    ) {
+      return false
+    }
+    const senderKey = rowSenderKey(row)
+    if (!senderKey) return false
+    if (params.allowedSenderKeys && !params.allowedSenderKeys.has(senderKey)) return false
+    return matchedBucketRecord.senderKeys.has(senderKey)
+  })
+  return {
+    bucketExists: true,
+    bucket,
+    senderKeys: new Set(matchedBucketRecord.senderKeys),
+    senderMessageCounts: new Map(matchedBucketRecord.senderMessageCounts),
+    scopedRows,
+  }
 }
 
 export function buildSenderWorkspaceActivityTimelineFromRows(params: {
   rows: GmailMailboxIndexRow[]
   analysisScope: GmailAnalysisScope
+  allowedSenderKeys?: Set<string> | null
+  timeZone?: string | null
   nowMs?: number
+  coverageStartIso?: string | null
+  coverageEndIso?: string | null
 }): {
   items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
   granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
 } {
-  const granularity = activityTimelineGranularityForScope(params.analysisScope)
-  const counts = new Map<
-    string,
-    {
-      senderKeys: Set<string>
-      messageCount: number
-    }
-  >()
-
-  for (const row of params.rows) {
-    const timestamp =
-      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
-        ? row.internal_date_ms
-        : null
-    if (timestamp == null) continue
-
-    const label = activityTimelineBucketKeyForTimestamp(timestamp, granularity)
-    const senderDisplay = rowSender(row) || row.sender || 'Unknown sender'
-    const senderKey = normalizeSender(senderDisplay) || senderDisplay.trim().toLowerCase()
-    if (!senderKey) continue
-
-    const current =
-      counts.get(label) || {
-        senderKeys: new Set<string>(),
-        messageCount: 0,
-      }
-    current.senderKeys.add(senderKey)
-    current.messageCount += 1
-    counts.set(label, current)
-  }
-
-  const laneABucketKeys = buildLaneATimeContextBucketKeysFromRows(params)
-  if (laneABucketKeys) {
-    return {
-      items: laneABucketKeys.map((label) => ({
-        label,
-        sender_count: counts.get(label)?.senderKeys.size || 0,
-        message_count: counts.get(label)?.messageCount || 0,
-      })),
-      granularity,
-    }
-  }
-
+  const canonical = buildCanonicalSenderWorkspaceActivityTimeline({
+    rows: params.rows,
+    analysisScope: params.analysisScope,
+    allowedSenderKeys: params.allowedSenderKeys,
+    timeZone: params.timeZone,
+    nowMs: params.nowMs,
+    coverageStartIso: params.coverageStartIso,
+    coverageEndIso: params.coverageEndIso,
+  })
   return {
-    items: Array.from(counts.entries())
-      .sort((left, right) => left[0].localeCompare(right[0]))
-      .slice(-8)
-      .map(([label, entry]) => ({
-        label,
-        sender_count: entry.senderKeys.size,
-        message_count: entry.messageCount,
-      })),
-    granularity,
+    items: canonical.items,
+    granularity: canonical.granularity,
   }
 }
 
@@ -2761,7 +3250,11 @@ function indexedCoverageSatisfiesScope(params: {
 
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return false
 
-  const requiredStartMs = params.nowMs - scopeWindowDays * 24 * 60 * 60 * 1000
+  const requiredStartMs = analysisScopeRowInclusionLowerBoundMs(
+    params.analysisScope,
+    params.nowMs
+  )
+  if (requiredStartMs == null) return false
   const freshnessSlackMs = 3 * 24 * 60 * 60 * 1000
   return startMs <= requiredStartMs && endMs >= params.nowMs - freshnessSlackMs
 }
@@ -2837,9 +3330,14 @@ function isRowOlderThanDays(row: GmailMailboxIndexRow, days: number, nowMs: numb
   return row.internal_date_ms < threshold
 }
 
-function isRowWithinDays(row: GmailMailboxIndexRow, days: number, nowMs: number): boolean {
+function isRowWithinAnalysisScope(
+  row: GmailMailboxIndexRow,
+  analysisScope: GmailAnalysisScope,
+  nowMs: number
+): boolean {
   if (row.internal_date_ms == null || !Number.isFinite(row.internal_date_ms)) return false
-  const threshold = nowMs - days * 24 * 60 * 60 * 1000
+  const threshold = analysisScopeRowInclusionLowerBoundMs(analysisScope, nowMs)
+  if (threshold == null) return true
   return row.internal_date_ms >= threshold
 }
 
@@ -3145,7 +3643,7 @@ const PRESSURE_TREND_MS_PER_HOUR = 60 * 60 * 1000
 const PRESSURE_TREND_MS_PER_DAY = 24 * PRESSURE_TREND_MS_PER_HOUR
 const PRESSURE_TREND_MAX_BUCKETS = 512
 
-type PressureTrendCoverage = {
+export type PressureTrendCoverage = {
   indexed_total_rows: number
   indexed_inbox_rows: number
   indexed_date_span_start: string | null
@@ -3161,7 +3659,7 @@ type PressureTrendZonedParts = {
   second: number
 }
 
-type PressureTrendResolvedWindow = {
+export type PressureTrendResolvedWindow = {
   grouping: GmailPressureTrendGrouping
   label: string
   requestedStart: string | null
@@ -3188,7 +3686,7 @@ const PRESSURE_TREND_WEEKDAY_INDEX: Record<string, number> = {
   Sun: 6,
 }
 
-function safePressureTrendTimeZone(value: string | null | undefined): string {
+export function safePressureTrendTimeZone(value: string | null | undefined): string {
   const normalized = typeof value === 'string' && value.trim() ? value.trim() : 'UTC'
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: normalized }).format(new Date())
@@ -3345,7 +3843,7 @@ function pressureTrendWeekdayIndex(utcMs: number, timeZone: string): number {
   return PRESSURE_TREND_WEEKDAY_INDEX[label] ?? 0
 }
 
-function pressureTrendBucketStartUtcMs(
+export function pressureTrendBucketStartUtcMs(
   utcMs: number,
   grouping: GmailPressureTrendGrouping,
   timeZone: string
@@ -3395,7 +3893,7 @@ function pressureTrendBucketStartUtcMs(
   )
 }
 
-function pressureTrendNextBucketStartUtcMs(
+export function pressureTrendNextBucketStartUtcMs(
   bucketStartUtcMs: number,
   grouping: GmailPressureTrendGrouping,
   timeZone: string
@@ -3416,7 +3914,7 @@ function pressureTrendNextBucketStartUtcMs(
   return pressureTrendLocalDateTimeToUtcMs(shifted, timeZone)
 }
 
-function pressureTrendBucketLabel(
+export function pressureTrendBucketLabel(
   bucketStartUtcMs: number,
   grouping: GmailPressureTrendGrouping,
   timeZone: string
@@ -3530,7 +4028,7 @@ function pressureTrendRollingDayWindowFromAnchor(params: {
   }
 }
 
-function pressureTrendWindowLabel(window: GmailPressureTrendWindow): string {
+export function pressureTrendWindowLabel(window: GmailPressureTrendWindow): string {
   if (window === 'all_indexed') return 'All indexed history'
   if (window === 'last_year') return 'Last year'
   if (window === 'last_quarter') return 'Last quarter'
@@ -3540,7 +4038,7 @@ function pressureTrendWindowLabel(window: GmailPressureTrendWindow): string {
   return 'Custom range'
 }
 
-function pressureTrendGroupingLabel(grouping: GmailPressureTrendGrouping): string {
+export function pressureTrendGroupingLabel(grouping: GmailPressureTrendGrouping): string {
   if (grouping === 'hour') return 'Hourly bars'
   if (grouping === 'day') return 'Daily bars'
   if (grouping === 'week') return 'Weekly bars'
@@ -3587,7 +4085,7 @@ function pressureTrendParseDateInput(value: string | null | undefined): {
   return { year, month, day }
 }
 
-function pressureTrendResolvedWindow(params: {
+export function pressureTrendResolvedWindow(params: {
   coverage: PressureTrendCoverage
   pressureWindow: GmailPressureTrendWindow
   pressureStart?: string | null
@@ -3709,7 +4207,12 @@ function pressureTrendResolvedWindow(params: {
     }
   }
 
-  if (coverageStartMs != null && effectiveStartMs != null && effectiveStartMs < coverageStartMs) {
+  if (
+    params.pressureWindow !== 'last_day' &&
+    coverageStartMs != null &&
+    effectiveStartMs != null &&
+    effectiveStartMs < coverageStartMs
+  ) {
     effectiveStartMs = coverageStartMs
     limitedByIndexedCoverage = true
   }
@@ -3735,9 +4238,6 @@ function pressureTrendResolvedWindow(params: {
     })
     effectiveStartMs = recoveredLastDayWindow.effectiveStartMs
     effectiveEndExclusiveMs = recoveredLastDayWindow.effectiveEndExclusiveMs
-    if (coverageStartMs != null && effectiveStartMs < coverageStartMs) {
-      effectiveStartMs = coverageStartMs
-    }
     if (effectiveEndExclusiveMs > coverageEndExclusiveMs) {
       effectiveEndExclusiveMs = coverageEndExclusiveMs
     }
@@ -4656,7 +5156,9 @@ function buildMailboxIntelligenceSnapshot(params: {
       top_senders: wholeMailbox.top_senders,
       sender_volume_distribution: wholeMailbox.sender_volume_distribution,
       activity_timeline: wholeMailbox.activity_timeline,
-      activity_timeline_granularity: wholeMailbox.activity_timeline_granularity,
+      activity_timeline_granularity: nonHourlyActivityTimelineGranularity(
+        wholeMailbox.activity_timeline_granularity
+      ),
       category_breakdown: wholeMailbox.category_breakdown,
       human_vs_automation: wholeMailbox.human_vs_automation,
     },
@@ -4668,7 +5170,9 @@ function buildMailboxIntelligenceSnapshot(params: {
       top_senders: cleanupCandidateUniverse.top_senders,
       sender_volume_distribution: cleanupCandidateUniverse.sender_volume_distribution,
       activity_timeline: cleanupCandidateUniverse.activity_timeline,
-      activity_timeline_granularity: cleanupCandidateUniverse.activity_timeline_granularity,
+      activity_timeline_granularity: nonHourlyActivityTimelineGranularity(
+        cleanupCandidateUniverse.activity_timeline_granularity
+      ),
       category_breakdown: cleanupCandidateUniverse.category_breakdown,
       human_vs_automation: cleanupCandidateUniverse.human_vs_automation,
     },
@@ -4751,12 +5255,28 @@ function primarySenderWorkspaceCategory(summary: string): string {
 
 function buildSenderWorkspaceActivityTimeline(params: {
   senders: GmailSenderWorkspaceData['senders']
+  rows?: GmailMailboxIndexRow[]
   analysisScope: GmailAnalysisScope
+  coverageStartIso?: string | null
+  coverageEndIso?: string | null
 }): {
   items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
   granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
 } {
-  return buildSenderWorkspaceActivityTimelineFromUniverse(params)
+  if (!Array.isArray(params.rows) || params.rows.length === 0) {
+    return {
+      items: [],
+      granularity: activityTimelineGranularityForScope(params.analysisScope),
+    }
+  }
+  const allowedSenderKeys = new Set(params.senders.map((sender) => sender.sender_key).filter(Boolean))
+  return buildSenderWorkspaceActivityTimelineFromRows({
+    rows: params.rows,
+    analysisScope: params.analysisScope,
+    allowedSenderKeys,
+    coverageStartIso: params.coverageStartIso,
+    coverageEndIso: params.coverageEndIso,
+  })
 }
 
 function buildSenderWorkspaceCategoryDistribution(
@@ -5025,7 +5545,10 @@ async function buildSenderOverviewSnapshotForCluster(params: {
   const senders = filteredSenders.slice(0, SENDER_OVERVIEW_DEFAULT_PAGE_SIZE)
   const senderActivityTimeline = buildSenderWorkspaceActivityTimeline({
     senders: allSenders,
+    rows: selectedClusterRows,
     analysisScope: params.analysisScope,
+    coverageStartIso: params.coverage.indexed_date_span_start,
+    coverageEndIso: params.coverage.indexed_date_span_end,
   })
   const semanticAnalytics = buildSemanticAnalyticsDistributions(allSenders)
   const semanticArtifactFields = buildPersistedSemanticRollupArtifactFields({
@@ -5475,7 +5998,7 @@ function buildDiscoveryFromIndexedRows(params: {
   const selectedScopeDays = scopeDays(params.analysisScope)
   const scopedRows =
     selectedScopeDays != null
-      ? indexedRows.filter((row) => isRowWithinDays(row, selectedScopeDays, nowMs))
+      ? indexedRows.filter((row) => isRowWithinAnalysisScope(row, params.analysisScope, nowMs))
       : indexedRows
   const inboxRows = indexedRows.filter((row) => row.is_in_inbox)
   const scopedInboxRows =
@@ -7006,7 +7529,11 @@ async function loadQueryClusterFastPathRows(params: {
     .eq('is_in_inbox', true)
   const scopeWindowDays = scopeDays(params.analysisScope)
   if (scopeWindowDays != null) {
-    const scopeCutoffMs = params.nowMs - scopeWindowDays * 24 * 60 * 60 * 1000
+    const scopeCutoffMs = analysisScopeRowInclusionLowerBoundMs(
+      params.analysisScope,
+      params.nowMs
+    )
+    if (scopeCutoffMs == null) return null
     countQuery = countQuery.gte('internal_date_ms', scopeCutoffMs)
     rowsQuery = rowsQuery.gte('internal_date_ms', scopeCutoffMs)
   }
@@ -7094,7 +7621,11 @@ async function loadQueryClusterFastPathRows(params: {
       .order('message_id', { ascending: false })
       .range(0, QUERY_CLUSTER_FAST_PATH_FETCH_LIMIT - 1)
     if (scopeWindowDays != null) {
-      const scopeCutoffMs = params.nowMs - scopeWindowDays * 24 * 60 * 60 * 1000
+      const scopeCutoffMs = analysisScopeRowInclusionLowerBoundMs(
+        params.analysisScope,
+        params.nowMs
+      )
+      if (scopeCutoffMs == null) return null
       categoryOnlyCountQuery = categoryOnlyCountQuery.gte('internal_date_ms', scopeCutoffMs)
       categoryOnlyRowsQuery = categoryOnlyRowsQuery.gte('internal_date_ms', scopeCutoffMs)
     }
@@ -7895,7 +8426,9 @@ export async function browseIndexedGmailQueryClusterMessagesForTenant(params: {
             const inboxRows = indexedRows.filter((row) => row.is_in_inbox)
             const scopedRows =
               selectedScopeDays != null
-                ? inboxRows.filter((row) => isRowWithinDays(row, selectedScopeDays, nowMs))
+                ? inboxRows.filter((row) =>
+                    isRowWithinAnalysisScope(row, analysisScope, nowMs)
+                  )
                 : inboxRows
             resolvedRows = scopedRows.filter((row) =>
               matchClusterFromIndexRow({

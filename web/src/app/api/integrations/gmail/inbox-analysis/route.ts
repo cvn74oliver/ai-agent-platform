@@ -20,6 +20,7 @@ import {
   loadGmailConfirmationPreviewForTenant,
   loadGmailMailboxIntelligenceForTenant,
   loadGmailPressureTrendForTenant,
+  loadGmailSenderOverviewWindowForTenant,
   loadGmailSenderDistributionForTenant,
   loadGmailSenderWorkspaceForTenant,
 } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
@@ -42,6 +43,7 @@ type RequestMeta = {
 }
 
 const DISABLED_INITIAL_PAINT_LIVE_ACTIONS = new Set([
+  'sender_overview_window',
   'sender_distribution',
   'sender_workspace',
   'mailbox_intelligence',
@@ -51,6 +53,7 @@ const DISABLED_INITIAL_PAINT_LIVE_ACTIONS = new Set([
 ])
 
 const HEAVY_INBOX_ANALYSIS_ACTIONS = new Set([
+  'sender_overview_window',
   'sender_distribution',
   'sender_workspace',
   'mailbox_intelligence',
@@ -104,6 +107,21 @@ function heavyInboxAnalysisRequestKey(params: {
       }),
     ].join('::')
   }
+  if (params.action === 'sender_overview_window') {
+    return [
+      params.tenantId,
+      params.action,
+      stableHeavyKey({
+        analysis_scope: payload.analysis_scope ?? null,
+        cache_version: payload.cache_version ?? null,
+        selected_cluster: payload.selected_cluster ?? null,
+        pressure_window: payload.pressure_window ?? null,
+        pressure_start: payload.pressure_start ?? null,
+        pressure_end: payload.pressure_end ?? null,
+        time_zone: payload.time_zone ?? null,
+      }),
+    ].join('::')
+  }
   if (params.action === 'sender_workspace') {
     return [
       params.tenantId,
@@ -119,6 +137,13 @@ function heavyInboxAnalysisRequestKey(params: {
         sort: payload.sort ?? null,
         direction: payload.direction ?? null,
         semantic_focus: payload.semantic_focus ?? null,
+        time_context_bucket_label: payload.time_context_bucket_label ?? null,
+        time_context_bucket_start_at: payload.time_context_bucket_start_at ?? null,
+        time_context_bucket_end_exclusive_at: payload.time_context_bucket_end_exclusive_at ?? null,
+        sender_overview_window: payload.sender_overview_window ?? null,
+        sender_overview_start: payload.sender_overview_start ?? null,
+        sender_overview_end: payload.sender_overview_end ?? null,
+        time_zone: payload.time_zone ?? null,
       }),
     ].join('::')
   }
@@ -130,7 +155,15 @@ function heavyInboxAnalysisRequestKey(params: {
         analysis_scope: payload.analysis_scope ?? null,
         cache_version: payload.cache_version ?? null,
         selected_cluster: payload.selected_cluster ?? null,
+        clusters: payload.clusters ?? [],
         semantic_focus: payload.semantic_focus ?? null,
+        time_context_bucket_label: payload.time_context_bucket_label ?? null,
+        time_context_bucket_start_at: payload.time_context_bucket_start_at ?? null,
+        time_context_bucket_end_exclusive_at: payload.time_context_bucket_end_exclusive_at ?? null,
+        sender_overview_window: payload.sender_overview_window ?? null,
+        sender_overview_start: payload.sender_overview_start ?? null,
+        sender_overview_end: payload.sender_overview_end ?? null,
+        time_zone: payload.time_zone ?? null,
       }),
     ].join('::')
   }
@@ -282,7 +315,21 @@ export async function POST(req: Request) {
     const auth = await resolveAuthContext()
     if (!auth.ok) return auth.response
 
-    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
+    const rawBody = await req.text().catch(() => '')
+    const bodyLength = rawBody.length
+    let parseStatus: 'empty' | 'parsed' | 'invalid_json' = bodyLength > 0 ? 'invalid_json' : 'empty'
+    let body: Record<string, unknown> | null = null
+    if (bodyLength > 0) {
+      try {
+        const parsed = JSON.parse(rawBody) as unknown
+        parseStatus = 'parsed'
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          body = parsed as Record<string, unknown>
+        }
+      } catch {
+        parseStatus = 'invalid_json'
+      }
+    }
     const action = typeof body?.action === 'string' ? body.action.trim() : ''
     const requestMeta = normalizeRequestMeta(body)
     const requestStartedAt = Date.now()
@@ -339,6 +386,42 @@ export async function POST(req: Request) {
         })}`
       )
       finalizeHeavyAction({ status, ok, extra })
+    }
+
+    if (!action) {
+      const bodyKeys = body ? Object.keys(body).sort() : []
+      const emptyRequestBody =
+        parseStatus === 'empty' || (parseStatus === 'parsed' && body == null)
+      if (emptyRequestBody) {
+        // The scoped app clients already guard and serialize inbox-analysis actions before
+        // fetch. If an empty transport POST still reaches this route, treat it as ignorable
+        // browser/runtime noise instead of surfacing a user-visible runtime error path.
+        return new NextResponse(null, { status: 204 })
+      }
+      const reason = emptyRequestBody
+        ? 'empty_request_body'
+        : parseStatus === 'invalid_json'
+          ? 'invalid_json'
+          : 'missing_action'
+      const errorMessage =
+        reason === 'empty_request_body'
+          ? 'Request body is required.'
+          : reason === 'invalid_json'
+            ? 'Request body must be valid JSON.'
+            : 'Action is required.'
+      logRequest(400, false, {
+        reason,
+        body_length: bodyLength,
+        parse_status: parseStatus,
+        request_referer: req.headers.get('referer'),
+        request_origin: req.headers.get('origin'),
+        request_user_agent: req.headers.get('user-agent'),
+        request_body_keys: bodyKeys,
+      })
+      return NextResponse.json(
+        { error: errorMessage, reason },
+        { status: 400 }
+      )
     }
 
     if (
@@ -805,10 +888,38 @@ export async function POST(req: Request) {
         body.preview_evidence_sender_key.trim().length > 0
           ? body.preview_evidence_sender_key.trim()
           : null
+      const senderOverviewWindow =
+        body?.sender_overview_window === 'last_day' || body?.sender_overview_window === 'custom'
+          ? body.sender_overview_window
+          : null
+      const senderOverviewStart =
+        typeof body?.sender_overview_start === 'string' &&
+        body.sender_overview_start.trim().length > 0
+          ? body.sender_overview_start.trim()
+          : null
+      const senderOverviewEnd =
+        typeof body?.sender_overview_end === 'string' &&
+        body.sender_overview_end.trim().length > 0
+          ? body.sender_overview_end.trim()
+          : null
+      const timeZone =
+        typeof body?.time_zone === 'string' && body.time_zone.trim().length > 0
+          ? body.time_zone.trim()
+          : null
       const timeContextBucketLabel =
         typeof body?.time_context_bucket_label === 'string' &&
         body.time_context_bucket_label.trim().length > 0
           ? body.time_context_bucket_label.trim()
+          : null
+      const timeContextBucketStartAt =
+        typeof body?.time_context_bucket_start_at === 'string' &&
+        body.time_context_bucket_start_at.trim().length > 0
+          ? body.time_context_bucket_start_at.trim()
+          : null
+      const timeContextBucketEndExclusiveAt =
+        typeof body?.time_context_bucket_end_exclusive_at === 'string' &&
+        body.time_context_bucket_end_exclusive_at.trim().length > 0
+          ? body.time_context_bucket_end_exclusive_at.trim()
           : null
       const semanticFocus =
         typeof body?.semantic_focus === 'object' && body.semantic_focus !== null
@@ -898,6 +1009,12 @@ export async function POST(req: Request) {
         includeClusterSenderKeys,
         previewEvidenceSenderKey,
         timeContextBucketLabel,
+        timeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt,
+        senderOverviewWindow,
+        senderOverviewStart,
+        senderOverviewEnd,
+        timeZone,
         requestAgentId: requestMeta.agentId,
         semanticFocus:
           semanticFocus &&
@@ -947,9 +1064,190 @@ export async function POST(req: Request) {
           workspace.data.cluster_global.sender_keys_complete === includeClusterSenderKeys,
         include_cluster_sender_keys: includeClusterSenderKeys,
         time_context_bucket_label: timeContextBucketLabel,
+        time_context_bucket_start_at: timeContextBucketStartAt,
+        time_context_bucket_end_exclusive_at: timeContextBucketEndExclusiveAt,
         semantic_focus_active: semanticFocus != null,
       })
       return NextResponse.json({ ok: true, data: workspace.data })
+    }
+
+    if (action === 'sender_overview_window') {
+      const analysisScope = normalizeMailboxProfileScope(body?.analysis_scope)
+      const cacheVersion =
+        typeof body?.cache_version === 'string' && body.cache_version.trim()
+          ? body.cache_version.trim()
+          : null
+      const rawClusters = Array.isArray(body?.clusters)
+        ? body.clusters.filter(
+            (
+              entry
+            ): entry is {
+              cluster_id: string
+              canonical_cluster_id?: string
+              legacy_cluster_ids?: unknown
+              source_cluster_ids?: unknown
+              cluster_type: string
+              title: string
+              query: string
+              sender_count?: number
+              message_count?: number
+              estimated_count?: number
+            } =>
+              typeof entry === 'object' &&
+              entry !== null &&
+              typeof (entry as { cluster_id?: unknown }).cluster_id === 'string' &&
+              typeof (entry as { cluster_type?: unknown }).cluster_type === 'string' &&
+              typeof (entry as { title?: unknown }).title === 'string' &&
+              typeof (entry as { query?: unknown }).query === 'string'
+          )
+        : []
+      const selectedCluster =
+        typeof body?.selected_cluster === 'object' && body.selected_cluster !== null
+          ? (body.selected_cluster as {
+              cluster_id?: string
+              canonical_cluster_id?: string
+              legacy_cluster_ids?: unknown
+              source_cluster_ids?: unknown
+              cluster_type?: string
+              title?: string
+              query?: string
+              sender_count?: number
+              message_count?: number
+              estimated_count?: number
+            })
+          : null
+      const pressureWindow =
+        body?.pressure_window === 'last_day' || body?.pressure_window === 'custom'
+          ? body.pressure_window
+          : null
+      const pressureStart =
+        typeof body?.pressure_start === 'string' && body.pressure_start.trim()
+          ? body.pressure_start.trim()
+          : null
+      const pressureEnd =
+        typeof body?.pressure_end === 'string' && body.pressure_end.trim()
+          ? body.pressure_end.trim()
+          : null
+      const timeZone =
+        typeof body?.time_zone === 'string' && body.time_zone.trim()
+          ? body.time_zone.trim()
+          : null
+
+      if (
+        !selectedCluster?.cluster_id ||
+        !selectedCluster.cluster_type ||
+        !selectedCluster.title ||
+        !selectedCluster.query
+      ) {
+        logRequest(400, false, { cluster_id: null })
+        return NextResponse.json(
+          { error: 'selected_cluster is required for sender_overview_window.' },
+          { status: 400 }
+        )
+      }
+
+      if (!pressureWindow) {
+        logRequest(400, false, { cluster_id: selectedCluster.cluster_id, pressure_window: null })
+        return NextResponse.json(
+          { error: 'pressure_window must be last_day or custom for sender_overview_window.' },
+          { status: 400 }
+        )
+      }
+
+      const windowData = await loadGmailSenderOverviewWindowForTenant({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+        analysisScope,
+        cacheVersion,
+        clusters: rawClusters.map((cluster) => ({
+          cluster_id: cluster.cluster_id,
+          canonical_cluster_id:
+            typeof cluster.canonical_cluster_id === 'string' && cluster.canonical_cluster_id.trim()
+              ? cluster.canonical_cluster_id.trim()
+              : null,
+          legacy_cluster_ids: Array.isArray(cluster.legacy_cluster_ids)
+            ? cluster.legacy_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          source_cluster_ids: Array.isArray(cluster.source_cluster_ids)
+            ? cluster.source_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          cluster_type: cluster.cluster_type,
+          title: cluster.title,
+          query: cluster.query,
+          sender_count:
+            typeof cluster.sender_count === 'number' && Number.isFinite(cluster.sender_count)
+              ? cluster.sender_count
+              : null,
+          message_count:
+            typeof cluster.message_count === 'number' && Number.isFinite(cluster.message_count)
+              ? cluster.message_count
+              : null,
+          estimated_count:
+            typeof cluster.estimated_count === 'number' && Number.isFinite(cluster.estimated_count)
+              ? cluster.estimated_count
+              : null,
+        })),
+        selectedCluster: {
+          cluster_id: selectedCluster.cluster_id,
+          canonical_cluster_id:
+            typeof selectedCluster.canonical_cluster_id === 'string' &&
+            selectedCluster.canonical_cluster_id.trim()
+              ? selectedCluster.canonical_cluster_id.trim()
+              : null,
+          legacy_cluster_ids: Array.isArray(selectedCluster.legacy_cluster_ids)
+            ? selectedCluster.legacy_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          source_cluster_ids: Array.isArray(selectedCluster.source_cluster_ids)
+            ? selectedCluster.source_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          cluster_type: selectedCluster.cluster_type,
+          title: selectedCluster.title,
+          query: selectedCluster.query,
+          sender_count:
+            typeof selectedCluster.sender_count === 'number' &&
+            Number.isFinite(selectedCluster.sender_count)
+              ? selectedCluster.sender_count
+              : null,
+          message_count:
+            typeof selectedCluster.message_count === 'number' &&
+            Number.isFinite(selectedCluster.message_count)
+              ? selectedCluster.message_count
+              : null,
+          estimated_count:
+            typeof selectedCluster.estimated_count === 'number' &&
+            Number.isFinite(selectedCluster.estimated_count)
+              ? selectedCluster.estimated_count
+              : null,
+        },
+        pressureWindow,
+        pressureStart,
+        pressureEnd,
+        timeZone,
+      })
+
+      if (!windowData.ok) {
+        logRequest(windowData.status, false, {
+          cluster_id: selectedCluster.cluster_id,
+          pressure_window: pressureWindow,
+        })
+        return NextResponse.json({ error: windowData.error }, { status: windowData.status })
+      }
+
+      logRequest(200, true, {
+        cluster_id: selectedCluster.cluster_id,
+        pressure_window: pressureWindow,
+        series_count: windowData.data.series.length,
+        grouping: windowData.data.grouping.key,
+      })
+      return NextResponse.json({ ok: true, data: windowData.data })
     }
 
     if (action === 'sender_distribution') {
@@ -958,6 +1256,24 @@ export async function POST(req: Request) {
         typeof body?.cache_version === 'string' && body.cache_version.trim()
           ? body.cache_version.trim()
           : null
+      const rawClusters = Array.isArray(body?.clusters)
+        ? body.clusters.filter(
+            (
+              cluster
+            ): cluster is {
+              cluster_id?: string
+              canonical_cluster_id?: string
+              legacy_cluster_ids?: unknown
+              source_cluster_ids?: unknown
+              cluster_type?: string
+              title?: string
+              query?: string
+              sender_count?: number
+              message_count?: number
+              estimated_count?: number
+            } => typeof cluster === 'object' && cluster !== null
+          )
+        : []
       const selectedCluster =
         typeof body?.selected_cluster === 'object' && body.selected_cluster !== null
           ? (body.selected_cluster as {
@@ -981,6 +1297,39 @@ export async function POST(req: Request) {
               surfaced_subtype_keys?: unknown
             })
           : null
+      const senderOverviewWindow =
+        body?.sender_overview_window === 'last_day' || body?.sender_overview_window === 'custom'
+          ? body.sender_overview_window
+          : null
+      const senderOverviewStart =
+        typeof body?.sender_overview_start === 'string' &&
+        body.sender_overview_start.trim().length > 0
+          ? body.sender_overview_start.trim()
+          : null
+      const senderOverviewEnd =
+        typeof body?.sender_overview_end === 'string' &&
+        body.sender_overview_end.trim().length > 0
+          ? body.sender_overview_end.trim()
+          : null
+      const timeZone =
+        typeof body?.time_zone === 'string' && body.time_zone.trim().length > 0
+          ? body.time_zone.trim()
+          : null
+      const timeContextBucketLabel =
+        typeof body?.time_context_bucket_label === 'string' &&
+        body.time_context_bucket_label.trim().length > 0
+          ? body.time_context_bucket_label.trim()
+          : null
+      const timeContextBucketStartAt =
+        typeof body?.time_context_bucket_start_at === 'string' &&
+        body.time_context_bucket_start_at.trim().length > 0
+          ? body.time_context_bucket_start_at.trim()
+          : null
+      const timeContextBucketEndExclusiveAt =
+        typeof body?.time_context_bucket_end_exclusive_at === 'string' &&
+        body.time_context_bucket_end_exclusive_at.trim().length > 0
+          ? body.time_context_bucket_end_exclusive_at.trim()
+          : null
 
       if (
         !selectedCluster?.cluster_id ||
@@ -1001,6 +1350,38 @@ export async function POST(req: Request) {
         analysisScope,
         cacheVersion,
         requestAgentId: requestMeta.agentId,
+        clusters: rawClusters.map((cluster) => ({
+          cluster_id: cluster.cluster_id || '',
+          canonical_cluster_id:
+            typeof cluster.canonical_cluster_id === 'string' && cluster.canonical_cluster_id.trim()
+              ? cluster.canonical_cluster_id.trim()
+              : null,
+          legacy_cluster_ids: Array.isArray(cluster.legacy_cluster_ids)
+            ? cluster.legacy_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          source_cluster_ids: Array.isArray(cluster.source_cluster_ids)
+            ? cluster.source_cluster_ids
+                .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+            : null,
+          cluster_type: cluster.cluster_type || '',
+          title: cluster.title || '',
+          query: cluster.query || '',
+          sender_count:
+            typeof cluster.sender_count === 'number' && Number.isFinite(cluster.sender_count)
+              ? cluster.sender_count
+              : null,
+          message_count:
+            typeof cluster.message_count === 'number' && Number.isFinite(cluster.message_count)
+              ? cluster.message_count
+              : null,
+          estimated_count:
+            typeof cluster.estimated_count === 'number' && Number.isFinite(cluster.estimated_count)
+              ? cluster.estimated_count
+              : null,
+        })),
         selectedCluster: {
           cluster_id: selectedCluster.cluster_id,
           canonical_cluster_id:
@@ -1032,6 +1413,13 @@ export async function POST(req: Request) {
               ? selectedCluster.message_count
               : null,
         },
+        timeContextBucketLabel,
+        timeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt,
+        senderOverviewWindow,
+        senderOverviewStart,
+        senderOverviewEnd,
+        timeZone,
         semanticFocus:
           semanticFocus
             ? {
@@ -1066,6 +1454,9 @@ export async function POST(req: Request) {
         cluster_id: selectedCluster.cluster_id,
         sender_count: distribution.data.selected_cluster.sender_count,
         returned_sender_count: distribution.data.senders.length,
+        time_context_bucket_label: timeContextBucketLabel,
+        time_context_bucket_start_at: timeContextBucketStartAt,
+        time_context_bucket_end_exclusive_at: timeContextBucketEndExclusiveAt,
       })
       return NextResponse.json({ ok: true, data: distribution.data })
     }

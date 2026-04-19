@@ -1,3 +1,1832 @@
+### April 16, 2026 — ACE-047 Runtime READY Unblock Accepted
+
+Accepted invariant:
+- The canonical protected-trust review route must reach the locked READY gate within the protocol window before Phase 2 Time Context semantics are evaluated.
+- Baseline runtime snapshot attachment must not block on heavy selected-cluster bootstrap, artifact bootstrap, or deep rail hydration.
+- `rehydrate_only` must return enough baseline runtime truth for the route to resolve the selected cleanup group and attach a ready same-scope rail seed while heavier workspace hydration continues after initial attach.
+
+Source layer fixed:
+- Runtime readiness / snapshot attachment
+
+Root cause:
+- `/api/agents/playground` rehydrate was coupling baseline route readiness to heavy selected-cluster rail-family bootstrap.
+- The review route could authenticate and render the Operations Workspace shell, but the selected cleanup group and Time Context tab stayed unavailable until the heavy bootstrap path completed.
+- When selected-cluster rail-family bootstrap was fully deferred, the route attached baseline cleanup data but remained stuck at `railState="unavailable_scope"` because no same-scope ready rail seed existed.
+
+Touched files/functions:
+- `web/src/lib/runtime/runtimeStateService.ts`
+  - `buildBaselineSelectedClusterRailFamilyFromCleanupDiscoveryData(...)`
+  - `loadPlaygroundRuntimeState(...)`
+  - `deferSelectedClusterRailFamilyForBaselineSnapshot` decision point
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust`
+
+Acceptance proof:
+- Authenticated route proof used the saved `.env.local`-backed Playwright auth state.
+- Post-fix READY proof:
+  - route authenticated as `oliver.j.carlin@gmail.com`
+  - selected cleanup group visible: `Protected / trusted senders`
+  - Time Context tab visible
+  - loading copy absent:
+    - no `Loading sender decisions workspace...`
+    - no `Loading shell-first entry state`
+  - fallback copy absent:
+    - no `Timeframe not yet loaded`
+    - no `No visible time context yet`
+  - rail state = `ready`
+  - rail source = `bootstrap_runtime_seed`
+  - READY reached at `15.6s` on warmed verification, under the `45s` protocol window
+- Request proof:
+  - `POST /api/agents/playground`: exactly `1` request, `200`, runtime data present, selected rail family present, `1` seeded scope
+  - `GET /api/integrations/gmail/mailbox-index`: exactly `1` cold-load request, `200`
+  - deferred `sender_workspace` continued as background workspace hydration and did not block READY
+  - `sender_distribution` `409` safety guard remained non-blocking for READY
+- Verification result:
+  - Runtime Stability: PASS
+  - Route Readiness: PASS
+  - Runtime Snapshot Attach: PASS
+  - Final Verdict: PASS
+  - Verification Confidence: HIGH
+
+Replay steps:
+1. Start the local web runtime and authenticate with the repo-provided `.env.local` Playwright credentials or a saved Playwright auth state.
+2. Open the canonical route above.
+3. Capture network traffic for `/api/agents/playground`, `/api/integrations/gmail/mailbox-index`, and `/api/integrations/gmail/inbox-analysis`.
+4. Wait for the locked READY gate:
+   - selected cleanup group visible
+   - Time Context tab visible
+   - rail state = `ready`
+   - no loading placeholders
+   - no fallback copy
+5. Confirm READY occurs within `45s`.
+6. Confirm `/api/agents/playground` returns runtime data with a selected rail family seed before Phase 2 post-settle Time Context verification begins.
+
+Rollback guidance:
+- Revert the runtime READY unblock changes in `web/src/lib/runtime/runtimeStateService.ts`.
+- Re-run the canonical route READY protocol.
+- Expected rollback symptom:
+  - route either waits for heavy selected-cluster bootstrap before selected group attachment, or settles with baseline cleanup data but `railState="unavailable_scope"` and cannot satisfy the READY gate.
+
+### April 16, 2026 — Phase 1 Runtime Safety Fix
+
+Accepted fix:
+- `ACE-047` Phase 1 — Runtime Safety / Churn Containment is accepted and complete on the canonical protected-trust review route.
+- Runtime now polls mailbox-index health only when a real mailbox lifecycle is active.
+- Cold load, detached scope switching, and idle steady state now run without unnecessary mailbox-index churn.
+
+Root cause:
+- The mailbox-index poll gate treated `active_run != null` as sufficient proof of a live mailbox lifecycle.
+- That allowed stale `active_run` metadata to keep the `mailbox-index` poll loop armed even when `execution_state` had already fallen to non-live truth.
+- The accepted repair re-locked polling to the authoritative runtime-health signal: `execution_state === 'running'`.
+
+Touched file:
+- `web/src/components/runtime/OperationsRuntimeContext.tsx`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust`
+
+Request behavior before/after:
+- Before:
+  - cold load performed the required mailbox-index read, then left the 5-second poll loop armed
+  - detached scope changes appeared to trigger mailbox-index churn because the still-armed poll fired during the switch window
+  - idle state continued to emit mailbox-index requests every 5 seconds
+- After:
+  - cold load performs exactly `1` mailbox-index request
+  - detached scope switches perform `0` mailbox-index requests
+  - idle steady state performs `0` mailbox-index requests
+  - polling now occurs only while `execution_state === 'running'`
+
+Verification proof:
+- Cold load proof passed:
+  - exactly `1` `GET /api/integrations/gmail/mailbox-index`
+  - exactly `1` `POST /api/agents/playground`
+- Scope-switch proof passed:
+  - `1W`, `1M`, `1Y`, and `all_indexed` produced `0` mailbox-index requests
+- Idle proof passed:
+  - idle wait `>=12s` produced `0` mailbox-index requests
+  - no repeated 5-second mailbox-index polling was observed after settle
+- Final accepted verification result:
+  - Runtime Stability: PASS
+  - Request Churn: PASS
+  - Artifact Safety: PASS
+  - Final Verdict: PASS
+  - Verification Confidence: HIGH
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Capture network traffic for `mailbox-index`, `playground`, and `inbox-analysis`.
+3. Verify cold load produces exactly one mailbox-index request.
+4. Switch through `1W`, `1M`, `1Y`, and `all_indexed`.
+5. Verify those scope changes produce zero mailbox-index requests.
+6. Leave the route idle for at least 12 seconds.
+7. Verify no repeated 5-second mailbox-index polling occurs after settle.
+
+### April 13, 2026 — ACE-046 / ACE-047 Governing Truth Shift Propagated
+
+Control-plane truth recorded:
+- The missing helper import / `inbox-analysis` `500` runtime failure is no longer the governing Phase 3 blocker for `ACE-046`.
+- That runtime repair is preserved as historical continuity only and is not the next executable step.
+- The active blocker is now canonical time-truth divergence across the Analysis Rail.
+- `ACE-046` remains the implementation lane and `ACE-047` remains the verification gate.
+- The next executable step is now `PLAN MODE` for canonical timeline contract / truth-model design.
+- The governing Phase 3 design scope now requires:
+  - separation of sender activity truth from message pressure truth
+  - exact bucket metadata and click-through semantics
+  - same-metric reconciliation across live route, workspace snapshot, artifact/bootstrap seed, and workflow filtering
+  - rejection of metric-family substitution, mixed bucket semantics, and adjacent-date click-through bleed
+
+Scope:
+- Control-plane propagation only
+- no accepted-fix closeout recorded in this step
+
+### April 13, 2026 — ACE-046 Runtime Request-Flood Stabilization (Build-Pending + Failed-Artifact) Accepted
+
+Accepted invariant:
+- Runtime on the canonical protected-trust review route must not relaunch overlapping heavy request families during either `build_pending_showing_stable_snapshot` or failed-artifact steady-state rehydrate.
+- Build-pending continuity and failed-artifact rehydrate must both settle under a bounded single-owner polling contract.
+- No repeated relaunch loops, no multi-owner polling, and no visible `409 already_running` churn may remain on the accepted route during these runtime states.
+
+Source layer fixed:
+- Runtime request orchestration / route-local polling ownership
+
+Touched files/functions (exact):
+- `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - single-owner lifecycle polling / same-edge attach behavior
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - guarded route-local sender-workspace attach behavior during runtime continuity and rehydrate paths
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust`
+
+Lifecycle-edge proof summary:
+- Accepted proof covered both runtime continuity edges that previously flooded:
+  - `build_pending_showing_stable_snapshot`
+  - failed-artifact steady-state rehydrate
+- On both edges, runtime stayed on one logical owner and stopped relaunching overlapping heavy work while preserving continuity.
+
+Request-shape before/after:
+- Before:
+  - repeated overlapping relaunches across:
+    - `/api/agents/playground`
+    - `/api/integrations/gmail/mailbox-index`
+    - `/api/integrations/gmail/inbox-analysis`
+  - multi-owner polling windows
+  - visible `409 already_running` churn on deferred `sender_workspace` requests
+- After:
+  - bounded single-owner polling across the same request families
+  - no repeated relaunch loops during build-pending continuity
+  - no repeated relaunch loops during failed-artifact steady-state rehydrate
+  - no visible `409 already_running` churn on the accepted route
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Exercise or attach to a `build_pending_showing_stable_snapshot` window.
+3. Confirm the route holds continuity under one logical polling owner with no overlapping heavy relaunch loop.
+4. Exercise or attach to a failed-artifact steady-state rehydrate window.
+5. Confirm the same request families remain bounded and do not relaunch in overlapping loops.
+6. Confirm no visible `409 already_running` churn remains on the accepted route during either edge.
+
+Rollback guidance:
+- Revert the ACE-046 request-flood stabilization changes in:
+  - `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Re-run the canonical build-pending and failed-artifact runtime flows to confirm the bounded single-owner polling contract no longer holds.
+
+### April 11, 2026 — ACE-046 Phase 2 — Scoped Time Context State-Model Rebuild Accepted
+
+Accepted invariant:
+- Scoped Time Context workflow views on the protected-trust review route must settle cleanly without flicker, render-loop churn, or red overlay failures.
+- Detached scoped views `7d`, `30d`, `90d`, and `365d` must preserve route-driven workflow truth while keeping `all_indexed` baseline truth intact at canonical `1844`.
+- Time Context bucket clicks must remain local chart-focus interactions only and must not mutate the active workflow sender universe.
+
+Source layer fixed:
+- Review-page scoped Time Context state orchestration
+
+Touched files/functions (exact):
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - scoped Time Context state model
+  - route-driven scoped authority
+  - baseline-only overview gate
+  - centralized scoped navigation path
+  - single workspace coordinator
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust`
+
+Acceptance proof:
+- Live protected-trust verification passed on:
+  - `all_indexed`
+  - `7d`
+  - `30d`
+  - `90d`
+  - `365d`
+- Accepted settled counts:
+  - `all_indexed` = `1844` senders in workflow, `13` managed, `1831` still to review
+  - `7d` = `6` senders in workflow
+  - `30d` = `44` senders in workflow
+  - `90d` = `135` senders in workflow
+  - `365d` = `636` senders in workflow
+- No `Maximum update depth exceeded`, no red overlay, and no flicker were reproduced on the accepted verification run.
+- Full switch loop passed:
+  - `all_indexed -> 7d -> 30d -> 90d -> 365d -> all_indexed`
+  - baseline re-settled to canonical `1844`
+- Scoped bucket isolation passed on `30d`:
+  - bucket focus changed the local Time Context readout only
+  - workflow sender universe remained fixed at `44`
+
+### April 10, 2026 — ACE-046 Narrowed-State Interaction Contract Propagated
+
+Control-plane truth recorded:
+- Time Context and Sender Distribution bar clicks are now governed as local chart-focus interactions only for the next scoped correction pass.
+- Bar clicks may update in-focus details, but they must not collapse the workflow sender universe.
+- Narrowed chart state must retain surrounding chart context instead of isolating the rail into an unintended single-bar render.
+- Clearing narrowed state should not be required to recover from an unintended isolated render.
+
+Scope:
+- Control-plane propagation only
+- no code changes in this step
+
+Likely hot files for the next correction pass:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/components/runtime/GmailCleanupComponents.tsx`
+
+### April 10, 2026 — ACE-046 Runtime Guardrail Enforcement Layer Accepted
+
+Accepted invariant:
+- Runtime continuity and artifact lifecycle edges must enforce bounded behavior under the accepted Operations Review runtime path.
+- Build-pending continuity must suppress passive heavy inbox-analysis work and keep lifecycle polling single-owner and bounded.
+- Smart Sync completion must not be stranded by stale publication-cache reads, generic cooldown, or `flag_disabled` gating when an artifact rebuild handoff is required.
+- Route-local runtime consumers must attach to the accepted in-flight lifecycle/recovery path instead of relaunching overlapping heavy work.
+
+Source layer fixed:
+- Runtime enforcement / lifecycle orchestration layer
+
+Touched files/functions (exact):
+- `web/src/lib/runtime/operationsWorkspace.ts`
+  - runtime snapshot fetch transition-edge signaling
+- `web/src/app/api/agents/playground/route.ts`
+  - transition-edge request routing into runtime state assembly
+- `web/src/lib/runtime/runtimeStateService.ts`
+  - critical-transition uncached artifact reads
+  - mandatory Smart Sync handoff override
+  - bounded background-refresh enforcement during lifecycle edges
+- `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+  - immediate publication-handoff bridge for incremental and full-rebuild refresh strategies
+- `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - same-edge refresh coalescing / attach behavior
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - guarded sender-workspace attach behavior instead of heavy-request relaunch churn
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust`
+
+Acceptance proof:
+- Direct runtime proof:
+  - growth-producing Smart Sync handoff remained immediate and visible without manual refresh
+  - build-pending continuity held the stable route state while passive heavy inbox-analysis requests remained suppressed
+  - accepted growth-producing build-pending window showed:
+    - `sender_workspace = 0`
+    - `sender_distribution = 0`
+  - post-publish steady-state window settled fully bounded with no continued request storm
+- Smart Sync safety proof:
+  - a later no-growth Smart Sync run completed as:
+    - `execution_state = completed_no_growth`
+    - `growth_delta = 0`
+    - `freshness_reason = sync_completed_without_artifact_drift`
+  - no unnecessary rebuild was launched in the no-drift case
+- Repo proof:
+  - targeted lint passed on the runtime enforcement files with only pre-existing warnings remaining in `runtimeStateService.ts`
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Trigger a Smart Sync cycle that produces artifact drift/growth.
+3. Confirm the rebuild handoff becomes visible immediately without manual refresh.
+4. Confirm runtime continuity enters build-pending while the rebuild is genuinely active.
+5. Confirm passive heavy inbox-analysis requests do not relaunch during that build-pending window.
+6. Confirm the route settles back to bounded steady state after publication completes.
+7. Trigger or observe a no-growth Smart Sync cycle and confirm no unnecessary rebuild is launched.
+
+Rollback guidance:
+- Revert the ACE-046 runtime guardrail enforcement changes in:
+  - `web/src/lib/runtime/operationsWorkspace.ts`
+  - `web/src/app/api/agents/playground/route.ts`
+  - `web/src/lib/runtime/runtimeStateService.ts`
+  - `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+  - `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Re-run the canonical Smart Sync handoff and build-pending request-budget proof to confirm bounded lifecycle behavior no longer holds.
+
+### April 9, 2026 — ACE-046 Runtime Continuity Build-Liveness Reconciliation Accepted
+
+Accepted invariant:
+- Runtime continuity must not remain in `build_pending_showing_stable_snapshot` solely because a publication row still says `build_status = building`.
+- Runtime continuity may remain in build-pending only when the current artifact build is actually live.
+- Stale/dead build rows must be reclaimed before continuity state is emitted.
+
+Source layer fixed:
+- Artifact/publication truth -> runtime continuity state emission
+
+Touched files/functions (exact):
+- `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+  - published artifact reads with build-liveness reconciliation
+- `web/src/lib/runtime/runtimeStateService.ts`
+  - continuity-state emission based on reconciled `build_is_live`
+  - runtime continuity diagnostics for build liveness
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust`
+
+Acceptance proof:
+- Direct runtime proof:
+  - stale build reclaim was observed on the canonical route family
+  - continuity exited `build_pending` after stale build reclamation instead of staying pinned indefinitely
+  - the route stayed authenticated and visibly populated during exit
+  - no post-exit request spike was observed in the bounded recovery window
+- Smart Sync / artifact-handoff regression proof:
+  - Smart Sync trigger / attach still worked after the fix
+  - a genuine active Smart Sync run was not falsely reclaimed
+  - Smart Sync completion was observed successfully
+  - post-sync all-indexed artifact handoff was observed with:
+    - `freshness_state = refresh_in_progress`
+    - `refresh_strategy = full_rebuild`
+    - `build_status = building`
+    - `building_version = full-mailbox-20260409135707608`
+  - runtime continuity entered `build_pending` for that genuine live post-sync build and held the last stable snapshot visible
+  - no false reclaim of that genuine live build was observed during a long hold window
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Confirm the route is serving the stable snapshot when continuity reports build-pending.
+3. Verify runtime continuity clears if the upstream build row is stale/dead and reclaimed.
+4. Trigger or attach to Smart Sync on the same route.
+5. Confirm Smart Sync completes and a new all-indexed artifact rebuild is launched or observed.
+6. Confirm runtime continuity re-enters `build_pending` only when that artifact build is genuinely live.
+
+Rollback guidance:
+- Revert the ACE-046 runtime continuity reconciliation changes in:
+  - `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+  - `web/src/lib/runtime/runtimeStateService.ts`
+- Re-run the canonical continuity proof and confirm stale build rows once again pin the route in indefinite build-pending.
+
+### April 9, 2026 — ACE-046 Phase 1 — Rail Stability / Request Discipline Accepted
+
+Accepted invariant:
+- Sender Distribution on the canonical protected/trusted Operations Review route must use a one-request-per-scope-change contract.
+- Normal scope switching must not trigger duplicate same-scope Sender Distribution requests, immediate retry churn, or repeated `already_running` / `cooldown_active` guard churn.
+- The rail must remain visually stable during scoped loads:
+  - hold current UI state while replacement truth resolves
+  - avoid repeated `Updating sender ranking…` after settle
+  - avoid visible misalignment or incomplete/error rail states during the accepted Phase 1 flow
+
+Source layer fixed:
+- Review-page request orchestration + runtime Sender Distribution request identity
+
+Touched files/functions (exact):
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `senderDistributionRequestKey`
+  - request-keyed Sender Distribution load state
+  - guard-attach / hold-state behavior for scoped Sender Distribution fetches
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+  - `buildGmailSenderDistributionCacheKey(...)`
+  - `readCachedGmailSenderDistribution(...)`
+  - `fetchGmailSenderDistribution(...)`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust`
+
+Artifact bundle:
+- `/private/tmp/ace046-phase1-1775689499684`
+- key artifacts:
+  - `/private/tmp/ace046-phase1-1775689499684/result.json`
+  - `/private/tmp/ace046-phase1-1775689499684/cold_load_all_indexed.png`
+  - `/private/tmp/ace046-phase1-1775689499684/scope_1y.png`
+  - `/private/tmp/ace046-phase1-1775689499684/scope_1q.png`
+  - `/private/tmp/ace046-phase1-1775689499684/scope_1m.png`
+  - `/private/tmp/ace046-phase1-1775689499684/scope_1w.png`
+  - `/private/tmp/ace046-phase1-1775689499684/scope_all_indexed_return.png`
+
+Acceptance proof:
+- Repo proof:
+  - targeted lint passed on:
+    - `web/src/app/agents/[id]/operations/review/page.tsx`
+    - `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- Accepted correction proof on the canonical route:
+  - cold load on `All indexed` issued:
+    - `1` `sender_distribution` POST
+    - `0` duplicate same-scope Sender Distribution POSTs
+    - `0` `already_running`
+    - `0` `cooldown_active`
+  - scope loop passed:
+    - `All indexed -> 1Y -> 1Q -> 1M -> 1W -> All indexed`
+    - each narrowed scope issued exactly `1` logical `sender_distribution` POST
+    - duplicate same-scope Sender Distribution POSTs = `0`
+    - `already_running` = `0`
+    - `cooldown_active` = `0`
+  - return to `All indexed` restored held authoritative rail state without starting a new Sender Distribution request
+  - no repeated `Updating sender ranking…` remained after settle on any captured surface
+  - no visible rail misalignment or incomplete/error Sender Distribution state appeared during the accepted Phase 1 flow
+- Historical before/after comparison:
+  - prior protected/trust artifacts showed guard churn in adjacent rail/runtime flows
+  - accepted Phase 1 artifact bundle shows normal scoped usage now settling without guard churn on the accepted surface
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Switch to the `Sender Distribution` rail.
+3. Confirm cold load settles with a populated rail and no repeated updating copy after settle.
+4. Run the scope loop:
+   - `All indexed -> 1Y -> 1Q -> 1M -> 1W -> All indexed`
+5. Confirm each narrowed scope settles with one logical Sender Distribution load and no visible overlap churn.
+6. Confirm returning to `All indexed` restores stable rail truth without duplicate request churn.
+
+Rollback guidance:
+- Revert the ACE-046 Phase 1 request-discipline changes in:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- Re-run the canonical protected/trusted scope-loop proof and confirm the one-request-per-scope-change contract no longer holds.
+
+### April 9, 2026 — ACE-045 Operations Review Hero/Layout Cleanup Accepted
+
+Accepted invariant:
+- The Operations Review top fold on the canonical review route must keep the dark `Selected Cleanup Group` hero limited to:
+  - cleanup-group identity
+  - primary actions
+  - KPI cards
+  - the `Sender Review Goal` section directly under those KPI cards
+- `Smart Sync continuity`, `Page Truth Guide`, and related support/status sections must remain outside the hero in the stacked full-width layout below it.
+- The accepted top fold must not regress width grammar, containment, or hierarchy while preserving the already accepted runtime, Time Context, coverage/backfill, and Sender Distribution lanes.
+
+Source layer fixed:
+- Review-page composition / hero-layout layer
+
+Touched files/functions (exact):
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - Operations Review top-fold hero composition
+  - `Sender Review Goal` placement
+  - top-fold support/context section ordering
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - targeted lint passed on:
+    - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Corrective implementation proof:
+  - `Sender Review Goal` was restored inside the dark hero directly below the KPI cards
+  - `Smart Sync continuity` remained outside the hero
+  - `Page Truth Guide` remained outside the hero
+  - no visible top-fold regression remained after the corrective pass
+- Accepted visual proof:
+  - corrected cold top-fold screenshot captured:
+    - `/private/tmp/ace045-hero-layout-1775653941367/cold_top_fold.png`
+  - corrected settled top-fold screenshot captured:
+    - `/private/tmp/ace045-hero-layout-1775653941367/settled_top_fold.png`
+- Oliver verification:
+  - final visual review confirmed the top fold looks correct
+  - `Sender Review Goal` is back inside the hero under the KPI cards
+  - `Smart Sync continuity` and `Page Truth Guide` remain outside the hero
+  - no further validation was required for closeout
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Confirm the dark `Selected Cleanup Group` hero contains:
+   - title / summary
+   - actions
+   - KPI cards
+   - `Sender Review Goal` directly under the KPI cards
+3. Confirm `Smart Sync continuity` renders below the hero as a separate full-width section.
+4. Confirm `Page Truth Guide` renders below the hero as a separate full-width support section.
+5. Confirm no visible regression to the surrounding top fold.
+
+Rollback guidance:
+- Revert the ACE-045 hero/layout cleanup changes in:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Re-run the canonical top-fold visual proof to confirm the accepted hero hierarchy no longer holds.
+
+### April 8, 2026 — ACE-044 Sender Distribution All indexed Reconciliation Cleanup Accepted
+
+Accepted invariant:
+- Sender Distribution on the canonical Operations Review route must render the full authoritative sender universe for `All indexed`.
+- The rail must not fall into a false `distribution incomplete` state when the visible workflow surfaces already agree on the broader authoritative sender universe.
+- Linked sender-universe surfaces on the same accepted route must remain aligned for `All indexed`:
+  - Sender Distribution
+  - workflow summary
+  - sender workflow full-group total
+  - Decision Mode sender universe
+  - sender workspace pagination total
+
+Source layer fixed:
+- Workspace reconciliation + review-page render gating
+
+Touched files/functions (exact):
+- `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `loadGmailSenderDistributionForTenant(...)`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `senderDistributionFullScopeAuthoritativeSenderKeys`
+  - `senderDistributionAuthoritativeWorkflowSenderKeys`
+  - Sender Distribution authoritative parity / render-gating path
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - targeted lint passed on:
+    - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+    - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Accepted-surface correction proof on the canonical route:
+  - cold load on `All indexed` passed
+  - return to `All indexed` from narrower scope passed
+  - refresh / rehydrate on `All indexed` passed
+  - no false `distribution incomplete` state remained
+  - final accepted visible Sender Distribution surface rendered populated bars with no empty/error rail
+- Linked-surface parity proof on the same accepted surface:
+  - Sender Distribution rendered `867` bars
+  - workflow summary sender total = `867`
+  - sender workflow full-group total = `867`
+  - Decision Mode total = `867`
+  - `sender_distribution` response count = `867`
+  - `sender_workspace.pagination.total_senders` = `867`
+- Time Context smoke-check passed with no visible regression.
+- Background build-pending shell continuity was present during validation, but it was non-interfering and non-user-visible for the accepted Sender Distribution surface.
+- Accepted artifact bundle:
+  - `/private/tmp/ace044-sender-distribution-1775647967863/cold_load_all_indexed.png`
+  - `/private/tmp/ace044-sender-distribution-1775647967863/return_to_all_indexed.png`
+  - `/private/tmp/ace044-sender-distribution-1775647967863/refresh_rehydrate_all_indexed.png`
+  - `/private/tmp/ace044-sender-distribution-1775647967863/result.json`
+- Oliver verification:
+  - confirmed directionally from PM review that Sender Distribution `All indexed` is populated
+  - confirmed no false `distribution incomplete` state remains
+  - confirmed linked-surface parity is aligned
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Switch to the `Sender Distribution` rail on `All indexed`.
+3. Confirm the rail renders populated bars with no empty/error state and no `distribution incomplete` copy.
+4. Cross-check the same settled surface against:
+   - workflow summary sender total
+   - sender workflow full-group total
+   - Decision Mode total
+5. Narrow to `1W`, then return to `All indexed` and confirm the populated rail restores correctly.
+6. Refresh / rehydrate the route and confirm the populated rail remains stable on `All indexed`.
+
+Rollback guidance:
+- Revert the ACE-044 reconciliation changes in:
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Re-run the canonical `All indexed` Sender Distribution proof and confirm the rail no longer maintains parity with the authoritative workflow sender universe.
+
+### April 8, 2026 — ACE-043 Coverage / Backfill Display Contract Cleanup Accepted
+
+Accepted invariant:
+- The shared mailbox coverage/backfill shell on the canonical Operations Review route must never render `1970` or any epoch-like fallback as real mailbox truth.
+- When valid mailbox-index truth exists for the current page state, the shell must settle onto that real bounded coverage/backfill truth instead of remaining stuck in an unavailable pre-health state.
+- Coverage and backfill must remain visibly distinct concepts:
+  - coverage = indexed mailbox span
+  - backfill = explicit historical backfill target/cutoff
+- If truth is genuinely absent or invalid, the shell may show safe unavailable fallbacks, but it must not fabricate historical dates.
+
+Source layer fixed:
+- Source/display contract
+
+Touched files/functions (exact):
+- `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `isUsableMailboxInternalDateMs(...)`
+  - `mapMetadataToIndexRow(...)`
+  - `comparableMailboxIndexSeenAtIso(...)`
+  - `loadGmailMailboxIndexCoverageForTenant(...)`
+  - `findOldestInternalDateIso(...)`
+- `web/src/components/runtime/OperationsWorkspaceShell.tsx`
+  - `parseMailboxIndexDateMs(...)`
+  - `mailboxIndexCoverageLabel(...)`
+  - `mailboxIndexYieldRangeLabel(...)`
+  - `mailboxIndexBackfillTargetLines(...)`
+- `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - cached mailbox-index health hydration on cached-snapshot boot
+  - mailbox-index health resolution during runtime snapshot refresh
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - targeted lint passed on:
+    - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+    - `web/src/components/runtime/OperationsWorkspaceShell.tsx`
+    - `web/src/components/runtime/OperationsRuntimeContext.tsx`
+- Correction proof:
+  - epoch-like and unordered coverage inputs now resolve to safe fallbacks instead of real dates
+  - valid ordered coverage still renders as a bounded range
+- Accepted-surface live proof on the canonical route:
+  - no visible `1970` remained anywhere on the rendered page
+  - final mailbox shell settled to:
+    - `Indexed rows: 237,003`
+    - `Coverage: 12/2/2022 -> 4/8/2026`
+    - `Backfill target: recent 24-month window`
+    - `Historical cutoff: 3/19/2024`
+  - same-tab mailbox-index truth matched the displayed shell state:
+    - `indexed_oldest_message_at = 2022-12-02T14:20:51.000Z`
+    - `indexed_newest_message_at = 2026-04-08T08:03:35.000Z`
+    - `historical_backfill.completed_cutoff_at = 2024-03-19T07:21:48.401Z`
+  - accepted artifact bundle:
+    - `/tmp/ace043_coverage_validate_1775641894234.png`
+    - `/tmp/ace043_coverage_validate_1775641894234.json`
+- Technical-debt note:
+  - the runtime session snapshot could still contain a stale epoch-span start in session storage during build-pending continuity
+  - that stale value was no longer user-visible on the accepted shell and is not part of the accepted visible defect surface for `ACE-043`
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Wait for the shared mailbox coverage/backfill shell to render on the left rail.
+3. Confirm no visible `1970` appears in the shell.
+4. Confirm the shell settles to either:
+   - real bounded coverage + real historical cutoff truth
+   - or safe unavailable fallbacks when truth is genuinely absent.
+5. Cross-check the same tab’s mailbox-index truth against the displayed shell values.
+
+Rollback guidance:
+- Revert the ACE-043 source/display contract changes in:
+  - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `web/src/components/runtime/OperationsWorkspaceShell.tsx`
+  - `web/src/components/runtime/OperationsRuntimeContext.tsx`
+- Re-run the canonical mailbox-shell proof to confirm the coverage/backfill shell no longer settles to real mailbox-index truth.
+
+### April 8, 2026 — ACE-042 Time Context Render Authority + Scope Unification Accepted
+
+Accepted invariant:
+- Time Context on the canonical Operations Review route must use a single stable render authority.
+- `1D` and `Custom` must render as explicit workflow windows independent of any prior workflow-scope selection.
+- `1W` and `1M` must remain quantitative and stable during Smart Sync, without flicker into fallback/status surfaces.
+- Final settled Time Context truth must preserve deterministic chart grammar:
+  - `1D` -> hourly, `24` buckets
+  - `1W` -> daily, `7` buckets
+  - `1M` -> daily, `30` buckets
+
+Source layer fixed:
+- Review-page render authority / chart orchestration
+
+Touched files/functions (exact):
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `activeTimeContextChartScope`
+  - `updateSenderOverviewWindowQuery(...)`
+  - sender-overview-window request/cache keying
+  - `workspaceSupportsTimeContextLaneAParity(...)`
+  - `persistedTimeContextWorkflowSnapshot`
+  - `timeContextWorkflowOverviewWorkspace`
+- `web/src/components/runtime/GmailCleanupComponents.tsx`
+  - `SenderTimeContextAnalysisRail(...)`
+  - `usesCompressedTimeline`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - targeted lint passed on:
+    - `web/src/app/agents/[id]/operations/review/page.tsx`
+    - `web/src/components/runtime/GmailCleanupComponents.tsx`
+- Correction-proof matrix:
+  - `All indexed -> 1D` settled as:
+    - `workflowScope = null`
+    - `senderOverviewWindow = last_day`
+    - `granularity = hour`
+    - `bucketCount = 24`
+    - `rawBucketCount = 24`
+    - `compressedMode = false`
+    - `hasFallbackGrammar = false`
+    - `anomalyCount = 0`
+  - `1W -> 1D` settled to the same final 24-hour contract independent of prior `workflow_scope=7d`
+  - `Smart Sync on 1W` correction proof:
+    - `runAnalysis.duringRun.anomalyCount = 0`
+    - `runAnalysis.postCompletion.anomalyCount = 0`
+    - final settled state:
+      - `granularity = day`
+      - `bucketCount = 7`
+      - `hasFallbackGrammar = false`
+  - `Smart Sync on 1M` correction proof:
+    - `runAnalysis.duringRun.anomalyCount = 0`
+    - `runAnalysis.postCompletion.anomalyCount = 0`
+    - final settled state:
+      - `granularity = day`
+      - `bucketCount = 30`
+      - `hasFallbackGrammar = false`
+- Drift-producing Smart Sync hardening proof:
+  - accepted run:
+    - `run_id = d82a92e5-b77b-40f4-8764-859ae8485136`
+    - `rows_before = 237002`
+    - `rows_after = 237003`
+    - `processed_messages = 1`
+    - `upserted_messages = 1`
+  - live `1W` Time Context remained quantitative and stable:
+    - `railState = ready`
+    - `granularity = day`
+    - `bucketCount = 7`
+    - `hasFallbackGrammar = false`
+    - `statusNeedles = []`
+    - `duringRun.anomalyCount = 0`
+    - `postCompletion.anomalyCount = 0`
+- User QA:
+  - Oliver confirmed no Time Context flicker and stable chart behavior after the ACE-042 implementation.
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Verify `All indexed`, then select `1D` and confirm the chart settles as an hourly 24-bucket view.
+3. Switch to `1W`, then select `1D` and confirm the same 24-bucket hourly result without inheriting stale `workflow_scope`.
+4. Settle on `1W`, trigger `Smart Sync`, and verify the chart stays quantitative during the run and after completion.
+5. Repeat on `1M` and verify the chart stays quantitative during the run and after completion.
+
+Rollback guidance:
+- Revert the ACE-042 review-page render-authority changes in:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/components/runtime/GmailCleanupComponents.tsx`
+- Re-run the canonical Time Context matrix and Smart Sync hardening checks to confirm the stable authority contract no longer holds.
+
+### April 8, 2026 — ACE-040 Smart Sync Continuity + UI Stabilization Accepted
+
+Accepted invariant:
+- A drift-producing `Smart Sync` must not crash the canonical Analysis Rail review route while artifact publication is still building.
+- During `refresh_in_progress / building`, forced runtime refresh must keep the last stable runtime snapshot visible, expose build-pending continuity state, and avoid rotating `generated_at` / `cacheVersion` until published truth is ready.
+- After publication becomes ready, the page must swap to the rotated runtime truth without clearing visible review content, and downstream sender workspace / sender distribution refreshes must complete without leaving loading-only or placeholder UI behind.
+
+Source layer fixed:
+- Runtime / UI continuity
+
+Touched files/functions (exact):
+- `web/src/app/api/agents/playground/route.ts`
+  - `POST`
+- `web/src/lib/runtime/runtimeStateService.ts`
+  - `loadPlaygroundRuntimeState(...)`
+  - `resolveSelectedClusterRailBootstrapSnapshots(...)`
+- `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - `refreshRuntimeSnapshot(...)`
+  - `triggerSmartMailboxSync(...)`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `workspaceSnapshotMatchesRequest(...)`
+  - `continuityOverviewWorkspaceSnapshot`
+  - `shouldHoldContinuityShell`
+  - sender workspace retry/hold paths via `fetchGmailSenderWorkspace(...)`
+  - transient guard handling via `isTransientInboxAnalysisGuardError(...)`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - targeted lint passed on:
+    - `web/src/lib/runtime/runtimeStateService.ts`
+    - `web/src/app/api/agents/playground/route.ts`
+    - `web/src/components/runtime/OperationsRuntimeContext.tsx`
+    - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Runtime continuity proof on drift-producing Smart Sync:
+  - accepted run:
+    - `run_id = 55da1341-f86f-4917-a710-8dcd2c29a19a`
+    - `rows_before = 236991`
+    - `rows_after = 236995`
+    - `processed_messages = 4`
+    - `upserted_messages = 4`
+  - build-pending continuity proof:
+    - forced refresh returned `200`, not `500`
+    - `continuityState = build_pending_showing_stable_snapshot`
+    - `buildPending = true`
+    - `stableSnapshotServed = true`
+    - `swapReady = false`
+    - stable snapshot remained mounted while publication was still `building`
+    - pending artifact:
+      - `/tmp/ace040_same_tab_pending_1775622797636.png`
+      - `/tmp/ace040_same_tab_artifact_capture_1775622797636.json`
+  - published swap proof:
+    - final ready runtime settled as:
+      - `generated_at = 2026-04-08T05:35:46.358+00:00`
+      - `cacheVersion = 2026-04-08T05:35:46.358+00:00`
+      - `runtimeContinuity.phase = ready`
+      - `buildStatus = published`
+    - downstream refresh completed on the rotated version:
+      - `sender_workspace = 200`
+      - `sender_distribution = 200`
+      - `cache_version = 2026-04-08T05:35:46.358+00:00`
+    - final settled UI proof:
+      - `hasLoadingWorkspace = false`
+      - `hasLoadingDistribution = false`
+      - `hasPlaceholderSummary = false`
+      - screenshot:
+        - `/tmp/ace040_final_ready_settle_1775626579519.png`
+- Guard churn classification:
+  - transient `409` inbox-analysis guard churn occurred during build-pending / rotation overlap
+  - it was non-final and non-user-visible in the accepted flow because:
+    - the page stayed populated
+    - both downstream request families later completed `200`
+    - the final visible UI settled without loading-only or placeholder regressions
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Trigger `Smart Sync` from the review-page mailbox controls.
+3. Confirm mailbox drift occurs on the completed run.
+4. While artifact publication is still `refresh_in_progress / building`, verify the page remains on the last stable snapshot and surfaces build-pending continuity state instead of crashing or clearing.
+5. Wait for publication to reach the ready/published state.
+6. Verify the page swaps automatically to the rotated runtime truth with:
+   - new `generated_at`
+   - new `cacheVersion`
+   - populated sender workspace
+   - populated sender distribution
+   - no loading-only workspace and no placeholder summary cards
+
+Rollback guidance:
+- Revert the continuity/runtime/UI changes in:
+  - `web/src/app/api/agents/playground/route.ts`
+  - `web/src/lib/runtime/runtimeStateService.ts`
+  - `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Re-run the canonical Smart Sync continuity proof to confirm the build-pending stable-snapshot contract and post-build populated swap no longer hold.
+
+### April 6, 2026 — ACE-039 Mailbox-Index Freshness Recovery Accepted
+
+Accepted invariant:
+- Recent-gap mailbox-index health must not treat stale cached truth as usable when the recent head window is incomplete.
+- `smart_sync` must upgrade to a fresh head-of-mailbox recovery run when false-healthy recent gaps are detected.
+- Recent-gap recovery must ignore stale checkpoint resume, rebuild the recent head window from scratch, and stop at the recent-window boundary.
+- Corrected upstream truth must repopulate downstream `gmail_sender_stats`, `sender_workspace`, and final Time Context charts without UI/chart hacks.
+
+Source layer fixed:
+- Runtime / API
+
+Touched files/functions (exact):
+- `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `loadGmailMailboxRecentHealthForTenant(...)`
+  - `primeAcceptedSmartSyncRunForTenant(...)`
+  - `runFullMailboxIndexForTenant(...)`
+  - `syncGmailMailboxIndexForTenant(...)`
+- `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+  - `GET`
+  - `POST`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - `./node_modules/.bin/eslint src/lib/integrations/gmail/gmailMailboxIndexer.ts src/app/api/integrations/gmail/mailbox-index/route.ts`
+    passed
+- Mailbox-index proof:
+  - baseline mailbox-index state showed stale cached truth marked usable:
+    - `indexed_message_count = 234539`
+    - `indexed_newest_message_at = 2026-04-06T07:59:04.000Z`
+    - `last_sync_status = incremental_sync_complete`
+    - `sync_health = healthy`
+    - `usable_with_cached_index = true`
+  - accepted recovery run completed as:
+    - `requested_mode = incremental`
+    - `effective_mode = full`
+    - `started_from_checkpoint = false`
+    - `terminal_reason = recent_window_reached`
+    - `rows_before = 234562`
+    - `rows_after = 236627`
+    - `growth_delta = 2065`
+    - `processed_messages = 7500`
+    - `list_pages_fetched = 15`
+  - final mailbox-index state proved:
+    - `last_sync_status = full_scan_complete`
+    - `sync_health = healthy`
+    - `usable_with_cached_index = true`
+    - `recent_window_health.false_healthy_state = false`
+    - `recent_window_health.missing_recent_days = []`
+    - proof file:
+      - `/private/tmp/ace039-mailbox-index-after-1775484000.json`
+- Raw indexed truth proof:
+  - baseline `gmail_messages` in the missing span:
+    - `2026-03-30 = 0`
+    - `2026-03-31 = 1`
+    - `2026-04-01 = 1`
+    - `2026-04-02 = 0`
+    - `2026-04-03 = 0`
+  - final `gmail_messages` in the same span:
+    - `2026-03-30 = 180`
+    - `2026-03-31 = 241`
+    - `2026-04-01 = 206`
+    - `2026-04-02 = 175`
+    - `2026-04-03 = 170`
+  - baseline `gmail_sender_stats.last_seen` in the same span:
+    - `2026-03-30 = 0`
+    - `2026-03-31 = 1`
+    - `2026-04-01 = 0`
+    - `2026-04-02 = 0`
+    - `2026-04-03 = 0`
+  - final `gmail_sender_stats.last_seen` in the same span:
+    - `2026-03-30 = 7`
+    - `2026-03-31 = 14`
+    - `2026-04-01 = 17`
+    - `2026-04-02 = 12`
+    - `2026-04-03 = 12`
+  - baseline proof file:
+    - `/private/tmp/ace039-upstream-diagnostic-1775479885761.json`
+  - final proof file:
+    - `/private/tmp/ace039-raw-db-after-1775484000.json`
+- Runtime/UI proof on the canonical route above:
+  - `1W` final settled state proved:
+    - `workflow_scope = 7d`
+    - `compressedMode = false`
+    - `granularity = day`
+    - `rawBucketCount = 7`
+    - `renderBucketCount = 7`
+    - visible buckets:
+      - `Mar 31 = 65`
+      - `Apr 1 = 62`
+      - `Apr 2 = 57`
+      - `Apr 3 = 49`
+      - `Apr 4 = 32`
+      - `Apr 5 = 35`
+      - `Apr 6 = 14`
+    - screenshot / DOM / trace:
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_1w.png`
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_1w.dom.json`
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_1w.trace.json`
+  - `1M` final settled state proved:
+    - `workflow_scope = 30d`
+    - `compressedMode = false`
+    - `granularity = day`
+    - `rawBucketCount = 30`
+    - `renderBucketCount = 30`
+    - late-March / early-April tail now includes:
+      - `Mar 30 = 52`
+      - `Mar 31 = 65`
+      - `Apr 1 = 62`
+      - `Apr 2 = 57`
+      - `Apr 3 = 49`
+      - `Apr 4 = 32`
+      - `Apr 5 = 35`
+      - `Apr 6 = 14`
+    - screenshot / DOM / trace:
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_1m.png`
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_1m.dom.json`
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_1m.trace.json`
+  - corroborating `Custom` final settled state proved:
+    - `sender_overview_window = custom`
+    - `sender_overview_start = 2026-03-08`
+    - `sender_overview_end = 2026-03-27`
+    - `customWorkspace.selected_cluster = 254 senders / 1143 messages`
+    - `customOverview.summary = 254 active senders / 1143 supporting messages`
+    - screenshot / DOM / trace:
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_custom.png`
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_custom.dom.json`
+      - `/private/tmp/ace039-time-context-proof-1775483357096/time_context_custom.trace.json`
+- Visual truth:
+  - `1W` no longer shows the sudden empty run from `Mar 31` through `Apr 3`
+  - `1M` no longer shows the unexplained zero run across late March into early April
+  - the final charts now reflect restored daily activity rather than a false drop-off
+
+Replay steps:
+1. Open the canonical route above while authenticated.
+2. Trigger `Smart Sync` from the mailbox-index controls or `POST /api/integrations/gmail/mailbox-index` with:
+   - `trigger = smart_sync`
+   - `mode = incremental`
+3. Confirm the accepted recovery run upgrades to:
+   - `requested_mode = incremental`
+   - `effective_mode = full`
+   - `started_from_checkpoint = false`
+4. Wait for mailbox-index completion and confirm:
+   - `last_sync_status = full_scan_complete`
+   - `recent_window_health.false_healthy_state = false`
+   - `recent_window_health.missing_recent_days = []`
+5. Verify raw day counts on `2026-03-20 -> 2026-04-06` in `gmail_messages` and `gmail_sender_stats`.
+6. Verify final `1W`, `1M`, and corroborating `Custom` using the artifact-backed route proof above.
+
+Rollback guidance:
+- Revert the changes in:
+  - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- Re-run mailbox-index verification to confirm the recovery upgrade path and recent-health gating are removed.
+
+### April 6, 2026 — ACE-039 Mailbox-Index Freshness Recovery Approved For Execution
+
+Propagation-only continuity entry:
+- `ACE-039` approved root cause is now `stale index reuse`.
+- The earliest proven failure boundary is now the mailbox-index freshness / checkpoint layer.
+- The next executable step is no longer diagnosis-only.
+- The next executable step is now mailbox-index freshness recovery implementation in:
+  - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- This is not an accepted fix and does not create a Recovery Contract yet.
+- Preserve the earlier `ACE-039` diagnostic framing as historical continuity only.
+
+### April 6, 2026 — ACE-039 Time Context Recent-Period Source-Of-Truth Recovery Activated
+
+Propagation-only continuity entry:
+- `ACE-039` now governs current `1W` / `1M` Time Context failures as a recent-period data-truth / source-of-truth recovery problem.
+- This is not an accepted fix and does not create a Recovery Contract yet.
+- `ACE-037` and `ACE-038` remain preserved as accepted historical context.
+- The next executable step is:
+  - narrow `PLAN MODE` diagnostic for recent-period data truth on `1W`, `1M`, and corroborating `Custom` windows
+- The diagnostic target is upstream truth, including:
+  - row-backed timeline inputs
+  - artifact freshness / snapshot truth
+  - recent-scope publication correctness
+  - timeline-source divergence
+  - related runtime/data-path defects
+
+## Accepted-Fix Recovery Contract (MANDATORY)
+
+Every accepted fix MUST include a Recovery Contract to enable deterministic replay.
+
+Required fields:
+- Accepted invariant
+- Source layer fixed (UI / runtime / artifact / API)
+- Touched files/functions (exact)
+- Canonical verification route (exact URL)
+- Acceptance proof (exact outputs / numbers)
+- Replay steps (deterministic)
+- Rollback guidance (if applicable)
+
+Rules:
+- An accepted fix is NOT complete without a Recovery Contract.
+- Do NOT duplicate this contract across control-plane docs; CHANGELOG.md is the authoritative recovery ledger.
+- ACTIVE_CHANGE_EVENTS.md must point to the corresponding CHANGELOG entry for recovery.
+
+### April 6, 2026 — ACE-034 Gmail Analysis Rail Smart Sync Freshness Recovery Accepted
+
+Root-cause addressed:
+- Gmail artifact publication could previously advance `published_version` while leaving stale failed freshness metadata behind on the same publication row.
+- Smart Sync artifact refresh planning only operated on pre-existing publication rows, so missing recent scopes could be skipped entirely.
+- That let recent Analysis Rail windows fail through missing publication truth and resolve as `unavailable_scope` even when the issue was missing scope coverage rather than honest empty state.
+
+What changed:
+- `publishGmailArtifactBuild(...)` now lands successful publication freshness metadata unconditionally for the build/version that actually published:
+  - `freshness_state = fresh`
+  - `freshness_reason = published_artifact_current`
+  - `refresh_completed_at = <publish time>`
+  - `refresh_job_id = <publishing job>`
+- Smart Sync artifact refresh planning in the mailbox-index route now manages the required recent publication scopes even when publication rows do not already exist:
+  - `7d`
+  - `30d`
+  - `90d`
+  - `180d`
+  - `365d`
+  - `all_indexed`
+- Missing recent scopes are now created or queued as `full_rebuild_required` instead of being silently skipped.
+- `unavailable_scope` was explicitly preserved as an integrity safeguard.
+
+Verification:
+- Repo proof:
+  - simulated stale failed freshness metadata with `refresh_requested_at > refresh_started_at`
+  - verified later publish advances `published_version`
+  - verified `build_status = published`
+  - verified `freshness_state = fresh`
+  - verified stale failed freshness is cleared
+- Live proof:
+  - confirmed required recent publication rows now exist or are queued for:
+    - `7d`
+    - `30d`
+    - `90d`
+    - `180d`
+    - `365d`
+  - confirmed live `7d` moved from:
+    - `source = unavailable_scope`
+    - `artifact_version = null`
+    to artifact-backed rail truth:
+    - `state = outside_timeframe`
+    - `artifact_version = full-mailbox-20260405223642290`
+  - injected live `refresh_failed` freshness on `7d`, then ran a later successful full rebuild and verified:
+    - `published_version` advanced from `full-mailbox-20260405223642290` to `full-mailbox-20260405224353241`
+    - `build_status = published`
+    - `freshness_state = fresh`
+    - `freshness_reason = published_artifact_current`
+
+Boundaries preserved:
+- No UI behavior or rail contract was widened in this pass.
+- `unavailable_scope` remains valid when scoped truth is genuinely unavailable.
+- Smart Sync remains an incremental maintenance path; this pass only queues heavier rebuilds when scope publication baselines are missing under the existing contract.
+
+Residual follow-up kept separate:
+- Live verification still observed a separate `all_indexed` incremental integrity failure:
+  - `Preview row 1919a35fe8973469 references missing header semantic.marketing_subscriptions. | Mailbox intelligence candidate message count no longer matches preview rows.`
+- That integrity issue remains outside `ACE-034` scope and does not reopen this accepted recent-scope publication fix.
+
+### April 6, 2026 — ACE-038 Time Context Fixed-Slot UI Grammar Recovery Accepted
+
+Accepted invariant:
+- Time Context workflow-driving windows `1W` and `1M` must render one fixed daily slot per day in frame.
+- Visible bars must remain fully contained within their own slot and must not visually bleed into neighboring slots.
+- Zero days must remain visibly reserved in the chart.
+- This pass must not change backend aggregation, data truth, route/query behavior, or the accepted compressed chart-only grammar for `1D` / `Custom`.
+
+Source layer fixed:
+- UI
+
+Touched files/functions (exact):
+- `web/src/components/runtime/GmailCleanupComponents.tsx`
+  - `SenderTimeContextAnalysisRail(...)`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - `npm run lint -- src/components/runtime/GmailCleanupComponents.tsx`
+    passed
+  - `npx tsc --noEmit`
+    still fails from unrelated pre-existing repo errors outside this pass, including:
+    - `src/app/agents/[id]/operations/clusters/page.tsx`
+    - `src/lib/integrations/gmail/gmailArtifactFullMailboxProjector.ts`
+    - `src/lib/integrations/gmail/gmailArtifactStore.ts`
+    - `src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+    - `src/lib/runtime/runtimeStateService.ts`
+- Live UI proof on the canonical route above:
+  - `1W` final settled state proved:
+    - `workflow_scope = 7d`
+    - `compressedMode = false`
+    - `granularity = day`
+    - `rawBucketCount = 7`
+    - `renderBucketCount = 7`
+    - visible bars remain separated by `~6.21px` and do not cross into neighboring day slots
+    - visible empty days remain reserved for `Mar 31`, `Apr 1`, `Apr 2`, and `Apr 3`
+    - screenshot / DOM / trace bundle:
+      - `/private/tmp/ace038-time-context-slot-proof-1775468133988/time_context_1w.png`
+      - `/private/tmp/ace038-time-context-slot-proof-1775468133988/time_context_1w.dom.json`
+      - `/private/tmp/ace038-time-context-slot-proof-1775468133988/time_context_1w.trace.json`
+  - `1M` final settled state proved:
+    - `workflow_scope = 30d`
+    - `compressedMode = false`
+    - `granularity = day`
+    - `rawBucketCount = 30`
+    - `renderBucketCount = 30`
+    - dense visible bars remain separated by `~4.88px` and do not cross into neighboring day slots
+    - visible empty days remain reserved for `Mar 22` through `Mar 26` and `Mar 30` through `Apr 3`
+    - screenshot / DOM / trace bundle:
+      - `/private/tmp/ace038-time-context-slot-proof-1775468133988/time_context_1m.png`
+      - `/private/tmp/ace038-time-context-slot-proof-1775468133988/time_context_1m.dom.json`
+      - `/private/tmp/ace038-time-context-slot-proof-1775468133988/time_context_1m.trace.json`
+  - regression proof also confirmed:
+    - `1D` remained compressed with `compressedMode = true`, `rawBucketCount = 24`, `renderBucketCount = 16`, `hiddenBucketCount = 8`
+    - `Custom` remained compressed with `compressedMode = true`, `rawBucketCount = 20`, `renderBucketCount = 15`, `hiddenBucketCount = 5`
+  - accepted artifact bundle root:
+    - `/private/tmp/ace038-time-context-slot-proof-1775468133988`
+  - no `409` guard churn during the accepted flow
+
+### April 6, 2026 — ACE-037 Time Context Chart-Only Continuity Recovery Accepted
+
+Accepted invariant:
+- Time Context chart-only windows `1D` and `Custom` must not render reserved zero-bucket gaps between active periods.
+- Raw bucket truth must remain intact for hover, focus, and lower-card readouts.
+- This pass must not interpolate values, change backend aggregation, change route/query behavior, or change workflow-driving windows:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+
+Source layer fixed:
+- UI
+
+Touched files/functions (exact):
+- `web/src/components/runtime/GmailCleanupComponents.tsx`
+  - `SenderTimeContextAnalysisRail(...)`
+  - `timeContextBucketUnitLabel(...)`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - `npm run lint -- src/components/runtime/GmailCleanupComponents.tsx`
+    passed
+  - `npx tsc --noEmit`
+    still fails from unrelated pre-existing repo errors outside this pass, including:
+    - `src/app/agents/[id]/operations/clusters/page.tsx`
+    - `src/lib/integrations/gmail/gmailArtifactFullMailboxProjector.ts`
+    - `src/lib/integrations/gmail/gmailArtifactStore.ts`
+    - `src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+    - `src/lib/runtime/runtimeStateService.ts`
+- Live UI proof on the canonical route above:
+  - cold-load `1D` final settled state proved:
+    - `sender_overview_window = last_day`
+    - `compressedMode = true`
+    - `rawBucketCount = 24`
+    - `renderBucketCount = 17`
+    - `hiddenBucketCount = 7`
+    - disclosure copy explicitly states inactive hours are hidden
+    - screenshot: `/private/tmp/time-context-continuity-proof-1775446601752/cold_load_1d.png`
+    - DOM/state: `/private/tmp/time-context-continuity-proof-1775446601752/cold_load_1d.dom.json`
+    - request trace: `/private/tmp/time-context-continuity-proof-1775446601752/cold_load_1d.trace.json`
+  - sparse `Custom` final settled state proved:
+    - `sender_overview_window = custom`
+    - `sender_overview_start = 2026-03-08`
+    - `sender_overview_end = 2026-03-27`
+    - `compressedMode = true`
+    - `rawBucketCount = 20`
+    - `renderBucketCount = 15`
+    - `hiddenBucketCount = 5`
+    - visible buckets skip inactive days while the disclosure copy stays visible
+    - focused visible bucket remained truthful:
+      - `label = Mar 20`
+      - `active senders = 63`
+      - `supporting messages = 75`
+    - screenshot: `/private/tmp/time-context-continuity-proof-1775446601752/custom_sparse_final.png`
+    - DOM/state: `/private/tmp/time-context-continuity-proof-1775446601752/custom_sparse_final.dom.json`
+    - request trace: `/private/tmp/time-context-continuity-proof-1775446601752/custom_sparse_final.trace.json`
+  - empty custom-window proof showed explicit empty-state behavior instead of broken sparse gaps:
+    - `sender_overview_window = custom`
+    - `sender_overview_start = 2026-03-31`
+    - `sender_overview_end = 2026-03-31`
+    - `compressedMode = true`
+    - `rawBucketCount = 24`
+    - `renderBucketCount = 0`
+    - `hiddenBucketCount = 24`
+    - `emptyStateTitle = No active time context is visible in this window`
+    - screenshot: `/private/tmp/time-context-continuity-proof-1775446601752/custom_empty_state.png`
+    - DOM/state: `/private/tmp/time-context-continuity-proof-1775446601752/custom_empty_state.dom.json`
+    - request trace: `/private/tmp/time-context-continuity-proof-1775446601752/custom_empty_state.trace.json`
+  - final `1D` settled recheck also remained visually gap-free:
+    - screenshot: `/private/tmp/time-context-continuity-proof-1775446601752/final_settled_1d.png`
+    - DOM/state: `/private/tmp/time-context-continuity-proof-1775446601752/final_settled_1d.dom.json`
+    - request trace: `/private/tmp/time-context-continuity-proof-1775446601752/final_settled_1d.trace.json`
+  - request families observed during accepted flow:
+    - required:
+      - `sender_overview_window`
+      - `sender_workspace`
+    - background but harmless:
+      - `sender_distribution`
+    - unexpected / interfering:
+      - none
+  - guard churn observed:
+    - none (`409` guard churn not present in accepted traces)
+
+Replay steps (deterministic):
+1. Start the local app at `http://localhost:3000`.
+2. Run `npm run lint -- src/components/runtime/GmailCleanupComponents.tsx` from `/Users/olivercarlin/Documents/ai-agent-platform/web`.
+3. Open `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`.
+4. Run `node /tmp/time_context_continuity_verify.mjs 'http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions'`.
+5. Confirm the verifier writes a proof bundle under `/private/tmp/time-context-continuity-proof-*`.
+6. Verify:
+   - `1D` and sparse `Custom` render consecutive active bars with no reserved visual zero-gap slots
+   - inactive-period disclosure is visible in compressed mode
+   - empty `Custom` renders the explicit no-active-time-context state
+   - `1W` and `1M` remain unchanged
+
+Rollback guidance:
+- If `1D` or `Custom` show gaps again, inspect `SenderTimeContextAnalysisRail(...)` first and confirm compressed mode still filters zero-count buckets only for `last_day` and `custom`.
+- If lower-card truth drifts, confirm the rail still derives visible `chartItems` from raw items without replacing the raw bucket counts/messages that power the anchored readouts.
+- If workflow-driving scopes change unexpectedly, confirm no continuity adapter was widened beyond the chart-only windows.
+
+### April 6, 2026 — ACE-036 Gmail Marketing Classification Coverage + Sender Distribution `1W` UI Consistency Recovery Accepted
+
+Accepted invariant:
+- `semantic.marketing_subscriptions` must not strand clearly non-human promotional/newsletter senders in `needs-review` solely because the narrow safe-row slice is too thin when the broader sender evidence already classifies the sender as `subscription-senders`.
+- Sender Distribution workflow-scope chips remain workflow-driving controls and must stay clickable even when detached comparison rail packages are still loading or unavailable.
+- Monthly marketing coverage must not show avoidable gaps when recent Gmail inbox activity exists daily for the current scope.
+
+Source layer fixed:
+- Runtime + UI
+
+Touched files/functions (exact):
+- `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+  - `summarizeBehavioralCleanupScores(...)`
+  - `assignSenderCleanupGroupDecision(...)`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `handleRailScopeSelect(...)`
+- `web/scripts/gmail-cleanup-group-assignment-fixtures.mjs`
+- `web/scripts/gmail-marketing-subscriptions-coverage-live-audit.mjs`
+- `web/scripts/gmail-marketing-subscriptions-30d-build-audit.mjs`
+- `web/scripts/sender-distribution-1w-click-verify.mjs`
+
+Canonical verification route:
+- `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+
+Acceptance proof:
+- Repo proof:
+  - `node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-cleanup-group-assignment-fixtures.mjs`
+    passed with new marketing broader-row rescue fixtures:
+    - `subscription_promotions_broader_rows_rescue`
+    - `subscription_newsletter_broader_rows_rescue`
+  - targeted lint passed with no errors for:
+    - `src/lib/integrations/gmail/inboxAnalysis.ts`
+    - `src/app/agents/[id]/operations/review/page.tsx`
+    - `scripts/gmail-cleanup-group-assignment-fixtures.mjs`
+    - `scripts/gmail-marketing-subscriptions-coverage-live-audit.mjs`
+    - `scripts/gmail-marketing-subscriptions-30d-build-audit.mjs`
+    - `scripts/sender-distribution-1w-click-verify.mjs`
+- Live classification proof:
+  - pre-fix recent marketing audit showed:
+    - `live_excluded_marketing_like_senders.count = 113`
+    - `needs-review-senders = 79`
+    - `too_few_safe_rows = 67`
+  - post-fix `30d` rebuild published:
+    - `artifact_version = full-mailbox-20260406003007750`
+    - `subscription-senders` rollup count moved `192 -> 248`
+    - `needs-review-senders` rollup count moved `177 -> 121`
+  - post-republish live coverage audit showed:
+    - `live_recent_inbox.total_rows = 2443`
+    - `live_recent_inbox.active_day_count = 21`
+    - `live_recent_inbox.missing_promotional_days = []`
+    - `live_excluded_marketing_like_senders.count = 55`
+    - `exclusion_reason_counts.too_few_safe_rows = 11`
+- Live UI proof on the canonical route above:
+  - cold-load URL:
+    - `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions`
+  - clicking Sender Distribution `1W` produced final settled URL:
+    - `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?workflow_scope=7d&cluster_id=semantic.marketing_subscriptions`
+  - final settled UI state proved:
+    - active shared rail tab = `sender_distribution`
+    - `1W` chip `ariaPressed = true`
+    - `workflowScopeQuery = 7d`
+    - `rowCount = 10`
+    - workflow truth text resolved to `1W workflow truth`
+  - final proof artifacts captured:
+    - screenshot: `/private/tmp/sender-distribution-1w-proof-1775437226138/sender_distribution_1w_final.png`
+    - DOM/state: `/private/tmp/sender-distribution-1w-proof-1775437226138/sender_distribution_1w_final.dom.json`
+    - request trace: `/private/tmp/sender-distribution-1w-proof-1775437226138/sender_distribution_1w_final.trace.json`
+  - request trace confirmed interactive `7d` fetches for the same route:
+    - `action = sender_workspace`, `analysis_scope = 7d`
+    - `action = sender_distribution`, `analysis_scope = 7d`
+  - guard churn observed:
+    - none (`409` count = `0`)
+
+Replay steps (deterministic):
+1. Run `node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-cleanup-group-assignment-fixtures.mjs` from `/Users/olivercarlin/Documents/ai-agent-platform/web`.
+2. Run `node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-marketing-subscriptions-coverage-live-audit.mjs` and record `missing_promotional_days`.
+3. Run `node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-marketing-subscriptions-30d-build-audit.mjs` and verify the published `30d` artifact moves subscription senders up while reducing `needs-review`.
+4. Re-run `node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-marketing-subscriptions-coverage-live-audit.mjs` and confirm `missing_promotional_days = []`.
+5. Run `node web/scripts/sender-distribution-1w-click-verify.mjs 'http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions'`.
+6. Confirm the final URL includes `workflow_scope=7d`, the final artifact bundle is written under `/private/tmp/sender-distribution-1w-proof-*`, and `guard_churn_409` is empty.
+
+Rollback guidance:
+- If marketing coverage regresses, inspect `assignSenderCleanupGroupDecision(...)` first and verify broader-row rescue still activates only for non-human `subscription-senders` with promotional/newsletter evidence.
+- If the `1W` chip becomes inert again, inspect `handleRailScopeSelect(...)` and confirm Sender Distribution workflow-scope changes are not being blocked by detached rail-package readiness checks.
+
+### April 6, 2026 — ACE-035 Gmail Artifact Integrity Incremental Refresh Recovery Accepted
+
+Accepted invariant:
+- Incremental Gmail artifact refresh must rebuild impacted preview rows, headers, cluster summaries, and mailbox intelligence from one internally consistent projected preview dataset.
+- Incremental Gmail artifact validation must count cleanup-candidate preview rows using the same cleanup-group reference rules as mailbox intelligence.
+- Integrity safeguards remain active:
+  - inconsistent preview/header states still fail
+  - inconsistent candidate-universe counts still fail
+  - partial artifacts must still fail cleanly instead of publishing
+
+Source layer fixed:
+- Artifact
+
+Touched files/functions (exact):
+- `web/src/lib/integrations/gmail/gmailArtifactIncrementalUpdater.ts`
+  - `refreshPublishedGmailArtifactsIncrementally(...)`
+  - `validateArtifactVersion(...)`
+- `web/scripts/gmail-artifact-incremental-integrity-live-audit.mjs`
+
+Canonical verification route:
+- Backend / live artifact verification only in this pass
+- Tenant:
+  - `085c8ef7-2fd7-4842-8499-cd605e894a77`
+- Verified live artifact scopes:
+  - `all_indexed`
+  - `7d`
+  - `30d`
+
+Acceptance proof:
+- Live Smart Sync produced a real incremental mailbox delta:
+  - `rows_after = 234516`
+  - `growth_delta = 3`
+  - `processed_messages = 4`
+  - `upserted_messages = 3`
+- Live bounded incremental artifact refresh published successfully for:
+  - `30d -> incremental-20260405231931612`
+  - `7d -> incremental-20260405231940420`
+  - `all_indexed -> incremental-20260405231945344`
+- Live `all_indexed` recovered from:
+  - `build_status = failed`
+  - `freshness_state = refresh_failed`
+  - `freshness_reason = Mailbox intelligence candidate message count no longer matches preview rows.`
+  to:
+  - `build_status = published`
+  - `freshness_state = fresh`
+  - `freshness_reason = published_artifact_current`
+- Live forbidden integrity logs were absent:
+  - `references missing header`
+  - `candidate message count no longer matches preview rows`
+- Live continuity proof passed:
+  - `1W / 7d = 7` daily buckets
+  - `1M / 30d = 30` daily buckets
+
+Replay steps (deterministic):
+1. Run Smart Sync for tenant `085c8ef7-2fd7-4842-8499-cd605e894a77` in incremental mode and confirm a real mailbox delta is produced.
+2. Run `node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-artifact-incremental-integrity-live-audit.mjs` from `/Users/olivercarlin/Documents/ai-agent-platform/web`.
+3. Confirm live publication state transitions:
+   - `all_indexed` ends `build_status = published`, `freshness_state = fresh`
+   - `7d` ends `build_status = published`, `freshness_state = fresh`
+   - `30d` ends `build_status = published`, `freshness_state = fresh`
+4. Confirm the audit output shows:
+   - forbidden integrity fragments absent
+   - `week_bucket_count = 7`
+   - `month_bucket_count = 30`
+
+Rollback guidance:
+- If a regression reappears, inspect `refreshPublishedGmailArtifactsIncrementally(...)` first for any path that mixes projected headers/summaries with unprojected preview rows.
+- If candidate-count mismatch reappears, compare `validateArtifactVersion(...)` against `buildGmailMailboxIntelligenceRows(...)` and keep their cleanup-candidate predicates aligned.
+
+### April 5, 2026 — ACE-032 Analysis Rail PM v2 Turnover Logged
+
+What changed:
+- Logged the Analysis Rail lane-owner transition from `Analysis Rail PM v1` to `Analysis Rail PM v2`.
+- Reset the Analysis Rail lane so the immediate next thread is no longer direct implementation.
+- Recorded that the already-approved `ACE-030` architecture still stands, but execution must restart through a fresh `PLAN MODE` pass focused on `1D` Time Context correctness and stability.
+- Aligned the control plane so all active continuity now points to the same post-turnover next step.
+- Recorded that this was a docs-only turnover event, not an accepted fix.
+
+Accepted outcome:
+- `Analysis Rail PM v2` is now the active control-plane lane owner.
+- The Analysis Rail lane is reset and ready for clean new-thread activation.
+- The next executable Analysis Rail step is now:
+  - `PLAN MODE` for `1D` Time Context correction and stability
+- No Recovery Contract is required for this changelog entry because no fix was accepted in this pass.
+
+Still open:
+- run the post-turnover `PLAN MODE` pass for `1D` Time Context correctness and stability
+- after approval, resume the narrow `ACE-030` Phase 1 implementation path without widening Sender Distribution or route/query scope
+
+### April 5, 2026 — ACE-031 Verification Hardening Closeout Alignment Logged
+
+What changed:
+- Closed out revised `ACE-031` as a control-plane alignment pass only.
+- Recorded that the hardened runtime/UI verification standard is already landed in the authoritative execution-rule sources.
+- Aligned the control plane so it now consistently treats the hardened verification model as accepted system truth.
+- Recorded that this closeout did **not** reopen:
+  - `AGENTS.md`
+  - `CODEX_PROMPT_TEMPLATES.md`
+  - skill files
+  - turnover/protocol docs
+  - readiness helper docs
+
+Accepted outcome:
+- Control-plane continuity now matches the already-landed verification hardening state.
+- The governing verification model now explicitly includes Codex self-verification, runtime target/canonical route requirements, blocked-verification pause/resume handling, artifact-backed runtime/UI proof, and guard-churn reporting.
+- `ACE-031` is fully propagated and closed as an alignment-only event.
+- No product code or source execution-rule document changed in this pass.
+
+Still open:
+- Continue from the turnover-reset shared-analysis next step under `ACE-032`:
+  - `PLAN MODE` for `1D` Time Context correction and stability under `Analysis Rail PM v2`
+
+### April 4, 2026 — ACE-027 Sender Distribution Pass 2 and ACE-028 Monthly `30d` Truth Fix Accepted
+
+What changed:
+- Closed out `ACE-027` as accepted and PM-verified.
+- Recorded the accepted Sender Distribution visible grammar:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+- Recorded that visible `2M` / `6M` are removed from Sender Distribution UI only.
+- Recorded that `1D` and `Custom` were still deferred at the time of `ACE-027` / `ACE-028`; a later docs-only approval under `ACE-030` defines their chart-only path.
+- Closed out `ACE-028` as accepted and PM-verified for the narrow Sender Distribution monthly `30d` truth correction.
+- Recorded the exact accepted backend fix:
+  - `loadGmailSenderDistributionForTenant(...)` in `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts` now excludes `analysisScope === '30d'` from the persisted snapshot shortcut
+  - Sender Distribution `1M` now falls through to the same truthful non-snapshot path already used by workspace truth
+- Recorded the PM verification basis:
+  - Sender Distribution `1M` now shows `48`
+  - the workflow below shows `48`
+  - Time Context `1M` remains correct
+- Recorded the separate performance follow-up item:
+  - `1Y` still has a significant workflow-load delay; `1Q` is slower than ideal but materially better; `1W` is near-instant. This is a separate future performance diagnosis item and not part of the accepted monthly `30d` Sender Distribution truth fix.
+
+Accepted outcome:
+- Sender Distribution visible scope congruency Pass 2 is complete.
+- The narrow monthly Sender Distribution `30d` truth mismatch is resolved on the accepted protected-trusted review route.
+- Control-plane docs now treat both accepted fixes as fully propagated and PM-verified.
+- This entry no longer governs the next shared-analysis execution step; that commitment is now captured under `ACE-030`.
+
+Still open:
+- `ACE-030` now commits the next shared-analysis execution step as `Phase 1 — Time Context only`.
+- narrow `1Y` / `1Q` performance diagnosis remains separate and must not be blended into that Phase 1 lane.
+
+### April 4, 2026 — ACE-030 Sender Overview `1D` / `Custom` Chart-Only Architecture Logged
+
+What changed:
+- Removed the stale control-plane state that still described the next shared-analysis step as undecided.
+- Logged the approved Sender Overview architecture:
+  - `1D` and `Custom` are approved as chart-only windows
+  - `All indexed`, `1Y`, `1Q`, `1M`, `1W` remain the only workflow-driving chips
+- Committed the next execution step as:
+  - `Phase 1 — Time Context only` implementation
+- Logged the explicit Phase 1 boundaries:
+  - no Sender Distribution `1D` / `Custom` rendering
+  - no `workflow_scope` expansion
+  - no `analysis_scope` expansion
+  - no route/query changes
+- Logged that Sender Distribution `1D` / `Custom` chart-window rendering is deferred to a later phase.
+
+Accepted outcome:
+- The approved architecture and the next execution step are now recoverable from docs alone.
+- The control plane no longer treats `1D` / `Custom` as merely hidden/deferred with no approved path.
+- `Phase 1 — Time Context only` is now the committed next execution step for shared analysis.
+- This was a docs-only propagation pass; no product code changed.
+
+Still open:
+- execute `Phase 1 — Time Context only` for chart-only `1D` / `Custom`
+- keep Sender Distribution `1D` / `Custom` rendering deferred to a later phase
+- keep narrow `1Y` / `1Q` performance diagnosis separate from the Phase 1 implementation lane
+
+### April 4, 2026 — ACE-027 Sender Distribution Pass 2 Committed as Next Execution Step
+
+What changed:
+- Logged `ACE-027` as the committed next execution step after accepted `ACE-026`.
+- Removed the prior “candidate follow-up” ambiguity from the control plane.
+- Recorded the exact execution-ready scope:
+  - `web/src/app/agents/[id]/operations/review/page.tsx` only
+- Recorded the exact intended execution objective:
+  - restrict Sender Distribution visible chips to `All indexed`, `1Y`, `1Q`, `1M`, `1W`
+  - remove visible `2M` / `6M` from Sender Distribution UI only
+- Recorded that `1D` and `Custom` were not part of this pass; `ACE-030` later defines their approved chart-only Time Context path.
+- Recorded the preserved boundaries:
+  - no Time Context changes
+  - no backend/API contract changes
+  - no route/query-shape changes
+  - no `OperationsAnalysisScope` changes
+  - no lower-card anchoring changes
+  - no pagination, sender ordering, or Decision Mode semantic changes
+
+Accepted outcome:
+- The control plane now reflects `Sender Distribution scope-congruency Pass 2` as the committed next execution step rather than a candidate option.
+- The next execution thread is now execution-ready from docs alone.
+- This was a docs-only propagation pass; no product code changed.
+
+Still open:
+- execute `ACE-027` in `web/src/app/agents/[id]/operations/review/page.tsx`
+- keep narrow `1Y` / `1Q` performance diagnosis separate and deferred
+- keep any future `1D` / `Custom` Sender Overview work in a separate later plan lane
+
+### April 3, 2026 — ACE-026 Time Context Pass 1 Scope Congruency Accepted
+
+What changed:
+- Closed out the Time Context-only Pass 1 scope-congruency implementation as accepted and PM-verified.
+- Recorded the accepted visible Time Context scope grammar:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+- Recorded the accepted safe workflow mapping:
+  - `all_indexed -> all_indexed`
+  - `last_year -> 365d`
+  - `last_quarter -> 90d`
+  - `last_month -> 30d`
+  - `last_week -> 7d`
+- Recorded that `1D` and `Custom` were intentionally hidden in Pass 1; `ACE-030` later approves them as chart-only windows without changing the accepted Pass 1 workflow-driving surface.
+- Recorded that Sender Distribution remained unchanged in PM review.
+- Recorded the separate observed load-time note:
+  - `1Y` roughly `61s`
+  - `1Q` roughly `19s`
+  - this performance issue is separate from the accepted Pass 1 functional closeout
+
+Accepted outcome:
+- Time Context Pass 1 functional scope congruency is complete.
+- The Time Context rail now mirrors the accepted visible Mailbox Intelligence-style ordering for the supported Pass 1 scopes without widening product contracts.
+- Accepted truth remains preserved for `all_indexed`, `30d`, and `7d`.
+
+Still open:
+- `ACE-027` now commits Sender Distribution scope-congruency Pass 2 as the next execution step
+- narrow `1Y` / `1Q` performance diagnosis remains separate and deferred
+- chart-only `1D` / `Custom` implementation is now committed under `ACE-030`
+
+### April 3, 2026 — ACE-025 Weekly `1W` Truth Alignment Accepted
+
+What changed:
+- Closed out `ACE-025` as accepted for the weekly `workflow_scope=7d` Sender Overview / Time Context coherence fix.
+- Updated the Recovery Contract to reflect the accepted current weekly baseline on the tested route.
+- Recorded the accepted weekly baseline:
+  - fresh Time Context base view shows one populated visible UTC-day bucket
+  - the visible weekly chart and the counted sender universe match the same visible UTC-day window semantics
+  - populated-bucket drilldown remains coherent after click
+- Kept the acceptance boundary narrow:
+  - weekly `1W` only
+  - no reopening of monthly `30d`
+  - no reopening of `all_indexed`
+  - no visual redesign
+  - no transport redesign
+
+Accepted outcome:
+- `ACE-025` is completed and PM-verified.
+- Weekly `1W` is now internally coherent on the accepted Sender Overview / Time Context route.
+- The visible weekly chart and the counted sender universe now match the same visible UTC-day window semantics.
+- Populated-bucket drilldown remains coherent after click on the accepted route.
+- Control-plane docs now point the next active item back to Cleanup Groups Lane B — review entry behavior for decomposed parents.
+
+Still open:
+- optional weekly auto-scroll / refocus polish follow-up
+- separate transient post-click settle note only; not grounds to reopen the accepted weekly truth fix
+- transient loading jitter / temporary empty hero state during route churn is a separate non-blocking runtime issue, not part of the accepted weekly fix
+
+Recovery Contract:
+- Accepted invariant:
+  Weekly `1W` Sender Overview / Time Context must remain internally coherent on the canonical review route: the visible weekly chart and the counted sender universe must reflect the same visible UTC-day window semantics, and populated-bucket drilldown must remain coherent after click.
+- Source layer fixed:
+  Weekly sender-workspace assembly + review-page Time Context truth presentation (runtime/UI boundary)
+- Touched files/functions:
+  `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  `loadGmailSenderWorkspaceForTenant(...)`
+  `web/src/app/agents/[id]/operations/review/page.tsx`
+  `OperationsReviewPage` weekly Time Context readout (`timeContextWorkflowOverviewWorkspace`, `activeRailDisplay`)
+- Canonical verification route:
+  `/operations/review?workflow_scope=7d&cluster_id=structural.protected_trust`
+- Acceptance proof:
+  Fresh Time Context base view shows one populated visible UTC-day bucket (`Mar 29 = 2`) and a visible weekly workflow total of `2`.
+  Clicking the populated visible bucket settles coherently to active senders `2` and workflow total `2`.
+- Replay steps:
+  1. Load `/operations/review?workflow_scope=7d&cluster_id=structural.protected_trust`.
+  2. Open the `Time Context` tab.
+  3. Confirm the fresh base view shows one populated visible UTC-day bucket and a matching visible weekly workflow total.
+  4. Click the populated visible bucket and confirm the selected-bucket active-sender count and workflow total remain coherent.
+- Rollback guidance:
+  Revert the weekly sender-workspace / Time Context truth path to the last known-good weekly baseline and re-validate the canonical weekly route before widening scope.
+
+### April 3, 2026 — ACE-024 Lower-Card Anchoring Accepted
+
+What changed:
+- Closed out `ACE-024` as accepted after PM/browser verification on the protected-trusted monthly Time Context route.
+- Recorded the accepted lower-card anchoring behavior:
+  - selected bucket stays anchored after click
+  - lower-card content follows the selected bucket correctly
+  - hover no longer steals the lower-card anchor once a bucket is selected
+  - `Clear narrowed state` restores the existing default-focus behavior
+  - monthly filtering behavior remains correct after selection
+- Kept the acceptance boundary narrow:
+  - no review-page selection-flow changes
+  - no route/session changes
+  - no workflow narrowing changes
+  - no monthly truth changes
+  - no backend/API changes
+  - no chart render-source changes
+
+Accepted outcome:
+- `ACE-024` is completed and PM-verified.
+- The selected bucket is now the authoritative lower-card read while active, with hover preserved as preview-only behavior.
+- Control-plane docs now point the next Time Context work to the separate weekly `1W` inconsistency only.
+
+Still open:
+- new narrow PLAN MODE thread for the weekly `1W` lower-card/workflow-scope inconsistency
+- optional auto-scroll / refocus polish follow-up
+
+### April 3, 2026 — ACE-023 Monthly `30d` Core Truth Correction Accepted
+
+What changed:
+- Closed out `ACE-023` as accepted after PM verification of the monthly `30d` truth correction.
+- Recorded the verified protected-trusted parity points:
+  - `2026-03-06`: `9` in chart, `9` in filtered workflow
+  - `2026-03-20`: `8` in chart, `8` in filtered workflow
+  - `2026-03-30`: `3` in chart, `3` in filtered workflow
+- Recorded that `All Indexed` still matches after click.
+- Separated the remaining issues from this accepted fix:
+  - selected-bucket lower-card anchoring
+  - possible weekly `1W` lower-card workflow-scope inconsistency
+  - auto-scroll / refocus polish
+
+Accepted outcome:
+- The monthly `30d` chart/filter core truth mismatch is now treated as fixed.
+- `ACE-023` is completed and no longer an active implementation lane.
+- Control-plane docs now point the next Time Context work into new narrow diagnosis passes instead of reopening the monthly truth correction.
+
+Still open:
+- new narrow diagnosis/plan pass for selected-bucket lower-card anchoring
+- new narrow diagnosis/plan pass for possible `1W` lower-card workflow-scope inconsistency
+- optional auto-scroll / refocus polish follow-up
+
+### April 3, 2026 — ACE-023 Monthly `30d` Trust Recovery Roadmap Propagated
+
+What changed:
+- Established `ACE-023` as the governing Time Context recovery lane.
+- Recorded the April 2 rollback baseline as the stable execution floor for this work.
+- Transitioned Time Context recovery to the phased model:
+  - Phase 1 — Monthly Trust Diagnosis
+  - Phase 2 — Monthly Trust Correction
+  - Phase 3 — Parity Confirmation
+  - Phase 4 — Scope Consistency
+  - Phase 5 — Polish
+- Locked active work to the monthly `30d` mismatch only.
+- Recorded `All Indexed` and `1W` as control comparisons, not active implementation targets.
+- Recorded Sniper Mode constraints for this lane:
+  - no UI polish
+  - no runtime hygiene work
+  - no performance work
+  - no multi-surface fixes until monthly truth is stable
+- Marked `ACE-019` as completed historical context superseded by `ACE-023`.
+
+Accepted outcome:
+- `CURRENT_STATE.md`, `TODO.md`, `07_PROJECT_MANAGER_CONTEXT.md`, `ACTIVE_CHANGE_EVENTS.md`, and `CHANGELOG.md` now align on `ACE-023` as the governing event.
+- The current active phase is explicitly `Monthly Trust Diagnosis / Monthly Trust Correction`.
+- The exact next executable step is `Fix monthly Time Context bucket truth mismatch`.
+- This was a docs-only propagation pass; no product code changed.
+
+Still open:
+- monthly `30d` diagnosis/correction implementation
+- monthly parity confirmation after the correction lands
+- control-comparison re-checks for `All Indexed` and `1W`
+
+### April 3, 2026 — ACE-019 Protected-Trusted Time Context `30d` Row-Backed Source Alignment Implemented
+
+What changed:
+- Implemented the smallest safe `30d` Time Context parity correction in `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`.
+- Excluded unbucketed `30d` sender workspace reads from the persisted snapshot shortcut.
+- Kept the visible `30d` chart and the clicked-bucket workflow filter on the same live row-backed workspace path.
+- Preserved:
+  - `time_context_bucket_label`
+  - `1W` behavior
+  - `All Indexed` behavior
+- Kept the pass within the accepted boundary:
+  - no review-page UI changes
+  - no API contract changes
+  - no runtime/bootstrap work
+  - no ACE-005 work
+
+Validation:
+- Targeted lint passed for:
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- The lint run surfaced existing unused-variable warnings only; no new lint errors were introduced by this pass.
+- Browser validation was not performed in-session.
+
+Still open:
+- PM must verify protected-trusted `30d` parity on bucket clicks such as `2026-03-06` or `2026-03-20`
+- PM must confirm `1W` parity remains intact
+- PM must confirm `All Indexed` monthly bucket parity remains intact
+
+### April 2, 2026 — ACE-019 Time Context Review-Page Stabilization Rollback Implemented
+
+What changed:
+- Rolled back the unstable April 2 Time Context review-page forward-fix chain to the last stable baseline.
+- Restored the stable broad-chart / stable-summary render path in `web/src/app/agents/[id]/operations/review/page.tsx`.
+- Restored the stable Time Context rail interaction model in `web/src/components/runtime/GmailCleanupComponents.tsx` so a clicked bucket no longer re-centers the full chart presentation or applies the regressed pending selected-bucket treatment.
+- Preserved the rollback boundary:
+  - no backend/API edits
+  - no runtime/rehydrate changes
+  - no new forward parity fix
+  - no redesign or performance work
+
+Validation:
+- Targeted lint passed for:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/components/runtime/GmailCleanupComponents.tsx`
+- Targeted localhost self-proof is still blocked in the current session because the review route remains auth-gated before the protected-trusted rail becomes inspectable.
+
+Still open:
+- PM must re-run the narrow protected-trusted stability checks on `/30d` and `/1M`
+- the original protected-trusted Time Context parity mismatch still requires a fresh diagnosis from the restored stable baseline
+
+### April 2, 2026 — ACE-019 Protected-Trusted Time Context Detached-Scope Chart Truth Fix Implemented
+
+What changed:
+- Implemented the detached-scope Time Context chart-truth fix in `web/src/app/agents/[id]/operations/review/page.tsx`.
+- Bucket-active visible-chart source selection now splits by scope relationship:
+  - same-scope routes keep the current broad normalized overview preference
+  - detached-scope routes now prefer the preserved active-workflow `broadSnapshot`
+- Preserved the accepted boundary:
+  - no backend/API edits
+  - no runtime/rehydrate changes
+  - no visual redesign
+  - no performance work
+
+Validation:
+- Targeted lint passed for `review/page.tsx`.
+- Live protected-trusted browser proof is still blocked on the current localhost `3001` session because the detached `workflow_scope=30d` review route stays in the loading shell and surfaces `Failed to authenticate user.` before the Time Context rail renders.
+
+Still open:
+- re-run live protected-trusted `2026-03-06` / `2026-03-10` parity proof once the localhost review route becomes rail-ready
+
+### April 2, 2026 — ACE-019 Protected-Trusted Time Context Detached-Scope Diagnosis Correction Propagated
+
+What changed:
+- Corrected the control plane so the remaining protected-trusted `workflow_scope=30d` Time Context mismatch is tracked as a detached-scope chart-truth-selection issue.
+- Recorded that the previously logged normalized-scope broad-overview preference is no longer accepted as final truth for this issue.
+- Marked the detached-scope implementation in `review/page.tsx` as still pending.
+- Preserved the current boundary:
+  - docs only in this pass
+  - no product code changes
+  - no backend/API, runtime, or visual changes
+
+Accepted outcome:
+- `CURRENT_STATE.md`, `TODO.md`, `07_PROJECT_MANAGER_CONTEXT.md`, and `ACTIVE_CHANGE_EVENTS.md` now align on the detached-scope diagnosis.
+- The next implementation pass can recover the approved diagnosis from the control plane instead of prior chat.
+- This pass changed documentation only; no runtime, UI, schema, or API behavior changed.
+
+Still open:
+- the detached-scope `review/page.tsx` chart-truth implementation
+- live protected-trusted browser validation for `2026-03-06` and `2026-03-10` after implementation
+
+### April 2, 2026 — ACE-014 Time Context Lane B Closeout Accepted
+
+What changed:
+- Closed Analysis Rail / Time Context Lane B in the control plane for filtering/parity behavior on the validated scoped review route.
+- Recorded that the accepted closeout covers:
+  - bucket-to-workflow parity
+  - selected-bucket authority after hover/unhover
+  - duplicate authoritative-context chip/key cleanup on the validated route
+- Kept `ACE-005` explicitly open as a separate runtime follow-up.
+- Recorded that cold-boot review-route `/api/agents/playground` remains accepted as required bootstrap behavior under the current architecture and is not a Lane B blocker.
+
+Accepted outcome:
+- Time Context Lane B is now closed for workflow-filtering/parity behavior.
+- The runtime-noise follow-up remains clearly separate from the accepted Lane B milestone.
+- This pass changed documentation only; no runtime, UI, schema, or API behavior changed.
+
+Still open:
+- broader Time Context grammar lock
+- `ACE-005` residual malformed inbox-analysis caller follow-up if logs recur outside the narrowed review-route chain
+
 ### April 1, 2026 — ACE-012 Shared Hot-File Merge System Hardening
 
 What changed:

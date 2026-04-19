@@ -4,6 +4,13 @@
 │   ├── 00_core_context
 │   │   ├── 00_MASTER_PROJECT.md
 │   │   ├── 01_ARCHITECT_CONTEXT.md
+│   │   ├── 01_workspace_architecture
+│   │   │   ├── AI_WORKSPACE_ARCHITECTURE.md
+│   │   │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
+│   │   │   ├── AI_WORKSPACE_MASTER_BLUEPRINT.md
+│   │   │   ├── AI_WORKSPACE_PRODUCT_ARCHITECTURE.md
+│   │   │   ├── AI_WORKSPACE_SYSTEM_INDEX.md
+│   │   │   └── system_overview.md
 │   │   ├── 02_FRONTEND_CONTEXT.md
 │   │   ├── 03_BACKEND_CONTEXT.md
 │   │   ├── 04_WORKFLOWS_CONTEXT.md
@@ -13,7 +20,11 @@
 │   │   ├── 08_PROMPT_ENGINEER_CONTEXT.md
 │   │   ├── 09_CODEX_EXECUTION_PROTOCOL.md
 │   │   ├── 10_CODEX_SESSION_CHECKLIST.md
-│   │   └── agent_activation_checklist.md
+│   │   ├── AGENT_STATUS_BOARD(NOT USED YET).md
+│   │   ├── AGENT_TURNOVER_READINESS_CHECK.md
+│   │   ├── Control_Plane_Architect_Activation_&_Turnover_Protocol.md
+│   │   ├── One_Command_Activation_Message_for_Agent_Turnovers.md
+│   │   └── Project_Manager_Activation_&_Turnover_Protocol.md
 │   ├── 01_workspace_architecture
 │   │   ├── AI_WORKSPACE_ARCHITECTURE.md
 │   │   ├── AI_WORKSPACE_IMPLEMENTATION_RULES.md
@@ -76,11 +87,12 @@
 │   │   │   │   ├── decision_mode_full_build_spec.md
 │   │   │   │   ├── decision_mode_ui_final_build_spec.md
 │   │   │   │   └── sender_decision_mode_spec.md
-│   │   │   └── 06_cleanup_groups
-│   │   │       ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
-│   │   │       ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
-│   │   │       ├── CLEANUP_GROUPS_REBUILD_PHASED_EXECUTION_PLAN.md
-│   │   │       └── Cleanup_Groups_spec_phase_plan.md
+│   │   │   ├── 06_cleanup_groups
+│   │   │   │   ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
+│   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
+│   │   │   │   ├── CLEANUP_GROUPS_REBUILD_PHASED_EXECUTION_PLAN.md
+│   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
+│   │   │   └── 07_archived_legacy
 │   │   ├── 05_management_execution
 │   │   │   ├── execution_queue_spec.md
 │   │   │   ├── execution_safety_preview.md
@@ -184,11 +196,13 @@
 │   │   ├── AI_WORKSPACE_TABLE_SCHEMAS.md
 │   │   ├── AI_WORKSPACE_WORKFLOW_ENGINE_SPEC.md
 │   │   ├── automation_map.md
+│   │   ├── CODEX_PROMPT_TEMPLATES.md
 │   │   ├── Git_GitHub_Worktrees_Backups_operating_Model.md
 │   │   ├── OLIVER_OPERATING_CHECKLIST.md
 │   │   ├── phase1_clarify_spec.md
 │   │   ├── project_structure.txt
 │   │   ├── schema_comparison_checklist.md
+│   │   ├── Shared_Hot_File_Merge_Protocol.md
 │   │   ├── Simple_Worktrees_Setup_Checklist.md
 │   │   └── SYSTEM_MEMORY_MAP.md
 │   ├── 08_codex_instructions
@@ -277,6 +291,7 @@
     ├── automation
     │   ├── generate_project_tree.sh
     │   ├── sync_docs_to_github.sh
+    │   ├── sync_skills.sh
     │   └── update_memory.sh
     ├── docs
     │   ├── 00_core_context
@@ -348,6 +363,7 @@
     │   │   │   ├── 02_distribution_chart
     │   │   │   │   ├── sender_distribution_chart_spec_Phase_2.md
     │   │   │   │   └── SENDER_DISTRIBUTION_CHART_SPEC.md
+    │   │   │   ├── 03_time_context
     │   │   │   │   └── TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md
     │   │   │   ├── 04_workflow_integration
     │   │   │   │   └── decision_ui_flow.md
@@ -361,6 +377,7 @@
     │   │   │   │   ├── CLEANUP_GROUP_REDISCOVERY_IMPLEMENTATION_PLAN.md
     │   │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
     │   │   │   │   └── Cleanup_Groups_spec_phase_plan.md
+    │   │   │   ├── 07_archived_legacy
     │   │   │   ├── build_decision_mode_dev_spec.md
     │   │   │   ├── Cleanup_Groups_Discovery_Spec_(Artifact-Driven).md
     │   │   │   ├── Cleanup_Groups_spec_phase_plan.md
@@ -550,24 +567,28 @@
     ├── README.md
     ├── scripts
     │   ├── codex-review-packet.mjs
+    │   ├── gmail-analysis-rail-freshness-live-audit.mjs
     │   ├── gmail-artifact-full-coverage-audit.mjs
-    │   ├── gmail-artifact-publication-promote.mjs
-    │   ├── gmail-artifact-publication-readiness.mjs
+    │   ├── gmail-artifact-incremental-integrity-live-audit.mjs
+    │   ├── gmail-artifact-publish-freshness-audit.mjs
     │   ├── gmail-artifact-stale-build-recovery-audit.mjs
     │   ├── gmail-cleanup-group-assignment-fixtures.mjs
-    │   ├── gmail-cleanup-group-candidate-audit.mjs
     │   ├── gmail-cleanup-group-live-audit.mjs
-    │   ├── gmail-cleanup-shadow-rediscovery-report.mjs
+    │   ├── gmail-marketing-subscriptions-30d-build-audit.mjs
+    │   ├── gmail-marketing-subscriptions-coverage-live-audit.mjs
+    │   ├── gmail-sender-distribution-response-probe.mjs
     │   ├── gmail-subscription-senders-phase3-implementation-packet.mjs
     │   ├── gmail-subscription-senders-remainder-decomposition-memo.mjs
     │   ├── gmail-subscription-senders-semantic-audit.mjs
     │   ├── gmail-subscription-senders-semantic-precision-audit.mjs
+    │   ├── gmail-surface-consistency-probe.mjs
     │   ├── gmail-workspace-data-access-acceptance.mjs
     │   ├── golden-path.mjs
     │   ├── playground-route-matrix.mjs
     │   ├── runtime-selected-cluster-rail-family-fetch.sh
     │   ├── runtime-selected-cluster-rail-family-probe.mjs
     │   ├── selected-cluster-rail-family-snapshot-fixtures.mjs
+    │   ├── sender-distribution-1w-click-verify.mjs
     │   └── ts-path-loader.mjs
     ├── src
     │   ├── app
@@ -701,7 +722,6 @@
     │   │   │       ├── gmailArtifactIncrementalUpdater.ts
     │   │   │       ├── gmailArtifactProjector.ts
     │   │   │       ├── gmailArtifactStore.ts
-    │   │   │       ├── gmailCleanupShadowRediscovery.ts
     │   │   │       ├── gmailCleanupWorkspace.ts
     │   │   │       ├── gmailMailboxIndexConfig.ts
     │   │   │       ├── gmailMailboxIndexer.ts
@@ -776,4 +796,4 @@
             ├── troubleshooting_recovery.md
             └── weekly_checklist.md
 
-161 directories, 604 files
+165 directories, 632 files

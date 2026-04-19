@@ -11,20 +11,25 @@ import {
 } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
 import {
+  buildGmailSenderDistributionCacheKey,
   buildGmailCleanupWorkflowClusterPayload,
   fetchGmailDecisionManagementSummary,
   fetchGmailSenderDistribution,
+  fetchGmailSenderOverviewWindow,
   fetchGmailSenderWorkspace,
   normalizeGmailCleanupWorkflowTarget,
   readCachedGmailSenderDistribution,
+  readCachedGmailSenderOverviewWindow,
   readCachedGmailSenderWorkspace,
   type GmailCleanupClusterRef,
   type GmailDestinationExecutionState,
   type GmailDestinationState,
+  type GmailSenderOverviewWindowData,
   type GmailSenderDistributionData,
   type GmailSenderDestinationTrustSignals,
   type GmailSenderWorkspaceSemanticFocus,
   type GmailSenderWorkspaceData,
+  type GmailTimeContextBucketSelection,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
   buildCleanupGroupFutureCanonicalPublishIdentity,
@@ -53,6 +58,7 @@ import {
   GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
   MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
 } from '@/lib/integrations/gmail/gmailWorkspaceContracts'
+import { pressureTrendResolvedWindow } from '@/lib/integrations/gmail/inboxAnalysis'
 import {
   buildGmailSemanticPresentationPolicy,
   gmailSemanticFamilyDisplayLabel,
@@ -70,6 +76,19 @@ type OverviewSubsetSource =
   | 'review_unit'
 type DrilldownSort = 'impact' | 'recent' | 'unread'
 type SharedAnalysisRailTab = 'time_context' | 'sender_distribution'
+type TimeContextChartScope =
+  | 'all_indexed'
+  | 'last_year'
+  | 'last_quarter'
+  | 'last_month'
+  | 'last_week'
+  | 'last_day'
+  | 'custom'
+type SenderOverviewWindowSelection = {
+  window: Extract<TimeContextChartScope, 'last_day' | 'custom'>
+  start: string | null
+  end: string | null
+}
 type WorkspaceSender = GmailSenderWorkspaceData['senders'][number]
 type WorkspaceSnapshotSource = 'cache' | 'network' | 'runtime'
 type WorkspaceSenderCategoryDistribution = NonNullable<WorkspaceSender['category_distribution']>
@@ -99,15 +118,32 @@ type SharedWorkflowSubsetKind = 'base_cluster' | 'derived_workflow_scope' | 'foc
 type SharedWorkflowSubsetPopulationMode =
   | 'cluster_full'
   | 'workflow_scope_filtered'
+  | 'workflow_window_filtered'
   | 'time_bucket_filtered'
+  | 'combined_filtered'
   | 'route_subset_filtered'
   | 'focused_sender_only'
 type SharedWorkflowSubsetPrimarySource =
   | 'page_scope'
   | 'workflow_scope'
+  | 'workflow_window'
   | 'time_context_bucket'
+  | 'combined_filters'
   | 'route_subset'
   | 'focused_sender'
+type SharedWorkflowResolvedFilterKind =
+  | 'workflow_scope'
+  | 'workflow_window'
+  | 'time_context_bucket'
+  | 'semantic_focus'
+  | 'route_subset'
+  | 'focused_sender'
+type SharedWorkflowResolvedFilter = {
+  kind: SharedWorkflowResolvedFilterKind
+  label: string
+  senderCount: number
+  exact: boolean
+}
 type SharedWorkflowSubsetContract = {
   kind: SharedWorkflowSubsetKind
   parentClusterId: string | null
@@ -118,9 +154,12 @@ type SharedWorkflowSubsetContract = {
   orderedSenderKeys: string[]
   focusedSenderKey: string | null
   label: string
+  resolvedSenderCount: number
+  resolvedFilters: SharedWorkflowResolvedFilter[]
   source: {
     primary: SharedWorkflowSubsetPrimarySource
     workflowScope: OperationsAnalysisScope | null
+    senderOverviewWindowLabel: string | null
     timeContextBucketLabel: string | null
     routeSubset: { source: OverviewSubsetSource; value: string } | null
     semanticFocus: Pick<SemanticSubtypeFocus, 'id' | 'family' | 'subtypeKey' | 'kind' | 'label'> | null
@@ -136,25 +175,72 @@ type DecisionOverviewReturnContext = {
   semanticFocus: SemanticSubtypeFocus | null
   senderPage: number | null
   scrollTop: number | null
-}
-type TimeContextBucketRouteSnapshot = {
-  workflowScope: OperationsAnalysisScope | null
-  subsetSource: OverviewSubsetSource | null
-  subsetValue: string | null
-  semanticFocus: SemanticSubtypeFocus | null
-  senderPage: number | null
-}
-type TimeContextBucketSelectionState = {
-  sessionKey: string
-  label: string
-  preBucketRouteSnapshot: TimeContextBucketRouteSnapshot
-  broadSnapshot: WorkspaceSnapshot
+  senderOverviewWindowSelection: SenderOverviewWindowSelection | null
 }
 type TimeContextBucketNotice = {
   reason: 'empty_bucket' | 'low_confidence' | 'missing_data' | 'invalid_selection'
   tone: 'info' | 'warning' | 'error'
   title: string
   detail: string
+}
+type TimeContextBucketInteractionMode = 'workflow_narrowing' | 'chart_only_focus'
+type ResolvedTimeContextState =
+  | {
+      mode: 'default_overview'
+      pageScope: OperationsAnalysisScope
+      workflowScope: OperationsAnalysisScope
+      routeWorkflowScope: OperationsAnalysisScope | null
+      windowSelection: null
+      chartFocusLabel: null
+    }
+  | {
+      mode: 'scoped_workflow_scope'
+      pageScope: OperationsAnalysisScope
+      workflowScope: OperationsAnalysisScope
+      routeWorkflowScope: OperationsAnalysisScope
+      windowSelection: null
+      chartFocusLabel: null
+    }
+  | {
+      mode: 'workflow_window'
+      pageScope: OperationsAnalysisScope
+      workflowScope: OperationsAnalysisScope
+      routeWorkflowScope: OperationsAnalysisScope
+      windowSelection: SenderOverviewWindowSelection
+      chartFocusLabel: null
+    }
+  | {
+      mode: 'chart_focus_only'
+      pageScope: OperationsAnalysisScope
+      workflowScope: OperationsAnalysisScope
+      routeWorkflowScope: OperationsAnalysisScope | null
+      windowSelection: null
+      chartFocusLabel: string
+    }
+type PendingNarrowingInteractionKind =
+  | 'sender_distribution'
+  | 'time_context_bucket'
+  | 'semantic_focus'
+  | 'route_subset'
+  | 'clear_narrowing'
+  | 'clear_workflow_scope'
+type PendingNarrowingInteractionExpectation = {
+  workflowScope: OperationsAnalysisScope | null
+  subsetSource: OverviewSubsetSource | null
+  subsetValue: string | null
+  semanticFocusId: string | null
+  timeContextBucketLabel: string | null
+  timeContextBucketStartAt: string | null
+  timeContextBucketEndExclusiveAt: string | null
+}
+type PendingNarrowingInteraction = {
+  kind: PendingNarrowingInteractionKind
+  label: string
+  senderKey: string | null
+  timeContextBucketLabel: string | null
+  timeContextBucketStartAt: string | null
+  timeContextBucketEndExclusiveAt: string | null
+  expectation: PendingNarrowingInteractionExpectation
 }
 type EvidenceAvailabilityState =
   | 'full_preview_available'
@@ -168,13 +254,28 @@ const OVERVIEW_PREVIEW_EVIDENCE_INITIAL_COUNT = 2
 const DEFAULT_OVERVIEW_WORKSPACE_FILTER = 'all'
 const DEFAULT_OVERVIEW_WORKSPACE_SORT = 'message_count'
 const DEFAULT_OVERVIEW_WORKSPACE_DIRECTION = 'desc'
+const WORKSPACE_GUARD_ATTACH_WAIT_MS = 5000
+const WORKSPACE_GUARD_ATTACH_POLL_MS = 150
+const SENDER_DISTRIBUTION_GUARD_ATTACH_WAIT_MS = 5000
+const SENDER_DISTRIBUTION_GUARD_ATTACH_POLL_MS = 150
 const DECISION_WORKFLOW_STORAGE_TTL_MS = 15 * 60 * 1000
 const DECISION_WORKFLOW_STORAGE_VERSION = 1
 const REVIEW_SCOPE_TRANSITION_SNAPSHOT_TTL_MS = 90 * 1000
-const TIME_CONTEXT_LANE_A_SCOPES: readonly OperationsAnalysisScope[] = [
+const TIME_CONTEXT_LANE_A_WORKFLOW_SCOPES: readonly OperationsAnalysisScope[] = [
   'all_indexed',
+  '365d',
+  '90d',
   '30d',
   '7d',
+]
+const TIME_CONTEXT_VISIBLE_CHART_SCOPES: readonly TimeContextChartScope[] = [
+  'all_indexed',
+  'last_year',
+  'last_quarter',
+  'last_month',
+  'last_week',
+  'last_day',
+  'custom',
 ]
 type WorkspaceSnapshot = {
   data: GmailSenderWorkspaceData
@@ -185,6 +286,9 @@ type WorkspaceSnapshot = {
   cacheVersion: string | null
   previewEvidenceSenderKey: string | null
   timeContextBucketLabel: string | null
+  timeContextBucketStartAt: string | null
+  timeContextBucketEndExclusiveAt: string | null
+  senderOverviewWindowSignature: string | null
 }
 
 type WorkspaceState =
@@ -226,6 +330,10 @@ type WorkspaceFetchPlan = {
   seedSnapshot: WorkspaceSnapshot | null
   previewEvidenceSenderKey: string | null
   timeContextBucketLabel: string | null
+  timeContextBucketStartAt: string | null
+  timeContextBucketEndExclusiveAt: string | null
+  senderOverviewWindowSelection: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone: string | null
 }
 
 type SenderTimeContextRailMetricModel = {
@@ -262,7 +370,7 @@ type SenderOverviewRailFastPackage = {
   clusterTitle: string | null
   visibleClusterCount: number | null
   chart: {
-    granularity: 'day' | 'week' | 'month'
+    granularity: 'hour' | 'day' | 'week' | 'month'
     items: Array<{ label: string; count: number; messageCount?: number | null }>
   } | null
   metrics: {
@@ -292,9 +400,46 @@ type SemanticFocusWorkspaceState =
   | { status: 'error'; data: GmailSenderWorkspaceData | null; error: string }
 
 type SenderDistributionWorkspaceState =
-  | { status: 'idle' | 'loading'; data: GmailSenderDistributionData | null; error: null }
-  | { status: 'ready'; data: GmailSenderDistributionData; error: null }
-  | { status: 'error'; data: GmailSenderDistributionData | null; error: string }
+  | { status: 'idle'; data: GmailSenderDistributionData | null; error: null; requestKey: null }
+  | {
+      status: 'loading'
+      data: GmailSenderDistributionData | null
+      error: null
+      requestKey: string
+    }
+  | {
+      status: 'ready'
+      data: GmailSenderDistributionData
+      error: null
+      requestKey: string
+    }
+  | {
+      status: 'error'
+      data: GmailSenderDistributionData | null
+      error: string
+      requestKey: string
+    }
+
+type SenderOverviewWindowState =
+  | { status: 'idle'; data: GmailSenderOverviewWindowData | null; error: null; requestKey: null }
+  | {
+      status: 'loading'
+      data: GmailSenderOverviewWindowData | null
+      error: null
+      requestKey: string
+    }
+  | {
+      status: 'ready'
+      data: GmailSenderOverviewWindowData
+      error: null
+      requestKey: string
+    }
+  | {
+      status: 'error'
+      data: GmailSenderOverviewWindowData | null
+      error: string
+      requestKey: string
+    }
 
 type ManagedSenderState = {
   destinationState: GmailDestinationState
@@ -599,6 +744,333 @@ function delayMs(ms: number): Promise<void> {
   })
 }
 
+function safeBrowserTimeZone(): string {
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return resolved && resolved.trim() ? resolved.trim() : 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+
+function dateInputFormatter(timeZone: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
+function dateInputValueFromDate(date: Date, timeZone: string): string {
+  const parts = dateInputFormatter(timeZone).formatToParts(date)
+  const year = parts.find((part) => part.type === 'year')?.value || '0000'
+  const month = parts.find((part) => part.type === 'month')?.value || '01'
+  const day = parts.find((part) => part.type === 'day')?.value || '01'
+  return `${year}-${month}-${day}`
+}
+
+function dateInputValueFromIso(value: string | null | undefined, timeZone: string): string | null {
+  if (!value) return null
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed) || parsed < Date.UTC(1971, 0, 1)) return null
+  return dateInputValueFromDate(new Date(parsed), timeZone)
+}
+
+function senderOverviewWindowControlLabel(selection: SenderOverviewWindowSelection): string {
+  return selection.window === 'custom' ? 'Custom' : '1D'
+}
+
+function normalizeSenderOverviewWindow(value: string | null): SenderOverviewWindowSelection['window'] | null {
+  if (value === 'last_day' || value === 'custom') return value
+  return null
+}
+
+function senderOverviewWindowSelectionFromSearch(params: {
+  senderOverviewWindow: string | null
+  senderOverviewStart: string | null
+  senderOverviewEnd: string | null
+}): SenderOverviewWindowSelection | null {
+  const window = normalizeSenderOverviewWindow(params.senderOverviewWindow)
+  if (!window) return null
+  if (window === 'custom') {
+    if (!params.senderOverviewStart || !params.senderOverviewEnd) return null
+    return {
+      window,
+      start: params.senderOverviewStart,
+      end: params.senderOverviewEnd,
+    }
+  }
+  return {
+    window,
+    start: null,
+    end: null,
+  }
+}
+
+function senderOverviewWindowSelectionsMatch(
+  left: SenderOverviewWindowSelection | null | undefined,
+  right: SenderOverviewWindowSelection | null | undefined
+): boolean {
+  if (left === right) return true
+  if (!left || !right) return left == null && right == null
+  return left.window === right.window && left.start === right.start && left.end === right.end
+}
+
+function senderOverviewWindowSelectionSignature(params: {
+  selection: SenderOverviewWindowSelection | null | undefined
+  timeZone?: string | null
+}): string | null {
+  if (!params.selection) return null
+  return [
+    params.selection.window,
+    params.selection.start || 'none',
+    params.selection.end || 'none',
+    params.timeZone?.trim() || 'UTC',
+  ].join('::')
+}
+
+function senderOverviewWindowRangeDetail(data: GmailSenderOverviewWindowData): string {
+  return timeContextRangeDetail({
+    label: data.window.label,
+    effectiveStart: data.window.effective_start,
+    effectiveEnd: data.window.effective_end,
+    groupingLabel: data.grouping.label,
+    limitedByIndexedCoverage: data.window.limited_by_indexed_coverage,
+    timeZone: data.time_zone,
+  })
+}
+
+function timeContextRangeDetail(params: {
+  label: string
+  effectiveStart: string | null
+  effectiveEnd: string | null
+  groupingLabel: string
+  limitedByIndexedCoverage: boolean
+  timeZone: string
+}): string {
+  if (!params.effectiveStart || !params.effectiveEnd) {
+    return `Showing ${params.label.toLowerCase()}`
+  }
+  const startMs = Date.parse(params.effectiveStart)
+  const endMs = Date.parse(params.effectiveEnd)
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isFinite(endMs) ||
+    startMs < Date.UTC(1971, 0, 1) ||
+    endMs < Date.UTC(1971, 0, 1)
+  ) {
+    return `Showing ${params.label.toLowerCase()}`
+  }
+  const start = new Date(startMs)
+  const end = new Date(endMs)
+  const usesHourlyFormatting = /hour/i.test(params.groupingLabel)
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: params.timeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    ...(usesHourlyFormatting
+      ? {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }
+      : {}),
+  })
+  const base = `Showing ${formatter.format(start)} - ${formatter.format(end)} · ${params.groupingLabel.toLowerCase()}`
+  return params.limitedByIndexedCoverage
+    ? `${base} · adjusted to available indexed history`
+    : base
+}
+
+function clampDateInputToBounds(
+  value: string,
+  min: string | null,
+  max: string | null
+): string {
+  let next = value
+  if (min && next < min) next = min
+  if (max && next > max) next = max
+  return next
+}
+
+function parseTimelineBucketStartMs(
+  label: string,
+  granularity: 'hour' | 'day' | 'week' | 'month',
+  bucketStartIso?: string | null
+): number | null {
+  const bucketStartMs =
+    typeof bucketStartIso === 'string' && bucketStartIso.trim().length > 0
+      ? Date.parse(bucketStartIso)
+      : Number.NaN
+  if (Number.isFinite(bucketStartMs)) return bucketStartMs
+  const normalized = label.trim()
+  if (!normalized) return null
+  if (granularity === 'hour') {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(normalized)) return null
+    const parsed = Date.parse(`${normalized}:00:00Z`)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  if (granularity === 'month') {
+    if (!/^\d{4}-\d{2}$/.test(normalized)) return null
+    const parsed = Date.parse(`${normalized}-01T00:00:00Z`)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null
+  const parsed = Date.parse(`${normalized}T00:00:00Z`)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function nextTimelineBucketStartMs(
+  bucketStartMs: number,
+  granularity: 'hour' | 'day' | 'week' | 'month'
+): number {
+  const start = new Date(bucketStartMs)
+  if (granularity === 'hour') return start.getTime() + 60 * 60 * 1000
+  if (granularity === 'month') return addUtcMonths(start, 1).getTime()
+  if (granularity === 'week') return addUtcWeeks(start, 1).getTime()
+  return addUtcDays(start, 1).getTime()
+}
+
+function timeContextResolvedWindowFromTimeline(params: {
+  granularity: 'hour' | 'day' | 'week' | 'month'
+  items: Array<{
+    label: string
+    count: number
+    bucketStartIso?: string | null
+    bucketEndExclusiveIso?: string | null
+  }>
+  coverageEndIso?: string | null
+  limitedByIndexedCoverage: boolean
+  timeZone: string
+}): {
+  groupingLabel: string
+  label: string
+  effectiveStart: string | null
+  effectiveEnd: string | null
+  limitedByIndexedCoverage: boolean
+  timeZone: string
+} | null {
+  if (!params.items.length) return null
+  const firstBucketStartMs = parseTimelineBucketStartMs(
+    params.items[0].label,
+    params.granularity,
+    params.items[0].bucketStartIso
+  )
+  const lastBucketStartMs = parseTimelineBucketStartMs(
+    params.items[params.items.length - 1].label,
+    params.granularity,
+    params.items[params.items.length - 1].bucketStartIso
+  )
+  if (firstBucketStartMs == null || lastBucketStartMs == null) return null
+
+  const lastBucketEndExclusiveMs =
+    typeof params.items[params.items.length - 1]?.bucketEndExclusiveIso === 'string'
+      ? Date.parse(params.items[params.items.length - 1]!.bucketEndExclusiveIso as string)
+      : Number.NaN
+  const bucketEndExclusiveMs = Number.isFinite(lastBucketEndExclusiveMs)
+    ? lastBucketEndExclusiveMs
+    : nextTimelineBucketStartMs(lastBucketStartMs, params.granularity)
+  const coverageEndMs = params.coverageEndIso ? Date.parse(params.coverageEndIso) : Number.NaN
+  const effectiveEndMs =
+    Number.isFinite(coverageEndMs) && coverageEndMs > firstBucketStartMs
+      ? Math.min(bucketEndExclusiveMs - 1, coverageEndMs)
+      : bucketEndExclusiveMs - 1
+  if (effectiveEndMs < firstBucketStartMs) return null
+
+  return {
+    groupingLabel:
+      params.granularity === 'hour'
+        ? 'Hourly bars'
+        : params.granularity === 'day'
+        ? 'Daily bars'
+        : params.granularity === 'week'
+          ? 'Weekly bars'
+          : 'Monthly bars',
+    label:
+      params.granularity === 'hour'
+        ? 'Trailing 24 hours'
+        : params.granularity === 'day'
+        ? 'Recent activity'
+        : params.granularity === 'week'
+          ? 'Quarterly window'
+          : 'Indexed history window',
+    effectiveStart: new Date(firstBucketStartMs).toISOString(),
+    effectiveEnd: new Date(effectiveEndMs).toISOString(),
+    limitedByIndexedCoverage: params.limitedByIndexedCoverage,
+    timeZone: params.timeZone,
+  }
+}
+
+function timeContextCoverageFromTimeline(params: {
+  granularity: 'hour' | 'day' | 'week' | 'month'
+  items: Array<{
+    label: string
+    count: number
+    bucketStartIso?: string | null
+    bucketEndExclusiveIso?: string | null
+  }>
+  coverageEndIso?: string | null
+}): {
+  indexed_total_rows: number
+  indexed_inbox_rows: number
+  indexed_date_span_start: string | null
+  indexed_date_span_end: string | null
+} | null {
+  if (!params.items.length) return null
+  const firstBucketStartMs = parseTimelineBucketStartMs(
+    params.items[0].label,
+    params.granularity,
+    params.items[0].bucketStartIso
+  )
+  const lastBucketStartMs = parseTimelineBucketStartMs(
+    params.items[params.items.length - 1].label,
+    params.granularity,
+    params.items[params.items.length - 1].bucketStartIso
+  )
+  if (firstBucketStartMs == null || lastBucketStartMs == null) return null
+
+  const lastBucketEndExclusiveMs =
+    typeof params.items[params.items.length - 1]?.bucketEndExclusiveIso === 'string'
+      ? Date.parse(params.items[params.items.length - 1]!.bucketEndExclusiveIso as string)
+      : Number.NaN
+  const bucketEndExclusiveMs = Number.isFinite(lastBucketEndExclusiveMs)
+    ? lastBucketEndExclusiveMs
+    : nextTimelineBucketStartMs(lastBucketStartMs, params.granularity)
+  const coverageEndMs = params.coverageEndIso ? Date.parse(params.coverageEndIso) : Number.NaN
+  const effectiveEndMs =
+    Number.isFinite(coverageEndMs) && coverageEndMs > firstBucketStartMs
+      ? Math.min(bucketEndExclusiveMs - 1, coverageEndMs)
+      : bucketEndExclusiveMs - 1
+  if (effectiveEndMs < firstBucketStartMs) return null
+
+  return {
+    indexed_total_rows: 0,
+    indexed_inbox_rows: 0,
+    indexed_date_span_start: new Date(firstBucketStartMs).toISOString(),
+    indexed_date_span_end: new Date(effectiveEndMs).toISOString(),
+  }
+}
+
+function buildSenderOverviewWindowRequestKey(params: {
+  clusterId: string
+  analysisScope: OperationsAnalysisScope
+  cacheVersion: string | null
+  selection: SenderOverviewWindowSelection
+  timeZone: string
+}): string {
+  return [
+    params.clusterId,
+    params.analysisScope,
+    params.cacheVersion || 'default',
+    params.selection.window,
+    params.selection.start || 'none',
+    params.selection.end || 'none',
+    params.timeZone,
+  ].join('::')
+}
+
 function isTransientInboxAnalysisGuardError(value: string | null | undefined): boolean {
   return (
     typeof value === 'string' &&
@@ -642,6 +1114,21 @@ function appendWorkflowScopeParam(
   const normalizedPageScope = normalizeOperationsAnalysisScope(pageScope)
   if (normalizedWorkflowScope !== normalizedPageScope) {
     search.set('workflow_scope', normalizedWorkflowScope)
+  }
+}
+
+function appendSenderOverviewWindowParams(
+  search: URLSearchParams,
+  selection: SenderOverviewWindowSelection | null | undefined
+): void {
+  search.delete('sender_overview_window')
+  search.delete('sender_overview_start')
+  search.delete('sender_overview_end')
+  if (!selection) return
+  search.set('sender_overview_window', selection.window)
+  if (selection.window === 'custom' && selection.start && selection.end) {
+    search.set('sender_overview_start', selection.start)
+    search.set('sender_overview_end', selection.end)
   }
 }
 
@@ -735,6 +1222,7 @@ type ReviewHrefParams = {
   senderKey?: string | null
   overlayIntent?: DecisionOverlayIntent | null
   semanticRoute?: SemanticFocusRouteParams | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
 }
 
 function buildReviewHref(params: ReviewHrefParams): string {
@@ -763,6 +1251,7 @@ function buildReviewHref(params: ReviewHrefParams): string {
     search.set('semantic_family', params.semanticRoute.family)
     search.set('semantic_subtype', params.semanticRoute.subtype)
   }
+  appendSenderOverviewWindowParams(search, params.senderOverviewWindowSelection)
   const query = search.toString()
   return `/agents/${params.agentId}/operations/review${query ? `?${query}` : ''}`
 }
@@ -1130,6 +1619,7 @@ type CompactRankedBarChartChildItem = {
   supportLabel?: string | null
   accentClass: string
   active?: boolean
+  pending?: boolean
   onClick?: () => void
 }
 
@@ -1142,6 +1632,7 @@ type CompactRankedBarChartItem = {
   supportLabel?: string | null
   accentClass: string
   active?: boolean
+  pending?: boolean
   onClick?: () => void
   childItems?: CompactRankedBarChartChildItem[]
   childItemsLabel?: string
@@ -1241,9 +1732,11 @@ function CompactRankedBarChart(props: {
           widthMode === 'relative_visible_max'
             ? Math.max(0, Math.min((item.value / visibleMax) * 100, 100))
             : Math.max(0, Math.min((item.value / scaleTotal) * 100, 100))
-        const activeShellClass = item.active
-          ? 'border-cyan-700/45 bg-cyan-950/10'
-          : 'border-slate-500/25 bg-[rgba(12,17,25,0.72)]'
+        const activeShellClass = item.pending
+          ? 'border-cyan-400/70 bg-cyan-950/18 shadow-[0_0_0_1px_rgba(34,211,238,0.18)]'
+          : item.active
+            ? 'border-cyan-700/45 bg-cyan-950/10'
+            : 'border-slate-500/25 bg-[rgba(12,17,25,0.72)]'
         const childItemsExpanded = Boolean(item.childItemsExpanded)
         const rowBody = (
           <>
@@ -1256,6 +1749,11 @@ function CompactRankedBarChart(props: {
                     </span>
                   ) : null}
                   <p className="truncate text-sm font-medium text-white">{item.label}</p>
+                  {item.pending ? (
+                    <span className="shrink-0 rounded-full border border-cyan-400/60 bg-cyan-950/28 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-cyan-100">
+                      Applying
+                    </span>
+                  ) : null}
                 </div>
                 {item.supportLabel ? (
                   <p className="mt-0.5 text-[11px] leading-5 text-slate-400">{item.supportLabel}</p>
@@ -1284,7 +1782,9 @@ function CompactRankedBarChart(props: {
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(7,12,20,0.94)]">
               <div
-                className={`h-full rounded-full ${item.accentClass}`}
+                className={`h-full rounded-full transition-opacity ${item.accentClass} ${
+                  item.pending ? 'opacity-95' : ''
+                }`}
                 style={{ width: `${widthPct}%` }}
               />
             </div>
@@ -1298,7 +1798,9 @@ function CompactRankedBarChart(props: {
                 type="button"
                 onClick={item.onClick}
                 aria-pressed={item.active}
-                className="block w-full text-left transition hover:text-white"
+                className={`block w-full text-left transition hover:text-white ${
+                  item.pending ? 'cursor-progress' : ''
+                }`}
               >
                 {rowBody}
               </button>
@@ -1309,9 +1811,11 @@ function CompactRankedBarChart(props: {
               <div className="mt-2.5 space-y-1.5 border-t border-white/[0.06] pt-2.5">
                 {item.childItems.map((child) => {
                   const childWidthPct = Math.max(0, Math.min(child.value, 100))
-                  const childShellClass = child.active
-                    ? 'border-cyan-700/45 bg-cyan-950/12'
-                    : 'border-slate-500/20 bg-[rgba(10,15,22,0.72)]'
+                  const childShellClass = child.pending
+                    ? 'border-cyan-400/70 bg-cyan-950/18 shadow-[0_0_0_1px_rgba(34,211,238,0.18)]'
+                    : child.active
+                      ? 'border-cyan-700/45 bg-cyan-950/12'
+                      : 'border-slate-500/20 bg-[rgba(10,15,22,0.72)]'
                   const childBody = (
                     <>
                       <div className="flex items-start justify-between gap-3">
@@ -1320,7 +1824,11 @@ function CompactRankedBarChart(props: {
                             <p className="truncate text-[12px] font-medium text-slate-100">
                               {child.label}
                             </p>
-                            {child.active ? (
+                            {child.pending ? (
+                              <span className="shrink-0 rounded-full border border-cyan-400/60 bg-cyan-950/28 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-cyan-100">
+                                Applying
+                              </span>
+                            ) : child.active ? (
                               <span className="shrink-0 rounded-full border border-cyan-500/35 bg-cyan-950/18 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-cyan-100">
                                 Focused
                               </span>
@@ -1338,7 +1846,9 @@ function CompactRankedBarChart(props: {
                       </div>
                       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[rgba(4,9,16,0.96)]">
                         <div
-                          className={`h-full rounded-full ${child.accentClass}`}
+                          className={`h-full rounded-full transition-opacity ${child.accentClass} ${
+                            child.pending ? 'opacity-95' : ''
+                          }`}
                           style={{ width: `${childWidthPct}%` }}
                         />
                       </div>
@@ -1351,7 +1861,9 @@ function CompactRankedBarChart(props: {
                       type="button"
                       onClick={child.onClick}
                       aria-pressed={child.active}
-                      className={`block w-full rounded-lg border px-2.5 py-2 text-left transition hover:border-cyan-700/45 hover:text-white ${childShellClass}`}
+                      className={`block w-full rounded-lg border px-2.5 py-2 text-left transition hover:border-cyan-700/45 hover:text-white ${
+                        child.pending ? 'cursor-progress' : ''
+                      } ${childShellClass}`}
                     >
                       {childBody}
                     </button>
@@ -1471,22 +1983,33 @@ function SenderWorkflowRowLoadingState(props: {
 
   return (
     <div className="space-y-3">
-      <div className={`${insetSurfaceClass} rounded-2xl border-dashed p-4`}>
-        <p className="text-sm font-semibold text-white">{props.title}</p>
-        <p className="mt-2 text-sm leading-6 text-slate-200">{props.detail}</p>
+      <div className="rounded-2xl border border-cyan-200/70 bg-[linear-gradient(180deg,rgba(34,211,238,0.18),rgba(9,21,33,0.94))] p-4 shadow-[0_18px_40px_rgba(8,145,178,0.2)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-white">{props.title}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-100">{props.detail}</p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-100/90 bg-cyan-300 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-950 shadow-[0_14px_32px_rgba(34,211,238,0.24)]">
+            <span className="h-2 w-2 rounded-full bg-slate-950" />
+            Updating now
+          </span>
+        </div>
       </div>
       <div className="space-y-3">
         {Array.from({ length: rowCount }).map((_, index) => (
-          <div key={index} className={senderRowShellClass}>
+          <div
+            key={index}
+            className={`${senderRowShellClass} border-cyan-300/25 bg-[linear-gradient(180deg,rgba(28,52,73,0.72),rgba(10,15,23,0.99))]`}
+          >
             <div className="flex flex-wrap items-center gap-3 px-4 py-3.5 lg:flex-nowrap">
               <div className="min-w-0 flex-1 space-y-2">
-                <div className="h-4 w-44 animate-pulse rounded-full bg-slate-800/85" />
-                <div className="h-3 w-full max-w-[18rem] animate-pulse rounded-full bg-slate-900/90" />
-                <div className="h-3 w-full max-w-[24rem] animate-pulse rounded-full bg-slate-900/70" />
+                <div className="h-4 w-44 animate-pulse rounded-full bg-cyan-200/45" />
+                <div className="h-3 w-full max-w-[18rem] animate-pulse rounded-full bg-cyan-100/20" />
+                <div className="h-3 w-full max-w-[24rem] animate-pulse rounded-full bg-cyan-100/15" />
               </div>
               <div className="grid min-w-[11rem] gap-2 sm:grid-cols-2 lg:w-[20rem]">
-                <div className="h-7 animate-pulse rounded-full bg-slate-900/85" />
-                <div className="h-7 animate-pulse rounded-full bg-slate-900/85" />
+                <div className="h-7 animate-pulse rounded-full bg-cyan-100/18" />
+                <div className="h-7 animate-pulse rounded-full bg-cyan-100/18" />
               </div>
             </div>
           </div>
@@ -1717,6 +2240,10 @@ function buildWorkspaceSnapshot(params: {
   cacheVersion: string | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): WorkspaceSnapshot {
   return {
     data: params.data,
@@ -1730,6 +2257,19 @@ function buildWorkspaceSnapshot(params: {
       typeof params.timeContextBucketLabel === 'string' && params.timeContextBucketLabel.trim()
         ? params.timeContextBucketLabel.trim()
         : null,
+    timeContextBucketStartAt:
+      typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
+        ? params.timeContextBucketStartAt.trim()
+        : null,
+    timeContextBucketEndExclusiveAt:
+      typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+      params.timeContextBucketEndExclusiveAt.trim()
+        ? params.timeContextBucketEndExclusiveAt.trim()
+        : null,
+    senderOverviewWindowSignature: senderOverviewWindowSelectionSignature({
+      selection: params.senderOverviewWindowSelection,
+      timeZone: params.senderOverviewWindowTimeZone,
+    }),
   }
 }
 
@@ -1740,6 +2280,10 @@ function buildWorkspaceRequestKey(params: {
   cacheVersion: string | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): string {
   return [
     params.clusterId,
@@ -1748,6 +2292,12 @@ function buildWorkspaceRequestKey(params: {
     normalizeWorkspaceCacheVersion(params.cacheVersion),
     params.previewEvidenceSenderKey || 'no-preview-evidence-sender',
     normalizeTimeContextBucketLabel(params.timeContextBucketLabel) || 'no-time-context-bucket',
+    normalizeTimeContextBucketIso(params.timeContextBucketStartAt) || 'no-time-context-bucket-start',
+    normalizeTimeContextBucketIso(params.timeContextBucketEndExclusiveAt) || 'no-time-context-bucket-end',
+    senderOverviewWindowSelectionSignature({
+      selection: params.senderOverviewWindowSelection,
+      timeZone: params.senderOverviewWindowTimeZone,
+    }) || 'no-sender-overview-window',
   ].join('::')
 }
 
@@ -1759,15 +2309,22 @@ function normalizeTimeContextBucketLabel(value: string | null | undefined): stri
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
+function normalizeTimeContextBucketIso(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
 function workspaceSnapshotRequestKey(snapshot: WorkspaceSnapshot): string {
-  return buildWorkspaceRequestKey({
-    clusterId: snapshot.clusterId,
-    analysisScope: snapshot.analysisScope,
-    mode: snapshot.mode,
-    cacheVersion: snapshot.cacheVersion,
-    previewEvidenceSenderKey: snapshot.previewEvidenceSenderKey,
-    timeContextBucketLabel: snapshot.timeContextBucketLabel,
-  })
+  return [
+    snapshot.clusterId,
+    snapshot.analysisScope,
+    snapshot.mode,
+    normalizeWorkspaceCacheVersion(snapshot.cacheVersion),
+    snapshot.previewEvidenceSenderKey || 'no-preview-evidence-sender',
+    normalizeTimeContextBucketLabel(snapshot.timeContextBucketLabel) || 'no-time-context-bucket',
+    normalizeTimeContextBucketIso(snapshot.timeContextBucketStartAt) || 'no-time-context-bucket-start',
+    normalizeTimeContextBucketIso(snapshot.timeContextBucketEndExclusiveAt) || 'no-time-context-bucket-end',
+    snapshot.senderOverviewWindowSignature || 'no-sender-overview-window',
+  ].join('::')
 }
 
 function workspaceSnapshotsMateriallyEqual(
@@ -2100,12 +2657,46 @@ function buildSenderDistributionRailScopeStatus(params: {
   baselineScope: OperationsAnalysisScope
   workflowScope: OperationsAnalysisScope
   comparisonState: SenderOverviewRailFastState | 'ready'
+  workflowWindowLabel?: string | null
 }): SenderOverviewRailScopeStatus {
   const activeScopeLabel = analysisScopeControlLabel(params.activeScope)
   const baselineScopeLabel = analysisScopeControlLabel(params.baselineScope)
   const workflowScopeLabel = analysisScopeControlLabel(params.workflowScope)
   const workflowMatchesPageScope = params.workflowScope === params.baselineScope
   const comparingAlternateScope = params.activeScope !== params.workflowScope
+  const workflowBoundaryLabel = workflowMatchesPageScope ? baselineScopeLabel : workflowScopeLabel
+
+  if (params.workflowWindowLabel) {
+    if (!comparingAlternateScope) {
+      return {
+        label: 'Workflow window',
+        detail: `${params.workflowWindowLabel} is narrowing Sender Distribution, the workflow list, and Decision Mode inside ${workflowBoundaryLabel}.`,
+        tone: 'comparing',
+      }
+    }
+
+    if (params.comparisonState === 'outside_timeframe') {
+      return {
+        label: `Comparing ${activeScopeLabel}`,
+        detail: `${activeScopeLabel} does not include this cleanup group, so ${params.workflowWindowLabel} remains the active window inside ${workflowBoundaryLabel}.`,
+        tone: 'outside',
+      }
+    }
+
+    if (params.comparisonState === 'unavailable_scope') {
+      return {
+        label: `Comparing ${activeScopeLabel}`,
+        detail: `${activeScopeLabel} has not been loaded for this cleanup group yet, so ${params.workflowWindowLabel} remains the active window inside ${workflowBoundaryLabel}.`,
+        tone: 'not_loaded',
+      }
+    }
+
+    return {
+      label: `Comparing ${activeScopeLabel}`,
+      detail: `${params.workflowWindowLabel} remains authoritative inside ${workflowBoundaryLabel} while ${activeScopeLabel} is comparison-only in the rail.`,
+      tone: 'comparing',
+    }
+  }
 
   if (!comparingAlternateScope && workflowMatchesPageScope) {
     return {
@@ -2147,16 +2738,57 @@ function buildSenderDistributionRailScopeStatus(params: {
 }
 
 function senderOverviewRailTimelineLabelsMatchGranularity(params: {
-  granularity: 'day' | 'week' | 'month'
+  granularity: 'hour' | 'day' | 'week' | 'month'
   items: Array<{ label: string; count: number }>
 }): boolean {
   if (params.items.length === 0) return false
-  const pattern = params.granularity === 'month' ? /^\d{4}-\d{2}$/ : /^\d{4}-\d{2}-\d{2}$/
+  const pattern =
+    params.granularity === 'hour'
+      ? /^\d{4}-\d{2}-\d{2}T\d{2}$/
+      : params.granularity === 'month'
+        ? /^\d{4}-\d{2}$/
+        : /^\d{4}-\d{2}-\d{2}$/
   return params.items.every((item) => pattern.test((item.label || '').trim()))
 }
 
+function mapWorkflowScopeToTimeContextChartScope(
+  scope: OperationsAnalysisScope
+): TimeContextChartScope | null {
+  if (scope === 'all_indexed') return 'all_indexed'
+  if (scope === '365d') return 'last_year'
+  if (scope === '90d') return 'last_quarter'
+  if (scope === '30d') return 'last_month'
+  if (scope === '7d') return 'last_week'
+  return null
+}
+
+function mapTimeContextChartScopeToWorkflowScope(
+  scope: TimeContextChartScope
+): OperationsAnalysisScope | null {
+  if (scope === 'all_indexed') return 'all_indexed'
+  if (scope === 'last_year') return '365d'
+  if (scope === 'last_quarter') return '90d'
+  if (scope === 'last_month') return '30d'
+  if (scope === 'last_week') return '7d'
+  return null
+}
+
+function workflowScopeForSenderOverviewWindowSelection(params: {
+  selection: SenderOverviewWindowSelection | null
+  effectiveWorkflowScope: OperationsAnalysisScope
+  normalizedAnalysisScope: OperationsAnalysisScope
+}): OperationsAnalysisScope | null {
+  if (!params.selection) return null
+  if (params.selection.window === 'last_day') {
+    return '7d'
+  }
+  return params.effectiveWorkflowScope !== params.normalizedAnalysisScope
+    ? params.effectiveWorkflowScope
+    : null
+}
+
 function isTimeContextLaneAAuthorizedScope(scope: OperationsAnalysisScope): boolean {
-  return TIME_CONTEXT_LANE_A_SCOPES.includes(scope)
+  return TIME_CONTEXT_LANE_A_WORKFLOW_SCOPES.includes(scope)
 }
 
 function utcDayBucketKey(date: Date): string {
@@ -2169,14 +2801,22 @@ function utcMonthBucketKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-function startOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+function utcWeekBucketKey(date: Date): string {
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+  const day = start.getUTCDay()
+  const diff = day === 0 ? 6 : day - 1
+  start.setUTCDate(start.getUTCDate() - diff)
+  return utcDayBucketKey(start)
 }
 
 function addUtcDays(date: Date, days: number): Date {
   const next = new Date(date.getTime())
   next.setUTCDate(next.getUTCDate() + days)
   return next
+}
+
+function addUtcWeeks(date: Date, weeks: number): Date {
+  return addUtcDays(date, weeks * 7)
 }
 
 function addUtcMonths(date: Date, months: number): Date {
@@ -2205,32 +2845,111 @@ function labelsMatchContiguousUtcMonths(labels: string[]): boolean {
   return true
 }
 
-function senderOverviewTimeContextLaneATimelineMatchesScope(params: {
+function labelsMatchContiguousUtcWeeks(labels: string[]): boolean {
+  if (labels.length === 0) return false
+  for (let index = 1; index < labels.length; index += 1) {
+    const previousMs = Date.parse(`${labels[index - 1]}T00:00:00Z`)
+    if (!Number.isFinite(previousMs)) return false
+    const expected = utcWeekBucketKey(addUtcWeeks(new Date(previousMs), 1))
+    if (labels[index] !== expected) return false
+  }
+  return true
+}
+
+function senderOverviewTimeContextLaneATimelineIsCanonical(params: {
   scope: OperationsAnalysisScope
-  granularity: 'day' | 'week' | 'month'
-  items: Array<{ label: string; count: number }>
-  nowMs?: number
+  granularity: 'hour' | 'day' | 'week' | 'month'
+  items: Array<{
+    label: string
+    count: number
+    contractVersion?: string | null
+    metricFamily?: string | null
+    timeZone?: string | null
+    bucketStartIso?: string | null
+    bucketEndExclusiveIso?: string | null
+  }>
+  expectedSenderTotal: number
+  coverageStartIso?: string | null
 }): boolean {
   if (!isTimeContextLaneAAuthorizedScope(params.scope)) return false
-  if (!senderOverviewRailTimelineLabelsMatchGranularity(params)) return false
-
-  const labels = params.items.map((item) => (item.label || '').trim())
-  if (params.scope === '7d' || params.scope === '30d') {
-    const expectedCount = params.scope === '7d' ? 7 : 30
-    const expectedLastLabel = utcDayBucketKey(startOfUtcDay(new Date(params.nowMs || Date.now())))
-    return (
-      params.granularity === 'day' &&
-      labels.length === expectedCount &&
-      labelsMatchContiguousUtcDays(labels) &&
-      labels[labels.length - 1] === expectedLastLabel
-    )
+  if (params.items.length === 0) return false
+  const expectedGranularity =
+    params.scope === '90d'
+      ? 'week'
+      : params.scope === '7d' || params.scope === '30d'
+        ? 'day'
+        : 'month'
+  const expectedBucketCount =
+    params.scope === '365d'
+      ? 12
+      : params.scope === '90d'
+        ? 13
+        : params.scope === '30d'
+          ? 30
+          : params.scope === '7d'
+            ? 7
+            : null
+  if (params.granularity !== expectedGranularity) return false
+  if (expectedBucketCount != null && params.items.length !== expectedBucketCount) return false
+  let previousEndExclusiveMs: number | null = null
+  for (const item of params.items) {
+    if (item.contractVersion !== 'ace046_phase3_timeline_v1') return false
+    if (item.metricFamily !== 'sender_activity') return false
+    if (!item.timeZone) return false
+    const bucketStartMs =
+      typeof item.bucketStartIso === 'string' ? Date.parse(item.bucketStartIso) : Number.NaN
+    const bucketEndExclusiveMs =
+      typeof item.bucketEndExclusiveIso === 'string'
+        ? Date.parse(item.bucketEndExclusiveIso)
+        : Number.NaN
+    if (!Number.isFinite(bucketStartMs) || !Number.isFinite(bucketEndExclusiveMs)) {
+      return false
+    }
+    if (bucketStartMs >= bucketEndExclusiveMs) return false
+    if (previousEndExclusiveMs != null && bucketStartMs !== previousEndExclusiveMs) {
+      return false
+    }
+    previousEndExclusiveMs = bucketEndExclusiveMs
   }
+  if (expectedBucketCount != null) {
+    return true
+  }
+  // All indexed is non-additive: a sender can be counted in every month where it had activity.
+  return true
+}
 
+function workspaceHasCanonicalTimeContextTimeline(
+  workspace: GmailSenderWorkspaceData | null | undefined,
+  scope: OperationsAnalysisScope
+): boolean {
+  if (!workspace) return false
+  return senderOverviewTimeContextLaneATimelineIsCanonical({
+    scope,
+    granularity: workspace.analytics.sender_activity_timeline_granularity || 'month',
+    items: workspace.analytics.sender_activity_timeline.map((item) => ({
+      label: item.label,
+      count: item.sender_count,
+      contractVersion: item.contract_version ?? null,
+      metricFamily: item.metric_family ?? null,
+      timeZone: item.time_zone ?? null,
+      bucketStartIso: normalizeTimeContextBucketIso(item.bucket_start_iso),
+      bucketEndExclusiveIso: normalizeTimeContextBucketIso(item.bucket_end_exclusive_iso),
+    })),
+    expectedSenderTotal: workspaceClusterSenderTotal(workspace),
+  })
+}
+
+function requiresScopedTimeContextTimeline(params: {
+  analysisScope: OperationsAnalysisScope
+  timeContextBucketLabel?: string | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+}): boolean {
+  if (params.timeContextBucketLabel != null) return false
+  if (params.senderOverviewWindowSelection != null) return false
   return (
-    params.scope === 'all_indexed' &&
-    params.granularity === 'month' &&
-    labels.length > 0 &&
-    labelsMatchContiguousUtcMonths(labels)
+    params.analysisScope === '7d' ||
+    params.analysisScope === '30d' ||
+    params.analysisScope === '365d'
   )
 }
 
@@ -2240,20 +2959,35 @@ function workspaceSnapshotMatchesRequest(params: {
   analysisScope: OperationsAnalysisScope
   mode: ReviewMode
   cacheVersion: string | null
+  allowStaleCacheVersion?: boolean
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): boolean {
   return Boolean(
     params.snapshot &&
       params.snapshot.clusterId === params.clusterId &&
       params.snapshot.analysisScope === params.analysisScope &&
       params.snapshot.mode === params.mode &&
-      normalizeWorkspaceCacheVersion(params.snapshot.cacheVersion) ===
-        normalizeWorkspaceCacheVersion(params.cacheVersion) &&
+      (params.allowStaleCacheVersion === true ||
+        normalizeWorkspaceCacheVersion(params.snapshot.cacheVersion) ===
+          normalizeWorkspaceCacheVersion(params.cacheVersion)) &&
       (params.previewEvidenceSenderKey == null ||
         params.snapshot.previewEvidenceSenderKey === params.previewEvidenceSenderKey) &&
       normalizeTimeContextBucketLabel(params.snapshot.timeContextBucketLabel) ===
         normalizeTimeContextBucketLabel(params.timeContextBucketLabel) &&
+      normalizeTimeContextBucketIso(params.snapshot.timeContextBucketStartAt) ===
+        normalizeTimeContextBucketIso(params.timeContextBucketStartAt) &&
+      normalizeTimeContextBucketIso(params.snapshot.timeContextBucketEndExclusiveAt) ===
+        normalizeTimeContextBucketIso(params.timeContextBucketEndExclusiveAt) &&
+      params.snapshot.senderOverviewWindowSignature ===
+        senderOverviewWindowSelectionSignature({
+          selection: params.senderOverviewWindowSelection,
+          timeZone: params.senderOverviewWindowTimeZone,
+        }) &&
       params.snapshot.data.selected_cluster.cluster_id === params.clusterId
   )
 }
@@ -2279,6 +3013,8 @@ function workspaceSnapshotMatchesOverviewHeaderTruth(params: {
   analysisScope: OperationsAnalysisScope
   cacheVersion: string | null
   page: number
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): boolean {
   const snapshot = params.snapshot
   if (!snapshot) return false
@@ -2289,6 +3025,8 @@ function workspaceSnapshotMatchesOverviewHeaderTruth(params: {
       analysisScope: params.analysisScope,
       mode: 'overview',
       cacheVersion: params.cacheVersion,
+      senderOverviewWindowSelection: params.senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: params.senderOverviewWindowTimeZone,
     }) &&
       workspaceDataMatchesOverviewView(snapshot.data, params.page) &&
       snapshot.data.selected_cluster.cluster_id === params.clusterId
@@ -2300,6 +3038,9 @@ function workspaceSnapshotMatchesOverviewShellTruth(params: {
   clusterId: string
   analysisScope: OperationsAnalysisScope
   cacheVersion: string | null
+  allowStaleCacheVersion?: boolean
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): boolean {
   const snapshot = params.snapshot
   if (!snapshot) return false
@@ -2310,6 +3051,9 @@ function workspaceSnapshotMatchesOverviewShellTruth(params: {
       analysisScope: params.analysisScope,
       mode: 'overview',
       cacheVersion: params.cacheVersion,
+      allowStaleCacheVersion: params.allowStaleCacheVersion,
+      senderOverviewWindowSelection: params.senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: params.senderOverviewWindowTimeZone,
     }) &&
       workspaceDataMatchesOverviewStructureView(snapshot.data) &&
       snapshot.data.selected_cluster.cluster_id === params.clusterId
@@ -2322,6 +3066,10 @@ function workspaceSnapshotMatchesClusterCoverageTruth(params: {
   analysisScope: OperationsAnalysisScope
   cacheVersion: string | null
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): boolean {
   const snapshot = params.snapshot
   if (!snapshot) return false
@@ -2329,11 +3077,32 @@ function workspaceSnapshotMatchesClusterCoverageTruth(params: {
     snapshot.clusterId !== params.clusterId ||
     snapshot.analysisScope !== params.analysisScope ||
     normalizeWorkspaceCacheVersion(snapshot.cacheVersion) !==
-      normalizeWorkspaceCacheVersion(params.cacheVersion) ||
+    normalizeWorkspaceCacheVersion(params.cacheVersion) ||
     normalizeTimeContextBucketLabel(snapshot.timeContextBucketLabel) !==
       normalizeTimeContextBucketLabel(params.timeContextBucketLabel) ||
+    normalizeTimeContextBucketIso(snapshot.timeContextBucketStartAt) !==
+      normalizeTimeContextBucketIso(params.timeContextBucketStartAt) ||
+    normalizeTimeContextBucketIso(snapshot.timeContextBucketEndExclusiveAt) !==
+      normalizeTimeContextBucketIso(params.timeContextBucketEndExclusiveAt) ||
+    snapshot.senderOverviewWindowSignature !==
+      senderOverviewWindowSelectionSignature({
+        selection: params.senderOverviewWindowSelection,
+        timeZone: params.senderOverviewWindowTimeZone,
+      }) ||
     snapshot.data.selected_cluster.cluster_id !== params.clusterId ||
-    !workspaceHasUsableClusterGlobalSenderKeys(snapshot.data)
+    (!workspaceHasUsableClusterGlobalSenderKeys(snapshot.data) &&
+      !workspaceHasCanonicalTimeContextTimeline(snapshot.data, params.analysisScope))
+  ) {
+    return false
+  }
+
+  if (
+    requiresScopedTimeContextTimeline({
+      analysisScope: params.analysisScope,
+      timeContextBucketLabel: params.timeContextBucketLabel,
+      senderOverviewWindowSelection: params.senderOverviewWindowSelection,
+    }) &&
+    !workspaceHasCanonicalTimeContextTimeline(snapshot.data, params.analysisScope)
   ) {
     return false
   }
@@ -2348,6 +3117,10 @@ function workspaceSnapshotMatchesClusterCoverageContext(params: {
   clusterId: string
   analysisScope: OperationsAnalysisScope
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): boolean {
   const snapshot = params.snapshot
   if (!snapshot) return false
@@ -2356,8 +3129,29 @@ function workspaceSnapshotMatchesClusterCoverageContext(params: {
     snapshot.analysisScope !== params.analysisScope ||
     normalizeTimeContextBucketLabel(snapshot.timeContextBucketLabel) !==
       normalizeTimeContextBucketLabel(params.timeContextBucketLabel) ||
+    normalizeTimeContextBucketIso(snapshot.timeContextBucketStartAt) !==
+      normalizeTimeContextBucketIso(params.timeContextBucketStartAt) ||
+    normalizeTimeContextBucketIso(snapshot.timeContextBucketEndExclusiveAt) !==
+      normalizeTimeContextBucketIso(params.timeContextBucketEndExclusiveAt) ||
+    snapshot.senderOverviewWindowSignature !==
+      senderOverviewWindowSelectionSignature({
+        selection: params.senderOverviewWindowSelection,
+        timeZone: params.senderOverviewWindowTimeZone,
+      }) ||
     snapshot.data.selected_cluster.cluster_id !== params.clusterId ||
-    !workspaceHasUsableClusterGlobalSenderKeys(snapshot.data)
+    (!workspaceHasUsableClusterGlobalSenderKeys(snapshot.data) &&
+      !workspaceHasCanonicalTimeContextTimeline(snapshot.data, params.analysisScope))
+  ) {
+    return false
+  }
+
+  if (
+    requiresScopedTimeContextTimeline({
+      analysisScope: params.analysisScope,
+      timeContextBucketLabel: params.timeContextBucketLabel,
+      senderOverviewWindowSelection: params.senderOverviewWindowSelection,
+    }) &&
+    !workspaceHasCanonicalTimeContextTimeline(snapshot.data, params.analysisScope)
   ) {
     return false
   }
@@ -2413,6 +3207,10 @@ function workspaceSnapshotSatisfiesCurrentMode(params: {
   cacheVersion: string | null
   page: number
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+  senderOverviewWindowTimeZone?: string | null
 }): boolean {
   const snapshot = params.snapshot
   if (!snapshot) return false
@@ -2424,13 +3222,33 @@ function workspaceSnapshotSatisfiesCurrentMode(params: {
       mode: params.mode,
       cacheVersion: params.cacheVersion,
       timeContextBucketLabel: params.timeContextBucketLabel,
+      timeContextBucketStartAt: params.timeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: params.timeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection: params.senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: params.senderOverviewWindowTimeZone,
     })
   ) {
     return false
   }
 
   if (!workspacePageHasRenderableRowsOrTrulyEmpty(snapshot.data)) return false
-  if (!workspaceHasClusterGlobalSenderKeys(snapshot.data)) return false
+  if (
+    !workspaceHasClusterGlobalSenderKeys(snapshot.data) &&
+    !workspaceHasCanonicalTimeContextTimeline(snapshot.data, params.analysisScope)
+  ) {
+    return false
+  }
+  if (
+    params.mode === 'overview' &&
+    requiresScopedTimeContextTimeline({
+      analysisScope: params.analysisScope,
+      timeContextBucketLabel: params.timeContextBucketLabel,
+      senderOverviewWindowSelection: params.senderOverviewWindowSelection,
+    }) &&
+    !workspaceHasCanonicalTimeContextTimeline(snapshot.data, params.analysisScope)
+  ) {
+    return false
+  }
   return params.mode === 'decision'
     ? workspaceDataMatchesDecisionQueueView(snapshot.data, params.page)
     : workspaceDataMatchesOverviewView(snapshot.data, params.page)
@@ -2903,12 +3721,22 @@ export default function OperationsReviewPage() {
   const sessionId = runtime.sessionId || requestedSessionId
   const analysisScope = runtime.analysisScope
   const normalizedAnalysisScope = normalizeOperationsAnalysisScope(analysisScope)
+  const browserTimeZone = useMemo(() => safeBrowserTimeZone(), [])
   const requestedWorkflowScope = searchParams.get('workflow_scope')
   const normalizedRequestedWorkflowScope =
     requestedWorkflowScope != null
       ? normalizeOperationsAnalysisScope(requestedWorkflowScope)
       : null
   const effectiveWorkflowScope = normalizedRequestedWorkflowScope || normalizedAnalysisScope
+  const senderOverviewWindowSelection = useMemo(
+    () =>
+      senderOverviewWindowSelectionFromSearch({
+        senderOverviewWindow: searchParams.get('sender_overview_window'),
+        senderOverviewStart: searchParams.get('sender_overview_start'),
+        senderOverviewEnd: searchParams.get('sender_overview_end'),
+      }),
+    [searchParams]
+  )
   const clusterId = searchParams.get('cluster_id')
   const mode = normalizeReviewMode(searchParams.get('mode'))
   const subsetSource = normalizeOverviewSubsetSource(searchParams.get('subset_source'))
@@ -3101,52 +3929,75 @@ export default function OperationsReviewPage() {
         : null,
     [rawRequestedClusterId, selectedCluster, subsetSource, subsetValue]
   )
-  const workflowScopedRailEntry = useMemo(() => {
-    if (!selectedCluster || effectiveWorkflowScope === normalizedAnalysisScope) return null
-    const selectedClusterRailFamily = renderRuntimeData?.runtime_selected_cluster_rail_family || null
-    if (!selectedClusterRailFamily || selectedClusterRailFamily.cluster_id !== selectedCluster.clusterId) {
-      return null
-    }
-    const matchingEntry =
-      selectedClusterRailFamily.scopes.find(
-        (entry) => entry.scope === effectiveWorkflowScope && entry.state === 'ready'
-      ) || null
-    return matchingEntry?.signal ? matchingEntry : null
-  }, [
-    effectiveWorkflowScope,
-    normalizedAnalysisScope,
-    renderRuntimeData?.runtime_selected_cluster_rail_family,
-    selectedCluster,
-  ])
-  const effectiveWorkflowSelectedCluster = useMemo(() => {
-    if (!selectedCluster) return null
-    if (!workflowScopedRailEntry?.signal) return selectedCluster
-
-    const scopedMessageCount = Math.max(workflowScopedRailEntry.signal.message_count || 0, 0)
-    const scopedSenderCount = workflowScopedRailEntry.signal.semantic_resolution_distribution
-      .filter((entry) => entry.scope === 'family')
-      .reduce((sum, entry) => sum + Math.max(entry.sender_count || 0, 0), 0)
-
-    return {
-      ...selectedCluster,
-      senderCount: scopedSenderCount > 0 ? scopedSenderCount : selectedCluster.senderCount,
-      messageCount: scopedMessageCount > 0 ? scopedMessageCount : selectedCluster.messageCount,
-      estimatedCount: scopedMessageCount > 0 ? scopedMessageCount : selectedCluster.estimatedCount,
-    }
-  }, [selectedCluster, workflowScopedRailEntry])
   const railScopeResetKey = useMemo(() => {
     const next = new URLSearchParams(searchParams.toString())
     next.delete('workflow_scope')
     return next.toString()
   }, [searchParams])
-  const [activeRailScope, setActiveRailScope] =
-    useState<OperationsAnalysisScope>(effectiveWorkflowScope)
+  const [pendingSenderDistributionScope, setPendingSenderDistributionScope] =
+    useState<OperationsAnalysisScope | null>(null)
   const [pendingTimeContextScope, setPendingTimeContextScope] =
     useState<OperationsAnalysisScope | null>(null)
-  const [timeContextBucketSelection, setTimeContextBucketSelection] =
-    useState<TimeContextBucketSelectionState | null>(null)
+  const [pendingSenderOverviewWindowSelection, setPendingSenderOverviewWindowSelection] =
+    useState<SenderOverviewWindowSelection | null>(null)
+  const [selectedTimeContextBucket, setSelectedTimeContextBucket] =
+    useState<GmailTimeContextBucketSelection | null>(null)
+  const [localSenderDistributionFocusKey, setLocalSenderDistributionFocusKey] = useState<string | null>(
+    null
+  )
   const [timeContextBucketNotice, setTimeContextBucketNotice] =
     useState<TimeContextBucketNotice | null>(null)
+  const [pendingNarrowingInteraction, setPendingNarrowingInteraction] =
+    useState<PendingNarrowingInteraction | null>(null)
+  const currentRequestedWorkflowScope =
+    requestedWorkflowScope != null ? normalizedRequestedWorkflowScope : null
+  const resolvedTimeContextState = useMemo<ResolvedTimeContextState>(() => {
+    if (senderOverviewWindowSelection && currentRequestedWorkflowScope) {
+      return {
+        mode: 'workflow_window',
+        pageScope: normalizedAnalysisScope,
+        workflowScope: effectiveWorkflowScope,
+        routeWorkflowScope: currentRequestedWorkflowScope,
+        windowSelection: senderOverviewWindowSelection,
+        chartFocusLabel: null,
+      }
+    }
+    if (selectedTimeContextBucket?.label) {
+      return {
+        mode: 'scoped_workflow_scope',
+        pageScope: normalizedAnalysisScope,
+        workflowScope: effectiveWorkflowScope,
+        routeWorkflowScope: currentRequestedWorkflowScope || effectiveWorkflowScope,
+        windowSelection: null,
+        chartFocusLabel: null,
+      }
+    }
+    if (currentRequestedWorkflowScope) {
+      return {
+        mode: 'scoped_workflow_scope',
+        pageScope: normalizedAnalysisScope,
+        workflowScope: effectiveWorkflowScope,
+        routeWorkflowScope: currentRequestedWorkflowScope,
+        windowSelection: null,
+        chartFocusLabel: null,
+      }
+    }
+    return {
+      mode: 'default_overview',
+      pageScope: normalizedAnalysisScope,
+      workflowScope: effectiveWorkflowScope,
+      routeWorkflowScope: null,
+      windowSelection: null,
+      chartFocusLabel: null,
+    }
+  }, [
+    selectedTimeContextBucket?.label,
+    currentRequestedWorkflowScope,
+    effectiveWorkflowScope,
+    normalizedAnalysisScope,
+    senderOverviewWindowSelection,
+  ])
+  const activeRailScope = resolvedTimeContextState.workflowScope
   const activeRailScopeBaselineKey = useMemo(
     () =>
       [
@@ -3169,40 +4020,116 @@ export default function OperationsReviewPage() {
     ]
   )
   useEffect(() => {
-    setActiveRailScope(effectiveWorkflowScope)
-  }, [activeRailScopeBaselineKey, effectiveWorkflowScope])
+    setPendingSenderDistributionScope(null)
+  }, [activeRailScopeBaselineKey])
+  useEffect(() => {
+    setPendingTimeContextScope(null)
+  }, [activeRailScopeBaselineKey])
+  useEffect(() => {
+    setLocalSenderDistributionFocusKey(null)
+  }, [activeRailScopeBaselineKey])
+  useEffect(() => {
+    setPendingSenderOverviewWindowSelection((current) =>
+      current == null ||
+      senderOverviewWindowSelection == null ||
+      senderOverviewWindowSelectionsMatch(current, senderOverviewWindowSelection)
+        ? null
+        : current
+    )
+  }, [senderOverviewWindowSelection])
+  useEffect(() => {
+    setPendingSenderDistributionScope((current) =>
+      current != null && current === effectiveWorkflowScope ? null : current
+    )
+  }, [effectiveWorkflowScope])
   useEffect(() => {
     setPendingTimeContextScope((current) =>
       current != null && current === effectiveWorkflowScope ? null : current
     )
   }, [effectiveWorkflowScope])
-  const timeContextBucketSessionKey = useMemo(
+  useEffect(() => {
+    setSelectedTimeContextBucket(null)
+  }, [
+    effectiveWorkflowScope,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
+  ])
+  useEffect(() => {
+    setLocalSenderDistributionFocusKey(null)
+  }, [
+    effectiveWorkflowScope,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
+    subsetSource,
+    subsetValue,
+  ])
+  useEffect(() => {
+    if (!senderOverviewWindowSelection) return
+    setPendingNarrowingInteraction((current) =>
+      current?.kind === 'time_context_bucket' ? null : current
+    )
+    setTimeContextBucketNotice(null)
+    setSelectedTimeContextBucket(null)
+  }, [senderOverviewWindowSelection])
+  const activeTimeContextChartScope = useMemo(
     () =>
-      [
-        selectedCluster?.clusterId || requestedClusterId || rawRequestedClusterId || 'no-cluster',
-        effectiveWorkflowScope,
-      ].join('::'),
-    [effectiveWorkflowScope, rawRequestedClusterId, requestedClusterId, selectedCluster?.clusterId]
+      resolvedTimeContextState.windowSelection?.window ||
+      mapWorkflowScopeToTimeContextChartScope(effectiveWorkflowScope) ||
+      'all_indexed',
+    [effectiveWorkflowScope, resolvedTimeContextState.windowSelection]
   )
-  const activeTimeContextBucketSelection =
-    timeContextBucketSelection?.sessionKey === timeContextBucketSessionKey
-      ? timeContextBucketSelection
-      : null
-  const requestedTimeContextBucketLabel = activeTimeContextBucketSelection?.label || null
+  const timeContextBucketInteractionMode: TimeContextBucketInteractionMode =
+    'workflow_narrowing'
+  const pendingTimeContextChartScope = useMemo(
+    () => {
+      if (pendingSenderOverviewWindowSelection) return pendingSenderOverviewWindowSelection.window
+      return pendingTimeContextScope != null
+        ? mapWorkflowScopeToTimeContextChartScope(pendingTimeContextScope)
+        : null
+    },
+    [pendingSenderOverviewWindowSelection, pendingTimeContextScope]
+  )
+  const requestedTimeContextBucketLabel = selectedTimeContextBucket?.label || null
+  const requestedTimeContextBucketStartAt =
+    selectedTimeContextBucket?.bucket_start_at || null
+  const requestedTimeContextBucketEndExclusiveAt =
+    selectedTimeContextBucket?.bucket_end_exclusive_at || null
   const timeContextBucketRequestActive = requestedTimeContextBucketLabel != null
-  const detachedWorkflowScope =
-    effectiveWorkflowScope !== normalizedAnalysisScope ? effectiveWorkflowScope : null
+  const senderOverviewWorkflowWindowActive = resolvedTimeContextState.mode === 'workflow_window'
   const workflowScopeForOverviewContext = useCallback(
     (params: {
       subsetSource: OverviewSubsetSource | null
       subsetValue: string | null
       semanticFocus: SemanticSubtypeFocus | null
     }) => {
-      if (!detachedWorkflowScope) return null
       void params
-      return detachedWorkflowScope
+      return currentRequestedWorkflowScope
     },
-    [detachedWorkflowScope]
+    [currentRequestedWorkflowScope]
+  )
+  const buildPendingNarrowingExpectation = useCallback(
+    (
+      overrides?: Partial<PendingNarrowingInteractionExpectation>
+    ): PendingNarrowingInteractionExpectation => ({
+      workflowScope: currentRequestedWorkflowScope,
+      subsetSource,
+      subsetValue,
+      semanticFocusId: activeSemanticSubtypeFocusRef.current?.id || null,
+      timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      ...overrides,
+    }),
+    [
+      currentRequestedWorkflowScope,
+      requestedTimeContextBucketLabel,
+      requestedTimeContextBucketStartAt,
+      requestedTimeContextBucketEndExclusiveAt,
+      subsetSource,
+      subsetValue,
+    ]
   )
   const reviewScopeTransitionSnapshotKey = useMemo(
     () =>
@@ -3268,6 +4195,63 @@ export default function OperationsReviewPage() {
     subsetValue,
     senderPage: requestedSenderPage,
   })
+  const senderOverviewWindowRequestKey = useMemo(
+    () =>
+      selectedCluster && senderOverviewWindowSelection
+        ? buildSenderOverviewWindowRequestKey({
+            clusterId: selectedCluster.clusterId,
+            analysisScope: effectiveWorkflowScope,
+            cacheVersion,
+            selection: senderOverviewWindowSelection,
+            timeZone: browserTimeZone,
+          })
+        : null,
+    [
+      browserTimeZone,
+      cacheVersion,
+      effectiveWorkflowScope,
+      selectedCluster,
+      senderOverviewWindowSelection,
+    ]
+  )
+  const cachedSenderOverviewWindow = useMemo(
+    () =>
+      selectedCluster && senderOverviewWindowSelection
+        ? readCachedGmailSenderOverviewWindow({
+            selectedCluster,
+            analysisScope: effectiveWorkflowScope,
+            cacheVersion,
+            pressureWindow: senderOverviewWindowSelection.window,
+            pressureStart: senderOverviewWindowSelection.start,
+            pressureEnd: senderOverviewWindowSelection.end,
+            timeZone: browserTimeZone,
+          })
+        : null,
+    [
+      browserTimeZone,
+      cacheVersion,
+      effectiveWorkflowScope,
+      runtimeClusters,
+      selectedCluster,
+      senderOverviewWindowSelection,
+    ]
+  )
+  const [senderOverviewWindowState, setSenderOverviewWindowState] = useState<SenderOverviewWindowState>(
+    () =>
+      senderOverviewWindowRequestKey && cachedSenderOverviewWindow
+        ? {
+            status: 'ready',
+            data: cachedSenderOverviewWindow,
+            error: null,
+            requestKey: senderOverviewWindowRequestKey,
+          }
+        : {
+            status: 'idle',
+            data: null,
+            error: null,
+            requestKey: null,
+          }
+  )
   const cachedWorkspace = useMemo(() => {
     if (!selectedCluster) return null
     return readCachedGmailSenderWorkspace({
@@ -3283,16 +4267,111 @@ export default function OperationsReviewPage() {
           : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
       previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindow: null,
+      senderOverviewStart: null,
+      senderOverviewEnd: null,
+      timeZone: browserTimeZone,
     })
   }, [
     analysisScope,
+    browserTimeZone,
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
     mode,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    runtimeClusters,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
+    selectedCluster,
+  ])
+  useEffect(() => {
+    if (!selectedCluster || !senderOverviewWindowSelection || !senderOverviewWindowRequestKey) {
+      setSenderOverviewWindowState({
+        status: 'idle',
+        data: null,
+        error: null,
+        requestKey: null,
+      })
+      return
+          }
+
+        let cancelled = false
+        const controller = new AbortController()
+        const seedData = cachedSenderOverviewWindow
+
+    setSenderOverviewWindowState({
+      status: 'loading',
+      data: seedData,
+      error: null,
+      requestKey: senderOverviewWindowRequestKey,
+    })
+
+    void (async () => {
+      let attempt = 0
+      while (!cancelled) {
+        const result = await fetchGmailSenderOverviewWindow({
+          selectedCluster,
+          allClusters: runtimeClusters,
+          analysisScope: effectiveWorkflowScope,
+          cacheVersion,
+          pressureWindow: senderOverviewWindowSelection.window,
+          pressureStart: senderOverviewWindowSelection.start,
+          pressureEnd: senderOverviewWindowSelection.end,
+          timeZone: browserTimeZone,
+          requestContext: {
+            source: 'operations_review_page',
+            component: 'sender_overview',
+            reason: 'time_context_workflow_window',
+            phase: 'interactive',
+            agentId,
+          },
+          signal: controller.signal,
+        })
+        if (cancelled || ('aborted' in result && result.aborted)) return
+        if (!result.ok) {
+          if (attempt < 5 && isTransientInboxAnalysisGuardError(result.error)) {
+            attempt += 1
+            await delayMs(1200)
+            continue
+          }
+          setSenderOverviewWindowState({
+            status: 'error',
+            data: seedData,
+            error: result.error,
+            requestKey: senderOverviewWindowRequestKey,
+          })
+          return
+        }
+        setSenderOverviewWindowState({
+          status: 'ready',
+          data: result.data,
+          error: null,
+          requestKey: senderOverviewWindowRequestKey,
+        })
+        return
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [
+    agentId,
+    browserTimeZone,
+    cacheVersion,
+    cachedSenderOverviewWindow,
+    effectiveWorkflowScope,
     runtimeClusters,
     selectedCluster,
+    senderOverviewWindowRequestKey,
+    senderOverviewWindowSelection,
   ])
   const cachedWorkspaceSnapshot = useMemo(() => {
     if (!selectedCluster || !cachedWorkspace) return null
@@ -3305,14 +4384,22 @@ export default function OperationsReviewPage() {
       cacheVersion,
       previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     cachedWorkspace,
     decisionPreviewEvidenceSenderKey,
     mode,
     normalizedAnalysisScope,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    senderOverviewWindowSelection,
     selectedCluster,
   ])
   const cachedDecisionWorkspace = useMemo(() => {
@@ -3326,13 +4413,25 @@ export default function OperationsReviewPage() {
       page: 1,
       pageSize: DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
+      senderOverviewStart: senderOverviewWindowSelection?.start || null,
+      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      timeZone: browserTimeZone,
     })
   }, [
     analysisScope,
+    browserTimeZone,
     cacheVersion,
     mode,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
     selectedCluster,
   ])
   const cachedDecisionWorkspaceSnapshot = useMemo(() => {
@@ -3345,16 +4444,24 @@ export default function OperationsReviewPage() {
       source: 'cache',
       cacheVersion,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     cachedDecisionWorkspace,
     normalizedAnalysisScope,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    senderOverviewWindowSelection,
     selectedCluster,
   ])
   const workflowCachedWorkspace = useMemo(() => {
-    if (!selectedCluster) return null
+    if (!selectedCluster || senderOverviewWindowSelection) return null
     return readCachedGmailSenderWorkspace({
       selectedCluster,
       allClusters: runtimeClusters,
@@ -3368,15 +4475,25 @@ export default function OperationsReviewPage() {
           : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
       previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindow: null,
+      senderOverviewStart: null,
+      senderOverviewEnd: null,
+      timeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
     effectiveWorkflowScope,
     mode,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    senderOverviewWindowSelection,
     selectedCluster,
   ])
   const workflowCachedWorkspaceSnapshot = useMemo(() => {
@@ -3390,13 +4507,21 @@ export default function OperationsReviewPage() {
       cacheVersion,
       previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
     effectiveWorkflowScope,
     mode,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    senderOverviewWindowSelection,
     selectedCluster,
     workflowCachedWorkspace,
   ])
@@ -3411,13 +4536,25 @@ export default function OperationsReviewPage() {
       page: 1,
       pageSize: DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
+      senderOverviewStart: senderOverviewWindowSelection?.start || null,
+      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      timeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
     mode,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
     selectedCluster,
   ])
   const workflowCachedDecisionWorkspaceSnapshot = useMemo(() => {
@@ -3430,11 +4567,17 @@ export default function OperationsReviewPage() {
       source: 'cache',
       cacheVersion,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
     requestedTimeContextBucketLabel,
+    senderOverviewWindowSelection,
     selectedCluster,
     workflowCachedDecisionWorkspace,
   ])
@@ -3448,15 +4591,19 @@ export default function OperationsReviewPage() {
       cacheVersion,
       page: mode === 'overview' ? requestedSenderPage : DEFAULT_OVERVIEW_WORKSPACE_PAGE,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
       ? workflowCachedWorkspaceSnapshot
       : null
   }, [
+    browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
     mode,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
+    senderOverviewWindowSelection,
     selectedCluster,
     workflowCachedWorkspaceSnapshot,
   ])
@@ -3512,12 +4659,18 @@ export default function OperationsReviewPage() {
     renderRuntimeData?.runtime_sender_overview,
     selectedCluster,
   ])
+  const hasDefaultOverviewBootstrapRailSeed = useMemo(() => {
+    const scopes = renderRuntimeData?.runtime_selected_cluster_rail_family?.scopes
+    return Array.isArray(scopes) && scopes.length > 0
+  }, [renderRuntimeData?.runtime_selected_cluster_rail_family])
   const initialPassiveReadyWorkspaceSnapshot = useMemo(
     () =>
       mode === 'decision'
         ? workflowCachedReadyWorkspaceSnapshot || null
         : workflowCachedReadyWorkspaceSnapshot ||
-            (!timeContextBucketRequestActive && effectiveWorkflowScope === normalizedAnalysisScope
+            (!timeContextBucketRequestActive &&
+            !senderOverviewWorkflowWindowActive &&
+            effectiveWorkflowScope === normalizedAnalysisScope
               ? trustedRuntimeOverviewWorkspaceSnapshot
               : null) ||
             null,
@@ -3525,6 +4678,7 @@ export default function OperationsReviewPage() {
       effectiveWorkflowScope,
       mode,
       normalizedAnalysisScope,
+      senderOverviewWorkflowWindowActive,
       timeContextBucketRequestActive,
       trustedRuntimeOverviewWorkspaceSnapshot,
       workflowCachedReadyWorkspaceSnapshot,
@@ -3534,7 +4688,9 @@ export default function OperationsReviewPage() {
     () =>
       mode === 'overview'
         ? workflowCachedWorkspaceSnapshot ||
-            (!timeContextBucketRequestActive && effectiveWorkflowScope === normalizedAnalysisScope
+            (!timeContextBucketRequestActive &&
+            !senderOverviewWorkflowWindowActive &&
+            effectiveWorkflowScope === normalizedAnalysisScope
               ? trustedRuntimeOverviewWorkspaceSnapshot
               : null) ||
             null
@@ -3543,6 +4699,7 @@ export default function OperationsReviewPage() {
       effectiveWorkflowScope,
       mode,
       normalizedAnalysisScope,
+      senderOverviewWorkflowWindowActive,
       timeContextBucketRequestActive,
       trustedRuntimeOverviewWorkspaceSnapshot,
       workflowCachedWorkspaceSnapshot,
@@ -3557,13 +4714,16 @@ export default function OperationsReviewPage() {
     }
     return (
       cachedWorkspaceSnapshot ||
-      (!timeContextBucketRequestActive ? trustedRuntimeOverviewWorkspaceSnapshot : null) ||
+      (!timeContextBucketRequestActive && !senderOverviewWorkflowWindowActive
+        ? trustedRuntimeOverviewWorkspaceSnapshot
+        : null) ||
       null
     )
   }, [
     cachedWorkspaceSnapshot,
     initialPassiveReadyWorkspaceSnapshot,
     initialPassiveSeedWorkspaceSnapshot,
+    senderOverviewWorkflowWindowActive,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
   ])
@@ -3613,6 +4773,9 @@ export default function OperationsReviewPage() {
   const decisionOverlayPreviouslyOpenRef = useRef<boolean>(decisionOverlayOpen)
   const activeSemanticSubtypeFocusRef = useRef<SemanticSubtypeFocus | null>(null)
   const currentSemanticRouteParamsRef = useRef<SemanticFocusRouteParams | null>(null)
+  const senderOverviewWindowSelectionRef = useRef<SenderOverviewWindowSelection | null>(
+    senderOverviewWindowSelection
+  )
   const senderWorkflowSectionRef = useRef<HTMLElement | null>(null)
   const senderWorkflowPendingScrollRef = useRef<boolean>(false)
   const semanticFocusRefocusPendingRef = useRef<boolean>(false)
@@ -3625,14 +4788,19 @@ export default function OperationsReviewPage() {
       }
     ) => {
       const { semanticFocus, semanticRoute, ...rest } = params
+      const resolvedSemanticRoute =
+        semanticRoute !== undefined
+          ? semanticRoute
+          : semanticFocus !== undefined
+            ? buildSemanticFocusRouteParams(semanticFocus)
+            : currentSemanticRouteParamsRef.current
       return buildReviewHref({
         ...rest,
-        semanticRoute:
-          semanticRoute !== undefined
-            ? semanticRoute
-            : semanticFocus !== undefined
-              ? buildSemanticFocusRouteParams(semanticFocus)
-              : currentSemanticRouteParamsRef.current,
+        semanticRoute: resolvedSemanticRoute,
+        senderOverviewWindowSelection:
+          params.senderOverviewWindowSelection !== undefined
+            ? params.senderOverviewWindowSelection
+            : senderOverviewWindowSelectionRef.current,
       })
     },
     []
@@ -3643,6 +4811,105 @@ export default function OperationsReviewPage() {
       return workspaceStatesEqual(current, candidate) ? current : candidate
     })
   }, [])
+  const navigateScopedReviewState = useCallback(
+    (params: {
+      workflowScope?: OperationsAnalysisScope | null
+      clusterId?: string | null
+      subsetSource?: OverviewSubsetSource | null
+      subsetValue?: string | null
+      senderPage?: number | null
+      semanticFocus?: SemanticSubtypeFocus | null
+      semanticRoute?: SemanticFocusRouteParams | null
+      senderKey?: string | null
+      overlayIntent?: DecisionOverlayIntent | null
+      senderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+      pendingSenderDistributionScope?: OperationsAnalysisScope | null
+      pendingTimeContextScope?: OperationsAnalysisScope | null
+      pendingSenderOverviewWindowSelection?: SenderOverviewWindowSelection | null
+    }) => {
+      const nextClusterId = params.clusterId ?? selectedCluster?.clusterId ?? clusterId
+      if (!nextClusterId) return
+
+      if (params.pendingSenderDistributionScope !== undefined) {
+        setPendingSenderDistributionScope(params.pendingSenderDistributionScope)
+      }
+      if (params.pendingTimeContextScope !== undefined) {
+        setPendingTimeContextScope(params.pendingTimeContextScope)
+      }
+      if (params.pendingSenderOverviewWindowSelection !== undefined) {
+        setPendingSenderOverviewWindowSelection(params.pendingSenderOverviewWindowSelection)
+      }
+
+      senderWorkflowPendingScrollRef.current = false
+      startTransition(() => {
+        router.replace(
+          buildScopedReviewHref({
+            agentId,
+            sessionId,
+            analysisScope,
+            workflowScope: params.workflowScope,
+            clusterId: nextClusterId,
+            mode,
+            subsetSource: params.subsetSource,
+            subsetValue: params.subsetValue,
+            senderPage: params.senderPage ?? null,
+            semanticFocus: params.semanticFocus,
+            semanticRoute: params.semanticRoute,
+            senderKey: params.senderKey ?? null,
+            overlayIntent: params.overlayIntent ?? null,
+            senderOverviewWindowSelection: params.senderOverviewWindowSelection ?? null,
+          }),
+          { scroll: false }
+        )
+      })
+    },
+    [
+      agentId,
+      analysisScope,
+      buildScopedReviewHref,
+      clusterId,
+      mode,
+      router,
+      selectedCluster?.clusterId,
+      sessionId,
+    ]
+  )
+  useEffect(() => {
+    if (!selectedCluster) return
+    if (!senderOverviewWindowSelection) return
+    const desiredWorkflowScope = workflowScopeForSenderOverviewWindowSelection({
+      selection: senderOverviewWindowSelection,
+      effectiveWorkflowScope: currentRequestedWorkflowScope || effectiveWorkflowScope,
+      normalizedAnalysisScope,
+    })
+    if (desiredWorkflowScope === currentRequestedWorkflowScope) return
+
+    navigateScopedReviewState({
+      workflowScope: desiredWorkflowScope,
+      clusterId: selectedCluster.clusterId,
+      subsetSource,
+      subsetValue,
+      senderPage: searchParams.get('sender_page') != null ? requestedSenderPage : null,
+      semanticFocus: activeSemanticSubtypeFocusRef.current,
+      senderKey: mode === 'decision' ? requestedDecisionSenderKey : null,
+      overlayIntent: mode === 'decision' ? decisionOverlayIntent : null,
+      senderOverviewWindowSelection,
+    })
+  }, [
+    currentRequestedWorkflowScope,
+    decisionOverlayIntent,
+    effectiveWorkflowScope,
+    mode,
+    navigateScopedReviewState,
+    normalizedAnalysisScope,
+    requestedDecisionSenderKey,
+    requestedSenderPage,
+    searchParams,
+    selectedCluster,
+    senderOverviewWindowSelection,
+    subsetSource,
+    subsetValue,
+  ])
   useEffect(() => {
     if (mode !== 'decision' || decisionOverlayIntent !== 'inspect') {
       setDecisionInspectEntryContext(null)
@@ -3688,14 +4955,18 @@ export default function OperationsReviewPage() {
       mode,
       cacheVersion,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
       ? workspaceState.snapshot
       : null
   }, [
+    browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
     mode,
     requestedTimeContextBucketLabel,
+    senderOverviewWindowSelection,
     selectedCluster,
     workspaceState.snapshot,
   ])
@@ -3709,15 +4980,19 @@ export default function OperationsReviewPage() {
       cacheVersion,
       page: mode === 'overview' ? requestedSenderPage : DEFAULT_OVERVIEW_WORKSPACE_PAGE,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
       ? workspaceState.snapshot
       : null
   }, [
+    browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
     mode,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
+    senderOverviewWindowSelection,
     selectedCluster,
     workspaceState.snapshot,
   ])
@@ -3732,12 +5007,25 @@ export default function OperationsReviewPage() {
       null
 
     if (!nextOverviewSnapshot) return
+    if (
+      senderOverviewWindowSelection &&
+      nextOverviewSnapshot.analysisScope === normalizedAnalysisScope &&
+      nextOverviewSnapshot.senderOverviewWindowSignature !==
+        senderOverviewWindowSelectionSignature({
+          selection: senderOverviewWindowSelection,
+          timeZone: browserTimeZone,
+        })
+    ) {
+      return
+    }
     setPersistedOverviewWorkspaceSnapshot((current) =>
       workspaceSnapshotsMateriallyEqual(current, nextOverviewSnapshot) ? current : nextOverviewSnapshot
     )
   }, [
+    browserTimeZone,
     cachedWorkspaceSnapshot,
     normalizedAnalysisScope,
+    senderOverviewWindowSelection,
     trustedRuntimeOverviewWorkspaceSnapshot,
     workspaceState.snapshot,
   ])
@@ -3752,16 +5040,53 @@ export default function OperationsReviewPage() {
       reviewScopeTransitionSnapshot,
     ]
 
+    const shouldAllowStaleContinuitySnapshot =
+      runtime.loading ||
+      runtime.refreshing ||
+      workspaceState.status === 'loading' ||
+      runtime.runtimeContinuity?.phase === 'build_pending' ||
+      runtime.runtimeContinuity?.phase === 'ready'
+
+    const exactMatch =
+      candidateSnapshots.find((snapshot) =>
+        workspaceSnapshotMatchesOverviewShellTruth({
+          snapshot,
+          clusterId: requestedClusterId,
+          analysisScope: normalizedAnalysisScope,
+          cacheVersion,
+          senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: browserTimeZone,
+        })
+      ) || null
+
+    if (exactMatch) return exactMatch
+    if (!shouldAllowStaleContinuitySnapshot) return null
+
     return (
-      candidateSnapshots.find(
-        (snapshot) => snapshot?.mode === 'overview' && snapshot.clusterId === requestedClusterId
+      candidateSnapshots.find((snapshot) =>
+        workspaceSnapshotMatchesOverviewShellTruth({
+          snapshot,
+          clusterId: requestedClusterId,
+          analysisScope: normalizedAnalysisScope,
+          cacheVersion,
+          allowStaleCacheVersion: true,
+          senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: browserTimeZone,
+        })
       ) || null
     )
   }, [
+    browserTimeZone,
+    cacheVersion,
     normalizedAnalysisScope,
     persistedOverviewWorkspaceSnapshot,
     requestedClusterId,
     reviewScopeTransitionSnapshot,
+    runtime.loading,
+    runtime.refreshing,
+    runtime.runtimeContinuity?.phase,
+    senderOverviewWindowSelection,
+    workspaceState.status,
     workspaceState.snapshot,
   ])
   const scopedOverviewShellWorkspaceSnapshot = useMemo(() => {
@@ -3784,95 +5109,90 @@ export default function OperationsReviewPage() {
           clusterId: selectedCluster.clusterId,
           analysisScope: normalizedAnalysisScope,
           cacheVersion,
+          senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: browserTimeZone,
         })
       ) || null
     )
   }, [
+    browserTimeZone,
     cacheVersion,
     cachedWorkspaceSnapshot,
     normalizedAnalysisScope,
     persistedOverviewWorkspaceSnapshot,
+    senderOverviewWindowSelection,
     selectedCluster,
     trustedRuntimeOverviewStructureSnapshot,
     trustedRuntimeOverviewWorkspaceSnapshot,
     workspaceState.snapshot,
   ])
+  const continuityShellEligibleForCurrentRoute =
+    !timeContextBucketRequestActive &&
+    !senderOverviewWorkflowWindowActive &&
+    effectiveWorkflowScope === normalizedAnalysisScope
+  const buildPendingContinuityActive = runtime.runtimeContinuity?.phase === 'build_pending'
+  const continuityLiveReplacementSnapshot = useMemo(() => {
+    if (!selectedCluster || !continuityShellEligibleForCurrentRoute) return null
+    const candidateSnapshots = [
+      currentReadyWorkspaceSnapshot,
+      currentMatchingWorkspaceSnapshot,
+      workflowCachedReadyWorkspaceSnapshot,
+      workflowCachedWorkspaceSnapshot,
+      trustedRuntimeOverviewWorkspaceSnapshot,
+      trustedRuntimeOverviewStructureSnapshot,
+    ]
+
+    return (
+      candidateSnapshots.find((snapshot) => {
+        if (
+          !workspaceSnapshotMatchesOverviewShellTruth({
+            snapshot,
+            clusterId: selectedCluster.clusterId,
+            analysisScope: normalizedAnalysisScope,
+            cacheVersion,
+            senderOverviewWindowSelection,
+            senderOverviewWindowTimeZone: browserTimeZone,
+          })
+        ) {
+          return false
+        }
+        return workspaceHasUsableClusterGlobalSenderKeys(snapshot?.data)
+      }) || null
+    )
+  }, [
+    browserTimeZone,
+    cacheVersion,
+    continuityShellEligibleForCurrentRoute,
+    currentMatchingWorkspaceSnapshot,
+    currentReadyWorkspaceSnapshot,
+    normalizedAnalysisScope,
+    selectedCluster,
+    senderOverviewWindowSelection,
+    trustedRuntimeOverviewStructureSnapshot,
+    trustedRuntimeOverviewWorkspaceSnapshot,
+    workflowCachedReadyWorkspaceSnapshot,
+    workflowCachedWorkspaceSnapshot,
+  ])
   const shouldHoldContinuityShell = Boolean(
-    continuityOverviewWorkspaceSnapshot &&
+    continuityShellEligibleForCurrentRoute &&
+      continuityOverviewWorkspaceSnapshot &&
       requestedClusterId &&
-      (missingScopedCluster ||
-    runtime.loading ||
+      !continuityLiveReplacementSnapshot &&
+      (buildPendingContinuityActive ||
+        missingScopedCluster ||
+        runtime.loading ||
+        runtime.refreshing ||
+        workspaceState.status === 'loading' ||
         !selectedCluster ||
         !scopedOverviewShellWorkspaceSnapshot)
   )
-  useEffect(() => {
-    if (mode !== 'overview' || !selectedCluster) return
-    if (effectiveWorkflowScope === normalizedAnalysisScope) return
-    if (scopedOverviewShellWorkspaceSnapshot) return
-
-    let cancelled = false
-    const controller = new AbortController()
-
-    void (async () => {
-      let attempt = 0
-      while (!cancelled) {
-        const result = await fetchGmailSenderWorkspace({
-          selectedCluster,
-          allClusters: runtimeClusters,
-          analysisScope: normalizedAnalysisScope,
-          cacheVersion,
-          includeClusterSenderKeys: true,
-          page: requestedSenderPage,
-          pageSize: DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
-          requestContext: {
-            source: 'operations_review_page',
-            component: 'sender_overview',
-            reason: 'sender_overview_page_scope_backfill',
-            phase: 'deferred',
-            agentId,
-          },
-          signal: controller.signal,
-        })
-        if (cancelled || ('aborted' in result && result.aborted)) return
-        if (!result.ok) {
-          if (attempt < 5 && isTransientInboxAnalysisGuardError(result.error)) {
-            attempt += 1
-            await delayMs(1200)
-            continue
-          }
-          return
-        }
-
-        const nextSnapshot = buildWorkspaceSnapshot({
-          data: result.data,
-          clusterId: selectedCluster.clusterId,
-          analysisScope: normalizedAnalysisScope,
-          mode: 'overview',
-          source: 'network',
-          cacheVersion,
-        })
-        setPersistedOverviewWorkspaceSnapshot((current) =>
-          workspaceSnapshotsMateriallyEqual(current, nextSnapshot) ? current : nextSnapshot
-        )
-        return
-      }
-    })()
-
-    return () => {
-      cancelled = true
-      controller.abort()
-    }
-  }, [
-    agentId,
-    cacheVersion,
-    effectiveWorkflowScope,
-    mode,
-    normalizedAnalysisScope,
-    requestedSenderPage,
-    runtimeClusters,
-    scopedOverviewShellWorkspaceSnapshot,
-    selectedCluster,
-  ])
+  const hasDefaultOverviewShellSnapshot = Boolean(
+    continuityOverviewWorkspaceSnapshot || scopedOverviewShellWorkspaceSnapshot
+  )
+  const effectiveRuntimeContinuityPhase =
+    runtime.runtimeContinuity?.phase === 'build_pending' && !shouldHoldContinuityShell
+      ? 'ready'
+      : runtime.runtimeContinuity?.phase || null
   const passiveReadyWorkspaceSnapshot = useMemo(() => {
     if (!selectedCluster) return null
     return mode === 'decision'
@@ -3913,29 +5233,116 @@ export default function OperationsReviewPage() {
     workflowCachedWorkspaceSnapshot,
   ])
   const workspaceRequestKey = useMemo(() => {
-    if (!effectiveWorkflowSelectedCluster) return null
+    if (!selectedCluster) return null
     return buildWorkspaceRequestKey({
-      clusterId: effectiveWorkflowSelectedCluster.clusterId,
+      clusterId: selectedCluster.clusterId,
       analysisScope: effectiveWorkflowScope,
       mode,
       cacheVersion,
       previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
     effectiveWorkflowScope,
-    effectiveWorkflowSelectedCluster,
     mode,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    selectedCluster,
+    senderOverviewWindowSelection,
   ])
   const shouldDeferLiveFetchForDefaultOverview =
     mode === 'overview' &&
-    effectiveWorkflowScope === normalizedAnalysisScope &&
     isDefaultOverviewContext &&
+    resolvedTimeContextState.mode === 'default_overview' &&
     defaultOverviewRuntimeGate.clusterId === selectedCluster?.clusterId &&
-    defaultOverviewRuntimeGate.status === 'waiting'
+    defaultOverviewRuntimeGate.status === 'waiting' &&
+    hasDeferrableDefaultOverviewBaselineSeed
+  const requiresCanonicalDefaultOverviewBaseline = useMemo(
+    () =>
+      mode === 'overview' &&
+      isDefaultOverviewContext &&
+      resolvedTimeContextState.mode === 'default_overview' &&
+      effectiveWorkflowScope === normalizedAnalysisScope &&
+      normalizedAnalysisScope === 'all_indexed' &&
+      !timeContextBucketRequestActive &&
+      !senderOverviewWorkflowWindowActive &&
+      requestedTimeContextBucketLabel == null &&
+      senderOverviewWindowSelection == null,
+    [
+      effectiveWorkflowScope,
+      isDefaultOverviewContext,
+      mode,
+      normalizedAnalysisScope,
+      requestedTimeContextBucketLabel,
+      resolvedTimeContextState.mode,
+      senderOverviewWindowSelection,
+      senderOverviewWorkflowWindowActive,
+      timeContextBucketRequestActive,
+    ]
+  )
+  const hasCanonicalDefaultOverviewBaseline = useMemo(() => {
+    if (!selectedCluster || !requiresCanonicalDefaultOverviewBaseline) return false
+
+    const candidateSnapshots = [
+      cachedWorkspaceSnapshot,
+      currentMatchingWorkspaceSnapshot,
+      persistedOverviewWorkspaceSnapshot,
+      workflowCachedWorkspaceSnapshot,
+      workflowCachedDecisionWorkspaceSnapshot,
+      trustedRuntimeOverviewWorkspaceSnapshot,
+      continuityOverviewWorkspaceSnapshot,
+      scopedOverviewShellWorkspaceSnapshot,
+    ]
+
+    return candidateSnapshots.some((snapshot) => {
+      if (
+        !workspaceSnapshotMatchesClusterCoverageTruth({
+          snapshot,
+          clusterId: selectedCluster.clusterId,
+          analysisScope: effectiveWorkflowScope,
+          cacheVersion,
+          senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: browserTimeZone,
+        })
+      ) {
+        return false
+      }
+
+      return workspaceHasCanonicalTimeContextTimeline(snapshot.data, effectiveWorkflowScope)
+    })
+  }, [
+    browserTimeZone,
+    cacheVersion,
+    continuityOverviewWorkspaceSnapshot,
+    currentMatchingWorkspaceSnapshot,
+    effectiveWorkflowScope,
+    requiresCanonicalDefaultOverviewBaseline,
+    scopedOverviewShellWorkspaceSnapshot,
+    selectedCluster,
+    senderOverviewWindowSelection,
+    cachedWorkspaceSnapshot,
+    persistedOverviewWorkspaceSnapshot,
+    trustedRuntimeOverviewWorkspaceSnapshot,
+    workflowCachedDecisionWorkspaceSnapshot,
+    workflowCachedWorkspaceSnapshot,
+  ])
+  const hasDeferrableDefaultOverviewBaselineSeed =
+    requiresCanonicalDefaultOverviewBaseline
+      ? hasCanonicalDefaultOverviewBaseline
+      : Boolean(
+          cachedWorkspaceSnapshot ||
+            trustedRuntimeOverviewWorkspaceSnapshot ||
+            hasDefaultOverviewBootstrapRailSeed ||
+            hasDefaultOverviewShellSnapshot
+        )
   const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     if (!selectedCluster || mode !== 'overview') return false
     const snapshotsToCheck = [
@@ -3952,12 +5359,17 @@ export default function OperationsReviewPage() {
         analysisScope: effectiveWorkflowScope,
         cacheVersion,
         timeContextBucketLabel: requestedTimeContextBucketLabel,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     )
 
-    if (hasCoverageTruth) return false
+    if (hasCoverageTruth && (!requiresCanonicalDefaultOverviewBaseline || hasCanonicalDefaultOverviewBaseline)) {
+      return false
+    }
     return Boolean(passiveReadyWorkspaceSnapshot || passiveWorkspaceSeedSnapshot)
   }, [
+    browserTimeZone,
     cacheVersion,
     currentMatchingWorkspaceSnapshot,
     effectiveWorkflowScope,
@@ -3966,7 +5378,10 @@ export default function OperationsReviewPage() {
     passiveReadyWorkspaceSnapshot,
     passiveWorkspaceSeedSnapshot,
     requestedTimeContextBucketLabel,
+    requiresCanonicalDefaultOverviewBaseline,
+    senderOverviewWindowSelection,
     selectedCluster,
+    hasCanonicalDefaultOverviewBaseline,
     trustedRuntimeOverviewWorkspaceSnapshot,
     workflowCachedDecisionWorkspaceSnapshot,
     workflowCachedWorkspaceSnapshot,
@@ -3977,10 +5392,14 @@ export default function OperationsReviewPage() {
       workspaceState.snapshot,
       workflowCachedWorkspaceSnapshot,
       workflowCachedDecisionWorkspaceSnapshot,
-      !timeContextBucketRequestActive && effectiveWorkflowScope === normalizedAnalysisScope
+      !timeContextBucketRequestActive &&
+      !senderOverviewWorkflowWindowActive &&
+      effectiveWorkflowScope === normalizedAnalysisScope
         ? persistedOverviewWorkspaceSnapshot
         : null,
-      !timeContextBucketRequestActive && effectiveWorkflowScope === normalizedAnalysisScope
+      !timeContextBucketRequestActive &&
+      !senderOverviewWorkflowWindowActive &&
+      effectiveWorkflowScope === normalizedAnalysisScope
         ? trustedRuntimeOverviewWorkspaceSnapshot
         : null,
     ]
@@ -3992,14 +5411,19 @@ export default function OperationsReviewPage() {
           clusterId: selectedCluster.clusterId,
           analysisScope: effectiveWorkflowScope,
           timeContextBucketLabel: requestedTimeContextBucketLabel,
+          senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: browserTimeZone,
         })
       ) || null
     )
   }, [
+    browserTimeZone,
     effectiveWorkflowScope,
     normalizedAnalysisScope,
     persistedOverviewWorkspaceSnapshot,
     requestedTimeContextBucketLabel,
+    senderOverviewWorkflowWindowActive,
+    senderOverviewWindowSelection,
     selectedCluster,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
@@ -4033,7 +5457,9 @@ export default function OperationsReviewPage() {
       normalizeWorkspaceDataContract(
         currentMatchingWorkspaceSnapshot?.data ||
           passiveReadyWorkspaceSnapshot?.data ||
-          (!timeContextBucketRequestActive && effectiveWorkflowScope === normalizedAnalysisScope
+          (!timeContextBucketRequestActive &&
+          !senderOverviewWorkflowWindowActive &&
+          effectiveWorkflowScope === normalizedAnalysisScope
             ? persistedOverviewWorkspaceSnapshot?.data ||
               trustedRuntimeOverviewWorkspaceSnapshot?.data
             : null) ||
@@ -4045,6 +5471,7 @@ export default function OperationsReviewPage() {
       normalizedAnalysisScope,
       passiveReadyWorkspaceSnapshot?.data,
       persistedOverviewWorkspaceSnapshot?.data,
+      senderOverviewWorkflowWindowActive,
       timeContextBucketRequestActive,
       trustedRuntimeOverviewWorkspaceSnapshot?.data,
     ]
@@ -4089,15 +5516,19 @@ export default function OperationsReviewPage() {
           cacheVersion,
           page: decisionTargetPage,
           timeContextBucketLabel: requestedTimeContextBucketLabel,
+          senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: browserTimeZone,
         })
       ) || null
     )
   }, [
+    browserTimeZone,
     cacheVersion,
     decisionTargetPage,
     effectiveWorkflowScope,
     mode,
     requestedTimeContextBucketLabel,
+    senderOverviewWindowSelection,
     selectedCluster,
     workspaceState.snapshot,
     workflowCachedWorkspaceSnapshot,
@@ -4129,7 +5560,7 @@ export default function OperationsReviewPage() {
     selectedCluster,
   ])
   const workspaceFetchPlan = useMemo<WorkspaceFetchPlan | null>(() => {
-    if (!workspaceRequestKey || !effectiveWorkflowSelectedCluster || !selectedCluster) return null
+    if (!workspaceRequestKey || !selectedCluster) return null
     if (mode === 'overview') {
       if (!shouldFetchOverviewCoverageBackfill && passiveReadyWorkspaceSnapshot) return null
     } else if (!shouldFetchDecisionWorkspacePage) {
@@ -4137,7 +5568,7 @@ export default function OperationsReviewPage() {
     }
     return {
       requestKey: workspaceRequestKey,
-      selectedCluster: effectiveWorkflowSelectedCluster,
+      selectedCluster,
       allClusters: runtimeClusters,
       analysisScope: effectiveWorkflowScope,
       normalizedAnalysisScope: effectiveWorkflowScope,
@@ -4152,29 +5583,36 @@ export default function OperationsReviewPage() {
       seedSnapshot:
         mode === 'decision'
           ? passiveReadyWorkspaceSnapshot || workflowCachedReadyWorkspaceSnapshot || null
-          : passiveReadyWorkspaceSnapshot ||
-            passiveWorkspaceSeedSnapshot ||
-            (timeContextBucketRequestActive ? activeTimeContextBucketSelection?.broadSnapshot || null : null),
+          : senderOverviewWindowSelection
+            ? null
+            : passiveReadyWorkspaceSnapshot || passiveWorkspaceSeedSnapshot || null,
       previewEvidenceSenderKey: mode === 'decision' ? decisionPreviewEvidenceSenderKey : null,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     }
   }, [
+    browserTimeZone,
+    buildPendingContinuityActive,
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
     decisionTargetPage,
     effectiveWorkflowScope,
-    effectiveWorkflowSelectedCluster,
     shouldFetchOverviewCoverageBackfill,
     shouldFetchDecisionWorkspacePage,
     mode,
-    activeTimeContextBucketSelection?.broadSnapshot,
     passiveReadyWorkspaceSnapshot,
     passiveWorkspaceSeedSnapshot,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    senderOverviewWindowSelection,
     selectedCluster,
-    timeContextBucketRequestActive,
+    shouldHoldContinuityShell,
     workflowCachedReadyWorkspaceSnapshot,
     workspaceRequestKey,
   ])
@@ -4191,6 +5629,10 @@ export default function OperationsReviewPage() {
       workspaceFetchPlan.seedSnapshot?.data.pagination.page_size || 0,
       workspaceFetchPlan.previewEvidenceSenderKey || 'no-preview-evidence-sender',
       workspaceFetchPlan.timeContextBucketLabel || 'no-time-context-bucket',
+      workspaceFetchPlan.senderOverviewWindowSelection?.window || 'no-sender-overview-window',
+      workspaceFetchPlan.senderOverviewWindowSelection?.start || 'no-sender-overview-start',
+      workspaceFetchPlan.senderOverviewWindowSelection?.end || 'no-sender-overview-end',
+      workspaceFetchPlan.senderOverviewWindowTimeZone || 'UTC',
     ].join('::')
   }, [workspaceFetchPlan])
   const workspaceFetchPlanRef = useRef<WorkspaceFetchPlan | null>(workspaceFetchPlan)
@@ -4377,6 +5819,7 @@ export default function OperationsReviewPage() {
           scrollTop:
             decisionOverlayScrollTopRef.current ??
             (typeof window !== 'undefined' ? window.scrollY : null),
+          senderOverviewWindowSelection: senderOverviewWindowSelectionRef.current,
         }
       )
       startTransition(() => {
@@ -4394,6 +5837,7 @@ export default function OperationsReviewPage() {
           subsetSource: returnRouteContext.subsetSource,
           subsetValue: returnRouteContext.subsetValue,
           senderPage: requestedSenderPage,
+          senderOverviewWindowSelection: senderOverviewWindowSelectionRef.current,
           }),
           { scroll: false }
         )
@@ -4423,7 +5867,13 @@ export default function OperationsReviewPage() {
   ])
 
   useEffect(() => {
-    if (!selectedCluster || mode !== 'overview' || !isDefaultOverviewContext) {
+    const shouldParticipateInDefaultOverviewGate =
+      selectedCluster != null &&
+      mode === 'overview' &&
+      isDefaultOverviewContext &&
+      resolvedTimeContextState.mode === 'default_overview'
+
+    if (!shouldParticipateInDefaultOverviewGate) {
       setDefaultOverviewRuntimeGate((current) =>
         current.clusterId === null && current.status === 'idle'
           ? current
@@ -4432,7 +5882,7 @@ export default function OperationsReviewPage() {
       return
     }
 
-    if (cachedWorkspaceSnapshot || trustedRuntimeOverviewWorkspaceSnapshot) {
+    if (hasDeferrableDefaultOverviewBaselineSeed) {
       setDefaultOverviewRuntimeGate((current) =>
         current.clusterId === null && current.status === 'idle'
           ? current
@@ -4443,23 +5893,25 @@ export default function OperationsReviewPage() {
 
     const nextClusterId = selectedCluster.clusterId
     const runtimeAttemptInFlight = runtime.loading && !runtime.data
+    const shouldWaitForDefaultOverviewRuntime =
+      runtimeAttemptInFlight && hasDeferrableDefaultOverviewBaselineSeed
 
     setDefaultOverviewRuntimeGate((current) => {
       if (current.clusterId !== nextClusterId) {
         return {
           clusterId: nextClusterId,
-          status: runtimeAttemptInFlight ? 'waiting' : 'ready_for_fallback',
+          status: shouldWaitForDefaultOverviewRuntime ? 'waiting' : 'ready_for_fallback',
         }
       }
 
       if (current.status === 'waiting') {
-        if (runtimeAttemptInFlight) return current
+        if (shouldWaitForDefaultOverviewRuntime) return current
         return { clusterId: nextClusterId, status: 'ready_for_fallback' }
       }
 
       if (
         current.status === 'ready_for_fallback' &&
-        runtimeAttemptInFlight
+        shouldWaitForDefaultOverviewRuntime
       ) {
         return { clusterId: nextClusterId, status: 'waiting' }
       }
@@ -4467,66 +5919,100 @@ export default function OperationsReviewPage() {
       return current
     })
   }, [
-    cachedWorkspaceSnapshot,
+    hasDeferrableDefaultOverviewBaselineSeed,
     isDefaultOverviewContext,
     mode,
+    resolvedTimeContextState.mode,
     runtime.data,
     runtime.loading,
     selectedCluster,
-    trustedRuntimeOverviewWorkspaceSnapshot,
   ])
 
   useEffect(() => {
     if (!selectedCluster) return
-    if (passiveReadyWorkspaceSnapshot) {
+    const plan = workspaceFetchPlanRef.current
+
+    if (
+      plan?.requestKey &&
+      mode === 'overview' &&
+      workspaceState.status === 'ready' &&
+      currentReadyWorkspaceSnapshot &&
+      workspaceSnapshotSatisfiesCurrentMode({
+        snapshot: currentReadyWorkspaceSnapshot,
+        clusterId: plan.selectedCluster.clusterId,
+        analysisScope: plan.normalizedAnalysisScope,
+        mode: plan.mode,
+        cacheVersion: plan.cacheVersion,
+        page: plan.page,
+        timeContextBucketLabel: plan.timeContextBucketLabel,
+        timeContextBucketStartAt: plan.timeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+        senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
+      })
+    ) {
       setWorkspaceStateIfChanged({
         status: 'ready',
-        snapshot: passiveReadyWorkspaceSnapshot,
+        snapshot: currentReadyWorkspaceSnapshot,
         error: null,
       })
       return
     }
 
+    if (shouldHoldContinuityShell && continuityOverviewWorkspaceSnapshot) {
+      setWorkspaceStateIfChanged({
+        status: plan?.requestKey ? 'loading' : 'ready',
+        snapshot: continuityOverviewWorkspaceSnapshot,
+        error: null,
+      })
+      if (!plan?.requestKey) return
+    }
+
     if (shouldDeferLiveFetchForDefaultOverview) {
-      setWorkspaceStateIfChanged(
-        passiveWorkspaceSeedSnapshot
-          ? { status: 'loading', snapshot: passiveWorkspaceSeedSnapshot, error: null }
-          : { status: 'loading', snapshot: null, error: null }
-      )
+      setWorkspaceStateIfChanged((current) => ({
+        status: 'loading',
+        snapshot: current.snapshot || passiveWorkspaceSeedSnapshot || null,
+        error: null,
+      }))
       return
     }
 
-    if (mode === 'decision' && currentMatchingWorkspaceSnapshot && !decisionReadyWorkspaceSnapshot) {
-      setWorkspaceStateIfChanged({ status: 'loading', snapshot: null, error: null })
-    }
-  }, [
-    currentMatchingWorkspaceSnapshot,
-    decisionReadyWorkspaceSnapshot,
-    mode,
-    passiveReadyWorkspaceSnapshot,
-    passiveWorkspaceSeedSnapshot,
-    selectedCluster,
-    setWorkspaceStateIfChanged,
-    shouldDeferLiveFetchForDefaultOverview,
-  ])
+    if (!plan?.requestKey) {
+      if (passiveReadyWorkspaceSnapshot) {
+        setWorkspaceStateIfChanged({
+          status: 'ready',
+          snapshot: passiveReadyWorkspaceSnapshot,
+          error: null,
+        })
+        return
+      }
 
-  useEffect(() => {
-    const plan = workspaceFetchPlanRef.current
-    if (!plan?.requestKey) return
+      if (
+        mode === 'decision' &&
+        currentMatchingWorkspaceSnapshot &&
+        !decisionReadyWorkspaceSnapshot
+      ) {
+        setWorkspaceStateIfChanged((current) => ({
+          status: 'loading',
+          snapshot: current.snapshot || currentMatchingWorkspaceSnapshot,
+          error: null,
+        }))
+      }
+      return
+    }
 
     let cancelled = false
     const controller = new AbortController()
 
-    setWorkspaceStateIfChanged(
-      plan.seedSnapshot
-        ? { status: 'loading', snapshot: plan.seedSnapshot, error: null }
-        : { status: 'loading', snapshot: null, error: null }
-    )
+    setWorkspaceStateIfChanged((current) => ({
+      status: 'loading',
+      snapshot: current.snapshot || plan.seedSnapshot || null,
+      error: null,
+    }))
 
     void (async () => {
-      let attempt = 0
-      while (!cancelled) {
-        const result = await fetchGmailSenderWorkspace({
+      const readLatestWorkspaceCacheSnapshot = () => {
+        const cachedData = readCachedGmailSenderWorkspace({
           selectedCluster: plan.selectedCluster,
           allClusters: plan.allClusters,
           analysisScope: plan.analysisScope,
@@ -4536,27 +6022,89 @@ export default function OperationsReviewPage() {
           pageSize: plan.pageSize,
           previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
           timeContextBucketLabel: plan.timeContextBucketLabel,
-          requestContext: {
-            source: 'operations_review_page',
-            component: plan.mode === 'decision' ? 'decision_mode' : 'sender_overview',
-            reason: plan.mode === 'decision' ? 'sender_decision_queue' : 'sender_overview',
-            phase: plan.requestPhase,
-            agentId,
-          },
-          signal: plan.requestPhase === 'interactive' ? controller.signal : undefined,
+          senderOverviewWindow: plan.senderOverviewWindowSelection?.window || null,
+          senderOverviewStart: plan.senderOverviewWindowSelection?.start || null,
+          senderOverviewEnd: plan.senderOverviewWindowSelection?.end || null,
+          timeZone: plan.senderOverviewWindowTimeZone,
         })
-        if (cancelled || ('aborted' in result && result.aborted)) {
-          return
-        }
+        if (!cachedData) return null
+        const snapshot = buildWorkspaceSnapshot({
+          data: cachedData,
+          clusterId: plan.selectedCluster.clusterId,
+          analysisScope: plan.normalizedAnalysisScope,
+          mode: plan.mode,
+          source: 'cache',
+          cacheVersion: plan.cacheVersion,
+          previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
+          timeContextBucketLabel: plan.timeContextBucketLabel,
+          timeContextBucketStartAt: plan.timeContextBucketStartAt,
+          timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+          senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
+        })
+        return workspaceSnapshotSatisfiesCurrentMode({
+          snapshot,
+          clusterId: plan.selectedCluster.clusterId,
+          analysisScope: plan.normalizedAnalysisScope,
+          mode: plan.mode,
+          cacheVersion: plan.cacheVersion,
+          page: plan.page,
+          timeContextBucketLabel: plan.timeContextBucketLabel,
+          timeContextBucketStartAt: plan.timeContextBucketStartAt,
+          timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+          senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
+        })
+          ? snapshot
+          : null
+      }
+
+      const result = await fetchGmailSenderWorkspace({
+        selectedCluster: plan.selectedCluster,
+        allClusters: plan.allClusters,
+        analysisScope: plan.analysisScope,
+        cacheVersion: plan.cacheVersion,
+        includeClusterSenderKeys: true,
+        page: plan.page,
+        pageSize: plan.pageSize,
+        previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
+        timeContextBucketLabel: plan.timeContextBucketLabel,
+        timeContextBucketStartAt: plan.timeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+        senderOverviewWindow: plan.senderOverviewWindowSelection?.window || null,
+        senderOverviewStart: plan.senderOverviewWindowSelection?.start || null,
+        senderOverviewEnd: plan.senderOverviewWindowSelection?.end || null,
+        timeZone: plan.senderOverviewWindowTimeZone,
+        requestContext: {
+          source: 'operations_review_page',
+          component: plan.mode === 'decision' ? 'decision_mode' : 'sender_overview',
+          reason: plan.mode === 'decision' ? 'sender_decision_queue' : 'sender_overview',
+          phase: plan.requestPhase,
+          agentId,
+        },
+        signal: plan.requestPhase === 'interactive' ? controller.signal : undefined,
+      })
+      if (cancelled || ('aborted' in result && result.aborted)) {
+        return
+      }
         if (!result.ok) {
-          if (attempt < 20 && isTransientInboxAnalysisGuardError(result.error)) {
-            attempt += 1
-            await delayMs(1200)
-            continue
+          if (isTransientInboxAnalysisGuardError(result.error)) {
+          const attachDeadlineMs = Date.now() + WORKSPACE_GUARD_ATTACH_WAIT_MS
+          while (!cancelled && Date.now() < attachDeadlineMs) {
+            const attachedSnapshot = readLatestWorkspaceCacheSnapshot()
+            if (attachedSnapshot) {
+              setWorkspaceStateIfChanged({
+                status: 'ready',
+                snapshot: attachedSnapshot,
+                error: null,
+              })
+              return
+            }
+            await delayMs(WORKSPACE_GUARD_ATTACH_POLL_MS)
           }
-          setWorkspaceStateIfChanged((current) => ({
-            status: 'error',
-            snapshot:
+          if (cancelled) return
+          setWorkspaceStateIfChanged((current) => {
+            const currentSnapshotUsable =
               current.snapshot &&
               workspaceSnapshotSatisfiesCurrentMode({
                 snapshot: current.snapshot,
@@ -4566,60 +6114,118 @@ export default function OperationsReviewPage() {
                 cacheVersion: plan.cacheVersion,
                 page: plan.page,
                 timeContextBucketLabel: plan.timeContextBucketLabel,
+                timeContextBucketStartAt: plan.timeContextBucketStartAt,
+                timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+                senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
+                senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
               })
-                ? current.snapshot
-                : null,
-            error: result.error,
-          }))
+            const seedSnapshotUsable =
+              plan.seedSnapshot &&
+              workspaceSnapshotSatisfiesCurrentMode({
+                snapshot: plan.seedSnapshot,
+                clusterId: plan.selectedCluster.clusterId,
+                analysisScope: plan.normalizedAnalysisScope,
+                mode: plan.mode,
+                cacheVersion: plan.cacheVersion,
+                page: plan.page,
+                timeContextBucketLabel: plan.timeContextBucketLabel,
+                timeContextBucketStartAt: plan.timeContextBucketStartAt,
+                timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+                senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
+                senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
+              })
+            const fallbackSnapshot = currentSnapshotUsable
+              ? current.snapshot
+              : seedSnapshotUsable
+                ? plan.seedSnapshot
+                : null
+            if (!fallbackSnapshot) {
+              return {
+                status: 'error',
+                snapshot: null,
+                error: result.error,
+              }
+            }
+            return {
+              status: 'ready',
+              snapshot: fallbackSnapshot,
+              error: null,
+            }
+          })
           return
         }
+        return
+      }
 
-        const nextSnapshot = buildWorkspaceSnapshot({
-          data: result.data,
+      const nextSnapshot = buildWorkspaceSnapshot({
+        data: result.data,
+        clusterId: plan.selectedCluster.clusterId,
+        analysisScope: plan.normalizedAnalysisScope,
+        mode: plan.mode,
+        source: 'network',
+        cacheVersion: plan.cacheVersion,
+        previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
+        timeContextBucketLabel: plan.timeContextBucketLabel,
+        timeContextBucketStartAt: plan.timeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+        senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
+      })
+      if (
+        !workspaceSnapshotSatisfiesCurrentMode({
+          snapshot: nextSnapshot,
           clusterId: plan.selectedCluster.clusterId,
           analysisScope: plan.normalizedAnalysisScope,
           mode: plan.mode,
-          source: 'network',
           cacheVersion: plan.cacheVersion,
-          previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
+          page: plan.page,
           timeContextBucketLabel: plan.timeContextBucketLabel,
+          timeContextBucketStartAt: plan.timeContextBucketStartAt,
+          timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
+          senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
         })
-        if (
-          !workspaceSnapshotSatisfiesCurrentMode({
-            snapshot: nextSnapshot,
-            clusterId: plan.selectedCluster.clusterId,
-            analysisScope: plan.normalizedAnalysisScope,
-            mode: plan.mode,
-            cacheVersion: plan.cacheVersion,
-            page: plan.page,
-            timeContextBucketLabel: plan.timeContextBucketLabel,
-          })
-        ) {
-          setWorkspaceStateIfChanged({
-            status: 'error',
-            snapshot: plan.seedSnapshot,
-            error:
-              plan.mode === 'decision'
-                ? 'Failed to prepare the full decision queue for this cleanup group.'
-                : 'Failed to load sender workspace.',
-          })
-          return
-        }
-
+      ) {
         setWorkspaceStateIfChanged({
-          status: 'ready',
-          snapshot: nextSnapshot,
-          error: null,
+          status: 'error',
+          snapshot: plan.seedSnapshot,
+          error:
+            plan.mode === 'decision'
+              ? 'Failed to prepare the full decision queue for this cleanup group.'
+              : 'Failed to load sender workspace.',
         })
         return
       }
+
+      setWorkspaceStateIfChanged({
+        status: 'ready',
+        snapshot: nextSnapshot,
+        error: null,
+      })
+      return
     })()
 
     return () => {
       cancelled = true
       controller.abort()
     }
-  }, [agentId, setWorkspaceStateIfChanged, workspaceFetchPlanToken])
+  }, [
+    agentId,
+    continuityOverviewWorkspaceSnapshot,
+    currentMatchingWorkspaceSnapshot,
+    currentReadyWorkspaceSnapshot,
+    decisionReadyWorkspaceSnapshot,
+    mode,
+    passiveReadyWorkspaceSnapshot,
+    passiveWorkspaceSeedSnapshot,
+    selectedCluster,
+    setWorkspaceStateIfChanged,
+    shouldDeferLiveFetchForDefaultOverview,
+    shouldHoldContinuityShell,
+    buildPendingContinuityActive,
+    workspaceFetchPlanToken,
+    workspaceState.status,
+  ])
 
   useEffect(() => {
     setActionNote(null)
@@ -4731,7 +6337,9 @@ export default function OperationsReviewPage() {
       return mode === 'decision'
         ? workflowCachedReadyWorkspaceSnapshot || null
         : workflowCachedWorkspaceSnapshot ||
-            (!timeContextBucketRequestActive && effectiveWorkflowScope === normalizedAnalysisScope
+            (!timeContextBucketRequestActive &&
+            !senderOverviewWorkflowWindowActive &&
+            effectiveWorkflowScope === normalizedAnalysisScope
               ? trustedRuntimeOverviewWorkspaceSnapshot
               : null) ||
             null
@@ -4740,10 +6348,12 @@ export default function OperationsReviewPage() {
       ? decisionReadyWorkspaceSnapshot || null
       : currentMatchingWorkspaceSnapshot ||
           workflowCachedWorkspaceSnapshot ||
-          (timeContextBucketRequestActive && workspaceState.status === 'loading'
+          (workspaceState.status === 'loading'
             ? workspaceState.snapshot
             : null) ||
-          (!timeContextBucketRequestActive && effectiveWorkflowScope === normalizedAnalysisScope
+          (!timeContextBucketRequestActive &&
+          !senderOverviewWorkflowWindowActive &&
+          effectiveWorkflowScope === normalizedAnalysisScope
             ? trustedRuntimeOverviewWorkspaceSnapshot
             : null) ||
           null
@@ -4755,6 +6365,7 @@ export default function OperationsReviewPage() {
     mode,
     normalizedAnalysisScope,
     selectedCluster,
+    senderOverviewWorkflowWindowActive,
     shouldHoldContinuityShell,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
@@ -4788,16 +6399,20 @@ export default function OperationsReviewPage() {
           analysisScope: normalizedAnalysisScope,
           cacheVersion,
           page: requestedSenderPage,
+          senderOverviewWindowSelection,
+          senderOverviewWindowTimeZone: browserTimeZone,
         })
       ) || null
     )
   }, [
+    browserTimeZone,
     cacheVersion,
     cachedWorkspaceSnapshot,
     continuityOverviewWorkspaceSnapshot,
     normalizedAnalysisScope,
     persistedOverviewWorkspaceSnapshot,
     requestedSenderPage,
+    senderOverviewWindowSelection,
     selectedCluster,
     shouldHoldContinuityShell,
     trustedRuntimeOverviewWorkspaceSnapshot,
@@ -4821,6 +6436,8 @@ export default function OperationsReviewPage() {
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
         page: requestedSenderPage,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return workspaceState.snapshot
@@ -4832,6 +6449,8 @@ export default function OperationsReviewPage() {
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
         page: requestedSenderPage,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return cachedWorkspaceSnapshot
@@ -4843,18 +6462,22 @@ export default function OperationsReviewPage() {
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
         page: requestedSenderPage,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return trustedRuntimeOverviewWorkspaceSnapshot
     }
     return overviewWorkspaceSnapshot
   }, [
+    browserTimeZone,
     cacheVersion,
     cachedWorkspaceSnapshot,
     continuityOverviewWorkspaceSnapshot,
     normalizedAnalysisScope,
     overviewWorkspaceSnapshot,
     requestedSenderPage,
+    senderOverviewWindowSelection,
     selectedCluster,
     shouldHoldContinuityShell,
     trustedRuntimeOverviewWorkspaceSnapshot,
@@ -4868,6 +6491,8 @@ export default function OperationsReviewPage() {
         snapshot: workspaceState.snapshot,
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return workspaceState.snapshot
@@ -4878,6 +6503,8 @@ export default function OperationsReviewPage() {
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return workspaceState.snapshot
@@ -4888,6 +6515,8 @@ export default function OperationsReviewPage() {
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return cachedWorkspaceSnapshot
@@ -4898,6 +6527,8 @@ export default function OperationsReviewPage() {
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return cachedDecisionWorkspaceSnapshot
@@ -4908,6 +6539,8 @@ export default function OperationsReviewPage() {
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return trustedRuntimeOverviewStructureSnapshot
@@ -4918,6 +6551,8 @@ export default function OperationsReviewPage() {
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return trustedRuntimeOverviewWorkspaceSnapshot
@@ -4928,18 +6563,22 @@ export default function OperationsReviewPage() {
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
     ) {
       return persistedOverviewWorkspaceSnapshot
     }
     return null
   }, [
+    browserTimeZone,
     cacheVersion,
     cachedDecisionWorkspaceSnapshot,
     cachedWorkspaceSnapshot,
     continuityOverviewWorkspaceSnapshot,
     normalizedAnalysisScope,
     persistedOverviewWorkspaceSnapshot,
+    senderOverviewWindowSelection,
     selectedCluster,
     trustedRuntimeOverviewStructureSnapshot,
     shouldHoldContinuityShell,
@@ -4954,6 +6593,8 @@ export default function OperationsReviewPage() {
         clusterId: selectedCluster.clusterId,
         analysisScope: effectiveWorkflowScope,
         timeContextBucketLabel: requestedTimeContextBucketLabel,
+        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
       })
         ? workspaceState.snapshot
         : null,
@@ -4963,6 +6604,10 @@ export default function OperationsReviewPage() {
         analysisScope: effectiveWorkflowScope,
         cacheVersion,
         timeContextBucketLabel: requestedTimeContextBucketLabel,
+        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
         ? workspaceState.snapshot
         : null,
@@ -4972,6 +6617,10 @@ export default function OperationsReviewPage() {
         analysisScope: effectiveWorkflowScope,
         cacheVersion,
         timeContextBucketLabel: requestedTimeContextBucketLabel,
+        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
         ? workflowCachedWorkspaceSnapshot
         : null,
@@ -4981,26 +6630,36 @@ export default function OperationsReviewPage() {
         analysisScope: effectiveWorkflowScope,
         cacheVersion,
         timeContextBucketLabel: requestedTimeContextBucketLabel,
+        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
         ? workflowCachedDecisionWorkspaceSnapshot
         : null,
       !timeContextBucketRequestActive &&
+      !senderOverviewWorkflowWindowActive &&
       effectiveWorkflowScope === normalizedAnalysisScope &&
       workspaceSnapshotMatchesClusterCoverageTruth({
         snapshot: trustedRuntimeOverviewWorkspaceSnapshot,
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
         ? trustedRuntimeOverviewWorkspaceSnapshot
         : null,
       !timeContextBucketRequestActive &&
+      !senderOverviewWorkflowWindowActive &&
       effectiveWorkflowScope === normalizedAnalysisScope &&
       workspaceSnapshotMatchesClusterCoverageTruth({
         snapshot: persistedOverviewWorkspaceSnapshot,
         clusterId: selectedCluster.clusterId,
         analysisScope: normalizedAnalysisScope,
         cacheVersion,
+        senderOverviewWindowSelection,
+        senderOverviewWindowTimeZone: browserTimeZone,
       })
         ? persistedOverviewWorkspaceSnapshot
         : null,
@@ -5008,12 +6667,15 @@ export default function OperationsReviewPage() {
 
     return candidateSnapshots.find((snapshot) => snapshot != null) || null
   }, [
+    browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
     normalizedAnalysisScope,
     persistedOverviewWorkspaceSnapshot,
     requestedTimeContextBucketLabel,
     selectedCluster,
+    senderOverviewWindowSelection,
+    senderOverviewWorkflowWindowActive,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
     workflowCachedDecisionWorkspaceSnapshot,
@@ -5057,12 +6719,42 @@ export default function OperationsReviewPage() {
   const overviewShellWorkspace = hydratedOverviewShellWorkspace
   const overviewCoverageWorkspace = hydratedOverviewCoverageWorkspace
   const workflowCoverageWorkspace = hydratedWorkflowCoverageWorkspace
-  const timeContextWorkflowOverviewWorkspace = useMemo(
+  const authoritativeBucketWorkflowWorkspace = useMemo(
     () =>
       normalizeWorkspaceDataContract(
-        activeTimeContextBucketSelection?.broadSnapshot.data || workflowOverviewWorkspace
+        effectiveWorkflowScope === '7d' && requestedTimeContextBucketLabel
+          ? workflowOverviewWorkspace || workflowCoverageWorkspace
+          : requestedTimeContextBucketLabel
+          ? workflowOverviewWorkspace || workflowCoverageWorkspace
+          : workflowOverviewWorkspace || workflowCoverageWorkspace
       ),
-    [activeTimeContextBucketSelection?.broadSnapshot.data, workflowOverviewWorkspace]
+    [
+      effectiveWorkflowScope,
+      requestedTimeContextBucketLabel,
+      workflowOverviewWorkspace,
+      workflowCoverageWorkspace,
+    ]
+  )
+  const authoritativeTimeContextRailWorkspace = useMemo(
+    () =>
+      normalizeWorkspaceDataContract(
+        authoritativeBucketWorkflowWorkspace ||
+          (!timeContextBucketRequestActive &&
+          !senderOverviewWorkflowWindowActive &&
+          effectiveWorkflowScope === normalizedAnalysisScope
+            ? overviewShellWorkspace || overviewCoverageWorkspace || displayOverviewWorkspace
+            : null)
+      ),
+    [
+      authoritativeBucketWorkflowWorkspace,
+      displayOverviewWorkspace,
+      effectiveWorkflowScope,
+      normalizedAnalysisScope,
+      overviewCoverageWorkspace,
+      overviewShellWorkspace,
+      senderOverviewWorkflowWindowActive,
+      timeContextBucketRequestActive,
+    ]
   )
   const renderedSemanticSubtypeFocus = activeSemanticSubtypeFocus
   const renderedSubsetSource = subsetSource
@@ -5087,9 +6779,42 @@ export default function OperationsReviewPage() {
     () => workspaceClusterManagedDestinationCounts(overviewCounterWorkspace, managedBySender),
     [managedBySender, overviewCounterWorkspace]
   )
-  const overviewCoverageManagedCount = useMemo(
-    () => workspaceClusterManagedSenderCount(overviewCounterWorkspace, managedBySender),
-    [managedBySender, overviewCounterWorkspace]
+  const topSummaryAuthoritativeWorkspace = useMemo(() => {
+    const candidates = senderOverviewWindowSelection
+      ? [
+          workflowCoverageWorkspace,
+          workflowOverviewWorkspace,
+        ]
+      : requestedTimeContextBucketLabel
+        ? [
+            authoritativeBucketWorkflowWorkspace,
+            workflowCoverageWorkspace,
+            workflowOverviewWorkspace,
+            displayOverviewWorkspace,
+            overviewCoverageWorkspace,
+            overviewShellWorkspace,
+          ]
+        : [
+            workflowCoverageWorkspace,
+            workflowOverviewWorkspace,
+            displayOverviewWorkspace,
+            overviewCoverageWorkspace,
+            overviewShellWorkspace,
+          ]
+    return candidates.find((workspace) => workspace != null) || null
+  }, [
+    authoritativeBucketWorkflowWorkspace,
+    displayOverviewWorkspace,
+    workflowCoverageWorkspace,
+    overviewCoverageWorkspace,
+    overviewShellWorkspace,
+    requestedTimeContextBucketLabel,
+    senderOverviewWindowSelection,
+    workflowOverviewWorkspace,
+  ])
+  const topSummaryManagedCount = useMemo(
+    () => workspaceClusterManagedSenderCount(topSummaryAuthoritativeWorkspace, managedBySender),
+    [managedBySender, topSummaryAuthoritativeWorkspace]
   )
   const workflowClusterProgress = useMemo(
     () =>
@@ -5119,10 +6844,10 @@ export default function OperationsReviewPage() {
     [clusterManagedCount, selectedCluster?.senderCount, workflowCoverageWorkspace]
   )
   const overviewSenderTotal =
-    displayOverviewWorkspace || overviewShellWorkspace
-      ? Math.max(workspaceClusterSenderTotal(displayOverviewWorkspace || overviewShellWorkspace), 0)
+    topSummaryAuthoritativeWorkspace
+      ? Math.max(workspaceClusterSenderTotal(topSummaryAuthoritativeWorkspace), 0)
       : null
-  const overviewManagedCount = overviewCounterWorkspace ? overviewCoverageManagedCount : null
+  const overviewManagedCount = topSummaryAuthoritativeWorkspace ? topSummaryManagedCount : null
   const overviewRemainingCount =
     overviewSenderTotal != null && overviewManagedCount != null
       ? Math.max(overviewSenderTotal - overviewManagedCount, 0)
@@ -5132,8 +6857,8 @@ export default function OperationsReviewPage() {
       ? ratioPercent(overviewManagedCount, Math.max(overviewSenderTotal, 1))
       : null
   const overviewSupportingMessageCount =
-    displayOverviewWorkspace || overviewShellWorkspace
-      ? workspaceClusterMessageTotal(displayOverviewWorkspace || overviewShellWorkspace)
+    topSummaryAuthoritativeWorkspace
+      ? workspaceClusterMessageTotal(topSummaryAuthoritativeWorkspace)
       : null
   const overviewNextStep =
     overviewRemainingCount == null
@@ -5144,22 +6869,53 @@ export default function OperationsReviewPage() {
           } that still need a decision in Decision Mode.`
         : 'Next step: every sender in this cleanup group is already covered, so you can continue to Management when ready.'
   const topSummarySenderTotal = overviewSenderTotal
-  const topSummaryManagedCount = overviewManagedCount
   const topSummaryRemainingCount = overviewRemainingCount
   const topSummaryCoveragePct = overviewCoveragePct
   const topSummarySupportingMessageCount = overviewSupportingMessageCount
-  const topSummaryCoverageIsLoading =
-    (topSummaryManagedCount == null ||
-      topSummaryRemainingCount == null ||
-      topSummaryCoveragePct == null)
-  const topSummarySenderTotalIsLoading = topSummarySenderTotal == null
-  const topSummarySupportingMessageIsLoading = topSummarySupportingMessageCount == null
   const topSummaryGoalSummary =
     overviewManagedCount != null && overviewRemainingCount != null
       ? `${overviewManagedCount.toLocaleString()} covered · ${overviewRemainingCount.toLocaleString()} remaining`
       : 'Sender coverage is loading for this cleanup group.'
   const topSummaryGoalFollowUp =
     overviewNextStep || 'Next-step guidance will appear once exact sender coverage is ready.'
+  const lastCompleteOverviewSummaryRef = useRef<{
+    senderTotal: number
+    managedCount: number
+    remainingCount: number
+    coveragePct: number
+    supportingMessageCount: number
+    goalSummary: string
+    goalFollowUp: string
+  } | null>(null)
+  useEffect(() => {
+    if (
+      topSummarySenderTotal == null ||
+      topSummaryManagedCount == null ||
+      topSummaryRemainingCount == null ||
+      topSummaryCoveragePct == null ||
+      topSummarySupportingMessageCount == null
+    ) {
+      return
+    }
+
+    lastCompleteOverviewSummaryRef.current = {
+      senderTotal: topSummarySenderTotal,
+      managedCount: topSummaryManagedCount,
+      remainingCount: topSummaryRemainingCount,
+      coveragePct: topSummaryCoveragePct,
+      supportingMessageCount: topSummarySupportingMessageCount,
+      goalSummary: topSummaryGoalSummary,
+      goalFollowUp: topSummaryGoalFollowUp,
+    }
+  }, [
+    topSummaryCoveragePct,
+    topSummaryGoalFollowUp,
+    topSummaryGoalSummary,
+    topSummaryManagedCount,
+    topSummaryRemainingCount,
+    topSummarySenderTotal,
+    topSummarySupportingMessageCount,
+  ])
   const overviewAnalytics = useMemo(() => {
     if (!overviewShellWorkspace) return null
 
@@ -5373,6 +7129,11 @@ export default function OperationsReviewPage() {
           label: item.label,
           count: item.sender_count,
           messageCount: item.message_count ?? null,
+          contractVersion: item.contract_version ?? null,
+          metricFamily: item.metric_family ?? null,
+          timeZone: item.time_zone ?? null,
+          bucketStartIso: normalizeTimeContextBucketIso(item.bucket_start_iso),
+          bucketEndExclusiveIso: normalizeTimeContextBucketIso(item.bucket_end_exclusive_iso),
         })),
       },
       metrics: {
@@ -5548,13 +7309,17 @@ export default function OperationsReviewPage() {
   const handleRailScopeSelect = useCallback(
     (nextScope: OperationsAnalysisScope) => {
       const normalizedNext = normalizeOperationsAnalysisScope(nextScope)
-      setActiveRailScope((current) => {
-        if (current === normalizedNext) return current
-        return normalizedNext
-      })
+      if (
+        normalizedNext === effectiveWorkflowScope ||
+        pendingSenderDistributionScope === normalizedNext
+      ) {
+        return
+      }
 
-      const nextRailPackage = resolveRailFastPackageForScope(normalizedNext)
-      if (!selectedCluster || nextRailPackage?.state !== 'ready') return
+      if (!selectedCluster) return
+      // Sender Distribution chips are workflow-driving controls. They must still be able to
+      // restore the truthful `workflow_scope` even while the detached comparison rail package
+      // for that scope is parity-loading or unavailable.
       if (
         normalizedNext === effectiveWorkflowScope &&
         subsetSource == null &&
@@ -5565,85 +7330,125 @@ export default function OperationsReviewPage() {
         return
       }
 
-      senderWorkflowPendingScrollRef.current = false
-      startTransition(() => {
-        router.replace(
-          buildScopedReviewHref({
-            agentId,
-            sessionId,
-            analysisScope,
-            workflowScope: normalizedNext,
-            clusterId: selectedCluster.clusterId,
-            mode,
-            subsetSource,
-            subsetValue,
-            senderPage: null,
-            semanticFocus: activeSemanticSubtypeFocusRef.current,
-            overlayIntent: mode === 'decision' ? 'guided' : null,
-          }),
-          { scroll: false }
-        )
+      navigateScopedReviewState({
+        workflowScope: normalizedNext,
+        clusterId: selectedCluster.clusterId,
+        subsetSource,
+        subsetValue,
+        senderPage: null,
+        semanticFocus: activeSemanticSubtypeFocusRef.current,
+        overlayIntent: mode === 'decision' ? 'guided' : null,
+        senderOverviewWindowSelection: null,
+        pendingSenderDistributionScope: normalizedNext,
       })
     },
     [
-      agentId,
-      analysisScope,
-      buildScopedReviewHref,
       effectiveWorkflowScope,
       mode,
+      navigateScopedReviewState,
+      pendingSenderDistributionScope,
       requestedSenderPage,
-      resolveRailFastPackageForScope,
-      router,
       selectedCluster,
-      sessionId,
+      subsetSource,
+      subsetValue,
+    ]
+  )
+  const updateSenderOverviewWindowQuery = useCallback(
+    (nextSelection: SenderOverviewWindowSelection | null) => {
+      if (!selectedCluster) return
+      const nextWorkflowScope = workflowScopeForSenderOverviewWindowSelection({
+        selection: nextSelection,
+        effectiveWorkflowScope,
+        normalizedAnalysisScope,
+      })
+      navigateScopedReviewState({
+        workflowScope: nextWorkflowScope,
+        clusterId: selectedCluster.clusterId,
+        subsetSource,
+        subsetValue,
+        senderPage: searchParams.get('sender_page') != null ? requestedSenderPage : null,
+        semanticFocus: activeSemanticSubtypeFocusRef.current,
+        senderKey: mode === 'decision' ? requestedDecisionSenderKey : null,
+        overlayIntent: mode === 'decision' ? decisionOverlayIntent : null,
+        senderOverviewWindowSelection: nextSelection,
+        pendingSenderOverviewWindowSelection: nextSelection,
+      })
+    },
+    [
+      decisionOverlayIntent,
+      mode,
+      effectiveWorkflowScope,
+      navigateScopedReviewState,
+      normalizedAnalysisScope,
+      requestedDecisionSenderKey,
+      requestedSenderPage,
+      searchParams,
+      selectedCluster,
       subsetSource,
       subsetValue,
     ]
   )
   const handleTimeContextRailScopeSelect = useCallback(
-    (nextScope: OperationsAnalysisScope) => {
-      const normalizedNext = normalizeOperationsAnalysisScope(nextScope)
-      if (normalizedNext === effectiveWorkflowScope || pendingTimeContextScope === normalizedNext) {
+    (nextScope: TimeContextChartScope) => {
+      if (nextScope === 'last_day') {
+        if (
+          senderOverviewWindowSelection?.window === 'last_day' ||
+          pendingSenderOverviewWindowSelection?.window === 'last_day'
+        ) {
+          return
+        }
+        updateSenderOverviewWindowQuery({
+          window: 'last_day',
+          start: null,
+          end: null,
+        })
         return
       }
+      if (nextScope === 'custom') return
+      const normalizedNext = mapTimeContextChartScopeToWorkflowScope(nextScope)
+      if (normalizedNext == null) return
+      if (
+        pendingTimeContextScope === normalizedNext ||
+        (normalizedNext === effectiveWorkflowScope &&
+          senderOverviewWindowSelection == null &&
+          pendingSenderOverviewWindowSelection == null)
+      ) {
+        return
+      }
+      // Workflow-driving Time Context shortcuts must be able to restore the authoritative
+      // workflow scope even when the detached rail package is still parity-loading or only
+      // has status-mode data. Blocking on a ready fast package makes 1W look inert while a
+      // workflow window is active, even though restoring `workflow_scope=7d` is the truthful
+      // next state for the page.
+      if (!selectedCluster) return
+      const clearsFocusedSenderSubset =
+        isFocusedSenderSubsetSource(subsetSource) && subsetValue != null
+      const nextSubsetSource = clearsFocusedSenderSubset ? null : subsetSource
+      const nextSubsetValue = clearsFocusedSenderSubset ? null : subsetValue
 
-      const nextRailPackage = resolveRailFastPackageForScope(normalizedNext)
-      if (!selectedCluster || nextRailPackage?.state !== 'ready') return
-
-      setPendingTimeContextScope(normalizedNext)
-      senderWorkflowPendingScrollRef.current = false
-      startTransition(() => {
-        router.replace(
-          buildScopedReviewHref({
-            agentId,
-            sessionId,
-            analysisScope,
-            workflowScope: normalizedNext,
-            clusterId: selectedCluster.clusterId,
-            mode,
-            subsetSource,
-            subsetValue,
-            senderPage: null,
-            semanticFocus: activeSemanticSubtypeFocusRef.current,
-            overlayIntent: mode === 'decision' ? 'guided' : null,
-          }),
-          { scroll: false }
-        )
+      navigateScopedReviewState({
+        workflowScope: normalizedNext,
+        clusterId: selectedCluster.clusterId,
+        subsetSource: nextSubsetSource,
+        subsetValue: nextSubsetValue,
+        senderPage: null,
+        semanticFocus: activeSemanticSubtypeFocusRef.current,
+        overlayIntent: mode === 'decision' ? 'guided' : null,
+        senderOverviewWindowSelection: null,
+        pendingTimeContextScope: normalizedNext,
       })
     },
     [
-      agentId,
-      analysisScope,
-      buildScopedReviewHref,
       effectiveWorkflowScope,
       mode,
+      navigateScopedReviewState,
+      pendingSenderOverviewWindowSelection,
       pendingTimeContextScope,
-      resolveRailFastPackageForScope,
-      router,
       selectedCluster,
-      sessionId,
+      senderOverviewWindowSelection,
       subsetSource,
       subsetValue,
+      updateSenderOverviewWindowQuery,
     ]
   )
   const detachedRailFastPackage = useMemo(() => {
@@ -5654,18 +7459,83 @@ export default function OperationsReviewPage() {
     activeRailScope === normalizedAnalysisScope
       ? resolvedBaselineRailFastPackage
       : detachedRailFastPackage
+  const timeContextRailPackage = useMemo(
+    () =>
+      effectiveWorkflowScope === normalizedAnalysisScope
+        ? resolvedBaselineRailFastPackage
+        : resolveRailFastPackageForScope(effectiveWorkflowScope),
+    [
+      effectiveWorkflowScope,
+      normalizedAnalysisScope,
+      resolveRailFastPackageForScope,
+      resolvedBaselineRailFastPackage,
+    ]
+  )
+  const displayedSenderOverviewWindowData = useMemo(() => {
+    if (!senderOverviewWindowSelection || !senderOverviewWindowRequestKey) return null
+    if (senderOverviewWindowState.requestKey === senderOverviewWindowRequestKey) {
+      return senderOverviewWindowState.data
+    }
+    return cachedSenderOverviewWindow
+  }, [
+    cachedSenderOverviewWindow,
+    senderOverviewWindowRequestKey,
+    senderOverviewWindowSelection,
+    senderOverviewWindowState.data,
+    senderOverviewWindowState.requestKey,
+  ])
+  const activeTimeContextVisibleSeries = useMemo(() => {
+    if (senderOverviewWindowSelection) {
+      return displayedSenderOverviewWindowData?.series || []
+    }
+
+    return (
+      authoritativeTimeContextRailWorkspace?.analytics.sender_activity_timeline.map((item) => ({
+        label: item.label,
+      })) || []
+    )
+  }, [
+    authoritativeTimeContextRailWorkspace?.analytics.sender_activity_timeline,
+    displayedSenderOverviewWindowData?.series,
+    senderOverviewWindowSelection,
+  ])
+  useEffect(() => {
+    if (!selectedTimeContextBucket?.label) return
+    if (
+      !activeTimeContextVisibleSeries.some(
+        (item) => item.label === selectedTimeContextBucket.label
+      )
+    ) {
+      setSelectedTimeContextBucket(null)
+    }
+  }, [
+    activeTimeContextVisibleSeries,
+    selectedTimeContextBucket,
+  ])
+  const senderOverviewWindowLoading =
+    senderOverviewWindowSelection != null &&
+    senderOverviewWindowRequestKey != null &&
+    senderOverviewWindowState.requestKey === senderOverviewWindowRequestKey &&
+    senderOverviewWindowState.status === 'loading'
+  const senderOverviewWindowError =
+    senderOverviewWindowSelection != null &&
+    senderOverviewWindowRequestKey != null &&
+    senderOverviewWindowState.requestKey === senderOverviewWindowRequestKey &&
+    senderOverviewWindowState.status === 'error'
+      ? senderOverviewWindowState.error
+      : null
   const workflowTimeContextMetrics = useMemo(() => {
-    if (!timeContextWorkflowOverviewWorkspace) return null
+    if (!authoritativeTimeContextRailWorkspace) return null
 
     const workflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
     const dominantSender =
-      timeContextWorkflowOverviewWorkspace.analytics.cluster_contribution[0]?.sender || null
+      authoritativeTimeContextRailWorkspace.analytics.cluster_contribution[0]?.sender || null
     const remainingSenderCount = workflowClusterProgress.remaining
 
     return {
       overallActivity: buildDetachedRailOverallActivityMetric({
         messageCount: Math.max(
-          timeContextWorkflowOverviewWorkspace.selected_cluster.message_count || 0,
+          authoritativeTimeContextRailWorkspace.selected_cluster.message_count || 0,
           0
         ),
         scope: effectiveWorkflowScope,
@@ -5675,7 +7545,7 @@ export default function OperationsReviewPage() {
         scope: effectiveWorkflowScope,
       }),
       patternSignal: buildDetachedRailPatternSignalMetric(
-        timeContextWorkflowOverviewWorkspace.analytics.semantic_resolution_distribution
+        authoritativeTimeContextRailWorkspace.analytics.semantic_resolution_distribution
       ),
       nextAction:
         remainingSenderCount == null
@@ -5696,23 +7566,112 @@ export default function OperationsReviewPage() {
               },
     }
   }, [
+    authoritativeTimeContextRailWorkspace,
     effectiveWorkflowScope,
-    timeContextWorkflowOverviewWorkspace,
     workflowClusterProgress.remaining,
   ])
+  const canonicalTimeContextRailChart = useMemo(() => {
+    const usesSharedCrossScopeTimeContextUniverse =
+      effectiveWorkflowScope === '7d' ||
+      effectiveWorkflowScope === '30d' ||
+      effectiveWorkflowScope === '365d'
+    if (
+      authoritativeTimeContextRailWorkspace &&
+      workspaceHasCanonicalTimeContextTimeline(
+        authoritativeTimeContextRailWorkspace,
+        effectiveWorkflowScope
+      )
+    ) {
+      return {
+        granularity:
+          authoritativeTimeContextRailWorkspace.analytics.sender_activity_timeline_granularity ||
+          'month',
+        items: authoritativeTimeContextRailWorkspace.analytics.sender_activity_timeline.map((item) => ({
+          label: item.label,
+          count: item.sender_count,
+          messageCount: item.message_count ?? null,
+          contractVersion: item.contract_version ?? null,
+          metricFamily: item.metric_family ?? null,
+          timeZone: item.time_zone ?? null,
+          bucketStartIso: normalizeTimeContextBucketIso(item.bucket_start_iso),
+          bucketEndExclusiveIso: normalizeTimeContextBucketIso(item.bucket_end_exclusive_iso),
+        })),
+        workflowSenderUniverseTotal: usesSharedCrossScopeTimeContextUniverse
+          ? null
+          : workspaceClusterSenderTotal(authoritativeTimeContextRailWorkspace),
+        metrics: workflowTimeContextMetrics,
+        sourceLabel:
+          effectiveWorkflowScope === normalizedAnalysisScope
+            ? hydratedOverviewRailSourceLabel
+            : ('workflow_workspace' as const),
+        state: 'ready' as const,
+      }
+    }
+
+    if (!timeContextRailPackage?.chart || timeContextRailPackage.state !== 'ready') return null
+    const packageItems = timeContextRailPackage.chart.items.map((item) => ({
+      label: item.label,
+      count: item.count,
+      messageCount: item.messageCount ?? null,
+      bucketStartIso:
+        'bucketStartIso' in item ? normalizeTimeContextBucketIso(item.bucketStartIso) : null,
+      bucketEndExclusiveIso:
+        'bucketEndExclusiveIso' in item
+          ? normalizeTimeContextBucketIso(item.bucketEndExclusiveIso)
+          : null,
+    }))
+    const workflowSenderUniverseTotal = Math.max(
+      0,
+      Math.round(timeContextRailPackage.visibleClusterCount || 0)
+    )
+    if (
+      !senderOverviewTimeContextLaneATimelineIsCanonical({
+        scope: effectiveWorkflowScope,
+        granularity: timeContextRailPackage.chart.granularity,
+        items: packageItems,
+        expectedSenderTotal: workflowSenderUniverseTotal,
+        coverageStartIso:
+          renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start ||
+          null,
+      })
+    ) {
+      return null
+    }
+    return {
+      granularity: timeContextRailPackage.chart.granularity,
+      items: packageItems,
+      workflowSenderUniverseTotal: usesSharedCrossScopeTimeContextUniverse
+        ? null
+        : workflowSenderUniverseTotal,
+      metrics: timeContextRailPackage.metrics,
+      sourceLabel: timeContextRailPackage.sourceLabel,
+      state: timeContextRailPackage.state,
+    }
+  }, [
+    authoritativeTimeContextRailWorkspace,
+    effectiveWorkflowScope,
+    hydratedOverviewRailSourceLabel,
+    normalizedAnalysisScope,
+    renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
+    timeContextRailPackage,
+    workflowTimeContextMetrics,
+  ])
   const timeContextLaneABodyOverride = useMemo(() => {
-    const activeScopeLabel = analysisScopeControlLabel(activeRailScope)
-    const workflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
-    const authorizedScopeLabels = TIME_CONTEXT_LANE_A_SCOPES.map((scope) =>
+    const activeScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
+    const authorizedScopeLabels = TIME_CONTEXT_LANE_A_WORKFLOW_SCOPES.map((scope) =>
       analysisScopeControlLabel(scope)
     ).join(', ')
     const activeClusterTitle =
-      activeRailFastPackage?.clusterTitle ||
+      timeContextRailPackage?.clusterTitle ||
       selectedCluster?.title ||
       missingScopedClusterName ||
       'This cleanup group'
 
-    if (!isTimeContextLaneAAuthorizedScope(activeRailScope)) {
+    if (canonicalTimeContextRailChart) {
+      return null
+    }
+
+    if (!isTimeContextLaneAAuthorizedScope(effectiveWorkflowScope)) {
       return (
         <div className="space-y-3">
           <div>
@@ -5734,32 +7693,7 @@ export default function OperationsReviewPage() {
       )
     }
 
-    if (activeRailScope !== effectiveWorkflowScope) {
-      return (
-        <div className="space-y-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Time Context</p>
-            <p className="mt-2 text-lg font-semibold text-white">Parity-ready chart truth is not available</p>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
-              Lane A only shows quantitative chart truth when the Time Context scope and the workflow
-              scope are the same sender universe.
-            </p>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
-              The rail is on {activeScopeLabel}, while workflow rows still come from {workflowScopeLabel}.
-            </p>
-          </div>
-          <div className={`${nestedSurfaceClass} rounded-2xl border border-cyan-700/35 p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-cyan-200">Status handling</p>
-            <p className="mt-2 text-sm leading-6 text-slate-200">
-              Lane A keeps the strip visible, but it does not show alternate bucket counts until a
-              matching authoritative workflow sender array is in hand.
-            </p>
-          </div>
-        </div>
-      )
-    }
-
-    if (activeRailFastPackage?.state === 'outside_timeframe') {
+    if (timeContextRailPackage?.state === 'outside_timeframe') {
       return (
         <div className="space-y-3">
           <div>
@@ -5781,7 +7715,7 @@ export default function OperationsReviewPage() {
       )
     }
 
-    if (!timeContextWorkflowOverviewWorkspace) {
+    if (!authoritativeTimeContextRailWorkspace) {
       return (
         <div className="space-y-3">
           <div>
@@ -5803,7 +7737,7 @@ export default function OperationsReviewPage() {
       )
     }
 
-    if (!workspaceHasUsableClusterGlobalSenderKeys(timeContextWorkflowOverviewWorkspace)) {
+    if (!workspaceHasUsableClusterGlobalSenderKeys(authoritativeTimeContextRailWorkspace)) {
       return (
         <div className="space-y-3">
           <div>
@@ -5824,96 +7758,147 @@ export default function OperationsReviewPage() {
       )
     }
 
-    const laneAItems = timeContextWorkflowOverviewWorkspace.analytics.sender_activity_timeline.map((item) => ({
-      label: item.label,
-      count: item.sender_count,
-      messageCount: item.message_count ?? null,
-    }))
-    const laneAGranularity =
-      timeContextWorkflowOverviewWorkspace.analytics.sender_activity_timeline_granularity || 'month'
-
-    if (
-      !senderOverviewTimeContextLaneATimelineMatchesScope({
-        scope: activeRailScope,
-        granularity: laneAGranularity,
-        items: laneAItems,
-      })
-    ) {
-      return (
-        <div className="space-y-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Time Context</p>
-            <p className="mt-2 text-lg font-semibold text-white">Chart grammar is not parity-ready yet</p>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
-              {activeScopeLabel} must render with full protected coverage before Lane A can show
-              quantitative bars.
-            </p>
-          </div>
-          <div className={`${nestedSurfaceClass} rounded-2xl border border-cyan-700/35 p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-cyan-200">Status handling</p>
-            <p className="mt-2 text-sm leading-6 text-slate-200">
-              Lane A falls back to explicit status mode whenever the same sender array exists but the
-              bucket grammar is incomplete, compressed, or not reproducible.
-            </p>
-          </div>
-        </div>
-      )
-    }
-
     return null
   }, [
+    canonicalTimeContextRailChart,
     effectiveWorkflowScope,
-    activeRailFastPackage,
-    activeRailScope,
     missingScopedClusterName,
+    renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
     selectedCluster?.title,
-    timeContextWorkflowOverviewWorkspace,
+    authoritativeTimeContextRailWorkspace,
+    timeContextRailPackage,
   ])
   const activeRailDisplay = useMemo(() => {
-    const workflowItems =
-      timeContextWorkflowOverviewWorkspace?.analytics.sender_activity_timeline.map((item) => ({
-        label: item.label,
-        count: item.sender_count,
-        messageCount: item.message_count ?? null,
-      })) || []
-    const workflowGranularity =
-      timeContextWorkflowOverviewWorkspace?.analytics.sender_activity_timeline_granularity || 'month'
-    const workflowSenderUniverseTotal = workspaceClusterSenderTotal(timeContextWorkflowOverviewWorkspace)
-    const parityReady =
-      activeRailScope === effectiveWorkflowScope &&
-      isTimeContextLaneAAuthorizedScope(activeRailScope) &&
-      Boolean(timeContextWorkflowOverviewWorkspace) &&
-      workspaceHasUsableClusterGlobalSenderKeys(timeContextWorkflowOverviewWorkspace) &&
-      senderOverviewTimeContextLaneATimelineMatchesScope({
-        scope: activeRailScope,
-        granularity: workflowGranularity,
-        items: workflowItems,
-      }) &&
-      workflowTimeContextMetrics != null
-    const currentRailState =
-      activeRailFastPackage?.state ||
-      (activeRailScope === effectiveWorkflowScope ? 'unavailable_scope' : 'ready')
+    if (senderOverviewWindowSelection) {
+      const activeWindowData = displayedSenderOverviewWindowData
+      const workflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
+      const activeRangeLabel = activeWindowData
+        ? senderOverviewWindowRangeDetail(activeWindowData)
+        : senderOverviewWindowSelection.window === 'custom' &&
+            senderOverviewWindowSelection.start &&
+            senderOverviewWindowSelection.end
+          ? timeContextRangeDetail({
+              label: 'custom range',
+              effectiveStart: senderOverviewWindowSelection.start,
+              effectiveEnd: senderOverviewWindowSelection.end,
+              groupingLabel: 'selected window',
+              limitedByIndexedCoverage: false,
+              timeZone: browserTimeZone,
+            })
+          : 'Showing last 24 hours'
 
-    if (parityReady && workflowTimeContextMetrics) {
+      if (activeWindowData) {
+        return {
+          granularity: activeWindowData.grouping.key,
+          items: activeWindowData.series.map((item) => ({
+            label: item.label,
+            count: item.count,
+            messageCount: item.message_count ?? null,
+          })),
+          overallActivity: {
+            value: `${activeWindowData.summary.supporting_message_count.toLocaleString()} supporting messages`,
+            detail: `${activeRangeLabel} inside the active workflow window.`,
+          },
+          activityMix: activeWindowData.summary.dominant_sender
+            ? {
+                value: `${activeWindowData.summary.dominant_sender} leads`,
+                detail: `${activeWindowData.summary.dominant_sender} is the most active sender inside this active workflow window.`,
+              }
+            : {
+                value: 'Activity spread across senders',
+                detail: 'No single sender dominates this active workflow window yet.',
+              },
+          patternSignal: buildDetachedRailPatternSignalMetric(
+            activeWindowData.summary.semantic_resolution_distribution
+          ),
+          nextAction: {
+            title: 'Workflow window is active',
+            detail: `${workflowScopeLabel} remains the current workflow boundary, and this active window is narrowing the sender workflow, Sender Distribution, and Decision Mode together.`,
+          },
+          bodyOverride: null,
+          workflowSenderUniverseTotal: activeWindowData.selected_cluster.sender_count,
+          sourceLabel: 'workflow_window',
+          state: 'ready' as const,
+          scopeStatus: {
+            label: 'Workflow window',
+            detail: `${workflowScopeLabel} stays as the current workflow boundary while the live workflow below narrows to this window.`,
+            tone: 'comparing' as const,
+          },
+        }
+      }
+
       return {
-        granularity: workflowGranularity,
-        items: workflowItems,
-        overallActivity: workflowTimeContextMetrics.overallActivity,
-        activityMix: workflowTimeContextMetrics.activityMix,
-        patternSignal: workflowTimeContextMetrics.patternSignal,
-        nextAction: workflowTimeContextMetrics.nextAction,
+        granularity: 'day' as const,
+        items: [],
+        overallActivity: {
+          value: 'Workflow window pending',
+          detail: 'Time Context is waiting for row-backed window truth before showing chart bars.',
+        },
+        activityMix: {
+          value: 'Baseline scope preserved',
+          detail: `${workflowScopeLabel} stays as the current workflow boundary while the active workflow window resolves.`,
+        },
+        patternSignal: {
+          value: senderOverviewWindowError ? 'Window unavailable' : 'Loading row-backed truth',
+          detail:
+            senderOverviewWindowError ||
+            'The active workflow window is fetching from the current workflow sender universe.',
+        },
+        nextAction: {
+          title: 'Keep workflow window active',
+          detail: `${workflowScopeLabel} remains visible as the current workflow boundary while this workflow window resolves.`,
+        },
+        bodyOverride: (
+          <div className="space-y-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Time Context</p>
+              <p className="mt-2 text-lg font-semibold text-white">
+                {senderOverviewWindowError ? 'Workflow window unavailable' : 'Loading workflow window'}
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
+                {senderOverviewWindowError ||
+                  'Time Context is loading row-backed sender history for the selected workflow window.'}
+              </p>
+            </div>
+            <div className={`${nestedSurfaceClass} rounded-2xl border border-cyan-700/35 p-4`}>
+              <p className="text-[10px] uppercase tracking-wide text-cyan-200">Workflow contract</p>
+              <p className="mt-2 text-sm leading-6 text-slate-200">
+                {workflowScopeLabel} remains the current workflow boundary, and this active workflow window will narrow the sender workflow, Sender Distribution, and Decision Mode together once the row-backed truth is ready.
+              </p>
+            </div>
+          </div>
+        ),
+        workflowSenderUniverseTotal: null,
+        sourceLabel: 'workflow_window',
+        state: senderOverviewWindowError ? ('unavailable_scope' as const) : ('ready' as const),
+        scopeStatus: {
+          label: 'Workflow window',
+          detail: `${workflowScopeLabel} stays visible as the current workflow boundary while this workflow window resolves.`,
+          tone: senderOverviewWindowError ? ('not_loaded' as const) : ('comparing' as const),
+        },
+      }
+    }
+
+    const currentRailState =
+      timeContextRailPackage?.state || 'unavailable_scope'
+
+    if (canonicalTimeContextRailChart && canonicalTimeContextRailChart.metrics) {
+      return {
+        granularity: canonicalTimeContextRailChart.granularity,
+        items: canonicalTimeContextRailChart.items,
+        overallActivity: canonicalTimeContextRailChart.metrics.overallActivity,
+        activityMix: canonicalTimeContextRailChart.metrics.activityMix,
+        patternSignal: canonicalTimeContextRailChart.metrics.patternSignal,
+        nextAction: canonicalTimeContextRailChart.metrics.nextAction,
         bodyOverride: null,
-        workflowSenderUniverseTotal,
-        sourceLabel:
-          activeRailScope === normalizedAnalysisScope
-            ? hydratedOverviewRailSourceLabel
-            : 'workflow_workspace',
-        state: 'ready' as const,
+        workflowSenderUniverseTotal: canonicalTimeContextRailChart.workflowSenderUniverseTotal,
+        sourceLabel: canonicalTimeContextRailChart.sourceLabel,
+        state: canonicalTimeContextRailChart.state,
         scopeStatus: buildSenderOverviewRailScopeStatus({
-          activeScope: activeRailScope,
+          activeScope: effectiveWorkflowScope,
           baselineScope: normalizedAnalysisScope,
           workflowScope: effectiveWorkflowScope,
-          state: 'ready',
+          state: canonicalTimeContextRailChart.state,
         }),
       }
     }
@@ -5943,62 +7928,30 @@ export default function OperationsReviewPage() {
       },
       bodyOverride: timeContextLaneABodyOverride,
       workflowSenderUniverseTotal: null,
-      sourceLabel: activeRailFastPackage?.sourceLabel || 'unavailable_scope',
+      sourceLabel: timeContextRailPackage?.sourceLabel || 'unavailable_scope',
       state: currentRailState,
       scopeStatus: buildSenderOverviewRailScopeStatus({
-        activeScope: activeRailScope,
+        activeScope: effectiveWorkflowScope,
         baselineScope: normalizedAnalysisScope,
         workflowScope: effectiveWorkflowScope,
         state: currentRailState,
       }),
     }
   }, [
-    activeRailFastPackage,
-    activeRailScope,
+    canonicalTimeContextRailChart,
+    authoritativeTimeContextRailWorkspace,
+    browserTimeZone,
+    displayedSenderOverviewWindowData,
     effectiveWorkflowScope,
     hydratedOverviewRailSourceLabel,
     normalizedAnalysisScope,
+    renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
+    senderOverviewWindowError,
+    senderOverviewWindowSelection,
     timeContextLaneABodyOverride,
-    timeContextWorkflowOverviewWorkspace,
-    workflowTimeContextMetrics,
+    timeContextRailPackage,
   ])
-  const workflowScopeSummary = useMemo(() => {
-    const workflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
-    const pageScopeLabel = analysisScopeControlLabel(normalizedAnalysisScope)
-
-    if (requestedTimeContextBucketLabel) {
-      return {
-        label: `Workflow narrowed to ${requestedTimeContextBucketLabel}`,
-        detail: `${workflowScopeLabel} remains the authoritative workflow scope, and the workflow summary, sender rows, pagination totals, Sender Distribution, and Decision Mode queue are all narrowed from the same exact Time Context bucket sender set.`,
-        badgeClassName: 'border-cyan-500/65 bg-cyan-950/25 text-cyan-50',
-      }
-    }
-
-    if (effectiveWorkflowScope === normalizedAnalysisScope) {
-      return {
-        label: 'Workflow scope matches page',
-        detail: `${pageScopeLabel} is driving the sender workflow, coverage, and Decision Mode queue.`,
-        badgeClassName: 'border-emerald-700/45 bg-emerald-950/20 text-emerald-100',
-      }
-    }
-
-    return {
-      label: `Workflow filtered to ${workflowScopeLabel}`,
-      detail: `${workflowScopeLabel} is driving the sender workflow, coverage, and Decision Mode queue while charts stay anchored to ${pageScopeLabel}.`,
-      badgeClassName: 'border-cyan-700/55 bg-cyan-950/20 text-cyan-100',
-    }
-  }, [effectiveWorkflowScope, normalizedAnalysisScope, requestedTimeContextBucketLabel])
-  const workflowScopeCompareOnlyNote = useMemo(() => {
-    if (activeRailScope === effectiveWorkflowScope) return null
-    const activeScopeLabel = analysisScopeControlLabel(activeRailScope)
-    if (activeRailFastPackage?.state === 'outside_timeframe') {
-      return `${activeScopeLabel} stays comparison-only because this cleanup group is not active in that timeframe.`
-    }
-    if (activeRailFastPackage?.state === 'unavailable_scope') {
-      return `${activeScopeLabel} stays comparison-only because that timeframe has not been loaded for this cleanup group yet.`
-    }
-    return null
-  }, [activeRailFastPackage?.state, activeRailScope, effectiveWorkflowScope])
+  const workflowScopeCompareOnlyNote = null
   // Phase 2 keeps tab state local-only while promoting Sender Distribution to the primary rail lens.
   const [activeSharedAnalysisRailTab, setActiveSharedAnalysisRailTab] =
     useState<SharedAnalysisRailTab>('sender_distribution')
@@ -6139,9 +8092,23 @@ export default function OperationsReviewPage() {
       if (shouldAnnounceSelection) {
         setSemanticFocusOrientationKey((current) => current + 1)
       }
-      if (activeTimeContextBucketSelection) {
-        setTimeContextBucketSelection(null)
-        setTimeContextBucketNotice(null)
+      if (changeReason !== 'system') {
+        setPendingNarrowingInteraction({
+          kind: nextFocus ? 'semantic_focus' : 'clear_narrowing',
+          label: nextFocus ? nextFocus.label : 'broader scope',
+          senderKey: null,
+          timeContextBucketLabel: null,
+          timeContextBucketStartAt: null,
+          timeContextBucketEndExclusiveAt: null,
+          expectation: buildPendingNarrowingExpectation({
+            subsetSource,
+            subsetValue,
+            semanticFocusId: nextFocus?.id || null,
+            timeContextBucketLabel: null,
+            timeContextBucketStartAt: null,
+            timeContextBucketEndExclusiveAt: null,
+          }),
+        })
       }
       setActiveSemanticSubtypeFocus(nextFocus)
       if (!selectedCluster) return
@@ -6167,15 +8134,13 @@ export default function OperationsReviewPage() {
       })
     },
     [
-      activeTimeContextBucketSelection,
       agentId,
       analysisScope,
+      buildPendingNarrowingExpectation,
       buildScopedReviewHref,
       router,
       selectedCluster,
       sessionId,
-      setTimeContextBucketNotice,
-      setTimeContextBucketSelection,
       subsetSource,
       subsetValue,
       workflowScopeForOverviewContext,
@@ -6241,6 +8206,9 @@ export default function OperationsReviewPage() {
           }`,
           accentClass: semanticFamilyChildAccentClass(entry.family, child.tone),
           active: renderedSemanticSubtypeFocus?.id === child.id,
+          pending:
+            pendingNarrowingInteraction?.kind === 'semantic_focus' &&
+            pendingNarrowingInteraction.expectation.semanticFocusId === child.id,
           onClick: familyRow ? () => applySemanticSubtypeFocus(familyRow, child) : undefined,
         })),
         childItemsLabel:
@@ -6272,6 +8240,7 @@ export default function OperationsReviewPage() {
     applySemanticSubtypeFocus,
     expandedSemanticMixFamilies,
     overviewShellWorkspace,
+    pendingNarrowingInteraction,
     renderedSemanticSubtypeFocus,
     semanticRowModel.primaryFamilyRows,
     updateSemanticSubtypeFocus,
@@ -6295,6 +8264,9 @@ export default function OperationsReviewPage() {
           label: unit.label,
           guidance: unit.guidance,
           active: renderedSemanticSubtypeFocus?.id === focus.id,
+          pending:
+            pendingNarrowingInteraction?.kind === 'semantic_focus' &&
+            pendingNarrowingInteraction.expectation.semanticFocusId === focus.id,
           onClick: () =>
             updateSemanticSubtypeFocus(
               renderedSemanticSubtypeFocus?.id === focus.id ? null : focus,
@@ -6306,6 +8278,7 @@ export default function OperationsReviewPage() {
   }, [
     groupInternalStructure,
     groupReviewUnits,
+    pendingNarrowingInteraction,
     renderedSemanticSubtypeFocus?.id,
     semanticRowModel.primaryFamilyRows,
     updateSemanticSubtypeFocus,
@@ -6347,6 +8320,10 @@ export default function OperationsReviewPage() {
   useEffect(() => {
     currentSemanticRouteParamsRef.current = currentSemanticRouteParams
   }, [currentSemanticRouteParams])
+
+  useEffect(() => {
+    senderOverviewWindowSelectionRef.current = senderOverviewWindowSelection
+  }, [senderOverviewWindowSelection])
 
   useEffect(() => {
     if (semanticFocusOrientationKey === 0) return
@@ -6426,6 +8403,8 @@ export default function OperationsReviewPage() {
       overviewReturnContextStorageKey
     )
     if (!storedContext) return
+    const storedSenderOverviewWindowSelection =
+      storedContext.senderOverviewWindowSelection || null
     const storedRouteContext = resolveAuthoritativeOverviewReturnContext({
       semanticFocus: storedContext.semanticFocus,
       activeSubset: null,
@@ -6438,11 +8417,12 @@ export default function OperationsReviewPage() {
       storedContext.senderPage > DEFAULT_OVERVIEW_WORKSPACE_PAGE
         ? Math.round(storedContext.senderPage)
         : DEFAULT_OVERVIEW_WORKSPACE_PAGE
+    const restoreClusterId = selectedCluster?.clusterId || clusterId || requestedClusterId
 
     if (
       storedContext.semanticFocus &&
       (subsetSource != null || subsetValue != null) &&
-      selectedCluster
+      restoreClusterId
     ) {
       startTransition(() => {
         router.replace(
@@ -6455,11 +8435,12 @@ export default function OperationsReviewPage() {
             subsetValue: null,
             semanticFocus: storedContext.semanticFocus,
           }),
-          clusterId: selectedCluster.clusterId,
+          clusterId: restoreClusterId,
           subsetSource: null,
           subsetValue: null,
           senderPage: storedSenderPage,
           semanticFocus: storedContext.semanticFocus,
+          senderOverviewWindowSelection: storedSenderOverviewWindowSelection,
           }),
           { scroll: false }
         )
@@ -6470,8 +8451,34 @@ export default function OperationsReviewPage() {
     if (
       storedRouteContext.subsetSource !== subsetSource ||
       storedRouteContext.subsetValue !== subsetValue ||
-      storedSenderPage !== requestedSenderPage
+      storedSenderPage !== requestedSenderPage ||
+      !senderOverviewWindowSelectionsMatch(
+        storedSenderOverviewWindowSelection,
+        senderOverviewWindowSelection
+      )
     ) {
+      if (!restoreClusterId) return
+      startTransition(() => {
+        router.replace(
+          buildScopedReviewHref({
+            agentId,
+            sessionId,
+            analysisScope,
+            workflowScope: workflowScopeForOverviewContext({
+              subsetSource: storedRouteContext.subsetSource,
+              subsetValue: storedRouteContext.subsetValue,
+              semanticFocus: storedContext.semanticFocus,
+            }),
+            clusterId: restoreClusterId,
+            subsetSource: storedRouteContext.subsetSource,
+            subsetValue: storedRouteContext.subsetValue,
+            senderPage: storedSenderPage,
+            semanticFocus: storedContext.semanticFocus,
+            senderOverviewWindowSelection: storedSenderOverviewWindowSelection,
+          }),
+          { scroll: false }
+        )
+      })
       return
     }
 
@@ -6493,9 +8500,11 @@ export default function OperationsReviewPage() {
     mode,
     overviewReturnContextStorageKey,
     router,
+    requestedClusterId,
     requestedSenderPage,
     selectedCluster,
     sessionId,
+    senderOverviewWindowSelection,
     subsetSource,
     subsetValue,
     workflowScopeForOverviewContext,
@@ -6629,12 +8638,13 @@ export default function OperationsReviewPage() {
       allClusters: runtimeClusters,
       analysisScope: effectiveWorkflowScope,
       cacheVersion,
-      includeClusterSenderKeys: false,
+      includeClusterSenderKeys: true,
       page: requestedSenderPage,
       pageSize: semanticFocusPageSize,
       sort: semanticFocusWorkspaceOrdering.sort,
       direction: semanticFocusWorkspaceOrdering.direction,
       semanticFocus: activeSemanticSubtypeFocusRequest,
+      timeContextBucketLabel: requestedTimeContextBucketLabel,
       requestContext: {
         source: 'operations_review_page',
         component: 'sender_overview',
@@ -6672,6 +8682,7 @@ export default function OperationsReviewPage() {
     isDerivedReviewUnitActive,
     mode,
     requestedSenderPage,
+    requestedTimeContextBucketLabel,
     runtimeClusters,
     selectedCluster,
     semanticFocusPageSize,
@@ -6967,7 +8978,9 @@ export default function OperationsReviewPage() {
     isOverviewSenderPageTransitionLoading || isSemanticFocusPageTransitionLoading
   const senderWorkflowPagerClassName = 'w-full sm:max-w-[24rem] sm:ml-auto'
   const activeWorkflowNarrowing = Boolean(
-    renderedSemanticSubtypeFocus || hasSubsetRouteContext || activeTimeContextBucketSelection
+    renderedSemanticSubtypeFocus ||
+      hasSubsetRouteContext ||
+      senderOverviewWorkflowWindowActive
   )
   const hasDetachedWorkflowScope = effectiveWorkflowScope !== normalizedAnalysisScope
   const activeOverviewSubsetTotalPages = useMemo(() => {
@@ -7091,9 +9104,6 @@ export default function OperationsReviewPage() {
     return []
   }, [activeOverviewSubset, workflowOverviewWorkspace])
 
-  const eligibleSenders = useMemo(() => {
-    return reviewPopulation.filter((sender) => !managedBySender[sender.sender_key])
-  }, [managedBySender, reviewPopulation])
   const provisionalDecisionSeedSenderKey = useMemo(() => {
     const visibleSeedSender =
       reviewPopulation.find((sender) => !managedBySender[sender.sender_key]) || null
@@ -7105,19 +9115,27 @@ export default function OperationsReviewPage() {
     )
   }, [displayOverviewWorkspace, managedBySender, reviewPopulation])
   const fullAuthoritativeWorkflowSenderKeys = useMemo(() => {
-    const candidateCollections = [
-      decisionQueueSenderKeys,
-      workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
-      workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace || null),
-      workspaceClusterGlobalSenderKeys(displayOverviewWorkspace || null),
-      workspaceClusterGlobalSenderKeys(overviewShellWorkspace || null),
-      workspaceClusterGlobalSenderKeys(workspace || null),
-    ]
+    const candidateCollections = senderOverviewWindowSelection
+      ? [
+          workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
+          workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace || null),
+        ]
+      : [
+          workspaceClusterGlobalSenderKeys(authoritativeBucketWorkflowWorkspace || null),
+          decisionQueueSenderKeys,
+          workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
+          workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace || null),
+          workspaceClusterGlobalSenderKeys(displayOverviewWorkspace || null),
+          workspaceClusterGlobalSenderKeys(overviewShellWorkspace || null),
+          workspaceClusterGlobalSenderKeys(workspace || null),
+        ]
     for (const senderKeys of candidateCollections) {
       if (senderKeys.length > 0) return senderKeys
     }
-    return reviewPopulation.map((sender) => sender.sender_key)
+    return senderOverviewWindowSelection ? [] : reviewPopulation.map((sender) => sender.sender_key)
   }, [
+    authoritativeBucketWorkflowWorkspace,
+    senderOverviewWindowSelection,
     decisionQueueSenderKeys,
     displayOverviewWorkspace,
     overviewShellWorkspace,
@@ -7126,67 +9144,192 @@ export default function OperationsReviewPage() {
     workflowOverviewWorkspace,
     workspace,
   ])
-  const decisionOrderedSenderKeys = useMemo(() => {
-    if (
-      activeOverviewSubset &&
-      activeOverviewSubset.source !== 'review_unit' &&
-      activeSemanticSubtypeFocus == null
-    ) {
-      return activeOverviewSubset.senders.map((sender) => sender.sender_key)
+  const senderDistributionFullScopeAuthoritativeSenderKeys = useMemo(() => {
+    const candidateCollections = senderOverviewWindowSelection
+      ? [
+          workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
+          workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace || null),
+        ]
+      : [
+          workspaceClusterGlobalSenderKeys(authoritativeBucketWorkflowWorkspace || null),
+          workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
+          workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace || null),
+          workspaceClusterGlobalSenderKeys(displayOverviewWorkspace || null),
+          workspaceClusterGlobalSenderKeys(overviewShellWorkspace || null),
+          workspaceClusterGlobalSenderKeys(workspace || null),
+        ]
+    for (const senderKeys of candidateCollections) {
+      if (senderKeys.length > 0) return senderKeys
     }
-    if (decisionQueueSenderKeys.length > 0) return decisionQueueSenderKeys
-    return reviewPopulation.map((sender) => sender.sender_key)
+    return []
   }, [
-    activeOverviewSubset,
-    activeSemanticSubtypeFocus,
-    decisionQueueSenderKeys,
-    reviewPopulation,
+    authoritativeBucketWorkflowWorkspace,
+    senderOverviewWindowSelection,
+    displayOverviewWorkspace,
+    overviewShellWorkspace,
+    workflowCoverageWorkspace,
+    workflowOverviewWorkspace,
+    workspace,
+  ])
+  const workflowScopeUniverseOrderedSenderKeys = useMemo(() => {
+    if (requestedTimeContextBucketLabel) {
+      const broadScopeSenderKeys = workspaceClusterGlobalSenderKeys(
+        authoritativeBucketWorkflowWorkspace || null
+      )
+      if (broadScopeSenderKeys.length > 0) {
+        return broadScopeSenderKeys
+      }
+    }
+    return fullAuthoritativeWorkflowSenderKeys
+  }, [
+    authoritativeBucketWorkflowWorkspace,
+    fullAuthoritativeWorkflowSenderKeys,
+    requestedTimeContextBucketLabel,
   ])
   const baseSharedWorkflowSubset = useMemo<SharedWorkflowSubsetContract>(() => {
     const parentClusterId =
       selectedCluster?.clusterId || requestedClusterId || rawRequestedClusterId || null
     const routeSubset = activeOverviewSubsetRouteContext
     const detachedWorkflowScopeActive = effectiveWorkflowScope !== normalizedAnalysisScope
+    const workflowWindowSubsetActive = Boolean(
+      senderOverviewWindowSelection &&
+        workspaceHasUsableClusterGlobalSenderKeys(workflowOverviewWorkspace)
+    )
+    const workflowWindowOrderedSenderKeys = workflowWindowSubsetActive
+      ? workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace)
+      : []
+    const workflowWindowLabel =
+      senderOverviewWindowSelection ? senderOverviewWindowControlLabel(senderOverviewWindowSelection) : null
     const focusedSenderSubsetActive = isFocusedSenderSubsetSource(routeSubset?.source)
     const timeContextBucketSubsetActive = Boolean(
       requestedTimeContextBucketLabel &&
         workspaceSnapshot?.timeContextBucketLabel === requestedTimeContextBucketLabel &&
-        workspaceHasUsableClusterGlobalSenderKeys(workflowCoverageWorkspace || workflowOverviewWorkspace)
+        workspaceSnapshot?.timeContextBucketStartAt === requestedTimeContextBucketStartAt &&
+        workspaceSnapshot?.timeContextBucketEndExclusiveAt ===
+          requestedTimeContextBucketEndExclusiveAt &&
+        workspaceHasUsableClusterGlobalSenderKeys(authoritativeBucketWorkflowWorkspace)
     )
     const timeContextBucketOrderedSenderKeys = timeContextBucketSubsetActive
-      ? workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || workflowOverviewWorkspace)
+      ? workspaceClusterGlobalSenderKeys(authoritativeBucketWorkflowWorkspace)
       : []
-    const semanticFocusedSubsetActive =
-      activeOverviewSubset?.source === 'review_unit' || activeSemanticSubtypeFocus != null
-    const baseLabel = selectedCluster?.title || humanizeCleanupGroupId(parentClusterId)
-    const orderedSenderKeys = focusedSenderSubsetActive
-      ? fullAuthoritativeWorkflowSenderKeys
-      : timeContextBucketSubsetActive
-        ? timeContextBucketOrderedSenderKeys
-      : activeOverviewSubset && !semanticFocusedSubsetActive
+    const semanticFocusedSubsetActive = activeSemanticSubtypeFocus != null
+    const semanticFocusOrderedSenderKeys =
+      semanticFocusedSubsetActive && semanticFocusWorkspace
+        ? workspaceHasUsableClusterGlobalSenderKeys(semanticFocusWorkspace)
+          ? workspaceClusterGlobalSenderKeys(semanticFocusWorkspace)
+          : semanticFocusWorkspace.senders.map((sender) => sender.sender_key)
+        : []
+    const routeSubsetOrderedSenderKeys = focusedSenderSubsetActive
+      ? [activeOverviewSubset?.senders[0]?.sender_key || routeSubset?.value || ''].filter(Boolean)
+      : activeOverviewSubset && activeOverviewSubset.source !== 'review_unit'
         ? activeOverviewSubset.senders.map((sender) => sender.sender_key)
-        : decisionOrderedSenderKeys
-    const focusedSenderKey = focusedSenderSubsetActive
-      ? activeOverviewSubset?.senders[0]?.sender_key || routeSubset?.value || null
-      : null
-    const kind: SharedWorkflowSubsetKind = focusedSenderSubsetActive
-      ? 'focused_sender'
-      : timeContextBucketSubsetActive
-        ? 'derived_workflow_scope'
-      : activeOverviewSubset
-        ? 'derived_workflow_scope'
-        : detachedWorkflowScopeActive
+        : []
+    const baseLabel = selectedCluster?.title || humanizeCleanupGroupId(parentClusterId)
+    const resolvedFilters: SharedWorkflowResolvedFilter[] = []
+    let orderedSenderKeys = workflowScopeUniverseOrderedSenderKeys
+
+    if (detachedWorkflowScopeActive) {
+      resolvedFilters.push({
+        kind: 'workflow_scope',
+        label: analysisScopeControlLabel(effectiveWorkflowScope),
+        senderCount: workflowScopeUniverseOrderedSenderKeys.length,
+        exact: true,
+      })
+    }
+
+    if (workflowWindowSubsetActive && workflowWindowLabel) {
+      resolvedFilters.push({
+        kind: 'workflow_window',
+        label: workflowWindowLabel,
+        senderCount: workflowWindowOrderedSenderKeys.length,
+        exact: true,
+      })
+      const allowedSenderKeys = new Set(workflowWindowOrderedSenderKeys)
+      orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
+    }
+
+    if (timeContextBucketSubsetActive) {
+      resolvedFilters.push({
+        kind: 'time_context_bucket',
+        label: requestedTimeContextBucketLabel || 'Time Context bucket',
+        senderCount: timeContextBucketOrderedSenderKeys.length,
+        exact: true,
+      })
+      const allowedSenderKeys = new Set(timeContextBucketOrderedSenderKeys)
+      orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
+    }
+
+    if (semanticFocusedSubsetActive && semanticFocusOrderedSenderKeys.length > 0) {
+      resolvedFilters.push({
+        kind: 'semantic_focus',
+        label: activeSemanticSubtypeFocus?.label || 'Focused semantic segment',
+        senderCount: semanticFocusOrderedSenderKeys.length,
+        exact: workspaceHasUsableClusterGlobalSenderKeys(semanticFocusWorkspace),
+      })
+      const allowedSenderKeys = new Set(semanticFocusOrderedSenderKeys)
+      orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
+    }
+
+    if (focusedSenderSubsetActive && routeSubsetOrderedSenderKeys.length > 0) {
+      resolvedFilters.push({
+        kind: 'focused_sender',
+        label: activeOverviewSubset?.label || routeSubset?.value || 'Focused sender',
+        senderCount: routeSubsetOrderedSenderKeys.length,
+        exact: true,
+      })
+      const allowedSenderKeys = new Set(routeSubsetOrderedSenderKeys)
+      orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
+    } else if (activeOverviewSubset && routeSubsetOrderedSenderKeys.length > 0) {
+      resolvedFilters.push({
+        kind: 'route_subset',
+        label: activeOverviewSubset.label,
+        senderCount: routeSubsetOrderedSenderKeys.length,
+        exact: false,
+      })
+      const allowedSenderKeys = new Set(routeSubsetOrderedSenderKeys)
+      orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
+    }
+
+    const focusedSenderKey =
+      focusedSenderSubsetActive
+        ? routeSubsetOrderedSenderKeys[0] || activeOverviewSubset?.senders[0]?.sender_key || routeSubset?.value || null
+        : null
+    const combinedFiltersActive = resolvedFilters.length > 1
+    const kind: SharedWorkflowSubsetKind =
+      focusedSenderSubsetActive && orderedSenderKeys.length <= 1
+        ? 'focused_sender'
+        : resolvedFilters.length > 0
           ? 'derived_workflow_scope'
           : 'base_cluster'
     const populationMode: SharedWorkflowSubsetPopulationMode = focusedSenderSubsetActive
       ? 'focused_sender_only'
+      : combinedFiltersActive
+        ? 'combined_filtered'
+      : workflowWindowSubsetActive
+        ? 'workflow_window_filtered'
       : timeContextBucketSubsetActive
         ? 'time_bucket_filtered'
-      : activeOverviewSubset
-        ? 'route_subset_filtered'
-        : detachedWorkflowScopeActive
+      : resolvedFilters.length > 0
+        ? detachedWorkflowScopeActive
           ? 'workflow_scope_filtered'
-          : 'cluster_full'
+          : 'route_subset_filtered'
+        : 'cluster_full'
+    const filterLabels = resolvedFilters.map((filter) => filter.label)
+    const label =
+      filterLabels.length > 0 ? `${baseLabel} · ${filterLabels.join(' · ')}` : baseLabel
+    const sourcePrimary: SharedWorkflowSubsetPrimarySource = focusedSenderSubsetActive
+      ? 'focused_sender'
+      : combinedFiltersActive
+        ? 'combined_filters'
+      : workflowWindowSubsetActive
+        ? 'workflow_window'
+      : timeContextBucketSubsetActive
+        ? 'time_context_bucket'
+      : activeOverviewSubset
+        ? 'route_subset'
+      : detachedWorkflowScopeActive
+        ? 'workflow_scope'
+        : 'page_scope'
 
     return {
       kind,
@@ -7197,26 +9340,13 @@ export default function OperationsReviewPage() {
       populationMode,
       orderedSenderKeys,
       focusedSenderKey,
-      label: focusedSenderSubsetActive
-        ? activeOverviewSubset?.label || routeSubset?.value || 'Focused sender'
-        : timeContextBucketSubsetActive
-          ? `${baseLabel} · ${requestedTimeContextBucketLabel}`
-        : activeOverviewSubset
-          ? activeOverviewSubset.label
-          : detachedWorkflowScopeActive
-            ? `${baseLabel} · ${analysisScopeControlLabel(effectiveWorkflowScope)}`
-            : baseLabel,
+      label,
+      resolvedSenderCount: orderedSenderKeys.length,
+      resolvedFilters,
       source: {
-        primary: focusedSenderSubsetActive
-          ? 'focused_sender'
-          : timeContextBucketSubsetActive
-            ? 'time_context_bucket'
-          : routeSubset
-            ? 'route_subset'
-            : detachedWorkflowScopeActive
-              ? 'workflow_scope'
-              : 'page_scope',
+        primary: sourcePrimary,
         workflowScope: normalizedRequestedWorkflowScope,
+        senderOverviewWindowLabel: workflowWindowSubsetActive ? workflowWindowLabel : null,
         timeContextBucketLabel:
           timeContextBucketSubsetActive ? requestedTimeContextBucketLabel : null,
         routeSubset,
@@ -7235,139 +9365,268 @@ export default function OperationsReviewPage() {
     activeOverviewSubset,
     activeOverviewSubsetRouteContext,
     activeSemanticSubtypeFocus,
-    decisionOrderedSenderKeys,
     effectiveWorkflowScope,
-    fullAuthoritativeWorkflowSenderKeys,
     normalizedAnalysisScope,
     normalizedRequestedWorkflowScope,
     rawRequestedClusterId,
     requestedTimeContextBucketLabel,
     requestedClusterId,
+    senderOverviewWindowSelection,
+    semanticFocusWorkspace,
     selectedCluster?.clusterId,
     selectedCluster?.title,
-    workspaceSnapshot?.timeContextBucketLabel,
-    workflowCoverageWorkspace,
+    authoritativeBucketWorkflowWorkspace,
     workflowOverviewWorkspace,
+    workflowScopeUniverseOrderedSenderKeys,
+    workspaceSnapshot?.timeContextBucketLabel,
   ])
   const senderDistributionSemanticFocus = activeSemanticSubtypeFocusRequest
-  const senderDistributionBaselineKey = useMemo(
-    () =>
-      [
-        selectedCluster?.clusterId || requestedClusterId || rawRequestedClusterId || 'no-cluster',
-        effectiveWorkflowScope,
-        senderDistributionSemanticFocus
-          ? [
-              senderDistributionSemanticFocus.family,
-              senderDistributionSemanticFocus.kind,
-              senderDistributionSemanticFocus.subtypeKey || 'none',
-              senderDistributionSemanticFocus.surfacedSubtypeKeys.slice().sort().join(',') ||
-                'none',
-            ].join(':')
-          : 'no-semantic-focus',
-      ].join('::'),
-    [
-      effectiveWorkflowScope,
-      rawRequestedClusterId,
-      requestedClusterId,
-      selectedCluster?.clusterId,
-      senderDistributionSemanticFocus,
-    ]
-  )
-  const [senderDistributionWorkspaceState, setSenderDistributionWorkspaceState] =
-    useState<SenderDistributionWorkspaceState>({
-      status: 'idle',
-      data: null,
-      error: null,
+  const senderDistributionDedicatedFetchCluster = selectedCluster || null
+  const senderDistributionRequestKey = useMemo(() => {
+    if (!senderDistributionDedicatedFetchCluster) {
+      return null
+    }
+    return buildGmailSenderDistributionCacheKey({
+      selectedCluster: senderDistributionDedicatedFetchCluster,
+      allClusters: runtimeClusters,
+      analysisScope: effectiveWorkflowScope,
+      cacheVersion: cacheVersion?.trim() || 'default',
+      semanticFocus: senderDistributionSemanticFocus,
+      timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
+      senderOverviewStart: senderOverviewWindowSelection?.start || null,
+      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      timeZone: browserTimeZone,
     })
-  const senderDistributionDedicatedFetchCluster =
-    effectiveWorkflowSelectedCluster || selectedCluster || null
+  }, [
+    browserTimeZone,
+    cacheVersion,
+    effectiveWorkflowScope,
+    runtimeClusters,
+    senderDistributionDedicatedFetchCluster,
+    senderDistributionSemanticFocus,
+    requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
+  ])
   const senderDistributionCachedData = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
       return null
     }
     return readCachedGmailSenderDistribution({
       selectedCluster: senderDistributionDedicatedFetchCluster,
+      allClusters: runtimeClusters,
       analysisScope: effectiveWorkflowScope,
       cacheVersion,
       semanticFocus: senderDistributionSemanticFocus,
+      timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
+      senderOverviewStart: senderOverviewWindowSelection?.start || null,
+      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      timeZone: browserTimeZone,
     })
   }, [
+    browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
+    runtimeClusters,
     senderDistributionSemanticFocus,
+    requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
     senderDistributionDedicatedFetchCluster,
   ])
+  const [senderDistributionWorkspaceState, setSenderDistributionWorkspaceState] =
+    useState<SenderDistributionWorkspaceState>(() =>
+      senderDistributionRequestKey && senderDistributionCachedData
+        ? {
+            status: 'ready',
+            data: senderDistributionCachedData,
+            error: null,
+            requestKey: senderDistributionRequestKey,
+          }
+        : {
+            status: 'idle',
+            data: null,
+            error: null,
+            requestKey: null,
+          }
+    )
+  const senderDistributionWorkspaceStateRef = useRef(senderDistributionWorkspaceState)
+  const senderDistributionInitialFetchIssuedRef = useRef(false)
 
   useEffect(() => {
-    if (!senderDistributionDedicatedFetchCluster) {
+    senderDistributionWorkspaceStateRef.current = senderDistributionWorkspaceState
+  }, [senderDistributionWorkspaceState])
+
+  useEffect(() => {
+    if (!senderDistributionDedicatedFetchCluster || !senderDistributionRequestKey) {
       setSenderDistributionWorkspaceState((current) =>
-        current.status === 'idle' && current.data == null && current.error == null
+        current.status === 'idle' &&
+        current.data == null &&
+        current.error == null &&
+        current.requestKey == null
           ? current
-          : { status: 'idle', data: null, error: null }
+          : { status: 'idle', data: null, error: null, requestKey: null }
       )
       return
     }
 
+    const currentState = senderDistributionWorkspaceStateRef.current
+    const continuityHeldSenderDistributionData =
+      currentState.requestKey === senderDistributionRequestKey
+        ? currentState.data || senderDistributionCachedData
+        : senderDistributionCachedData
+    if (shouldHoldContinuityShell && continuityHeldSenderDistributionData) {
+      setSenderDistributionWorkspaceState((current) =>
+        current.status === 'ready' &&
+        current.data === continuityHeldSenderDistributionData &&
+        current.error == null &&
+        current.requestKey === senderDistributionRequestKey
+          ? current
+          : {
+              status: 'ready',
+              data: continuityHeldSenderDistributionData,
+              error: null,
+              requestKey: senderDistributionRequestKey,
+            }
+      )
+      return
+    }
+    if (
+      currentState.requestKey === senderDistributionRequestKey &&
+      (currentState.status === 'loading' || currentState.status === 'ready')
+    ) {
+      return
+    }
+
     let cancelled = false
-    const controller = new AbortController()
+    const seedData =
+      currentState.requestKey === senderDistributionRequestKey
+        ? currentState.data || senderDistributionCachedData
+        : currentState.data || senderDistributionCachedData
+    const senderDistributionRequestPhase = senderDistributionInitialFetchIssuedRef.current
+      ? 'interactive'
+      : 'initial_paint'
+    senderDistributionInitialFetchIssuedRef.current = true
+
+    const readLatestSenderDistributionCache = () =>
+      readCachedGmailSenderDistribution({
+        selectedCluster: senderDistributionDedicatedFetchCluster,
+        allClusters: runtimeClusters,
+        analysisScope: effectiveWorkflowScope,
+        cacheVersion,
+        semanticFocus: senderDistributionSemanticFocus,
+        timeContextBucketLabel: requestedTimeContextBucketLabel,
+        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+        senderOverviewWindow: senderOverviewWindowSelection?.window || null,
+        senderOverviewStart: senderOverviewWindowSelection?.start || null,
+        senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+        timeZone: browserTimeZone,
+      })
 
     setSenderDistributionWorkspaceState({
       status: 'loading',
-      data: senderDistributionCachedData,
+      data: seedData,
       error: null,
+      requestKey: senderDistributionRequestKey,
     })
 
     void (async () => {
-      let attempt = 0
-      while (!cancelled) {
-        const result = await fetchGmailSenderDistribution({
-          selectedCluster: senderDistributionDedicatedFetchCluster,
-          analysisScope: effectiveWorkflowScope,
-          cacheVersion,
-          semanticFocus: senderDistributionSemanticFocus,
-          requestContext: {
-            source: 'operations_review_page',
-            component: 'sender_distribution',
-            reason: 'sender_distribution_chart',
-            phase: 'interactive',
-            agentId,
-          },
-          signal: controller.signal,
-        })
-        if (cancelled || ('aborted' in result && result.aborted)) return
-        if (!result.ok) {
-          if (attempt < 5 && isTransientInboxAnalysisGuardError(result.error)) {
-            attempt += 1
-            await delayMs(1200)
-            continue
+      const result = await fetchGmailSenderDistribution({
+        selectedCluster: senderDistributionDedicatedFetchCluster,
+        allClusters: runtimeClusters,
+        analysisScope: effectiveWorkflowScope,
+        cacheVersion,
+        semanticFocus: senderDistributionSemanticFocus,
+        timeContextBucketLabel: requestedTimeContextBucketLabel,
+        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+        senderOverviewWindow: senderOverviewWindowSelection?.window || null,
+        senderOverviewStart: senderOverviewWindowSelection?.start || null,
+        senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+        timeZone: browserTimeZone,
+        requestContext: {
+          source: 'operations_review_page',
+          component: 'sender_distribution',
+          reason: 'sender_distribution_chart',
+          phase: senderDistributionRequestPhase,
+          agentId,
+        },
+      })
+      if (cancelled || ('aborted' in result && result.aborted)) return
+      if (!result.ok) {
+        if (isTransientInboxAnalysisGuardError(result.error)) {
+          const attachDeadlineMs = Date.now() + SENDER_DISTRIBUTION_GUARD_ATTACH_WAIT_MS
+          while (!cancelled && Date.now() < attachDeadlineMs) {
+            const attachedData = readLatestSenderDistributionCache()
+            if (attachedData) {
+              setSenderDistributionWorkspaceState({
+                status: 'ready',
+                data: attachedData,
+                error: null,
+                requestKey: senderDistributionRequestKey,
+              })
+              return
+            }
+            await delayMs(SENDER_DISTRIBUTION_GUARD_ATTACH_POLL_MS)
           }
-          setSenderDistributionWorkspaceState((current) => ({
-            status: 'error',
-            data: current.data,
-            error: result.error,
-          }))
+          if (cancelled) return
+          const latestState = senderDistributionWorkspaceStateRef.current
+          if (
+            latestState.requestKey === senderDistributionRequestKey &&
+            latestState.status === 'loading'
+          ) {
+            return
+          }
           return
         }
         setSenderDistributionWorkspaceState({
-          status: 'ready',
-          data: result.data,
-          error: null,
+          status: 'error',
+          data: seedData,
+          error: result.error,
+          requestKey: senderDistributionRequestKey,
         })
         return
       }
+      setSenderDistributionWorkspaceState({
+        status: 'ready',
+        data: result.data,
+        error: null,
+        requestKey: senderDistributionRequestKey,
+      })
     })()
 
     return () => {
       cancelled = true
-      controller.abort()
     }
   }, [
     agentId,
+    browserTimeZone,
     cacheVersion,
+    shouldHoldContinuityShell,
     effectiveWorkflowScope,
-    senderDistributionBaselineKey,
+    runtimeClusters,
     senderDistributionCachedData,
+    senderDistributionRequestKey,
     senderDistributionSemanticFocus,
+    requestedTimeContextBucketLabel,
+    requestedTimeContextBucketStartAt,
+    requestedTimeContextBucketEndExclusiveAt,
+    senderOverviewWindowSelection?.end,
+    senderOverviewWindowSelection?.start,
+    senderOverviewWindowSelection?.window,
     senderDistributionDedicatedFetchCluster,
   ])
   const senderDistributionData = senderDistributionWorkspaceState.data
@@ -7380,60 +9639,105 @@ export default function OperationsReviewPage() {
     }
     return lookup
   }, [senderDistributionData?.senders])
-  const senderDistributionMembershipSenderKeys = useMemo(
-    () => new Set((senderDistributionData?.senders || []).map((sender) => sender.sender_key)),
+  const sharedWorkflowSubset = baseSharedWorkflowSubset
+  const authoritativeWorkflowSenderKeys = sharedWorkflowSubset.orderedSenderKeys
+  const senderDistributionBroadSenderKeys = useMemo(
+    () => (senderDistributionData?.senders || []).map((sender) => sender.sender_key),
     [senderDistributionData?.senders]
   )
-  const shouldConstrainWorkflowOrderToDistributionMembership =
-    senderDistributionData != null &&
-    (baseSharedWorkflowSubset.source.semanticFocus != null ||
-      baseSharedWorkflowSubset.authoritativeScope !== normalizedAnalysisScope)
-  const sharedWorkflowSubset = useMemo<SharedWorkflowSubsetContract>(() => {
-    if (!shouldConstrainWorkflowOrderToDistributionMembership) {
-      return baseSharedWorkflowSubset
+  const senderDistributionAuthoritativeWorkflowSenderKeys = useMemo(() => {
+    if (
+      senderOverviewWindowSelection != null &&
+      sharedWorkflowSubset.focusedSenderKey == null &&
+      senderDistributionWorkspaceState.status === 'ready' &&
+      senderDistributionWorkspaceState.requestKey === senderDistributionRequestKey &&
+      senderDistributionBroadSenderKeys.length > 0
+    ) {
+      return senderDistributionBroadSenderKeys
     }
-
-    return {
-      ...baseSharedWorkflowSubset,
-      orderedSenderKeys: baseSharedWorkflowSubset.orderedSenderKeys.filter((senderKey) =>
-        senderDistributionMembershipSenderKeys.has(senderKey)
-      ),
+    if (
+      effectiveWorkflowScope !== normalizedAnalysisScope &&
+      senderOverviewWindowSelection == null &&
+      sharedWorkflowSubset.resolvedFilters.length === 1 &&
+      sharedWorkflowSubset.resolvedFilters[0]?.kind === 'workflow_scope' &&
+      sharedWorkflowSubset.focusedSenderKey == null &&
+      senderDistributionWorkspaceState.status === 'ready' &&
+      senderDistributionWorkspaceState.requestKey === senderDistributionRequestKey &&
+      senderDistributionBroadSenderKeys.length > 0
+    ) {
+      return senderDistributionBroadSenderKeys
     }
+    if (
+      normalizedAnalysisScope === 'all_indexed' &&
+      effectiveWorkflowScope === normalizedAnalysisScope &&
+      sharedWorkflowSubset.resolvedFilters.length === 0 &&
+      sharedWorkflowSubset.focusedSenderKey == null &&
+      senderDistributionFullScopeAuthoritativeSenderKeys.length > 0
+    ) {
+      return senderDistributionFullScopeAuthoritativeSenderKeys
+    }
+    return authoritativeWorkflowSenderKeys
   }, [
-    baseSharedWorkflowSubset,
-    senderDistributionMembershipSenderKeys,
-    shouldConstrainWorkflowOrderToDistributionMembership,
+    authoritativeWorkflowSenderKeys,
+    effectiveWorkflowScope,
+    normalizedAnalysisScope,
+    senderDistributionBroadSenderKeys,
+    senderDistributionFullScopeAuthoritativeSenderKeys,
+    senderDistributionRequestKey,
+    senderDistributionWorkspaceState.requestKey,
+    senderDistributionWorkspaceState.status,
+    senderOverviewWindowSelection,
+    sharedWorkflowSubset.focusedSenderKey,
+    sharedWorkflowSubset.resolvedFilters,
   ])
-  const authoritativeWorkflowSenderKeys = sharedWorkflowSubset.orderedSenderKeys
-  const senderDistributionTotalRankedSenders = authoritativeWorkflowSenderKeys.length
-  const senderDistributionGroupMessageTotal = Math.max(
-    senderDistributionData?.selected_cluster.message_count || 0,
-    1
-  )
   const senderDistributionEmptyScopedSubset =
     senderDistributionWorkspaceState.status === 'ready' &&
     senderDistributionData != null &&
     senderDistributionData.senders.length === 0
   const senderDistributionMissingOrderAuthority =
-    authoritativeWorkflowSenderKeys.length === 0 && !senderDistributionEmptyScopedSubset
+    senderDistributionAuthoritativeWorkflowSenderKeys.length === 0 && !senderDistributionEmptyScopedSubset
   const senderDistributionMissingOrderedKeys = useMemo(() => {
     if (senderDistributionMissingOrderAuthority) return []
-    return authoritativeWorkflowSenderKeys.filter(
+    return senderDistributionAuthoritativeWorkflowSenderKeys.filter(
       (senderKey) => !senderDistributionSenderLookup.has(senderKey)
     )
   }, [
-    authoritativeWorkflowSenderKeys,
+    senderDistributionAuthoritativeWorkflowSenderKeys,
     senderDistributionMissingOrderAuthority,
     senderDistributionSenderLookup,
   ])
+  const senderDistributionConsistentWithWorkflow =
+    !senderDistributionMissingOrderAuthority && senderDistributionMissingOrderedKeys.length === 0
+  const senderDistributionOrderedSenderKeys = useMemo(() => {
+    if (!senderDistributionConsistentWithWorkflow) return []
+    return senderDistributionAuthoritativeWorkflowSenderKeys.filter((senderKey) =>
+      senderDistributionSenderLookup.has(senderKey)
+    )
+  }, [
+    senderDistributionAuthoritativeWorkflowSenderKeys,
+    senderDistributionConsistentWithWorkflow,
+    senderDistributionSenderLookup,
+  ])
+  const senderDistributionTotalRankedSenders = senderDistributionOrderedSenderKeys.length
+  const senderDistributionBroadMessageTotal = useMemo(() => {
+    if (senderDistributionBroadSenderKeys.length === 0) return 0
+    return senderDistributionBroadSenderKeys.reduce(
+      (sum, senderKey) =>
+        sum + (senderDistributionSenderLookup.get(senderKey)?.cleanup_group_message_count || 0),
+      0
+    )
+  }, [senderDistributionBroadSenderKeys, senderDistributionSenderLookup])
+  const senderDistributionGroupMessageTotal = Math.max(
+    senderDistributionBroadMessageTotal || senderDistributionData?.selected_cluster.message_count || 0,
+    1
+  )
   const senderDistributionCanRender =
-    !senderDistributionMissingOrderAuthority &&
-    authoritativeWorkflowSenderKeys.length > 0 &&
-    senderDistributionMissingOrderedKeys.length === 0
+    senderDistributionConsistentWithWorkflow &&
+    senderDistributionOrderedSenderKeys.length > 0
   const senderDistributionItems = useMemo(() => {
     if (!senderDistributionCanRender) return []
 
-    return authoritativeWorkflowSenderKeys
+    return senderDistributionOrderedSenderKeys
       .map((senderKey, index) => {
         const sender = senderDistributionSenderLookup.get(senderKey)
         if (!sender) return null
@@ -7460,18 +9764,30 @@ export default function OperationsReviewPage() {
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
   }, [
-    authoritativeWorkflowSenderKeys,
     senderDistributionCanRender,
     senderDistributionGroupMessageTotal,
+    senderDistributionOrderedSenderKeys,
     senderDistributionSenderLookup,
     sharedWorkflowSubset.focusedSenderKey,
   ])
+  useEffect(() => {
+    if (sharedWorkflowSubset.focusedSenderKey != null) {
+      setLocalSenderDistributionFocusKey(null)
+      return
+    }
+    setLocalSenderDistributionFocusKey((current) =>
+      current != null && senderDistributionSenderLookup.has(current) ? current : null
+    )
+  }, [senderDistributionSenderLookup, sharedWorkflowSubset.focusedSenderKey])
   const senderDistributionScopeStatus = useMemo(
     () =>
       buildSenderDistributionRailScopeStatus({
         activeScope: activeRailScope,
         baselineScope: normalizedAnalysisScope,
         workflowScope: effectiveWorkflowScope,
+        workflowWindowLabel: senderOverviewWindowSelection
+          ? senderOverviewWindowControlLabel(senderOverviewWindowSelection)
+          : null,
         comparisonState:
           activeRailScope === effectiveWorkflowScope
             ? 'ready'
@@ -7482,6 +9798,7 @@ export default function OperationsReviewPage() {
       activeRailScope,
       effectiveWorkflowScope,
       normalizedAnalysisScope,
+      senderOverviewWindowSelection,
     ]
   )
   const senderDistributionFocusedSenderLabel = useMemo(() => {
@@ -7496,38 +9813,400 @@ export default function OperationsReviewPage() {
     senderDistributionSenderLookup,
     sharedWorkflowSubset.focusedSenderKey,
   ])
-  const senderDistributionAuthoritativeContext = useMemo(() => {
-    const chips = [analysisScopeControlLabel(effectiveWorkflowScope)]
-    if (requestedTimeContextBucketLabel) {
-      chips.push(`Bucket: ${requestedTimeContextBucketLabel}`)
+  const timeContextBucketSelectionApplied = Boolean(
+    requestedTimeContextBucketLabel &&
+      authoritativeBucketWorkflowWorkspace &&
+      workspaceSnapshot?.timeContextBucketLabel === requestedTimeContextBucketLabel &&
+      workspaceSnapshot?.timeContextBucketStartAt === requestedTimeContextBucketStartAt &&
+      workspaceSnapshot?.timeContextBucketEndExclusiveAt ===
+        requestedTimeContextBucketEndExclusiveAt
+  )
+  const stableOverviewSummary = lastCompleteOverviewSummaryRef.current
+  const renderedTopSummarySenderTotal =
+    topSummarySenderTotal ?? stableOverviewSummary?.senderTotal ?? null
+  const renderedTopSummaryManagedCount =
+    topSummaryManagedCount ?? stableOverviewSummary?.managedCount ?? null
+  const renderedTopSummaryRemainingCount =
+    topSummaryRemainingCount ?? stableOverviewSummary?.remainingCount ?? null
+  const renderedTopSummaryCoveragePct =
+    topSummaryCoveragePct ?? stableOverviewSummary?.coveragePct ?? null
+  const renderedTopSummarySupportingMessageCount =
+    topSummarySupportingMessageCount ?? stableOverviewSummary?.supportingMessageCount ?? null
+  const renderedTopSummaryCoverageIsLoading =
+    renderedTopSummaryManagedCount == null ||
+    renderedTopSummaryRemainingCount == null ||
+    renderedTopSummaryCoveragePct == null
+  const renderedTopSummarySenderTotalIsLoading = renderedTopSummarySenderTotal == null
+  const renderedTopSummarySupportingMessageIsLoading =
+    renderedTopSummarySupportingMessageCount == null
+  const renderedTopSummaryGoalSummary =
+    renderedTopSummaryManagedCount != null && renderedTopSummaryRemainingCount != null
+      ? `${renderedTopSummaryManagedCount.toLocaleString()} covered · ${renderedTopSummaryRemainingCount.toLocaleString()} remaining`
+      : stableOverviewSummary?.goalSummary || topSummaryGoalSummary
+  const renderedTopSummaryGoalFollowUp =
+    stableOverviewSummary?.goalFollowUp || topSummaryGoalFollowUp
+  const renderedTimeContextWorkflowSenderUniverseTotal =
+    activeRailDisplay.workflowSenderUniverseTotal
+  const renderedTimeContextWorkflowContext = senderOverviewWindowSelection
+    ? {
+        total: sharedWorkflowSubset.resolvedSenderCount,
+        label: 'Active workflow window',
+        detail: `${analysisScopeControlLabel(effectiveWorkflowScope)} stays the current workflow boundary. This active workflow window is what narrows the sender workflow below.`,
+      }
+    : null
+  const renderedTimeContextNextAction = activeRailDisplay.nextAction
+  const activeTimeContextWorkflowTimeline = useMemo(() => {
+    if (!canonicalTimeContextRailChart) return null
+    const granularity = canonicalTimeContextRailChart.granularity
+    const items = canonicalTimeContextRailChart.items.map((item) => ({
+      label: item.label,
+      count: item.count,
+      bucketStartIso: normalizeTimeContextBucketIso(item.bucketStartIso),
+      bucketEndExclusiveIso: normalizeTimeContextBucketIso(item.bucketEndExclusiveIso),
+    }))
+    return items.length > 0 ? { granularity, items } : null
+  }, [canonicalTimeContextRailChart])
+  const activeTimeContextIndexedCoverage = useMemo(() => {
+    if (displayedSenderOverviewWindowData?.indexed_coverage) {
+      return displayedSenderOverviewWindowData.indexed_coverage
     }
-    if (activeSemanticSubtypeFocus) {
-      chips.push(activeSemanticSubtypeFocus.label)
+    if (
+      activeTimeContextWorkflowTimeline &&
+      senderOverviewWindowSelection == null &&
+      authoritativeTimeContextRailWorkspace &&
+      workspaceHasCanonicalTimeContextTimeline(
+        authoritativeTimeContextRailWorkspace,
+        effectiveWorkflowScope
+      )
+    ) {
+      const coverageFromTimeline = timeContextCoverageFromTimeline({
+        granularity: activeTimeContextWorkflowTimeline.granularity,
+        items: activeTimeContextWorkflowTimeline.items,
+        coverageEndIso:
+          renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_end ||
+          null,
+      })
+      if (coverageFromTimeline) return coverageFromTimeline
+    }
+    return {
+      indexed_total_rows: 0,
+      indexed_inbox_rows: 0,
+      indexed_date_span_start:
+        renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start ||
+        null,
+      indexed_date_span_end:
+        renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_end ||
+        null,
+    }
+  }, [
+    activeTimeContextWorkflowTimeline,
+    authoritativeTimeContextRailWorkspace,
+    displayedSenderOverviewWindowData?.indexed_coverage,
+    effectiveWorkflowScope,
+    renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_end,
+    renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
+    senderOverviewWindowSelection,
+  ])
+  const activeTimeContextResolvedWindow = useMemo(() => {
+    if (displayedSenderOverviewWindowData) {
+      return {
+        groupingLabel: displayedSenderOverviewWindowData.grouping.label,
+        label: displayedSenderOverviewWindowData.window.label,
+        effectiveStart: displayedSenderOverviewWindowData.window.effective_start,
+        effectiveEnd: displayedSenderOverviewWindowData.window.effective_end,
+        limitedByIndexedCoverage: displayedSenderOverviewWindowData.window.limited_by_indexed_coverage,
+        timeZone: displayedSenderOverviewWindowData.time_zone,
+      }
+    }
+    if (
+      senderOverviewWindowSelection == null &&
+      activeTimeContextWorkflowTimeline &&
+      authoritativeTimeContextRailWorkspace &&
+      workspaceHasCanonicalTimeContextTimeline(
+        authoritativeTimeContextRailWorkspace,
+        effectiveWorkflowScope
+      )
+    ) {
+      const resolvedFromTimeline = timeContextResolvedWindowFromTimeline({
+        granularity: activeTimeContextWorkflowTimeline.granularity,
+        items: activeTimeContextWorkflowTimeline.items,
+        coverageEndIso: activeTimeContextIndexedCoverage.indexed_date_span_end,
+        limitedByIndexedCoverage: effectiveWorkflowScope !== 'all_indexed',
+        timeZone: browserTimeZone,
+      })
+      if (resolvedFromTimeline) return resolvedFromTimeline
+    }
+    const resolved = pressureTrendResolvedWindow({
+      coverage: activeTimeContextIndexedCoverage,
+      pressureWindow: activeTimeContextChartScope,
+      pressureStart: senderOverviewWindowSelection?.start,
+      pressureEnd: senderOverviewWindowSelection?.end,
+      timeZone: browserTimeZone,
+    })
+    if (!resolved.ok) return null
+    return {
+      groupingLabel: resolved.data.grouping === 'hour'
+        ? 'Hourly bars'
+        : resolved.data.grouping === 'day'
+          ? 'Daily bars'
+          : resolved.data.grouping === 'week'
+            ? 'Weekly bars'
+            : resolved.data.grouping === 'month'
+              ? 'Monthly bars'
+              : resolved.data.grouping === 'quarter'
+                ? 'Quarterly bars'
+                : 'Yearly bars',
+      label: resolved.data.label,
+      effectiveStart: resolved.data.effectiveStartMs != null ? new Date(resolved.data.effectiveStartMs).toISOString() : null,
+      effectiveEnd:
+        resolved.data.effectiveStartMs != null && resolved.data.effectiveEndExclusiveMs != null
+          ? new Date(
+              Math.max(
+                resolved.data.effectiveStartMs,
+                resolved.data.effectiveEndExclusiveMs - 1
+              )
+            ).toISOString()
+          : null,
+      limitedByIndexedCoverage: resolved.data.limitedByIndexedCoverage,
+      timeZone: resolved.data.timeZone,
+    }
+  }, [
+    activeTimeContextChartScope,
+    activeTimeContextIndexedCoverage,
+    activeTimeContextWorkflowTimeline,
+    authoritativeTimeContextRailWorkspace,
+    browserTimeZone,
+    displayedSenderOverviewWindowData,
+    effectiveWorkflowScope,
+    renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
+    senderOverviewWindowSelection,
+  ])
+  const timeContextActiveRangeLabel = useMemo(() => {
+    if (activeTimeContextResolvedWindow) {
+      return timeContextRangeDetail(activeTimeContextResolvedWindow)
+    }
+    if (
+      senderOverviewWindowSelection?.window === 'custom' &&
+      senderOverviewWindowSelection.start &&
+      senderOverviewWindowSelection.end
+    ) {
+      return timeContextRangeDetail({
+        label: 'custom range',
+        effectiveStart: senderOverviewWindowSelection.start,
+        effectiveEnd: senderOverviewWindowSelection.end,
+        groupingLabel: 'selected window',
+        limitedByIndexedCoverage: false,
+        timeZone: browserTimeZone,
+      })
+    }
+    if (senderOverviewWindowSelection?.window === 'last_day') {
+      return 'Showing last 24 hours'
+    }
+    return null
+  }, [activeTimeContextResolvedWindow, browserTimeZone, senderOverviewWindowSelection])
+  const timeContextCustomRangeMin = useMemo(
+    () =>
+      dateInputValueFromIso(
+        activeTimeContextIndexedCoverage.indexed_date_span_start || null,
+        browserTimeZone
+      ),
+    [
+      activeTimeContextIndexedCoverage.indexed_date_span_start,
+      browserTimeZone,
+    ]
+  )
+  const timeContextCustomRangeMax = useMemo(
+    () =>
+      dateInputValueFromIso(
+        activeTimeContextIndexedCoverage.indexed_date_span_end || null,
+        browserTimeZone
+      ),
+    [
+      activeTimeContextIndexedCoverage.indexed_date_span_end,
+      browserTimeZone,
+    ]
+  )
+  const applySenderOverviewCustomRange = useCallback(
+    (start: string, end: string) => {
+      const clampedStart = clampDateInputToBounds(
+        start,
+        timeContextCustomRangeMin,
+        timeContextCustomRangeMax
+      )
+      const clampedEnd = clampDateInputToBounds(
+        end,
+        timeContextCustomRangeMin,
+        timeContextCustomRangeMax
+      )
+      const normalizedStart = clampedStart <= clampedEnd ? clampedStart : clampedEnd
+      const normalizedEnd = clampedStart <= clampedEnd ? clampedEnd : clampedStart
+      updateSenderOverviewWindowQuery({
+        window: 'custom',
+        start: normalizedStart,
+        end: normalizedEnd,
+      })
+    },
+    [timeContextCustomRangeMax, timeContextCustomRangeMin, updateSenderOverviewWindowQuery]
+  )
+  const activeSenderDistributionControlScope = useMemo(
+    () =>
+      senderOverviewWindowSelection?.window ||
+      mapWorkflowScopeToTimeContextChartScope(activeRailScope) ||
+      'all_indexed',
+    [activeRailScope, senderOverviewWindowSelection]
+  )
+  const pendingSenderDistributionControlScope = useMemo(
+    () => {
+      if (pendingSenderOverviewWindowSelection) return pendingSenderOverviewWindowSelection.window
+      return pendingSenderDistributionScope != null
+        ? mapWorkflowScopeToTimeContextChartScope(pendingSenderDistributionScope)
+        : null
+    },
+    [pendingSenderDistributionScope, pendingSenderOverviewWindowSelection]
+  )
+  const handleSenderDistributionControlSelect = useCallback(
+    (nextScope: TimeContextChartScope) => {
+      if (nextScope === 'last_day') {
+        if (
+          senderOverviewWindowSelection?.window === 'last_day' ||
+          pendingSenderOverviewWindowSelection?.window === 'last_day'
+        ) {
+          return
+        }
+        updateSenderOverviewWindowQuery({
+          window: 'last_day',
+          start: null,
+          end: null,
+        })
+        return
+      }
+      if (nextScope === 'custom') return
+      const normalizedNext = mapTimeContextChartScopeToWorkflowScope(nextScope)
+      if (normalizedNext == null) return
+      if (
+        normalizedNext === effectiveWorkflowScope &&
+        (senderOverviewWindowSelection != null || pendingSenderOverviewWindowSelection != null)
+      ) {
+        if (!selectedCluster) return
+        const clearsFocusedSenderSubset =
+          isFocusedSenderSubsetSource(subsetSource) && subsetValue != null
+        const nextSubsetSource = clearsFocusedSenderSubset ? null : subsetSource
+        const nextSubsetValue = clearsFocusedSenderSubset ? null : subsetValue
+
+        navigateScopedReviewState({
+          workflowScope: normalizedNext,
+          clusterId: selectedCluster.clusterId,
+          subsetSource: nextSubsetSource,
+          subsetValue: nextSubsetValue,
+          senderPage: null,
+          semanticFocus: activeSemanticSubtypeFocusRef.current,
+          overlayIntent: mode === 'decision' ? 'guided' : null,
+          senderOverviewWindowSelection: null,
+          pendingSenderDistributionScope: normalizedNext,
+          pendingSenderOverviewWindowSelection: null,
+        })
+        return
+      }
+      handleRailScopeSelect(normalizedNext)
+    },
+    [
+      effectiveWorkflowScope,
+      handleRailScopeSelect,
+      mode,
+      navigateScopedReviewState,
+      pendingSenderOverviewWindowSelection,
+      selectedCluster,
+      senderOverviewWindowSelection,
+      subsetSource,
+      subsetValue,
+      updateSenderOverviewWindowQuery,
+    ]
+  )
+  const senderDistributionAuthoritativeContext = useMemo(() => {
+    const chips: Array<{ key: string; label: string }> = []
+    const seenChipLabels = new Set<string>()
+    const pushChip = (key: string, label: string) => {
+      const normalizedLabel = label.trim().toLowerCase()
+      if (!normalizedLabel || seenChipLabels.has(normalizedLabel)) return
+      seenChipLabels.add(normalizedLabel)
+      chips.push({ key, label })
+    }
+
+    pushChip(`scope:${effectiveWorkflowScope}`, analysisScopeControlLabel(effectiveWorkflowScope))
+    for (const filter of sharedWorkflowSubset.resolvedFilters) {
+      pushChip(`filter:${filter.kind}:${filter.label}`, filter.label)
     }
     if (senderDistributionFocusedSenderLabel) {
-      chips.push(`Locked: ${senderDistributionFocusedSenderLabel}`)
+      pushChip(
+        `focused_sender:${sharedWorkflowSubset.focusedSenderKey || senderDistributionFocusedSenderLabel}`,
+        `Locked: ${senderDistributionFocusedSenderLabel}`
+      )
     }
 
-    const detail = requestedTimeContextBucketLabel
-      ? `${analysisScopeControlLabel(effectiveWorkflowScope)} is driving the workflow through the ${requestedTimeContextBucketLabel} Time Context bucket. Sender Distribution stays on that same exact sender set without recomputing membership.`
-      : activeSemanticSubtypeFocus
-      ? senderDistributionFocusedSenderLabel
-        ? `${analysisScopeControlLabel(effectiveWorkflowScope)} is driving the ${activeSemanticSubtypeFocus.label} sender slice, and ${senderDistributionFocusedSenderLabel} stays locked inside that narrowed universe.`
-        : `${analysisScopeControlLabel(effectiveWorkflowScope)} is driving the ${activeSemanticSubtypeFocus.label} sender slice inside this cleanup group.`
-      : senderDistributionFocusedSenderLabel
-        ? `${analysisScopeControlLabel(effectiveWorkflowScope)} is driving the full cleanup-group sender universe, and ${senderDistributionFocusedSenderLabel} stays locked without collapsing the rest of the chart.`
-        : `${analysisScopeControlLabel(effectiveWorkflowScope)} is driving the full cleanup-group sender universe.`
+    const activeWorkflowWindowFilter =
+      sharedWorkflowSubset.resolvedFilters.find((filter) => filter.kind === 'workflow_window') ||
+      null
+    const workflowFilterSummary =
+      sharedWorkflowSubset.resolvedFilters.length > 0
+        ? sharedWorkflowSubset.resolvedFilters.map((filter) => filter.label).join(' + ')
+        : null
+    const detail = activeWorkflowWindowFilter
+      ? `${analysisScopeControlLabel(effectiveWorkflowScope)} remains the workflow boundary, and ${activeWorkflowWindowFilter.label} is the active window narrowing Sender Distribution together with the workflow below.`
+      : workflowFilterSummary
+        ? `${analysisScopeControlLabel(effectiveWorkflowScope)} remains the workflow boundary, and Sender Distribution is currently narrowed to ${workflowFilterSummary} together with the workflow below.`
+        : `${analysisScopeControlLabel(effectiveWorkflowScope)} is driving the full cleanup-group sender universe for this rail.`
 
     return {
-      label: 'Current page truth',
+      label: 'Current rail context',
       detail,
       chips,
     }
   }, [
-    activeSemanticSubtypeFocus,
     effectiveWorkflowScope,
-    requestedTimeContextBucketLabel,
     senderDistributionFocusedSenderLabel,
+    sharedWorkflowSubset.focusedSenderKey,
+    sharedWorkflowSubset.resolvedFilters,
+  ])
+  const workflowScopeSummary = useMemo(() => {
+    const pageScopeLabel = analysisScopeControlLabel(normalizedAnalysisScope)
+    const workflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
+    const activeFilterLabels = sharedWorkflowSubset.resolvedFilters.map((filter) => filter.label)
+
+    if (activeFilterLabels.length === 0) {
+      if (effectiveWorkflowScope === normalizedAnalysisScope) {
+        return {
+          label: 'Workflow scope matches page',
+          detail: `${pageScopeLabel} is driving the sender workflow, coverage, and Decision Mode queue.`,
+          badgeClassName: 'border-emerald-700/45 bg-emerald-950/20 text-emerald-100',
+        }
+      }
+
+      return {
+        label: `Workflow filtered to ${workflowScopeLabel}`,
+        detail: `${workflowScopeLabel} is driving the workflow summary, sender rows, Sender Distribution, Decision Mode queue, and Time Context chart together. ${pageScopeLabel} remains page context only.`,
+        badgeClassName: 'border-cyan-700/55 bg-cyan-950/20 text-cyan-100',
+      }
+    }
+
+    const filterSummary =
+      activeFilterLabels.length === 1
+        ? activeFilterLabels[0]
+        : activeFilterLabels.join(' + ')
+    const label =
+      sharedWorkflowSubset.source.primary === 'combined_filters'
+        ? `Workflow filtered by ${activeFilterLabels.length} active filters`
+        : `Workflow narrowed to ${filterSummary}`
+
+    return {
+      label,
+      detail: `${workflowScopeLabel} remains the workflow scope boundary, and the final sender universe is the deterministic intersection of ${filterSummary}. Workflow summary, sender rows, pagination totals, Sender Distribution, and the Decision Mode queue all consume that same ordered sender set.`,
+      badgeClassName: 'border-cyan-500/65 bg-cyan-950/25 text-cyan-50',
+    }
+  }, [
+    effectiveWorkflowScope,
+    normalizedAnalysisScope,
+    sharedWorkflowSubset.resolvedFilters,
+    sharedWorkflowSubset.source.primary,
   ])
   const senderDistributionOrderingErrorMessage = useMemo(() => {
     if (senderDistributionWorkspaceState.status === 'loading') return null
@@ -7543,9 +10222,14 @@ export default function OperationsReviewPage() {
     senderDistributionMissingOrderedKeys.length,
     senderDistributionWorkspaceState.status,
   ])
-  const senderDistributionRequestExpected = senderDistributionDedicatedFetchCluster != null
+  const senderDistributionRequestExpected = senderDistributionRequestKey != null
   const senderDistributionLoading =
-    senderDistributionItems.length === 0 &&
+    !senderDistributionConsistentWithWorkflow &&
+    senderDistributionRequestExpected &&
+    (senderDistributionWorkspaceState.status === 'idle' ||
+      senderDistributionWorkspaceState.status === 'loading')
+      ? true
+      : senderDistributionItems.length === 0 &&
     senderDistributionRequestExpected &&
     (senderDistributionWorkspaceState.status === 'idle' ||
       senderDistributionWorkspaceState.status === 'loading')
@@ -7595,36 +10279,16 @@ export default function OperationsReviewPage() {
     sharedWorkflowSubset.kind,
   ])
   const decisionProgress = useMemo(
-    () => ({
-      total: activeOverviewSubset
-        ? reviewPopulation.length
-        : workspaceClusterSenderTotal(
-            workflowCoverageWorkspace || workspace,
-            selectedCluster?.senderCount
-          ),
-      managed: activeOverviewSubset
-        ? Math.max(reviewPopulation.length - eligibleSenders.length, 0)
-        : clusterManagedCount ?? 0,
-      remaining: activeOverviewSubset
-        ? eligibleSenders.length
-        : Math.max(
-            workspaceClusterSenderTotal(
-              workflowCoverageWorkspace || workspace,
-              selectedCluster?.senderCount
-            ) -
-              (clusterManagedCount ?? 0),
-            0
-          ),
-    }),
-    [
-      activeOverviewSubset,
-      clusterManagedCount,
-      eligibleSenders.length,
-      reviewPopulation.length,
-      selectedCluster?.senderCount,
-      workflowCoverageWorkspace,
-      workspace,
-    ]
+    () => {
+      const total = authoritativeWorkflowSenderKeys.length
+      const managed = authoritativeWorkflowSenderKeys.filter((senderKey) => managedBySender[senderKey]).length
+      return {
+        total,
+        managed,
+        remaining: Math.max(total - managed, 0),
+      }
+    },
+    [authoritativeWorkflowSenderKeys, managedBySender]
   )
   const scopedDecisionQueueLoading = Boolean(
     mode === 'decision' &&
@@ -7752,14 +10416,20 @@ export default function OperationsReviewPage() {
       cacheVersion,
       previewEvidenceSenderKey: activeDecisionEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+      senderOverviewWindowSelection,
+      senderOverviewWindowTimeZone: browserTimeZone,
     })
   }, [
     activeDecisionEvidenceSenderKey,
+    browserTimeZone,
     cacheVersion,
     decisionReadyWorkspaceSnapshot,
     effectiveWorkflowScope,
     mode,
     requestedTimeContextBucketLabel,
+    senderOverviewWindowSelection,
     selectedCluster,
   ])
   const decisionEvidenceResolutionState = useMemo<'ready' | 'resolving'>(() => {
@@ -7865,159 +10535,185 @@ export default function OperationsReviewPage() {
   ])
   const clearOverviewNarrowingState = useCallback(() => {
     if (!selectedCluster && !clusterId) return
-    senderWorkflowPendingScrollRef.current = false
-    if (activeTimeContextBucketSelection?.preBucketRouteSnapshot) {
-      const bucketRouteSnapshot = activeTimeContextBucketSelection.preBucketRouteSnapshot
-      setTimeContextBucketSelection(null)
-      setTimeContextBucketNotice(null)
-      startTransition(() => {
-        router.replace(
-          buildScopedReviewHref({
-            agentId,
-            sessionId,
-            analysisScope,
-            workflowScope: bucketRouteSnapshot.workflowScope,
-            clusterId: selectedCluster?.clusterId || clusterId,
-            mode: 'overview',
-            subsetSource: bucketRouteSnapshot.subsetSource,
-            subsetValue: bucketRouteSnapshot.subsetValue,
-            senderPage: bucketRouteSnapshot.senderPage,
-            semanticFocus: bucketRouteSnapshot.semanticFocus,
-            semanticRoute: buildSemanticFocusRouteParams(bucketRouteSnapshot.semanticFocus),
-            senderKey: null,
-            overlayIntent: null,
-          }),
-          { scroll: false }
-        )
-      })
-      return
-    }
-    startTransition(() => {
-      router.replace(
-        buildScopedReviewHref({
-          agentId,
-          sessionId,
-          analysisScope,
-          workflowScope: workflowScopeForOverviewContext({
-            subsetSource: null,
-            subsetValue: null,
-            semanticFocus: null,
-          }),
-          clusterId: selectedCluster?.clusterId || clusterId,
-          mode,
+    setPendingNarrowingInteraction({
+      kind: 'clear_narrowing',
+      label: 'broader scope',
+      senderKey: null,
+      timeContextBucketLabel: null,
+      timeContextBucketStartAt: null,
+      timeContextBucketEndExclusiveAt: null,
+      expectation: buildPendingNarrowingExpectation({
+        workflowScope: workflowScopeForOverviewContext({
           subsetSource: null,
           subsetValue: null,
-          senderPage: null,
           semanticFocus: null,
-          semanticRoute: null,
-          senderKey: mode === 'decision' ? requestedDecisionSenderKey : null,
-          overlayIntent: mode === 'decision' ? decisionOverlayIntent : null,
         }),
-        { scroll: false }
-      )
+        subsetSource: null,
+        subsetValue: null,
+        semanticFocusId: null,
+        timeContextBucketLabel: null,
+        timeContextBucketStartAt: null,
+        timeContextBucketEndExclusiveAt: null,
+      }),
+    })
+    setTimeContextBucketNotice(null)
+    navigateScopedReviewState({
+      workflowScope: workflowScopeForOverviewContext({
+        subsetSource: null,
+        subsetValue: null,
+        semanticFocus: null,
+      }),
+      clusterId: selectedCluster?.clusterId || clusterId,
+      subsetSource: null,
+      subsetValue: null,
+      senderPage: null,
+      semanticFocus: null,
+      semanticRoute: null,
+      senderKey: mode === 'decision' ? requestedDecisionSenderKey : null,
+      overlayIntent: mode === 'decision' ? decisionOverlayIntent : null,
+      senderOverviewWindowSelection: null,
     })
   }, [
-    activeTimeContextBucketSelection?.preBucketRouteSnapshot,
-    agentId,
-    analysisScope,
-    buildScopedReviewHref,
+    buildPendingNarrowingExpectation,
     clusterId,
     decisionOverlayIntent,
     mode,
+    navigateScopedReviewState,
     requestedDecisionSenderKey,
-    router,
     selectedCluster,
-    sessionId,
     setTimeContextBucketNotice,
-    setTimeContextBucketSelection,
     workflowScopeForOverviewContext,
   ])
   const clearWorkflowScopeOverride = useCallback(() => {
     if (!selectedCluster && !clusterId) return
-    senderWorkflowPendingScrollRef.current = false
-    setTimeContextBucketSelection(null)
+    setPendingNarrowingInteraction({
+      kind: 'clear_workflow_scope',
+      label: 'All indexed',
+      senderKey: null,
+      timeContextBucketLabel: null,
+      timeContextBucketStartAt: null,
+      timeContextBucketEndExclusiveAt: null,
+      expectation: buildPendingNarrowingExpectation({
+        workflowScope: null,
+        semanticFocusId: activeSemanticSubtypeFocusRef.current?.id || null,
+        timeContextBucketLabel: null,
+        timeContextBucketStartAt: null,
+        timeContextBucketEndExclusiveAt: null,
+      }),
+    })
     setTimeContextBucketNotice(null)
-    startTransition(() => {
-      router.replace(
-        buildScopedReviewHref({
-          agentId,
-          sessionId,
-          analysisScope,
-          workflowScope: null,
-          clusterId: selectedCluster?.clusterId || clusterId,
-          mode,
-          subsetSource,
-          subsetValue,
-          senderPage: null,
-          semanticFocus: activeSemanticSubtypeFocusRef.current,
-          senderKey: mode === 'decision' ? requestedDecisionSenderKey : null,
-          overlayIntent: mode === 'decision' ? decisionOverlayIntent : null,
-        }),
-        { scroll: false }
-      )
+    navigateScopedReviewState({
+      workflowScope: null,
+      clusterId: selectedCluster?.clusterId || clusterId,
+      subsetSource,
+      subsetValue,
+      senderPage: null,
+      semanticFocus: activeSemanticSubtypeFocusRef.current,
+      senderKey: mode === 'decision' ? requestedDecisionSenderKey : null,
+      overlayIntent: mode === 'decision' ? decisionOverlayIntent : null,
+      senderOverviewWindowSelection: null,
     })
   }, [
-    agentId,
-    analysisScope,
-    buildScopedReviewHref,
+    buildPendingNarrowingExpectation,
     clusterId,
     decisionOverlayIntent,
     mode,
+    navigateScopedReviewState,
     requestedDecisionSenderKey,
-    router,
     selectedCluster,
-    sessionId,
     setTimeContextBucketNotice,
-    setTimeContextBucketSelection,
     subsetSource,
     subsetValue,
   ])
+  const timeContextBucketSelectionLoading = false
   useEffect(() => {
-    if (!timeContextBucketSelection) return
-    if (timeContextBucketSelection.sessionKey === timeContextBucketSessionKey) return
-    setTimeContextBucketSelection(null)
-    setTimeContextBucketNotice({
-      reason: 'invalid_selection',
-      tone: 'warning',
-      title: 'Time Context selection cleared',
-      detail:
-        'The active cleanup group or workflow scope changed, so the previous bucket selection is no longer valid. The workflow has returned to the broader current scope.',
-    })
-  }, [timeContextBucketSelection, timeContextBucketSessionKey])
-  const timeContextBucketSelectionApplied = Boolean(
-    requestedTimeContextBucketLabel &&
-      workspaceSnapshot?.timeContextBucketLabel === requestedTimeContextBucketLabel &&
-      workspaceHasUsableClusterGlobalSenderKeys(workflowCoverageWorkspace || workflowOverviewWorkspace)
-  )
-  const timeContextBucketSelectionLoading =
-    requestedTimeContextBucketLabel != null &&
-    (workspaceState.status === 'loading' || !timeContextBucketSelectionApplied)
+    if (!pendingNarrowingInteraction) return
+
+    const routeMatches =
+      pendingNarrowingInteraction.expectation.workflowScope === currentRequestedWorkflowScope &&
+      pendingNarrowingInteraction.expectation.subsetSource === subsetSource &&
+      pendingNarrowingInteraction.expectation.subsetValue === subsetValue &&
+      pendingNarrowingInteraction.expectation.semanticFocusId ===
+        (activeSemanticSubtypeFocus?.id || null) &&
+      pendingNarrowingInteraction.expectation.timeContextBucketLabel ===
+        requestedTimeContextBucketLabel
+
+    if (!routeMatches) return
+
+    const loadingSettled =
+      pendingTimeContextScope == null &&
+      workspaceState.status !== 'loading' &&
+      semanticFocusWorkspaceState.status !== 'loading' &&
+      !isSenderWorkflowInlineLoading &&
+      !senderDistributionUpdating &&
+      !timeContextBucketSelectionLoading
+
+    let authoritativeReady = false
+    if (pendingNarrowingInteraction.kind === 'sender_distribution') {
+      authoritativeReady =
+        pendingNarrowingInteraction.senderKey != null &&
+        sharedWorkflowSubset.focusedSenderKey === pendingNarrowingInteraction.senderKey &&
+        sharedWorkflowSubset.resolvedFilters.some((filter) => filter.kind === 'focused_sender')
+    } else if (pendingNarrowingInteraction.kind === 'time_context_bucket') {
+      authoritativeReady =
+        pendingNarrowingInteraction.timeContextBucketLabel != null &&
+        timeContextBucketSelectionApplied &&
+        sharedWorkflowSubset.resolvedFilters.some(
+          (filter) =>
+            filter.kind === 'time_context_bucket' &&
+            filter.label === pendingNarrowingInteraction.timeContextBucketLabel
+        )
+    } else if (pendingNarrowingInteraction.kind === 'clear_workflow_scope') {
+      authoritativeReady = currentRequestedWorkflowScope == null
+    } else {
+      authoritativeReady = true
+    }
+
+    if (authoritativeReady && loadingSettled) {
+      setPendingNarrowingInteraction(null)
+    }
+  }, [
+    activeSemanticSubtypeFocus?.id,
+    currentRequestedWorkflowScope,
+    isSenderWorkflowInlineLoading,
+    pendingNarrowingInteraction,
+    pendingTimeContextScope,
+    requestedTimeContextBucketLabel,
+    senderDistributionUpdating,
+    semanticFocusWorkspaceState.status,
+    sharedWorkflowSubset.focusedSenderKey,
+    sharedWorkflowSubset.resolvedFilters,
+    subsetSource,
+    subsetValue,
+    timeContextBucketSelectionApplied,
+    timeContextBucketSelectionLoading,
+    workspaceState.status,
+  ])
   const timeContextBucketInteractionDisabledReason = useMemo(() => {
     if (activeRailDisplay.state !== 'ready' || activeRailDisplay.bodyOverride) {
       return 'the chart is not parity-ready for the current workflow scope'
-    }
-    if (!timeContextWorkflowOverviewWorkspace) {
-      return 'the authoritative workflow scope has not finished loading'
-    }
-    if (!workspaceHasUsableClusterGlobalSenderKeys(timeContextWorkflowOverviewWorkspace)) {
-      return 'the authoritative sender universe is incomplete'
     }
     return null
   }, [
     activeRailDisplay.bodyOverride,
     activeRailDisplay.state,
-    timeContextWorkflowOverviewWorkspace,
   ])
   const handleTimeContextBucketToggle = useCallback(
-    (item: { label: string; count: number; messageCount?: number | null }) => {
+    (item: {
+      label: string
+      count: number
+      messageCount?: number | null
+      bucketStartIso?: string | null
+      bucketEndExclusiveIso?: string | null
+    }) => {
       if (!selectedCluster && !clusterId) return
       if (item.count <= 0) {
         setTimeContextBucketNotice({
           reason: 'empty_bucket',
           tone: 'warning',
-          title: 'Bucket not actionable',
+          title: 'Bucket not focusable',
           detail:
-            'This visible bucket contains zero senders in the current workflow scope, so the workflow stays broad until you choose a non-empty bucket.',
+            'This visible bucket contains zero active senders, so the lower readout stays anchored to the current focus until you choose a non-empty bucket.',
         })
         return
       }
@@ -8025,115 +10721,50 @@ export default function OperationsReviewPage() {
         setTimeContextBucketNotice({
           reason: 'missing_data',
           tone: 'warning',
-          title: 'Bucket selection blocked',
-          detail: `Bucket narrowing is unavailable because ${timeContextBucketInteractionDisabledReason}.`,
+          title: 'Bucket focus blocked',
+          detail: `Chart focus is unavailable because ${timeContextBucketInteractionDisabledReason}.`,
         })
         return
       }
-
-      const broadActivationSnapshot =
-        activeTimeContextBucketSelection?.broadSnapshot ||
-        currentReadyWorkspaceSnapshot ||
-        workflowCachedReadyWorkspaceSnapshot ||
-        currentMatchingWorkspaceSnapshot ||
-        null
-
+      setTimeContextBucketNotice(null)
       if (
-        !broadActivationSnapshot ||
-        !workspaceHasUsableClusterGlobalSenderKeys(broadActivationSnapshot.data)
+        !item.bucketStartIso ||
+        !item.bucketEndExclusiveIso ||
+        Number.isNaN(Date.parse(item.bucketStartIso)) ||
+        Number.isNaN(Date.parse(item.bucketEndExclusiveIso))
       ) {
         setTimeContextBucketNotice({
-          reason: 'low_confidence',
-          tone: 'warning',
-          title: 'Bucket selection blocked',
+          reason: 'invalid_selection',
+          tone: 'error',
+          title: 'Bucket selection unavailable',
           detail:
-            'The exact sender universe for this workflow scope is not complete enough to drive bucket narrowing safely.',
+            'This bucket is missing canonical interval bounds, so workflow narrowing cannot safely apply it.',
         })
         return
       }
-
-      setTimeContextBucketNotice(null)
-      if (activeTimeContextBucketSelection?.label === item.label) {
-        clearOverviewNarrowingState()
-        return
-      }
-
-      const nextRouteSnapshot: TimeContextBucketRouteSnapshot =
-        activeTimeContextBucketSelection?.preBucketRouteSnapshot || {
-          workflowScope:
-            requestedWorkflowScope != null ? normalizedRequestedWorkflowScope : null,
-          subsetSource,
-          subsetValue,
-          semanticFocus: activeSemanticSubtypeFocusRef.current,
-          senderPage: searchParams.get('sender_page') != null ? requestedSenderPage : null,
-        }
-
-      setTimeContextBucketSelection((current) =>
-        current && current.sessionKey === timeContextBucketSessionKey
-          ? {
-              ...current,
-              label: item.label,
-            }
-          : {
-              sessionKey: timeContextBucketSessionKey,
-              label: item.label,
-              preBucketRouteSnapshot: nextRouteSnapshot,
-              broadSnapshot: broadActivationSnapshot,
-            }
+      setSelectedTimeContextBucket((current) =>
+        current?.label === item.label &&
+        current.bucket_start_at === item.bucketStartIso &&
+        current.bucket_end_exclusive_at === item.bucketEndExclusiveIso
+          ? null
+          : (() => {
+              const bucketStartAt = normalizeTimeContextBucketIso(item.bucketStartIso)
+              const bucketEndExclusiveAt = normalizeTimeContextBucketIso(
+                item.bucketEndExclusiveIso
+              )
+              if (!bucketStartAt || !bucketEndExclusiveAt) return null
+              return {
+                label: item.label,
+                bucket_start_at: bucketStartAt,
+                bucket_end_exclusive_at: bucketEndExclusiveAt,
+              }
+            })()
       )
-
-      const needsRouteNormalization =
-        mode !== 'overview' ||
-        subsetSource != null ||
-        subsetValue != null ||
-        activeSemanticSubtypeFocusRef.current != null ||
-        searchParams.get('sender_page') != null
-      if (!needsRouteNormalization) return
-
-      senderWorkflowPendingScrollRef.current = false
-      startTransition(() => {
-        router.replace(
-          buildScopedReviewHref({
-            agentId,
-            sessionId,
-            analysisScope,
-            workflowScope: requestedWorkflowScope != null ? normalizedRequestedWorkflowScope : null,
-            clusterId: selectedCluster?.clusterId || clusterId,
-            mode: 'overview',
-            subsetSource: null,
-            subsetValue: null,
-            senderPage: null,
-            semanticFocus: null,
-            semanticRoute: null,
-            senderKey: null,
-            overlayIntent: null,
-          }),
-          { scroll: false }
-        )
-      })
     },
     [
-      activeTimeContextBucketSelection,
-      agentId,
-      analysisScope,
-      buildScopedReviewHref,
-      clearOverviewNarrowingState,
       clusterId,
-      currentMatchingWorkspaceSnapshot,
-      currentReadyWorkspaceSnapshot,
-      mode,
-      normalizedRequestedWorkflowScope,
-      requestedSenderPage,
-      requestedWorkflowScope,
-      router,
-      searchParams,
       selectedCluster,
-      sessionId,
-      subsetSource,
-      subsetValue,
       timeContextBucketInteractionDisabledReason,
-      timeContextBucketSessionKey,
-      workflowCachedReadyWorkspaceSnapshot,
     ]
   )
   const semanticFocusPresentation = useMemo(() => {
@@ -8181,6 +10812,7 @@ export default function OperationsReviewPage() {
       ? 'border-cyan-500/55 bg-[linear-gradient(180deg,rgba(13,45,66,0.96),rgba(8,22,35,0.98))]'
       : 'border-cyan-700/45 bg-[linear-gradient(180deg,rgba(11,39,57,0.95),rgba(7,18,30,0.98))]'
   }`
+  const clearNarrowingPending = false
   const semanticFocusBanner = semanticFocusPresentation ? (
     <div className={semanticFocusBannerClassName}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -8207,9 +10839,14 @@ export default function OperationsReviewPage() {
         <button
           type="button"
           onClick={clearOverviewNarrowingState}
-          className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+          disabled={clearNarrowingPending}
+          className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm ${
+            clearNarrowingPending
+              ? 'cursor-progress border-cyan-100/85 bg-cyan-300 text-slate-950 opacity-100 shadow-[0_14px_32px_rgba(34,211,238,0.24)]'
+              : ''
+          }`}
         >
-          Clear narrowed state
+          {clearNarrowingPending ? 'Returning to broader scope…' : 'Clear narrowed state'}
         </button>
       </div>
     </div>
@@ -8220,7 +10857,9 @@ export default function OperationsReviewPage() {
     const visibleRowCount = visibleDrilldownSenders.length
     const loadedWorkspaceCount = workflowOverviewWorkspace.senders.length
     const clusterSenderTotal = workspaceClusterSenderTotal(
-      workflowCoverageWorkspace || workflowOverviewWorkspace,
+      requestedTimeContextBucketLabel
+        ? authoritativeBucketWorkflowWorkspace
+        : workflowCoverageWorkspace || workflowOverviewWorkspace,
       selectedCluster?.senderCount
     )
     const pageLabel = `Page ${workflowOverviewWorkspace.pagination.page} of ${Math.max(
@@ -8386,6 +11025,7 @@ export default function OperationsReviewPage() {
     semanticFocusWorkspaceState.status,
     semanticFocusPresentation,
     selectedCluster?.senderCount,
+    authoritativeBucketWorkflowWorkspace,
     activeOverviewSubsetPageStatus,
     visibleDrilldownSenders.length,
     workflowCoverageWorkspace,
@@ -8644,12 +11284,13 @@ export default function OperationsReviewPage() {
   const updateSubsetSelection = useCallback(
     (
       nextSubset: { source: OverviewSubsetSource; value: string } | null,
-      options?: { senderPage?: number | null }
-    ) => {
-      if (activeTimeContextBucketSelection) {
-        setTimeContextBucketSelection(null)
-        setTimeContextBucketNotice(null)
+      options?: {
+        senderPage?: number | null
+        interactionKind?: PendingNarrowingInteractionKind
+        label?: string | null
+        senderKey?: string | null
       }
+    ) => {
       const shouldClearDerivedSemanticFocus =
         subsetSource === 'review_unit' &&
         nextSubset?.source !== 'review_unit' &&
@@ -8664,6 +11305,24 @@ export default function OperationsReviewPage() {
       ) {
         setActiveSemanticSubtypeFocus(null)
       }
+      setPendingNarrowingInteraction({
+        kind:
+          options?.interactionKind ||
+          (nextSubset ? 'route_subset' : 'clear_narrowing'),
+        label: options?.label || nextSubset?.value || 'broader scope',
+        senderKey: options?.senderKey || null,
+        timeContextBucketLabel: null,
+        timeContextBucketStartAt: null,
+        timeContextBucketEndExclusiveAt: null,
+        expectation: buildPendingNarrowingExpectation({
+          subsetSource: nextSubset?.source || null,
+          subsetValue: nextSubset?.value || null,
+          semanticFocusId: nextSemanticFocus?.id || null,
+          timeContextBucketLabel: null,
+          timeContextBucketStartAt: null,
+          timeContextBucketEndExclusiveAt: null,
+        }),
+      })
       startTransition(() => {
         router.replace(
           buildScopedReviewHref({
@@ -8687,56 +11346,28 @@ export default function OperationsReviewPage() {
       })
     },
     [
-      activeTimeContextBucketSelection,
       agentId,
       analysisScope,
+      buildPendingNarrowingExpectation,
       buildScopedReviewHref,
       clusterId,
       mode,
       router,
       selectedCluster?.clusterId,
       sessionId,
-      setTimeContextBucketNotice,
-      setTimeContextBucketSelection,
       subsetSource,
       workflowScopeForOverviewContext,
     ]
   )
   const handleSenderDistributionSelect = useCallback(
     (senderKey: string) => {
-      const currentlyFocused = sharedWorkflowSubset.focusedSenderKey === senderKey
-      const focusedIndex = authoritativeWorkflowSenderKeys.indexOf(senderKey)
-      const targetSenderPage =
-        focusedIndex >= 0
-          ? Math.floor(focusedIndex / DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE) + 1
-          : requestedSenderPage
-
-      updateSubsetSelection(
-        currentlyFocused
-          ? null
-          : {
-              source: 'distribution',
-              value: senderKey,
-            },
-        {
-          senderPage: currentlyFocused
-            ? requestedSenderPage
-            : targetSenderPage,
-        }
-      )
+      setLocalSenderDistributionFocusKey((current) => (current === senderKey ? null : senderKey))
     },
-    [
-      authoritativeWorkflowSenderKeys,
-      requestedSenderPage,
-      sharedWorkflowSubset.focusedSenderKey,
-      updateSubsetSelection,
-    ]
+    []
   )
   const clearSenderDistributionSelection = useCallback(() => {
-    updateSubsetSelection(null, {
-      senderPage: requestedSenderPage,
-    })
-  }, [requestedSenderPage, updateSubsetSelection])
+    setLocalSenderDistributionFocusKey(null)
+  }, [])
   const updateDrilldownSort = useCallback(
     (nextSort: DrilldownSort) => {
       setDrilldownSort(nextSort)
@@ -8858,6 +11489,63 @@ export default function OperationsReviewPage() {
     workspaceState.status,
   ])
   const senderWorkflowCoverageDisplay = useMemo(() => {
+    if (pendingNarrowingInteraction) {
+      if (pendingNarrowingInteraction.kind === 'sender_distribution') {
+        return {
+          summary: `Applying sender focus to ${pendingNarrowingInteraction.label}.`,
+          detail:
+            'The click registered immediately. The workflow is narrowing to this exact sender while the rest of the review surface stays mounted.',
+          navigationHint:
+            'Clear narrowed state when you want to return to the broader queue.',
+          pageLabel: senderWorkflowPagination?.statusText || 'Sender focus · updating',
+        }
+      }
+
+      if (pendingNarrowingInteraction.kind === 'time_context_bucket') {
+        return {
+          summary: `Refreshing the ${pendingNarrowingInteraction.label} workflow bucket.`,
+          detail:
+            'The workflow is narrowing to the exact sender set for this Time Context bucket while the full chart stays mounted above.',
+          navigationHint:
+            'Clear narrowed state when you want to return to the broader current workflow scope.',
+          pageLabel:
+            senderWorkflowPagination?.statusText ||
+            `Bucket active · updating ${pendingNarrowingInteraction.label}`,
+        }
+      }
+
+      if (pendingNarrowingInteraction.kind === 'clear_narrowing') {
+        return {
+          summary: 'Returning to broader scope…',
+          detail:
+            'The previous narrowed view has been cleared immediately. The broader workflow is restoring in place now.',
+          navigationHint:
+            'Stay here while the broader sender universe settles back into the workflow below.',
+          pageLabel: senderWorkflowPagination?.statusText || 'Broad scope · restoring',
+        }
+      }
+
+      if (pendingNarrowingInteraction.kind === 'clear_workflow_scope') {
+        return {
+          summary: 'Returning to All indexed…',
+          detail:
+            'The workflow scope override has been cleared. The broader All indexed sender universe is restoring in place now.',
+          navigationHint:
+            'Stay here while the broader workflow boundary settles back into the page shell.',
+          pageLabel: senderWorkflowPagination?.statusText || 'All indexed · restoring',
+        }
+      }
+
+      return {
+        summary: `Refreshing ${pendingNarrowingInteraction.label}.`,
+        detail:
+          'This narrowed view is updating in place while the rest of the review surface stays mounted.',
+        navigationHint:
+          'Stay here while the refreshed narrowed sender universe resolves below.',
+        pageLabel: senderWorkflowPagination?.statusText || 'Narrowed view · updating',
+      }
+    }
+
     if (senderListCoverage) return senderListCoverage
     if (!isSenderWorkflowInlineLoading) return null
 
@@ -8923,6 +11611,7 @@ export default function OperationsReviewPage() {
     hasSubsetRouteContext,
     isSenderWorkflowInlineLoading,
     overviewKnownTotalPages,
+    pendingNarrowingInteraction,
     requestedTimeContextBucketLabel,
     requestedSenderPage,
     renderedSemanticSubtypeFocus,
@@ -8930,28 +11619,151 @@ export default function OperationsReviewPage() {
     senderListCoverage,
     senderWorkflowPagination,
   ])
+  const workflowWindowActive = senderOverviewWindowSelection != null
+  const chartOnlyWorkflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
+  const chartOnlyRangeLabel = timeContextActiveRangeLabel || 'Showing last 24 hours'
+  const runtimeContinuityLabel =
+    effectiveRuntimeContinuityPhase === 'build_pending'
+      ? 'Fresh results are still building'
+      : effectiveRuntimeContinuityPhase === 'ready'
+        ? 'Updated results are ready'
+        : null
+  const runtimeContinuityDetail =
+    effectiveRuntimeContinuityPhase === 'build_pending'
+      ? `Smart Sync has already finished indexing, but published runtime results are still building. This page is intentionally keeping the last stable snapshot visible${runtime.runtimeContinuity.stableSnapshotVersion ? ` from ${new Date(runtime.runtimeContinuity.stableSnapshotVersion).toLocaleString()}` : ''} until the new published truth is ready.`
+      : effectiveRuntimeContinuityPhase === 'ready'
+        ? 'The refreshed published runtime truth has loaded, and linked workflow surfaces are now re-reading from the new cache version.'
+        : null
+  const mailboxSyncTruthLabel = runtime.smartMailboxSyncStarting
+    ? 'Smart Sync starting'
+    : effectiveRuntimeContinuityPhase === 'build_pending'
+      ? 'Smart Sync finished · published results still building'
+      : effectiveRuntimeContinuityPhase === 'ready'
+        ? 'Smart Sync refreshed · new runtime truth loaded'
+        : runtime.mailboxIndexHealth?.execution_state
+          ? `Mailbox index ${runtime.mailboxIndexHealth.execution_state.replace(/_/g, ' ')}`
+          : 'Mailbox index status unavailable'
+  const mailboxSyncTruthDetail = runtime.mailboxIndexHealth
+    ? effectiveRuntimeContinuityPhase === 'build_pending'
+      ? `Mailbox index coverage already reflects ${formatCountOrPlaceholder(runtime.mailboxIndexHealth.indexed_message_count)} indexed rows. Published runtime truth is still processing, so the current review state stays on the last stable snapshot until artifact build completes.`
+      : effectiveRuntimeContinuityPhase === 'ready'
+        ? `Mailbox index coverage currently tracks ${formatCountOrPlaceholder(runtime.mailboxIndexHealth.indexed_message_count)} indexed rows, and the refreshed published runtime truth is now active on this page.`
+        : `Mailbox index coverage currently tracks ${formatCountOrPlaceholder(runtime.mailboxIndexHealth.indexed_message_count)} indexed rows. Smart Sync and backfill update this mailbox coverage truth.`
+    : 'Mailbox coverage truth will appear here once the mailbox index health check is ready.'
+  const artifactFreshnessStatus = renderRuntimeData?.runtime_mailbox_profile?.freshness?.status || null
+  const artifactFreshnessGeneratedAt =
+    renderRuntimeData?.runtime_mailbox_profile?.freshness?.last_generated_at ||
+    renderRuntimeData?.runtime_mailbox_profile?.generated_at ||
+    null
+  const artifactFreshnessLabel =
+    effectiveRuntimeContinuityPhase === 'build_pending'
+      ? 'Artifact refresh in progress · showing last stable snapshot'
+      : effectiveRuntimeContinuityPhase === 'ready'
+        ? 'Artifact refreshed · new runtime truth loaded'
+        : artifactFreshnessStatus
+          ? `Artifact ${artifactFreshnessStatus}`
+          : 'Artifact freshness unavailable'
+  const artifactFreshnessDetail = artifactFreshnessGeneratedAt
+    ? effectiveRuntimeContinuityPhase === 'build_pending'
+      ? `Published runtime truth last generated ${new Date(artifactFreshnessGeneratedAt).toLocaleString()}. A newer build is still in progress, so workflow totals and rails stay on this stable publication until the refreshed version is ready.`
+      : effectiveRuntimeContinuityPhase === 'ready'
+        ? `Published runtime truth refreshed at ${new Date(artifactFreshnessGeneratedAt).toLocaleString()}. Workflow totals and rails are now reading from the updated publication layer.`
+        : `Published runtime truth last generated ${new Date(artifactFreshnessGeneratedAt).toLocaleString()}. Workflow totals and rails read this publication layer separately from live sync progress.`
+    : 'Workflow totals and rails read published runtime state separately from live mailbox sync progress.'
+  const workflowTruthLabel = `${chartOnlyWorkflowScopeLabel} workflow truth`
+  const workflowTruthDetail = workflowWindowActive
+    ? `${workflowScopeSummary.detail} ${chartOnlyRangeLabel} is the active workflow window and currently narrows the live sender universe to ${sharedWorkflowSubset.resolvedSenderCount.toLocaleString()} sender${
+        sharedWorkflowSubset.resolvedSenderCount === 1 ? '' : 's'
+      }.`
+    : `${workflowScopeSummary.detail} Current sender universe: ${sharedWorkflowSubset.resolvedSenderCount.toLocaleString()} sender${
+        sharedWorkflowSubset.resolvedSenderCount === 1 ? '' : 's'
+      }.`
+  const chartCompareTruthLabel = workflowWindowActive
+    ? `${chartOnlyRangeLabel} chart truth`
+    : 'Workflow-aligned chart window'
+  const chartCompareTruthDetail = workflowWindowActive
+    ? `${chartOnlyRangeLabel} now uses the same narrowed sender universe as workflow totals, Sender Distribution, and Decision Mode. Chart counts still measure bucket activity, while workflow totals measure senders and review coverage in that same window.`
+    : `${chartOnlyWorkflowScopeLabel} is currently driving the chart, workflow summary, sender rows, Sender Distribution, and Decision Mode queue together. Chart totals and workflow totals still describe different metrics inside that same sender universe.`
+  const renderedHeroSummary = workflowWindowActive
+    ? `${chartOnlyRangeLabel} is the active workflow window inside ${chartOnlyWorkflowScopeLabel}. Sender rows, Sender Distribution, pagination, and Decision Mode now narrow to that same sender universe${isDerivedReviewUnitActive ? ` while ${activeOverviewSubset?.label || activeDerivedReviewUnit?.label || 'this derived review unit'} stays narrowed inside the parent cleanup group` : ''}.`
+    : isDerivedReviewUnitActive
+      ? `${activeOverviewSubset?.label || activeDerivedReviewUnit?.label || 'A derived review unit'} is active inside this parent cleanup group. The parent group stays intact while this session narrows to that unit.`
+      : 'Sender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay.'
+  const topSummarySenderLabel = workflowWindowActive ? 'Senders in workflow window' : 'Senders in workflow scope'
+  const topSummaryManagedLabel = 'Managed already'
+  const topSummaryRemainingLabel = 'Still to review'
+  const topSummarySupportingLabel = workflowWindowActive
+    ? 'Supporting messages in workflow window'
+    : 'Supporting messages in workflow scope'
+  const topSummarySenderValue = renderedTopSummarySenderTotal
+  const topSummaryManagedValue = renderedTopSummaryManagedCount
+  const topSummaryRemainingValue = renderedTopSummaryRemainingCount
+  const topSummarySupportingValue = renderedTopSummarySupportingMessageCount
+  const topSummarySenderCardIsLoading = renderedTopSummarySenderTotalIsLoading
+  const topSummaryManagedCardIsLoading = renderedTopSummaryCoverageIsLoading
+  const topSummaryRemainingCardIsLoading = false
+  const topSummarySupportingCardIsLoading = renderedTopSummarySupportingMessageIsLoading
   const topSummarySenderDetail =
-    topSummarySenderTotalIsLoading
+    topSummarySenderCardIsLoading
       ? 'Scoped sender count will appear here as soon as the current cleanup group finishes loading.'
-      : 'Review is sender-first.'
+      : workflowWindowActive
+        ? `${chartOnlyRangeLabel} is the active workflow window. This sender count matches the live workflow below.`
+        : 'Review is sender-first.'
   const topSummaryManagedDetail =
-    topSummaryCoverageIsLoading
+    topSummaryManagedCardIsLoading
       ? 'Managed sender coverage will appear once scoped sender truth is ready.'
-      : 'Already covered.'
+      : workflowWindowActive
+        ? 'Covered senders inside this active workflow window.'
+        : 'Already covered.'
   const topSummaryRemainingDetail =
-    topSummaryCoverageIsLoading
+    topSummaryRemainingCardIsLoading
       ? 'The count left to review will appear once the current scoped workspace is ready.'
-      : 'Ready for review.'
+      : workflowWindowActive
+        ? `Decision Mode and the sender workflow are both narrowed to ${chartOnlyRangeLabel}.`
+        : 'Ready for review.'
   const topSummarySupportingDetail =
-    topSummarySupportingMessageIsLoading
+    topSummarySupportingCardIsLoading
       ? 'Scoped supporting-message volume will appear once the current cleanup group finishes loading.'
-      : 'Supports sender priority.'
+      : workflowWindowActive
+        ? 'Supporting message volume from the same active workflow window.'
+        : 'Supports sender priority.'
   const topSummaryCoveredSendersDetail =
-    topSummaryRemainingCount == null
-      ? 'Scoped sender coverage is loading.'
-      : `${topSummaryRemainingCount.toLocaleString()} sender${
-          topSummaryRemainingCount === 1 ? '' : 's'
-        } still remaining`
+    workflowWindowActive
+      ? renderedTopSummaryRemainingCount == null
+        ? 'Scoped sender coverage is loading.'
+        : `${renderedTopSummaryRemainingCount.toLocaleString()} sender${
+            renderedTopSummaryRemainingCount === 1 ? '' : 's'
+          } still remaining in ${chartOnlyRangeLabel}.`
+      : renderedTopSummaryRemainingCount == null
+        ? 'Scoped sender coverage is loading.'
+        : `${renderedTopSummaryRemainingCount.toLocaleString()} sender${
+            renderedTopSummaryRemainingCount === 1 ? '' : 's'
+          } still remaining`
+  const senderReviewGoalEyebrow = 'Workflow review goal'
+  const senderReviewGoalTitle = workflowWindowActive
+    ? `Give every sender in ${chartOnlyRangeLabel} a decision.`
+    : 'Give every sender in this cleanup group a decision.'
+  const senderReviewGoalDetail = workflowWindowActive
+    ? `${chartOnlyRangeLabel} is now the active workflow window, so this progress meter, Sender Distribution, and the sender list all track the same narrowed sender universe.`
+    : 'Coverage is sender-level, not message-level.'
+  const senderReviewGoalMeterLabel = 'Covered senders'
+  const senderReviewGoalManagedCount = renderedTopSummaryManagedCount
+  const senderReviewGoalTotal = renderedTopSummarySenderTotal
+  const senderReviewGoalCoveragePct = renderedTopSummaryCoveragePct
+  const senderReviewGoalCoverageIsLoading = renderedTopSummaryCoverageIsLoading
+  const senderReviewGoalSummary = renderedTopSummaryGoalSummary
+  const senderReviewGoalFollowUp = renderedTopSummaryGoalFollowUp
+  const chartOnlyBaselineSummary = null
+  const pendingNarrowingSummaryLine = null
+  const pendingNarrowingSummaryBannerClassName =
+    'rounded-2xl border border-cyan-100/85 bg-[linear-gradient(180deg,rgba(165,243,252,0.24),rgba(10,24,37,0.98))] px-4 py-3 shadow-[0_20px_40px_rgba(8,145,178,0.18)]'
+  const workflowFeedbackVisualActive = false
+  const topSummaryCardClassName = `${nestedSurfaceClass} rounded-2xl p-4`
+  const workflowSectionClassName = `${primaryWorkflowSectionClass} space-y-4`
+  const renderedFocusedSenderKey =
+    sharedWorkflowSubset.focusedSenderKey || localSenderDistributionFocusKey
+  const renderedTimeContextBucketLabel = requestedTimeContextBucketLabel
+  const clearWorkflowScopePending = false
   const showOverviewBackgroundRefreshNotice = Boolean(
     workspaceState.status === 'loading' && !isOverviewSenderPageTransitionLoading
   )
@@ -9005,6 +11817,10 @@ export default function OperationsReviewPage() {
     return overviewAnalytics.contributionItems.map((item, index) => {
       const itemId = item.id || item.label
       const active = renderedSubsetSource === 'contributor' && renderedSubsetValue === itemId
+      const pending =
+        pendingNarrowingInteraction?.kind === 'route_subset' &&
+        pendingNarrowingInteraction.expectation.subsetSource === 'contributor' &&
+        pendingNarrowingInteraction.expectation.subsetValue === itemId
       const shareLabel =
         overviewAnalytics.groupMessageTotal > 0
           ? formatPercent(ratioPercent(item.value, overviewAnalytics.groupMessageTotal))
@@ -9019,6 +11835,7 @@ export default function OperationsReviewPage() {
         supportLabel: `${item.value.toLocaleString()} message${item.value === 1 ? '' : 's'}`,
         accentClass: 'bg-cyan-500',
         active,
+        pending,
         onClick: () =>
           updateSubsetSelection(
             active
@@ -9026,11 +11843,21 @@ export default function OperationsReviewPage() {
               : {
                   source: 'contributor',
                   value: itemId,
-                }
+                },
+            {
+              interactionKind: active ? 'clear_narrowing' : 'route_subset',
+              label: item.label,
+            }
           ),
       }
     })
-  }, [overviewAnalytics, renderedSubsetSource, renderedSubsetValue, updateSubsetSelection])
+  }, [
+    overviewAnalytics,
+    pendingNarrowingInteraction,
+    renderedSubsetSource,
+    renderedSubsetValue,
+    updateSubsetSelection,
+  ])
 
   const closeDecisionMode = () => {
     if (!selectedCluster) return
@@ -9051,6 +11878,7 @@ export default function OperationsReviewPage() {
         scrollTop:
           decisionOverlayScrollTopRef.current ??
           (typeof window !== 'undefined' ? window.scrollY : null),
+        senderOverviewWindowSelection: senderOverviewWindowSelectionRef.current,
       }
     )
     startTransition(() => {
@@ -9069,6 +11897,7 @@ export default function OperationsReviewPage() {
           subsetValue: returnRouteContext.subsetValue,
           senderPage: requestedSenderPage,
           semanticFocus,
+          senderOverviewWindowSelection: senderOverviewWindowSelectionRef.current,
         }),
         { scroll: false }
       )
@@ -9192,6 +12021,7 @@ export default function OperationsReviewPage() {
               subsetValue: authoritativeOverviewReturnContext.subsetValue,
               senderKey: nextSenderKey,
               overlayIntent: decisionOverlayIntent,
+              senderOverviewWindowSelection: senderOverviewWindowSelectionRef.current,
             }),
             { scroll: false }
           )
@@ -9235,12 +12065,13 @@ export default function OperationsReviewPage() {
     agentId,
     sessionId,
     analysisScope,
-    workflowScope: detachedWorkflowScope,
+    workflowScope: currentRequestedWorkflowScope,
     clusterId: activeReviewClusterId,
     mode: 'decision',
     senderPage: decisionBootstrapTargetPage,
     senderKey: guidedDecisionSenderKey || provisionalDecisionSeedSenderKey,
     overlayIntent: 'guided',
+    senderOverviewWindowSelection: senderOverviewWindowSelection,
   })
   const subsetDecisionHref = activeOverviewSubset
       ? buildScopedReviewHref({
@@ -9262,6 +12093,7 @@ export default function OperationsReviewPage() {
           activeOverviewSubset.senders.find((sender) => !managedBySender[sender.sender_key])?.sender_key ||
           null,
         overlayIntent: 'guided',
+        senderOverviewWindowSelection: senderOverviewWindowSelection,
       })
     : decisionHref
   const reviewUnitDecisionQueueLoading = Boolean(
@@ -9293,6 +12125,7 @@ export default function OperationsReviewPage() {
         semanticFocus,
         senderPage: requestedSenderPage,
         scrollTop,
+        senderOverviewWindowSelection: senderOverviewWindowSelectionRef.current,
       }
     )
     decisionOverlayScrollTopRef.current = scrollTop
@@ -9315,6 +12148,7 @@ export default function OperationsReviewPage() {
           senderKey: sender.sender_key,
           overlayIntent: 'inspect',
           semanticFocus,
+          senderOverviewWindowSelection: senderOverviewWindowSelectionRef.current,
         }),
         { scroll: false }
       )
@@ -9367,18 +12201,17 @@ export default function OperationsReviewPage() {
 
   return (
     <div className="space-y-4">
-      <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-700/50 bg-[linear-gradient(180deg,rgba(14,31,47,0.98),rgba(8,17,29,0.98),rgba(4,9,16,0.98))] p-5 space-y-4 shadow-[0_24px_64px_rgba(2,6,23,0.36)]">
+      <section
+        data-review-hero="true"
+        className="app-page-header app-page-header-hero rounded-3xl border border-cyan-700/50 bg-[linear-gradient(180deg,rgba(14,31,47,0.98),rgba(8,17,29,0.98),rgba(4,9,16,0.98))] p-5 space-y-4 shadow-[0_24px_64px_rgba(2,6,23,0.36)]"
+      >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
               Selected Cleanup Group
             </p>
             <h1 className="text-2xl font-semibold text-white">{activeReviewClusterTitle}</h1>
-            <p className="max-w-3xl text-sm text-slate-200">
-              {isDerivedReviewUnitActive
-                ? `${activeOverviewSubset?.label || activeDerivedReviewUnit?.label || 'A derived review unit'} is active inside this parent cleanup group. The parent group stays intact while this session narrows to that unit.`
-                : 'Sender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay.'}
-            </p>
+            <p className="max-w-3xl text-sm text-slate-200">{renderedHeroSummary}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -9397,39 +12230,37 @@ export default function OperationsReviewPage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-slate-300">Senders in group</p>
+          <div className={topSummaryCardClassName}>
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">{topSummarySenderLabel}</p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
-              {formatCountOrPlaceholder(topSummarySenderTotal)}
+              {formatCountOrPlaceholder(topSummarySenderValue)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
               {topSummarySenderDetail}
             </p>
           </div>
-          <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-slate-300">Managed already</p>
+          <div className={topSummaryCardClassName}>
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">{topSummaryManagedLabel}</p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
-              {formatCountOrPlaceholder(topSummaryManagedCount)}
+              {formatCountOrPlaceholder(topSummaryManagedValue)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
               {topSummaryManagedDetail}
             </p>
           </div>
-          <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-slate-300">Still to review</p>
+          <div className={topSummaryCardClassName}>
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">{topSummaryRemainingLabel}</p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
-              {formatCountOrPlaceholder(topSummaryRemainingCount)}
+              {formatCountOrPlaceholder(topSummaryRemainingValue)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
               {topSummaryRemainingDetail}
             </p>
           </div>
-          <div className={`${nestedSurfaceClass} rounded-2xl p-4`}>
-            <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Supporting messages in scope
-            </p>
+          <div className={topSummaryCardClassName}>
+            <p className="text-[10px] uppercase tracking-wide text-slate-300">{topSummarySupportingLabel}</p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
-              {formatCountOrPlaceholder(topSummarySupportingMessageCount)}
+              {formatCountOrPlaceholder(topSummarySupportingValue)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
               {topSummarySupportingDetail}
@@ -9437,29 +12268,32 @@ export default function OperationsReviewPage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-emerald-700/45 bg-[linear-gradient(180deg,rgba(13,74,57,0.30),rgba(12,48,66,0.24),rgba(9,15,23,0.96))] p-5 shadow-[0_22px_56px_rgba(2,6,23,0.28)]">
+        <div
+          data-review-goal="true"
+          className="rounded-3xl border border-emerald-700/45 bg-[linear-gradient(180deg,rgba(13,74,57,0.30),rgba(12,48,66,0.24),rgba(9,15,23,0.96))] p-5 shadow-[0_22px_56px_rgba(2,6,23,0.28)]"
+        >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl">
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-300">
-                Sender review goal
+                {senderReviewGoalEyebrow}
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
-                Give every sender in this cleanup group a decision.
+                {senderReviewGoalTitle}
               </p>
               <p className="mt-2 text-sm text-slate-200">
-                Coverage is sender-level, not message-level.
+                {senderReviewGoalDetail}
               </p>
             </div>
             <div
               className={`${nestedSurfaceClass} rounded-2xl border border-emerald-600/45 px-4 py-3 text-right`}
             >
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/80">
-                Covered senders
+                {senderReviewGoalMeterLabel}
               </p>
               <p className="mt-2 text-3xl font-semibold text-white">
-                {topSummarySenderTotal == null
+                {senderReviewGoalTotal == null
                   ? '— / —'
-                  : `${topSummaryManagedCount == null ? '—' : topSummaryManagedCount.toLocaleString()} / ${topSummarySenderTotal.toLocaleString()}`}
+                  : `${senderReviewGoalManagedCount == null ? '—' : senderReviewGoalManagedCount.toLocaleString()} / ${senderReviewGoalTotal.toLocaleString()}`}
               </p>
               <p className="mt-1 text-xs text-slate-200">
                 {topSummaryCoveredSendersDetail}
@@ -9467,59 +12301,196 @@ export default function OperationsReviewPage() {
             </div>
           </div>
           <div className="mt-5 h-4 overflow-hidden rounded-full bg-gray-900/90 ring-1 ring-emerald-700/30">
-            {topSummaryCoverageIsLoading ? (
+            {senderReviewGoalCoverageIsLoading ? (
               <div className="h-full w-full animate-pulse bg-emerald-400/15" />
             ) : (
               <div
                 className="h-full rounded-full bg-emerald-400 transition-all"
-                style={{ width: `${Math.max(0, Math.min(100, topSummaryCoveragePct || 0))}%` }}
+                style={{ width: `${Math.max(0, Math.min(100, senderReviewGoalCoveragePct || 0))}%` }}
               />
             )}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-200">
-            <span>{topSummaryGoalSummary}</span>
-            <span className="text-slate-300">{topSummaryGoalFollowUp}</span>
+            <span>{senderReviewGoalSummary}</span>
+            <span className="text-slate-300">{senderReviewGoalFollowUp}</span>
           </div>
         </div>
-
-        {managementError ? (
-          <p className="text-xs text-amber-200">
-            Management state could not be fully loaded yet: {managementError}
-          </p>
-        ) : null}
-        {showOverviewBackgroundRefreshNotice ? (
-          <p className="text-xs text-slate-300">Refreshing scoped sender evidence in the background…</p>
-        ) : null}
       </section>
 
-      <div className={reviewPageShellClass}>
-          <section className={`${secondaryWorkflowSectionClass} p-5 space-y-4`}>
-            <div>
-              <p className="text-base font-semibold text-white">How to review this group</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Read the group quickly, then move into sender review with a clear frame.
+      <div className="space-y-4">
+        {runtimeContinuityLabel || managementError || showOverviewBackgroundRefreshNotice ? (
+          <div
+            data-review-continuity-panel="true"
+            className={`${secondaryWorkflowSectionClass} border-cyan-500/35 bg-[linear-gradient(180deg,rgba(14,37,54,0.96),rgba(8,19,31,0.98))] p-5 space-y-4`}
+          >
+            {runtimeContinuityLabel ? (
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="max-w-3xl">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-200">
+                    Smart Sync continuity
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">{runtimeContinuityLabel}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-200">{runtimeContinuityDetail}</p>
+                </div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-slate-950/70 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100">
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      effectiveRuntimeContinuityPhase === 'ready'
+                        ? 'bg-emerald-300'
+                        : 'bg-cyan-300'
+                    }`}
+                  />
+                  {effectiveRuntimeContinuityPhase === 'ready' ? 'Updated' : 'Processing'}
+                </span>
+              </div>
+            ) : null}
+            {managementError ? (
+              <p className="text-xs text-amber-200">
+                Management state could not be fully loaded yet: {managementError}
+              </p>
+            ) : null}
+            {showOverviewBackgroundRefreshNotice ? (
+              <p className="text-xs text-slate-300">Refreshing scoped sender evidence in the background…</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <section
+          data-review-context-row="true"
+          className="space-y-4"
+        >
+          <div
+            className={`${secondaryWorkflowSectionClass} p-5 space-y-4`}
+            data-review-truth-guide="true"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="max-w-3xl">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                  Page truth guide
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-200">
+                  This review page keeps mailbox sync and artifact freshness visible, while hero
+                  metrics, workflow scope, sender rows, Sender Distribution, and Time Context now
+                  read the same active sender universe.
+                </p>
+              </div>
+              <span className={`${insetPillClass} rounded-full px-3 py-1 text-[11px] text-slate-100`}>
+                Unified workflow scope
+              </span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className={`${topSummaryCardClassName} border border-slate-700/45`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Mailbox index / sync truth
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">{mailboxSyncTruthLabel}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-200">{mailboxSyncTruthDetail}</p>
+              </div>
+              <div className={`${topSummaryCardClassName} border border-slate-700/45`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Artifact freshness / publication truth
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">{artifactFreshnessLabel}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-200">{artifactFreshnessDetail}</p>
+              </div>
+              <div className={`${topSummaryCardClassName} border border-slate-700/45`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Workflow truth
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">{workflowTruthLabel}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-200">{workflowTruthDetail}</p>
+              </div>
+              <div className={`${topSummaryCardClassName} border border-slate-700/45`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Chart compare truth
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">{chartCompareTruthLabel}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-200">{chartCompareTruthDetail}</p>
+              </div>
+            </div>
+          </div>
+
+          {chartOnlyBaselineSummary ? (
+            <div
+              data-review-baseline-panel="true"
+              className={`${secondaryWorkflowSectionClass} p-5 space-y-4`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                    Cleanup-group baseline
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
+                    {chartOnlyBaselineSummary}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">
+                    These broader totals stay visible as baseline context for the selected cleanup group. They are not the 1D chart-window truth block.
+                  </p>
+                </div>
+                <span
+                  className={`${insetPillClass} rounded-full px-3 py-1 text-[11px] text-slate-100`}
+                >
+                  {chartOnlyWorkflowScopeLabel} workflow stays below
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {pendingNarrowingSummaryLine ? (
+            <div
+              data-review-pending-narrowing="true"
+              className={pendingNarrowingSummaryBannerClassName}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-slate-900/70">
+                    Narrowing update in progress
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">
+                    {pendingNarrowingSummaryLine}
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-slate-950/15 bg-slate-950 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100 shadow-[0_14px_32px_rgba(2,6,23,0.28)]">
+                  <span className="h-2 w-2 rounded-full bg-cyan-300" />
+                  Updating
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <section
+          data-review-orientation-row="true"
+          className={`${secondaryWorkflowSectionClass} p-5 space-y-4`}
+        >
+          <div>
+            <p className="text-base font-semibold text-white">How to review this group</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Read the group quickly, then move into sender review with a clear frame.
+            </p>
+          </div>
+          <div className="grid gap-3 xl:grid-cols-2">
+            <div className={`${insetSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                Why this group exists
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-100">
+                {overviewBridgeCopy.whyThisGroupExists}
               </p>
             </div>
-            <div className="grid gap-3 xl:grid-cols-2">
-              <div className={`${insetSurfaceClass} rounded-2xl p-4`}>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
-                  Why this group exists
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-100">
-                  {overviewBridgeCopy.whyThisGroupExists}
-                </p>
-              </div>
-              <div className={`${insetSurfaceClass} rounded-2xl p-4`}>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
-                  Review approach
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-100">
-                  {overviewBridgeCopy.reviewApproach}
-                </p>
-              </div>
+            <div className={`${insetSurfaceClass} rounded-2xl p-4`}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                Review approach
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-100">
+                {overviewBridgeCopy.reviewApproach}
+              </p>
             </div>
-          </section>
+          </div>
+        </section>
+      </div>
 
+      <div className={reviewPageShellClass}>
           <section className="grid gap-4 xl:grid-cols-2">
             <section className={`${secondaryWorkflowSectionClass} p-5 space-y-4`}>
               <div>
@@ -9550,13 +12521,16 @@ export default function OperationsReviewPage() {
                         type="button"
                         onClick={starter.onClick}
                         aria-pressed={starter.active}
+                        aria-busy={starter.pending}
                         className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                          starter.active
+                          starter.pending
+                            ? 'border-cyan-400/70 bg-cyan-950/28 text-cyan-100'
+                            : starter.active
                             ? 'border-cyan-700/60 bg-cyan-950/25 text-cyan-100'
                             : 'border-white/10 bg-white/5 text-gray-100 hover:border-cyan-700/45 hover:text-white'
                         }`}
                       >
-                        {starter.label}
+                        {starter.pending ? `${starter.label} · Applying…` : starter.label}
                       </button>
                     ))}
                   </div>
@@ -9598,9 +12572,14 @@ export default function OperationsReviewPage() {
                     <button
                       type="button"
                       onClick={clearOverviewNarrowingState}
-                      className={`${quietSecondaryActionClass} rounded-full px-3 py-1.5 text-xs`}
+                      disabled={clearNarrowingPending}
+                      className={`${quietSecondaryActionClass} rounded-full px-3 py-1.5 text-xs ${
+                        clearNarrowingPending
+                          ? 'cursor-progress border-cyan-100/85 bg-cyan-300 text-slate-950 opacity-100 shadow-[0_14px_32px_rgba(34,211,238,0.24)]'
+                          : ''
+                      }`}
                     >
-                      Clear narrowed state
+                      {clearNarrowingPending ? 'Returning to broader scope…' : 'Clear narrowed state'}
                     </button>
                   </div>
                 </div>
@@ -9680,14 +12659,21 @@ export default function OperationsReviewPage() {
                 overallActivity={activeRailDisplay.overallActivity}
                 activityMix={activeRailDisplay.activityMix}
                 patternSignal={activeRailDisplay.patternSignal}
-                nextAction={activeRailDisplay.nextAction}
-                workflowSenderUniverseTotal={activeRailDisplay.workflowSenderUniverseTotal}
+                nextAction={renderedTimeContextNextAction}
+                workflowContext={renderedTimeContextWorkflowContext}
+                workflowSenderUniverseTotal={renderedTimeContextWorkflowSenderUniverseTotal}
                 scopeStatus={activeRailDisplay.scopeStatus}
                 scopeControls={{
-                  activeScope: activeRailScope,
-                  pendingScope: pendingTimeContextScope,
+                  activeScope: activeTimeContextChartScope,
+                  pendingScope: pendingTimeContextChartScope,
                   onSelectScope: handleTimeContextRailScopeSelect,
-                  allowedScopes: TIME_CONTEXT_LANE_A_SCOPES,
+                  allowedScopes: TIME_CONTEXT_VISIBLE_CHART_SCOPES,
+                  customRangeStart: senderOverviewWindowSelection?.start || null,
+                  customRangeEnd: senderOverviewWindowSelection?.end || null,
+                  customRangeMin: timeContextCustomRangeMin,
+                  customRangeMax: timeContextCustomRangeMax,
+                  activeRangeLabel: timeContextActiveRangeLabel,
+                  onApplyCustomRange: applySenderOverviewCustomRange,
                 }}
                 tabStrip={
                   <SharedAnalysisRailTabStrip
@@ -9695,10 +12681,11 @@ export default function OperationsReviewPage() {
                     onSelectTab={setActiveSharedAnalysisRailTab}
                   />
                 }
-                isUpdating={pendingTimeContextScope != null}
+                isUpdating={pendingTimeContextScope != null || senderOverviewWindowLoading}
                 bodyOverride={activeRailDisplay.bodyOverride}
                 bucketSelection={{
-                  activeLabel: requestedTimeContextBucketLabel,
+                  activeLabel: renderedTimeContextBucketLabel,
+                  mode: timeContextBucketInteractionMode,
                   onToggleBucket: handleTimeContextBucketToggle,
                   disabledReason: timeContextBucketInteractionDisabledReason,
                   isLoading: timeContextBucketSelectionLoading,
@@ -9709,15 +12696,22 @@ export default function OperationsReviewPage() {
               <SenderDistributionAnalysisRail
                 items={senderDistributionItems}
                 totalRankedSenders={senderDistributionTotalRankedSenders}
-                focusedSenderKey={sharedWorkflowSubset.focusedSenderKey}
+                focusedSenderKey={renderedFocusedSenderKey}
                 authoritativeContext={senderDistributionAuthoritativeContext}
                 onSelectSender={handleSenderDistributionSelect}
                 onClearSelection={clearSenderDistributionSelection}
                 scopeStatus={senderDistributionScopeStatus}
                 scopeControls={{
-                  activeScope: activeRailScope,
-                  pendingScope: null,
-                  onSelectScope: handleRailScopeSelect,
+                  activeScope: activeSenderDistributionControlScope,
+                  pendingScope: pendingSenderDistributionControlScope,
+                  onSelectScope: handleSenderDistributionControlSelect,
+                  allowedScopes: TIME_CONTEXT_VISIBLE_CHART_SCOPES,
+                  customRangeStart: senderOverviewWindowSelection?.start || null,
+                  customRangeEnd: senderOverviewWindowSelection?.end || null,
+                  customRangeMin: timeContextCustomRangeMin,
+                  customRangeMax: timeContextCustomRangeMax,
+                  activeRangeLabel: timeContextActiveRangeLabel,
+                  onApplyCustomRange: applySenderOverviewCustomRange,
                 }}
                 tabStrip={
                   <SharedAnalysisRailTabStrip
@@ -9726,7 +12720,9 @@ export default function OperationsReviewPage() {
                   />
                 }
                 isLoading={senderDistributionLoading}
-                isUpdating={senderDistributionUpdating}
+                isUpdating={
+                  pendingSenderDistributionScope != null || senderDistributionUpdating
+                }
                 errorMessage={senderDistributionErrorMessage}
               />
             )}
@@ -9736,8 +12732,32 @@ export default function OperationsReviewPage() {
             ref={senderWorkflowSectionRef}
             data-shared-workflow-label={sharedWorkflowSubset.label}
             data-shared-workflow-source={sharedWorkflowSubset.source.primary}
-            className={`${primaryWorkflowSectionClass} space-y-4`}
+            className={workflowSectionClassName}
           >
+            {workflowFeedbackVisualActive ? (
+              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[linear-gradient(180deg,rgba(165,243,252,0.12),rgba(14,116,144,0.08),rgba(0,0,0,0))]" />
+            ) : null}
+            {senderWorkflowCoverageDisplay && workflowFeedbackVisualActive ? (
+              <div className="rounded-2xl border border-cyan-100/85 bg-[linear-gradient(180deg,rgba(165,243,252,0.24),rgba(10,24,37,0.98))] px-4 py-3 shadow-[0_20px_40px_rgba(8,145,178,0.18)]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="max-w-3xl">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-950/70">
+                      Workflow update in progress
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-white">
+                      {senderWorkflowCoverageDisplay.summary}
+                    </p>
+                    <p className="mt-1.5 text-sm leading-6 text-cyan-50">
+                      {senderWorkflowCoverageDisplay.detail}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-cyan-100/90 bg-cyan-300 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-950 shadow-[0_14px_32px_rgba(34,211,238,0.24)]">
+                    <span className="h-2 w-2 rounded-full bg-slate-950" />
+                    Applying now
+                  </span>
+                </div>
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-4xl">
                 <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Sender workflow</p>
@@ -9788,7 +12808,13 @@ export default function OperationsReviewPage() {
                     className={senderWorkflowPagerClassName}
                   />
                 ) : senderWorkflowCoverageDisplay ? (
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200">
+                  <p
+                    className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] ${
+                      workflowFeedbackVisualActive
+                        ? 'border-cyan-100/85 bg-cyan-300 text-slate-950 shadow-[0_14px_32px_rgba(34,211,238,0.22)]'
+                        : 'border-cyan-700/40 bg-cyan-950/20 text-cyan-200'
+                    }`}
+                  >
                     {senderWorkflowCoverageDisplay.pageLabel}
                   </p>
                 ) : null}
@@ -9796,18 +12822,28 @@ export default function OperationsReviewPage() {
                   <button
                     type="button"
                     onClick={clearOverviewNarrowingState}
-                    className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+                    disabled={clearNarrowingPending}
+                    className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm ${
+                      clearNarrowingPending
+                        ? 'cursor-progress border-cyan-100/85 bg-cyan-300 text-slate-950 opacity-100 shadow-[0_14px_32px_rgba(34,211,238,0.24)]'
+                        : ''
+                    }`}
                   >
-                    Clear narrowed state
+                    {clearNarrowingPending ? 'Returning to broader scope…' : 'Clear narrowed state'}
                   </button>
                 ) : null}
                 {hasDetachedWorkflowScope ? (
                   <button
                     type="button"
                     onClick={clearWorkflowScopeOverride}
-                    className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+                    disabled={clearWorkflowScopePending}
+                    className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm ${
+                      clearWorkflowScopePending
+                        ? 'cursor-progress border-cyan-100/85 bg-cyan-300 text-slate-950 opacity-100 shadow-[0_14px_32px_rgba(34,211,238,0.24)]'
+                        : ''
+                    }`}
                   >
-                    Back to All indexed
+                    {clearWorkflowScopePending ? 'Returning to All indexed…' : 'Back to All indexed'}
                   </button>
                 ) : null}
               </div>

@@ -375,6 +375,7 @@ export type GmailPublishedMailboxIntelligenceArtifactRead = {
   snapshot: GmailMailboxIntelligenceSnapshotRow | null
   cluster_summaries: GmailClusterSummaryArtifactRow[]
   buckets: GmailMailboxIntelligenceBucketRow[]
+  build_liveness: GmailArtifactBuildLivenessResult | null
 }
 
 const GMAIL_ARTIFACT_WRITE_BATCH_SIZE = 500
@@ -399,6 +400,9 @@ const GMAIL_ARTIFACT_PUBLICATION_CACHE_TTL_MS = 1000 * 5
 const GMAIL_ARTIFACT_VERSIONED_READ_CACHE_TTL_MS = 1000 * 60 * 5
 const GMAIL_ARTIFACT_PUBLICATION_SELECT =
   'tenant_id,analysis_scope,published_version,published_at,building_version,build_status,last_error,last_error_at,last_index_state_updated_at,last_indexed_message_count,freshness_state,freshness_reason,refresh_strategy,refresh_requested_at,refresh_started_at,refresh_completed_at,refresh_job_id,refresh_sync_run_id,created_at,updated_at'
+const GMAIL_ARTIFACT_REFRESH_HANDOFF_WAIT_MS = 4000
+const GMAIL_ARTIFACT_REFRESH_HANDOFF_POLL_MS = 400
+const GMAIL_ARTIFACT_REFRESH_HANDOFF_RECENCY_MS = 15000
 const SELECTED_CLUSTER_RAIL_SUMMARY_SELECT =
   'tenant_id,analysis_scope,cluster_id,artifact_version,title,dominant_sender'
 const SELECTED_CLUSTER_RAIL_HEADER_SELECT =
@@ -626,16 +630,29 @@ function normalizeRailTimelineFromHeader(
           return {
             label,
             count: normalizeInteger(item.sender_count),
+            bucket_start_iso: normalizeText(item.bucket_start_iso) || null,
+            bucket_end_exclusive_iso: normalizeText(item.bucket_end_exclusive_iso) || null,
           }
         })
-        .filter((entry): entry is { label: string; count: number } => entry != null)
+        .filter(
+          (
+            entry
+          ): entry is {
+            label: string
+            count: number
+            bucket_start_iso: string | null
+            bucket_end_exclusive_iso: string | null
+          } => entry != null
+        )
     : []
 
   if (timelineItems.length === 0) return null
 
   return {
     granularity:
-      analytics.sender_activity_timeline_granularity === 'day'
+      analytics.sender_activity_timeline_granularity === 'hour'
+        ? 'hour'
+        : analytics.sender_activity_timeline_granularity === 'day'
         ? 'day'
         : analytics.sender_activity_timeline_granularity === 'week'
           ? 'week'
@@ -1175,15 +1192,16 @@ async function loadPublicationState(params: {
   supabase: SupabaseClient
   tenantId: string
   analysisScope: GmailArtifactAnalysisScope
+  bypassCache?: boolean
 }): Promise<GmailArtifactPublicationRow | null> {
   const cacheKey = artifactPublicationCacheKey(params)
   const now = Date.now()
   const cached = publicationStateCache.get(cacheKey) || null
-  if (cached && cached.expires_at_ms > now) {
+  if (!params.bypassCache && cached && cached.expires_at_ms > now) {
     return cached.data
   }
 
-  const inflight = publicationStateInflight.get(cacheKey)
+  const inflight = params.bypassCache ? null : publicationStateInflight.get(cacheKey)
   if (inflight) {
     return inflight
   }
@@ -1218,6 +1236,69 @@ async function loadPublicationState(params: {
   } finally {
     publicationStateInflight.delete(cacheKey)
   }
+}
+
+function publicationAwaitingImmediateBuildHandoff(params: {
+  publication: GmailArtifactPublicationRow | null
+  nowMs: number
+}): boolean {
+  const publication = params.publication
+  if (!publication) return false
+  if (normalizeText(publication.building_version)) return false
+
+  const requestedAtMs = parseDateMs(publication.refresh_requested_at)
+  if (requestedAtMs == null) return false
+  if (params.nowMs - requestedAtMs > GMAIL_ARTIFACT_REFRESH_HANDOFF_RECENCY_MS) return false
+
+  if (
+    publication.refresh_strategy !== 'full_rebuild' &&
+    publication.refresh_strategy !== 'incremental'
+  ) {
+    return false
+  }
+
+  return (
+    publication.freshness_state === 'stale' ||
+    publication.freshness_state === 'refresh_failed' ||
+    publication.freshness_state === 'refresh_pending' ||
+    publication.freshness_state === 'full_rebuild_required'
+  )
+}
+
+async function awaitGmailArtifactRefreshHandoff(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  publication: GmailArtifactPublicationRow | null
+  timeoutMs?: number
+}): Promise<GmailArtifactPublicationRow | null> {
+  const timeoutMs = Math.max(0, params.timeoutMs ?? GMAIL_ARTIFACT_REFRESH_HANDOFF_WAIT_MS)
+  if (timeoutMs === 0) return params.publication
+
+  let publication = params.publication
+  const startedAt = Date.now()
+  let nowMs = startedAt
+
+  while (
+    publicationAwaitingImmediateBuildHandoff({
+      publication,
+      nowMs,
+    }) &&
+    nowMs - startedAt < timeoutMs
+  ) {
+    await sleep(
+      Math.min(GMAIL_ARTIFACT_REFRESH_HANDOFF_POLL_MS, timeoutMs - Math.max(0, nowMs - startedAt))
+    )
+    publication = await loadPublicationState({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      bypassCache: true,
+    })
+    nowMs = Date.now()
+  }
+
+  return publication
 }
 
 async function writePublicationState(params: {
@@ -2404,12 +2485,6 @@ export async function publishGmailArtifactBuild(params: {
   processedClusterCount?: number | null
 }): Promise<void> {
   const completedAt = nowIso()
-  const currentPublication = await loadPublicationState({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
-    analysisScope: params.analysisScope,
-  })
-  const newerRefreshRequested = publicationHasNewerRefreshRequestThanStartedBuild(currentPublication)
   await writePublicationState({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -2427,10 +2502,10 @@ export async function publishGmailArtifactBuild(params: {
         Number.isFinite(params.lastIndexedMessageCount)
           ? Math.max(0, Math.round(params.lastIndexedMessageCount))
           : null,
-      freshness_state: newerRefreshRequested ? undefined : 'fresh',
-      freshness_reason: newerRefreshRequested ? undefined : 'published_artifact_current',
-      refresh_completed_at: newerRefreshRequested ? undefined : completedAt,
-      refresh_job_id: newerRefreshRequested ? undefined : normalizeText(params.jobId),
+      freshness_state: 'fresh',
+      freshness_reason: 'published_artifact_current',
+      refresh_completed_at: completedAt,
+      refresh_job_id: normalizeText(params.jobId),
     },
   })
 
@@ -3858,12 +3933,41 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
   includeSnapshot?: boolean
   includeClusterSummaries?: boolean
   includeBuckets?: boolean
+  reconcileBuildLiveness?: boolean
+  buildLivenessLogPrefix?: string | null
+  bypassPublicationCache?: boolean
+  awaitRefreshHandoff?: boolean
+  refreshHandoffTimeoutMs?: number
 }): Promise<GmailPublishedMailboxIntelligenceArtifactRead> {
-  const publication = await loadPublicationState({
+  let publication = await loadPublicationState({
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope: params.analysisScope,
+    bypassCache: params.bypassPublicationCache,
   })
+  let buildLiveness: GmailArtifactBuildLivenessResult | null = null
+
+  if (params.awaitRefreshHandoff) {
+    publication = await awaitGmailArtifactRefreshHandoff({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      publication,
+      timeoutMs: params.refreshHandoffTimeoutMs,
+    })
+  }
+
+  if (params.reconcileBuildLiveness && normalizeText(publication?.building_version)) {
+    buildLiveness = await reconcileGmailArtifactBuildLiveness({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      publication,
+      logPrefix: params.buildLivenessLogPrefix ?? undefined,
+    })
+    publication = buildLiveness.publication ?? publication
+  }
+
   const artifactVersion = normalizeNullableText(publication?.published_version)
   if (!publication || !artifactVersion) {
     return {
@@ -3872,6 +3976,7 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
       snapshot: null,
       cluster_summaries: [],
       buckets: [],
+      build_liveness: buildLiveness,
     }
   }
 
@@ -3942,5 +4047,6 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
       ? ((clusterSummariesQuery.data || []) as GmailClusterSummaryArtifactRow[])
       : [],
     buckets: includeBuckets ? ((bucketsResult.data || []) as GmailMailboxIntelligenceBucketRow[]) : [],
+    build_liveness: buildLiveness,
   }
 }

@@ -1,0 +1,451 @@
+{
+  "name": "scope_1d",
+  "screenshotPath": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_phase2_final_postsettle/scope_1d.png",
+  "state": {
+    "href": "http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?workflow_scope=7d&cluster_id=structural.protected_trust&sender_overview_window=last_day",
+    "railState": "ready",
+    "railSource": "workflow_window",
+    "railScope": "7d",
+    "hasRoot": true,
+    "granularity": "hour",
+    "bucketCount": 24,
+    "rawBucketCount": 24,
+    "compressedMode": "false",
+    "hiddenBucketCount": 0,
+    "bucketDetails": [
+      {
+        "label": "16:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "17:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "18:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "19:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "20:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "21:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "22:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "23:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "00:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "01:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "02:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "03:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "04:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "05:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "06:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "07:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "08:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "09:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "10:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "11:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "12:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "13:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "14:00",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "15:00",
+        "count": 0,
+        "messageCount": 0
+      }
+    ],
+    "bucketLabels": [
+      "16:00",
+      "17:00",
+      "18:00",
+      "19:00",
+      "20:00",
+      "21:00",
+      "22:00",
+      "23:00",
+      "00:00",
+      "01:00",
+      "02:00",
+      "03:00",
+      "04:00",
+      "05:00",
+      "06:00",
+      "07:00",
+      "08:00",
+      "09:00",
+      "10:00",
+      "11:00",
+      "12:00",
+      "13:00",
+      "14:00",
+      "15:00"
+    ],
+    "axisLabels": [
+      "16:00",
+      "19:00",
+      "22:00",
+      "01:00",
+      "04:00",
+      "07:00",
+      "10:00",
+      "13:00",
+      "15:00"
+    ],
+    "loadingCopy": [],
+    "fallbackCopy": [],
+    "activeSendersText": "0",
+    "supportingMessagesText": "0",
+    "truthSummary": "How to read these numbers15:00Active senders in this bucket0Supporting messages in this bucket0Senders in current workflow scope—0 scoped senders fall inside 15:00. 0 supporting messages counts emails from those same senders in that hour.",
+    "workflowTotals": [
+      "—"
+    ],
+    "scopeButtons": [
+      {
+        "text": "Logout",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Logout",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Refresh cleanup analysis",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Smart Sync",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Continue Backfill (36m)",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Run full mailbox reindex",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Commerce / shipping",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Account / service updates",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Marketing / promotional",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 2 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 2 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#1oliver@curativemushrooms.com8,004 messages6%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#2support@curativemushrooms.com4,631 messages3%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#3instant-updates@mail.zillow.com2,844 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#4seaworld@m.seaworldparks.com2,772 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#5harryanddavid@harryanddavid-email.com2,597 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#6automation@networkmerchants.com2,414 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Sender Distribution",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Time Context",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "All indexed",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1Y",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1Q",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1M",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1W",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1D",
+        "pressed": "true",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Custom",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Clear narrowed state",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Back to All indexed",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Highest impact",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Most recent",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Most unread",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "noreply@mail.app.supabase.ioReview carefullymail.app.supabase.io · Last activity 4/12/20262 msgsAccount / service updatesAccount / service updates · Service / account updatesProof on screenPersonal · Updates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "noreply@email.openai.comReview carefullyemail.openai.com · Last activity 4/11/20261 msgsAccount / service updatesAccount / service updates · Promotional cycleProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "What does this cleanup group represent before I start decisions?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "How many senders are already managed versus still eligible?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "When should I leave Overview and enter Decision Mode?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Ask",
+        "pressed": null,
+        "busy": null,
+        "disabled": true
+      }
+    ],
+    "textSample": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\noliver.j.carlin@gmail.com\n\nLogout\n\nOPERATIONS WORKSPACE\n\nSession-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.\n\nWORKFLOW SCOPE\n\nThis control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.\n\n1W\n1M\n2M\n1Q\n6M\n1Y\nAll indexed\nRefresh cleanup analysis\n\nRefreshing cleanup analysis does not increase indexed mailbox coverage.\n\nSmart SyncContinue Backfill (36m)Run full mailbox reindex\n\nWorkflow scope view: 7d · Last refresh: 3:21:47 PM\n\nRuntime baseline: All indexed · Workflow scope switching stays inside the current review page while chart compare windows stay separate in Time Context.\n\nEffective discovery window: all indexed\n\nLast regenerated: —\n\nMAILBOX INDEX\n\nHistorical backfill complete for recent 24-month window\n\nIndexed rows: 237,628\n\nCoverage: 12/2/2022 -> 4/12/2026\n\nCompleted: 3/19/2026, 2:22:57 PM\n\nBackfill target: recent 24-month window\n\nHistorical cutoff: 3/19/2024\n\nSmart Sync will maintain new activity going forward\n\nOptional extended backfill to 36 months is available\n\nCONTROL CENTER\n\nManagement is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.\n\nWORKFLOW\n\nMailbox Intelligence\n\nMission, status, and high-level cleanup summary\n\nCleanup Groups\n\nFull sender-group selection surface\n\nSender Overview\n\nOrientation, scope, and progress before focused review\n\nDecision Mode\n\nOne sender at a time, four actions, no Gmail mutation\n\nManagement\n\nDestination states, execution truth, and follow-up\n\nLEGACY & AUDIT\n\nPending Approvals\n\nLegacy queue surface kept route-safe for older runtime flows\n\nExecuted Actions\n\nLegacy execution audit view\n\nHistory\n\nLegacy audit timeline and runtime history\n\nTOOLS\n\nAI Playground Chat\n\nGeneral chat/testing surface\n\nSELECTED CLEANUP GROUP\n\nProtected / trusted senders\n\nShowing Apr 15, 2026, 4:00 PM - Apr 16, 2026, 3:22 PM · hourly bars is the active workflow window inside 1W. Sender rows, Sender Distribution, pagination, and Decision Mode now narrow to that same sender universe.\n\nCleanup Groups\nOpen Management\n\nSENDERS IN WORKFLOW WINDOW\n\n2\n\nShowing Apr 15, 2026, 4:00 PM - Apr 16, 2026, 3:22 PM · hourly bars is the active workflow window. This sender count matches the live workflow below.\n\nMANAGED ALREADY\n\n0\n\nCovered senders inside this active workflow window.\n\nSTILL TO REVIEW\n\n2\n\nDecision Mode and the sender workflow are both narrowed to Showing Apr 15, 2026, 4:00 PM - Apr 16, 2026, 3:22 PM · hourly bars.\n\nSUPPORTING MESSAGES IN WORKFLOW WINDOW\n\n3\n\nSupporting message volume from the same active workflow window.\n\nWORKFLOW REVIEW GOAL\n\nGive every sender in Showing Apr 15, 2026, 4:00 PM - Apr 16, 2026, 3:22 PM · hourly bars a decision.\n\nShowing Apr 15, 2026, 4:00 PM - Apr 16, 2026, 3:22 PM · hourly bars is now the active workflow window, so this progress meter, Sender Distribution, and the sender list all track the same narrowed sender universe.\n\nCOVERED SENDERS\n\n0 / 2\n\n2 senders still remaining in Showing Apr 15, 2026, 4:00 PM - Apr 16, 2026, 3:22 PM · hourly bars.\n\n0 covered · 2 remaining\nNext step: review the 2 senders that still need a decision in Decision Mode.\n\nRefreshing scoped sender evidence in the background…\n\nPAGE TRUTH GUIDE\n\nThis review page keeps mailbox sync and artifact freshne"
+  },
+  "phase": "scope_1D"
+}

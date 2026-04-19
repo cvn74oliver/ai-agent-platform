@@ -161,17 +161,21 @@ function formatMailboxIndexCount(value: number | null | undefined): string {
     : '—'
 }
 
-function formatMailboxIndexDateTime(value: string | null | undefined): string {
-  if (!value) return '—'
+function parseMailboxIndexDateMs(value: string | null | undefined): number | null {
+  if (!value) return null
   const parsed = Date.parse(value)
-  if (!Number.isFinite(parsed)) return '—'
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function formatMailboxIndexDateTime(value: string | null | undefined): string {
+  const parsed = parseMailboxIndexDateMs(value)
+  if (parsed == null) return '—'
   return new Date(parsed).toLocaleString()
 }
 
 function formatMailboxIndexDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = Date.parse(value)
-  if (!Number.isFinite(parsed)) return '—'
+  const parsed = parseMailboxIndexDateMs(value)
+  if (parsed == null) return '—'
   return new Date(parsed).toLocaleDateString()
 }
 
@@ -187,13 +191,17 @@ function mailboxIndexTriggerLabel(value: string | null | undefined): string {
 }
 
 function mailboxIndexCoverageLabel(start: string | null | undefined, end: string | null | undefined): string {
-  if (!start && !end) return '—'
-  return `${formatMailboxIndexDate(start)} -> ${formatMailboxIndexDate(end)}`
+  const startMs = parseMailboxIndexDateMs(start)
+  const endMs = parseMailboxIndexDateMs(end)
+  if (startMs == null || endMs == null || startMs > endMs) return 'coverage unavailable'
+  return `${new Date(startMs).toLocaleDateString()} -> ${new Date(endMs).toLocaleDateString()}`
 }
 
 function mailboxIndexYieldRangeLabel(start: string | null | undefined, end: string | null | undefined): string {
-  if (!start && !end) return '—'
-  return `${formatMailboxIndexDate(start)} -> ${formatMailboxIndexDate(end)}`
+  const startMs = parseMailboxIndexDateMs(start)
+  const endMs = parseMailboxIndexDateMs(end)
+  if (startMs == null || endMs == null || startMs > endMs) return '—'
+  return `${new Date(startMs).toLocaleDateString()} -> ${new Date(endMs).toLocaleDateString()}`
 }
 
 function mailboxIndexNextPageTokenLabel(value: boolean | null | undefined): string {
@@ -257,9 +265,10 @@ function mailboxIndexBackfillTargetLines(params: {
   cutoffAt: string | null | undefined
 }): string[] {
   if (params.windowMonths == null && !params.cutoffAt) return []
+  const cutoffLabel = formatMailboxIndexDate(params.cutoffAt)
   return [
     `Backfill target: ${mailboxIndexBackfillWindowLabel(params.windowMonths)}`,
-    `Historical cutoff: ${formatMailboxIndexDate(params.cutoffAt)}`,
+    `Historical cutoff: ${cutoffLabel === '—' ? 'unavailable' : cutoffLabel}`,
   ]
 }
 
@@ -402,6 +411,12 @@ function OperationsWorkspaceShellInner(props: {
       ? normalizedReviewWorkflowScope
       : null
   const visibleAnalysisScope = detachedReviewWorkflowScope || props.analysisScope
+  const analysisWindowControlLabel = reviewSupportsDetachedScope
+    ? 'Workflow scope'
+    : 'Analysis window'
+  const analysisWindowHelperText = reviewSupportsDetachedScope
+    ? 'This control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.'
+    : 'This control changes the discovery window used for cleanup analysis.'
   const reviewHref = useCallback(
     (mode: string) => {
       const next = new URLSearchParams()
@@ -682,8 +697,8 @@ function OperationsWorkspaceShellInner(props: {
       setScopeUpdating(true)
       setRegenerationStatusNote(
         normalizedNext === props.analysisScope
-          ? `Review timeframe reset to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
-          : `Review timeframe set to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
+          ? `Workflow scope reset to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
+          : `Workflow scope set to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
       )
       const nextSearch = new URLSearchParams(searchParams.toString())
       if (normalizedNext === props.analysisScope) {
@@ -1400,8 +1415,11 @@ function OperationsWorkspaceShellInner(props: {
             Session-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.
           </p>
           <div className="app-surface-rail-card space-y-1.5 rounded-xl p-2.5">
-            <p className="text-[9px] uppercase tracking-wide text-slate-300">Analysis window</p>
-              <select
+            <p className="text-[9px] uppercase tracking-wide text-slate-300">
+              {analysisWindowControlLabel}
+            </p>
+            <p className="text-[10px] leading-5 text-slate-300">{analysisWindowHelperText}</p>
+            <select
               value={visibleAnalysisScope}
               onChange={(event) =>
                 void updateAnalysisScope(
@@ -1489,13 +1507,15 @@ function OperationsWorkspaceShellInner(props: {
               {runtime.manualMailboxReindexStarting ? 'Starting full mailbox reindex…' : 'Run full mailbox reindex'}
             </button>
             <p className="text-[10px] text-slate-300">
-              View: {analysisScopeLabel(visibleAnalysisScope)} · Last refresh:{' '}
+              {reviewSupportsDetachedScope ? 'Workflow scope view' : 'View'}:{' '}
+              {analysisScopeLabel(visibleAnalysisScope)} · Last refresh:{' '}
               {runtime.loadedAt ? new Date(runtime.loadedAt).toLocaleTimeString() : '—'}
             </p>
             {detachedReviewWorkflowScope ? (
               <p className="text-[10px] text-slate-300">
-                Runtime baseline: {analysisScopeLabel(props.analysisScope)} · Scope switching stays inside
-                the current review page.
+                Runtime baseline: {analysisScopeLabel(props.analysisScope)} · Workflow scope
+                switching stays inside the current review page while chart compare windows stay
+                separate in Time Context.
               </p>
             ) : null}
             <p className="text-[10px] text-slate-300">

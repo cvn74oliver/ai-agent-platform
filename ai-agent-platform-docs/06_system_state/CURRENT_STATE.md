@@ -1,7 +1,1130 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-04-01
+Last updated: 2026-04-16
 Project Manager: Codex Operating System active (`Oliver -> Project Manager -> Codex`)
+
+---
+
+## 🚀 April 16 — ACE-047 Time Context Rebuild Active
+
+### Current governing state
+
+- `ACE-047` is now the active governing Time Context lane.
+- Time Context is now under a controlled phased rebuild.
+- Time Context execution is now spec-driven:
+  - behavioral truth = `TIME_CONTEXT_SPEC.md`
+  - execution sequencing = `TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md`
+- No further Time Context implementation may proceed outside the defined phased rebuild.
+- Active phase:
+  - Phase 2 — Scope Semantics Lock
+- Phase 1 — Runtime Safety / Churn Containment is accepted and complete.
+- Runtime surface is stable.
+- No request churn.
+- Safe to proceed with Time Context post-settle semantic verification.
+- Runtime READY blocker is resolved on the canonical protected-trust review route.
+- Runtime snapshot attachment is no longer the active blocker for Phase 2 verification.
+- Phase 2 remains active; the next step is final post-settle verification, not new implementation.
+- Historical continuity remains preserved:
+  - prior `ACE-046` runtime request-flood stabilization remains accepted historical truth
+  - accepted runtime continuity, Smart Sync handoff, guardrail enforcement, and Time Context scoped-state rebuild remain preserved and must not be reopened without new canonical-route evidence
+- The runtime continuity sub-layer under `ACE-046` is now accepted and complete for build-liveness reconciliation before build-pending continuity emission.
+- `ACE-045` is now accepted and complete as the Operations Review hero/layout hierarchy cleanup.
+- `ACE-044` remains accepted and complete as the Sender Distribution `All indexed` reconciliation cleanup.
+- `ACE-043` remains accepted and complete as the coverage / backfill display contract cleanup.
+- `ACE-042` remains accepted and complete as the Time Context render-authority and scope-unification contract.
+- `ACE-040` remains accepted and complete as the Smart Sync continuity + UI stabilization contract.
+- The current system state is:
+  - Time Context phased rebuild lane is active
+  - Phase 2 scope semantics lock is the active execution focus
+  - accepted runtime continuity containment remains stable
+  - stable runtime / Smart Sync continuity layer
+  - stable Time Context render authority layer
+  - stable coverage / backfill display contract layer
+  - stable Sender Distribution `All indexed` reconciliation layer
+  - stable Operations Review hero/layout hierarchy
+  - stable Analysis Rail request-discipline historical baseline
+  - stable runtime continuity build-liveness reconciliation layer
+  - stable Smart Sync -> artifact rebuild handoff layer
+  - stable runtime guardrail enforcement layer
+  - stable runtime request-flood containment layer for build-pending and failed-artifact rehydrate paths
+  - no further implementation may proceed outside the active defined rebuild phases
+
+### Execution status
+
+- `ACE-047` is now the active governing next lane.
+- Phase 1 — Runtime Safety / Churn Containment is accepted and complete.
+- Phase 2 — Scope Semantics Lock is explicitly active.
+- Phase 1 accepted-fix closeout:
+  - eliminated mailbox-index poll loop caused by stale `active_run` gating
+  - runtime now polls only when `execution_state === 'running'`
+  - cold load, scope switching, and idle now operate with zero unnecessary churn
+- Recovery Contract: `CHANGELOG.md` -> `April 16, 2026 — Phase 1 Runtime Safety Fix`
+- Runtime READY unblock accepted-fix closeout:
+  - canonical protected-trust review route reaches READY within the locked protocol window
+  - baseline runtime snapshot attaches without blocking on heavy selected-cluster bootstrap
+  - `rehydrate_only` now returns enough same-scope baseline rail truth for route readiness while heavy rail hydration remains deferred
+- Recovery Contract: `CHANGELOG.md` -> `April 16, 2026 — ACE-047 Runtime READY Unblock Accepted`
+- `ACE-045` remains accepted and closed:
+  - `Sender Review Goal` is restored inside the dark hero directly under the KPI cards
+  - `Smart Sync continuity` remains outside the hero
+  - `Page Truth Guide` remains outside the hero
+  - Recovery Contract: `CHANGELOG.md` -> `April 9, 2026 — ACE-045 Operations Review Hero/Layout Cleanup Accepted`
+- accepted `ACE-044`, `ACE-043`, `ACE-042`, and `ACE-040` remain stable historical fixed truth and must not be reopened without new canonical-route evidence
+- `ACE-041` remains active unchanged as the control-plane execution-efficiency layer and does not govern product-lane scope.
+
+### Next executable step
+
+- Rerun Phase 2 final post-settle verification on the accepted route using the locked verification protocol.
+- Objective:
+  - prove post-settle `all_indexed` monthly chart truth on the accepted route
+  - execute the locked scope loop only after READY is reached
+  - confirm bucket counts, current-month visibility, and cross-scope parity under the post-settle protocol
+- Scope:
+  - Phase 2 verification only
+  - canonical protected-trust review route
+  - locked post-settle verification protocol
+- Constraints:
+  - preserve the accepted Phase 1 stable runtime surface
+  - preserve the accepted runtime READY unblock
+  - do not reopen runtime churn containment
+  - do not implement new semantics during verification
+  - do not move beyond the active rebuild phase
+- Preserve accepted historical runtime stabilizations and scoped-state fixes while Phase 2 semantics work proceeds.
+
+---
+
+## 🚀 April 8 — ACE-043 Coverage / Backfill Display Contract Cleanup Accepted
+
+### Current governing state
+
+- `ACE-043` is now accepted and complete as the Analysis Rail coverage / backfill display contract cleanup on the Operations Review page.
+- `ACE-042` remains accepted and complete as the Time Context render-authority and scope-unification contract on the Operations Review page.
+- `ACE-040` remains accepted and complete as the stable Smart Sync continuity + UI stabilization contract.
+- The current system state is:
+  - stable runtime / Smart Sync continuity layer
+  - stable Time Context render authority layer
+  - stable coverage / backfill display contract layer
+- `ACE-043` accepted scope:
+  - removed visible `1970` / epoch fallback leakage
+  - coverage now reflects the actual indexed / backfill window on the accepted shell
+  - mailbox coverage display now aligns with mailbox-index truth
+  - review-page display-contract interpretation now settles to final truth instead of staying stuck unavailable
+- Keep separate follow-on lanes outside accepted `ACE-043`:
+  - `all-indexed` Sender Distribution render inconsistency
+  - hero/layout cleanup regression
+
+### Execution status
+
+- `ACE-043` is accepted and closed:
+  - the accepted runtime continuity layer remains stable under `ACE-040`
+  - the accepted Time Context render-authority layer remains stable under `ACE-042`
+  - the shared mailbox coverage/backfill shell now settles onto real mailbox-index truth on the canonical review route
+  - no visible `1970` remains on the accepted surface
+  - Recovery Contract: `CHANGELOG.md` -> `April 8, 2026 — ACE-043 Coverage / Backfill Display Contract Cleanup Accepted`
+- `ACE-040` remains accepted historical truth for runtime continuity and final ready-state UI stabilization.
+- `ACE-042` is accepted and closed:
+  - review-page render authority is unified
+  - `All indexed -> 1D` and `1W -> 1D` settle to the same 24-hour chart contract
+  - Smart Sync `1W` / `1M` drift validation passed with no flicker and no fallback/status swap
+  - Recovery Contract: `CHANGELOG.md` -> `April 8, 2026 — ACE-042 Time Context Render Authority + Scope Unification Accepted`
+- `ACE-041` remains active unchanged as the control-plane execution-efficiency layer and does not govern product-lane scope.
+
+### Next executable step
+
+- Hero/layout cleanup is now active under `ACE-045` on the Operations Review page.
+- Preserve accepted `ACE-044` as the stable Sender Distribution `All indexed` reconciliation contract.
+- Keep remaining lanes separated; do not reopen accepted distribution, coverage/backfill, runtime continuity, or Time Context contracts in the hero/layout pass.
+- Do not reopen accepted `ACE-040`, `ACE-042`, `ACE-043`, or `ACE-044` unless new canonical-route evidence disproves those contracts.
+
+---
+
+## 🚀 April 7 — ACE-041 Execution Efficiency Optimization Layer Active
+
+### Current governing state
+
+- `ACE-041` is now active system behavior for control-plane execution efficiency.
+- This is an operating-model optimization only:
+  - no product behavior changed
+  - no runtime behavior changed
+  - no UI behavior changed
+- Same-thread control-plane carry-forward is now allowed when:
+  - governing ACE is unchanged
+  - active phase is unchanged
+  - accepted-fix status is unchanged
+  - approved scope is unchanged
+  - governing-truth status is unchanged
+- Propagation cadence is now checkpoint-based:
+  - accepted fix
+  - governing-truth change
+  - phase transition
+  - thread closeout when material state exists
+  - before a new thread that depends on pending truth
+- Verification must follow the ladder:
+  - diagnostic falsification
+  - correction proof
+  - accepted-fix closeout
+- `MEDIUM` is now the default reasoning tier unless ambiguity, cross-layer risk, or architecture work justifies escalation.
+- `PROJECT_MANAGER_CONTEXT.md` remains the canonical PM operating-model file only.
+- Lane-specific execution truth must continue to live in:
+  - `CURRENT_STATE.md`
+  - `ACTIVE_CHANGE_EVENTS.md`
+
+### Execution status
+
+- `ACE-041` is propagated as active control-plane behavior.
+- `AGENTS.md` already enforces the efficiency layer rules and required boundaries.
+- `PROJECT_MANAGER_CONTEXT.md` already reflects:
+  - same-thread carry-forward
+  - propagation cadence
+  - verification ladder
+  - reasoning-tier optimization
+  - PM context boundary rules
+- `SYSTEM_MEMORY_MAP.md` remains consistent with PM context canonicalization and lane-truth routing.
+
+## 🚀 April 8 — ACE-040 Smart Sync Continuity + UI Stabilization Accepted
+
+### Current governing state
+
+- `ACE-040` is now accepted and complete as the Smart Sync continuity + UI stabilization contract for the canonical Analysis Rail review route after `ACE-039`.
+- `ACE-039` remains complete and accepted as the mailbox-index freshness / data-truth recovery contract.
+- Smart Sync is now treated as a live continuity mechanism, not just a one-time recovery tool.
+- Runtime snapshot / `cacheVersion` advancement is required only when a completed Smart Sync produces changed artifact/runtime truth that should update workflow truth.
+- A no-op Smart Sync completion is not, by itself, continuity failure proof.
+- Forced refresh must not attempt runtime regeneration while artifact publication remains:
+  - `freshness_state = refresh_in_progress`
+  - `build_status = building`
+- During active artifact build, the system must keep the last stable runtime snapshot visible, expose build-pending status, and rotate `generated_at` / `cacheVersion` only after build-ready truth is published.
+- Time Context rendering must remain deterministic by timeframe:
+  - short ranges -> daily bars
+  - medium ranges -> weekly bars
+  - long ranges -> monthly bars
+- `ACE-040` preserves the accepted invariant that the page must remain visibly populated through build-pending and ready-state swap:
+  - no forced refresh crash during active build
+  - no loading-only workspace at final settled ready state
+  - no placeholder-only summary truth after the swap
+- Keep adjacent Analysis Rail follow-up separate from the accepted `ACE-040` contract:
+  - `1970` coverage display anomaly
+  - `all-indexed` Sender Distribution render inconsistency
+
+### Execution status
+
+- `ACE-039` = complete:
+  - accepted mailbox-index freshness / data-truth recovery
+  - preserved as the fixed upstream source-layer contract
+- `ACE-040` = complete:
+  - accepted Smart Sync build-pending stable-snapshot contract
+  - accepted automatic ready-state runtime swap
+  - accepted UI stabilization across the swap, including downstream sender workspace / sender distribution completion
+  - Recovery Contract: `CHANGELOG.md` -> `April 8, 2026 — ACE-040 Smart Sync Continuity + UI Stabilization Accepted`
+
+### Next executable step
+
+- `ACE-040` is accepted and closed.
+- Subsequent Analysis Rail implementation moved through separate follow-on lanes, with Coverage / Backfill Display Contract Cleanup accepted under `ACE-043` and Sender Distribution `All indexed` reconciliation later accepted under `ACE-044`.
+- Keep the `1970` coverage display anomaly and `all-indexed` Sender Distribution render inconsistency separate from the accepted `ACE-040` continuity contract.
+
+## 🚀 April 6 — ACE-039 Mailbox-Index Freshness Recovery Accepted
+
+### Current governing state
+
+- `ACE-039` is now the accepted completed mailbox-index freshness recovery for current `1W` / `1M` Time Context failures.
+- Current `1W` / `1M` failures must now be treated as a recent-period data-truth / source-of-truth recovery problem, not as a UI grammar-only problem.
+- The chart remains the final pass surface, and the accepted fix now restores the upstream truth feeding that chart.
+- The approved root cause is now classified as `stale index reuse`.
+- The earliest proven failure boundary is the mailbox-index freshness / checkpoint layer.
+- No future pass should try to "fix" `1W` / `1M` by hiding, compressing, or visually removing empty periods when the real expectation is that qualifying recent data should exist.
+- `ACE-038` remains preserved as accepted historical context for the narrow fixed-slot UI grammar pass.
+- `ACE-037` remains preserved as accepted historical context for compressed chart-only `1D` / `Custom`.
+
+### Execution status
+
+- Implementation is complete in:
+  - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- Live mailbox-index recovery verification confirmed:
+  - false-healthy recent gaps are now detected and no longer qualify as usable cached truth
+  - `smart_sync` recovery now upgrades to a fresh head-of-mailbox full run when recent truth is gapped
+  - accepted recovery run settled as:
+    - `requested_mode = incremental`
+    - `effective_mode = full`
+    - `started_from_checkpoint = false`
+    - `terminal_reason = recent_window_reached`
+  - mailbox-index state moved from:
+    - `indexed_message_count = 234539`
+    - `indexed_newest_message_at = 2026-04-06T07:59:04.000Z`
+    - `last_sync_status = incremental_sync_complete`
+    - `sync_health = healthy`
+    - `usable_with_cached_index = true`
+    to:
+    - `indexed_message_count = 236627`
+    - `indexed_newest_message_at = 2026-04-06T13:38:57.000Z`
+    - `last_sync_status = full_scan_complete`
+    - `sync_health = healthy`
+    - `usable_with_cached_index = true`
+    - `recent_window_health.false_healthy_state = false`
+    - `recent_window_health.missing_recent_days = []`
+  - raw indexed mailbox truth in `gmail_messages` now restored the previously missing recent span:
+    - `2026-03-30: 0 -> 180`
+    - `2026-03-31: 1 -> 241`
+    - `2026-04-01: 1 -> 206`
+    - `2026-04-02: 0 -> 175`
+    - `2026-04-03: 0 -> 170`
+  - derived sender truth in `gmail_sender_stats` now restored continuity across the same span:
+    - `2026-03-30: 0 -> 7`
+    - `2026-03-31: 1 -> 14`
+    - `2026-04-01: 0 -> 17`
+    - `2026-04-02: 0 -> 12`
+    - `2026-04-03: 0 -> 12`
+  - live runtime/UI verification on the canonical review route confirmed:
+    - `1W` final settled state:
+      - `workflow_scope = 7d`
+      - `compressedMode = false`
+      - `granularity = day`
+      - `rawBucketCount = 7`
+      - `renderBucketCount = 7`
+      - visible buckets now populate every day from `Mar 31` through `Apr 6`
+    - `1M` final settled state:
+      - `workflow_scope = 30d`
+      - `compressedMode = false`
+      - `granularity = day`
+      - `rawBucketCount = 30`
+      - `renderBucketCount = 30`
+      - visible buckets now continue through late March into early April with no unexplained zero run
+    - corroborating `Custom` final settled state remained aligned:
+      - `sender_overview_window = custom`
+      - `sender_overview_start = 2026-03-08`
+      - `sender_overview_end = 2026-03-27`
+      - `customWorkspace.selected_cluster = 254 senders / 1143 messages`
+      - `customOverview.summary = 254 active senders / 1143 supporting messages`
+  - accepted proof artifacts captured screenshot, DOM/state, and request trace for:
+    - `1W`
+    - `1M`
+    - `Custom`
+  - no UI/chart code changed in this pass
+  - no `409` guard churn interfered with the accepted flow
+  - Recovery Contract: `CHANGELOG.md` -> `April 6, 2026 — ACE-039 Mailbox-Index Freshness Recovery Accepted`
+
+### Next executable step
+
+- `ACE-039` is accepted and closed.
+- Preserve the mailbox-index freshness recovery contract as the governing stable fix for recent-period `1W` / `1M` truth.
+- Do not reopen UI grammar-only fixes as the primary hypothesis for `1W` / `1M` unless new live evidence disproves mailbox-index freshness as the fixed source layer.
+- Post-`ACE-039` stabilization, visualization parity, and Smart Sync continuity are now governed by `ACE-040`.
+
+## 🚀 April 6 — ACE-038 Time Context Fixed-Slot UI Grammar Recovery Accepted
+
+### Current governing state
+
+- `ACE-038` is now preserved as accepted historical context for the narrow Time Context fixed-slot UI grammar recovery.
+- `ACE-037` remains historically correct as the accepted narrow chart-only fix for `1D` / `Custom`.
+- `ACE-038` now explicitly clarifies the product grammar split for accepted Time Context surfaces:
+  - `1D` and `Custom` remain compressed compare-only/chart-only continuity surfaces
+  - `1W` must preserve a fixed 7-day frame with 7 visible daily buckets, including visible zero slots
+  - `1M` must preserve a fixed 30-day frame with 30 visible daily buckets, including visible zero slots
+- This was a UI grammar clarification only.
+- This pass did **not** approve runtime/data-path changes, sender-universe changes, or newsletter parent-universe reconstruction changes.
+- Workflow-driving chip architecture remains unchanged in this pass:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+
+### Execution status
+
+- Implementation is complete in:
+  - `web/src/components/runtime/GmailCleanupComponents.tsx`
+- Live runtime/UI verification on the exact canonical review route confirmed:
+  - `1W` final settled state preserved `compressedMode = false`, `granularity = day`, `rawBucketCount = 7`, and `renderBucketCount = 7`
+  - `1M` final settled state preserved `compressedMode = false`, `granularity = day`, `rawBucketCount = 30`, and `renderBucketCount = 30`
+  - visible bars stay contained within each day slot on `1W` and `1M`
+  - zero days remain visibly reserved on `1W` and `1M`
+  - `1D` and `Custom` remain compressed and still disclose hidden inactive periods
+  - no `409` guard churn was observed during the accepted flow
+- `CURRENT_STATE.md`, `TODO.md`, `PROJECT_MANAGER_CONTEXT.md`, `ACTIVE_CHANGE_EVENTS.md`, and `CHANGELOG.md` now align on:
+  - `ACE-038` as the accepted fixed-slot UI grammar recovery
+  - `ACE-037` as the narrow accepted historical fix
+  - the explicit continuity grammar split across accepted surfaces
+
+### Next executable step
+
+- `ACE-038` is accepted and closed.
+- Preserve this pass as historical accepted context only.
+- Future `1W` / `1M` recovery work is now governed by `ACE-039`.
+
+## 🚀 April 6 — ACE-037 Time Context Chart-Only Continuity Recovery Accepted
+
+### Current governing state
+
+- `ACE-037` is now completed as the narrow Time Context chart-only continuity recovery pass.
+- Time Context `1D` and `Custom` now render compressed active timelines so active periods flow continuously without reserved zero-gap slots.
+- Raw bucket truth remains authoritative for hover, focus, and lower-card reads.
+- This pass did **not** change:
+  - backend aggregation
+  - route/query behavior
+  - Sender Distribution / workflow totals / sender rows logic
+  - workflow-driving windows:
+    - `All indexed`
+    - `1Y`
+    - `1Q`
+    - `1M`
+    - `1W`
+  - interpolation / synthetic continuity
+
+### Execution status
+
+- Implementation is complete in:
+  - `web/src/components/runtime/GmailCleanupComponents.tsx`
+- Live runtime/UI verification on the exact canonical review route confirmed:
+  - `1D` cold load settles with no reserved visible gaps between active periods
+  - sparse `Custom` settles with no reserved visible gaps between active periods
+  - inactive periods are disclosed explicitly in compressed mode
+  - lower-card values remain tied to raw bucket truth
+  - explicit empty-state behavior appears when a compressed custom window has no active periods
+  - no `409` guard churn was observed during the accepted flow
+
+### Next executable step
+
+- `ACE-037` is accepted and closed.
+- Keep the chart-only continuity contract stable for `1D` / `Custom`.
+- Do not widen this continuity adapter into workflow-driving windows or interpolation without a new approved plan.
+
+## 🚀 April 6 — ACE-036 Gmail Marketing Classification Coverage + Sender Distribution `1W` UI Consistency Recovery Accepted
+
+### Current governing state
+
+- `ACE-036` is now completed as the narrow Gmail marketing-classification and Sender Distribution `1W` UI consistency recovery pass.
+- `semantic.marketing_subscriptions` now rescues broader-row promotional/newsletter senders when the broader sender evidence already resolves to `subscription-senders` and the sender does not look human.
+- Sender Distribution workflow-scope chips remain workflow-driving and no longer depend on detached comparison rail-package readiness to restore truthful `workflow_scope`.
+- This pass did **not** change:
+  - artifact publication
+  - Smart Sync ingestion
+  - workflow-window logic
+  - route shape
+
+### Execution status
+
+- Implementation is complete in:
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Live classification verification confirmed:
+  - published `30d` marketing artifact moved `subscription-senders` from `192` to `248`
+  - published `30d` marketing artifact moved `needs-review-senders` from `177` to `121`
+  - live recent marketing coverage now reports `missing_promotional_days = []`
+- Live runtime/UI verification on the exact canonical marketing review route confirmed:
+  - Sender Distribution `1W` is clickable
+  - final route settles to `workflow_scope=7d`
+  - final active tab remains `sender_distribution`
+  - final `1W` chip is active (`ariaPressed = true`)
+  - no `409` guard churn was observed during the accepted click flow
+
+### Next executable step
+
+- `ACE-036` is accepted and closed.
+- Return the shared-analysis lane to the already-governing next step under `ACE-032` / `ACE-030`:
+  - fresh `PLAN MODE` for `1D` Time Context correction and stability
+
+## 🚀 April 6 — ACE-035 Gmail Artifact Integrity Incremental Refresh Recovery Accepted
+
+### Current governing state
+
+- `ACE-035` is now completed as the narrow Gmail artifact-integrity recovery pass.
+- Incremental Gmail artifact refresh now rebuilds impacted preview rows, headers, cluster summaries, and mailbox intelligence from the same projected preview dataset.
+- Incremental artifact validation now counts cleanup-candidate preview rows using the same cleanup-group reference rules the mailbox-intelligence snapshot builder uses:
+  - direct cleanup-group cluster ids
+  - projected rows that still reference cleanup groups through `cleanup_group_source_cluster_ids`
+- Integrity checks remain active and unchanged in spirit:
+  - partial artifacts are still rejected
+  - inconsistent preview/header states are still rejected
+  - inconsistent candidate-universe counts are still rejected
+
+### Execution status
+
+- Backend-only implementation is complete in:
+  - `web/src/lib/integrations/gmail/gmailArtifactIncrementalUpdater.ts`
+- Live artifact verification confirmed:
+  - Smart Sync produced a real incremental mailbox delta (`rows_after: 234516`, `growth_delta: 3`, `processed_messages: 4`, `upserted_messages: 3`)
+  - `30d` and `7d` incremental artifact rebuilds published successfully with continuous daily bucket coverage
+  - a live bounded incremental artifact recheck published `all_indexed` successfully as `incremental-20260405231945344`
+  - `all_indexed` moved from:
+    - `build_status = failed`
+    - `freshness_state = refresh_failed`
+    - `freshness_reason = Mailbox intelligence candidate message count no longer matches preview rows.`
+    to:
+    - `build_status = published`
+    - `freshness_state = fresh`
+    - `freshness_reason = published_artifact_current`
+  - live logs no longer emitted:
+    - `references missing header`
+    - `candidate message count no longer matches preview rows`
+  - live bucket continuity passed:
+    - `1W / 7d` = `7` daily buckets
+    - `1M / 30d` = `30` daily buckets
+
+### Next executable step
+
+- Gmail artifact freshness / integrity recovery is now accepted.
+- Return the shared-analysis lane to the already-governing next step under `ACE-032` / `ACE-030`:
+  - fresh `PLAN MODE` for `1D` Time Context correction and stability
+
+## 🚀 April 6 — ACE-034 Gmail Analysis Rail Smart Sync Freshness Recovery Accepted
+
+### Current governing state
+
+- `ACE-034` is now completed as the narrow Gmail Analysis Rail freshness recovery pass.
+- Successful artifact publish now clears stale failed freshness metadata for the build/version that actually published.
+- Smart Sync artifact refresh planning now manages recent-scope publication rows instead of skipping missing recent scopes:
+  - `7d`
+  - `30d`
+  - `90d`
+  - `180d`
+  - `365d`
+  - `all_indexed`
+- `unavailable_scope` remains an integrity safeguard and is preserved.
+
+### Execution status
+
+- Backend-only implementation is complete in:
+  - `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- Repo verification confirmed stale failed freshness metadata no longer survives a later successful publish.
+- Live verification confirmed:
+  - recent-scope publication rows are now created/queued for the required recent windows
+  - live `7d` full rebuild published successfully
+  - live `7d` selected-cluster rail state no longer fails through missing publication truth
+  - an injected live `refresh_failed` state on `7d` is cleared by a later successful publish
+
+### Next executable step
+
+- Keep the separate `all_indexed` incremental artifact integrity failure isolated from `ACE-034`:
+  - `Preview row 1919a35fe8973469 references missing header semantic.marketing_subscriptions. | Mailbox intelligence candidate message count no longer matches preview rows.`
+- Do not reopen the accepted recent-scope publication fix while that separate integrity lane is diagnosed.
+
+## 🚀 April 5 — ACE-033 Protected Files Enforcement System Active
+
+### Current governing state
+
+- `ACE-033` is now active as a system-integrity enforcement event in the control plane.
+- Protected-file read-only boundaries are now accepted operating truth for Codex execution and propagation behavior.
+- Protected files must not be modified unless Oliver explicitly places them in scope for the current pass.
+- The protected-file boundary now governs system-rule and turnover-layer assets including:
+  - `AGENTS.md`
+  - `CODEX_PROMPT_TEMPLATES.md`
+  - all `SKILL.md` files
+  - architect / PM turnover protocol documents
+- This enforcement change is behavioral and control-plane only; it does **not** change product code or runtime behavior.
+
+### Execution status
+
+- Control-plane propagation is now aligned in `CURRENT_STATE.md`, `TODO.md`, and `PROJECT_MANAGER_CONTEXT.md`.
+- This pass does **not** modify protected files themselves.
+- Codex must now stop and request explicit Oliver approval before any protected-file edit is attempted.
+
+### Next executable step
+
+- Keep future execution and propagation passes inside the protected-file boundary unless Oliver explicitly scopes a protected file for edit.
+
+## 🚀 April 5 — ACE-032 Analysis Rail PM v2 Turnover Alignment Complete
+
+### Current governing state
+
+- `ACE-032` is now completed as a control-plane turnover and lane-reset event.
+- `Analysis Rail PM v2` is now the active lane owner for the Shared Analysis Rail / Time Context lane.
+- The approved `ACE-030` architecture remains valid:
+  - `1D` and `Custom` are chart-only windows
+  - `All indexed`, `1Y`, `1Q`, `1M`, `1W` remain the only workflow-driving chips
+- The Analysis Rail lane is no longer cleared to continue directly in `EXECUTION MODE`.
+- The lane is now reset to require:
+  - fresh `PLAN MODE` re-entry
+  - narrow `1D` Time Context correction and stability scope
+  - full Runtime/UI Closeout Contract proof on subsequent execution passes
+
+### Execution status
+
+- Final control-plane alignment is complete across `CURRENT_STATE.md`, `TODO.md`, `PROJECT_MANAGER_CONTEXT.md`, `CHANGELOG.md`, and `ACTIVE_CHANGE_EVENTS.md`.
+- This turnover pass did **not** change product code, runtime behavior, route behavior, or accepted product architecture.
+- `ACE-032` records lane ownership and execution reset only.
+
+### Next executable step
+
+- Start a new Analysis Rail `PLAN MODE` thread under `Analysis Rail PM v2`.
+- Scope that plan to:
+  - `1D` Time Context correctness and stability
+  - the smallest safe path back to the approved `ACE-030` Phase 1 architecture
+  - strict preservation of Sender Distribution, route/query shape, and workflow-driving chip boundaries unless newly approved
+
+---
+
+## 🚀 April 5 — ACE-031 Verification Hardening Control-Plane Closeout Closed
+
+### Current governing state
+
+- `ACE-031` is now completed as a control-plane closeout alignment event.
+- The hardened runtime/UI verification standard is now accepted control-plane truth.
+- The authoritative execution-rule sources already contain the hardened verification rules; this pass aligned the control plane to that already-landed state.
+- This closeout confirms the governing verification model now includes:
+  - Codex self-verification as the default verification authority whenever reasonably possible
+  - explicit runtime target and canonical route identity requirements before runtime/UI verification
+  - blocked-verification pause-and-resume behavior when authentication or operator assist is required
+  - artifact-backed runtime/UI closeout proof requirements for accepted visible state
+  - explicit guard-churn reporting and classification in runtime/UI closeout proof
+- This pass did **not** reopen or rewrite already-correct source rule files.
+
+### Execution status
+
+- Final control-plane alignment is complete across `CURRENT_STATE.md`, `TODO.md`, `PROJECT_MANAGER_CONTEXT.md`, `CHANGELOG.md`, and `ACTIVE_CHANGE_EVENTS.md`.
+- `ACE-031` did not change product code, runtime behavior, route behavior, or source execution-rule documents.
+- No pending `ACE-031` implementation or source-rule rewrite work remains.
+
+### Next executable step
+
+- `ACE-031` is closed.
+- Continue from the turnover-reset shared-analysis lane tracked under `ACE-032`:
+  - `PLAN MODE` for `1D` Time Context correction and stability under `Analysis Rail PM v2`
+
+---
+
+## 🚀 April 4 — ACE-029 Accepted-Fix Recovery Contract Hardening Closed
+
+### Current governing state
+
+- `ACE-029` is now completed as a docs/process control-plane hardening event.
+- The Accepted-Fix Recovery Contract system is now active and enforced across:
+  - `CHANGELOG.md`
+  - `AGENTS.md`
+  - `CODEX_PROMPT_TEMPLATES.md`
+  - `system_overview.md`
+  - `implementation_pass`
+  - `change_propagation_pass`
+  - `turnover_pack_builder`
+  - `PROJECT_MANAGER_CONTEXT.md`
+  - `Project Manager Activation & Turnover Protocol.md`
+- `CHANGELOG.md` is the authoritative recovery ledger for accepted fixes.
+- `CURRENT_STATE.md` and `TODO.md` remain active-truth and next-step continuity documents; they do not store full Recovery Contracts.
+- Completed ACE entries must point to the corresponding `CHANGELOG.md` recovery contract when an accepted fix is closed.
+
+### Execution status
+
+- Final control-plane alignment is complete across `CURRENT_STATE.md`, `TODO.md`, `PROJECT_MANAGER_CONTEXT.md`, and `ACTIVE_CHANGE_EVENTS.md`.
+- `ACE-029` did not change product code, product behavior, or active product-lane scope.
+- No pending `ACE-029` implementation work remains.
+
+### Next executable step
+
+- `ACE-029` is closed.
+- Continue from the separately governed product lanes already tracked in the control plane.
+
+## 🚀 April 4 — ACE-030 Sender Overview `1D` / `Custom` Chart-Only Architecture Logged
+
+### Current governing state
+
+- The approved Sender Overview architecture is now explicit:
+  - `1D` and `Custom` are approved as chart-only windows
+  - existing accepted chips remain workflow-driving:
+    - `All indexed`
+    - `1Y`
+    - `1Q`
+    - `1M`
+    - `1W`
+- `Phase 1` is now the committed next execution step.
+- `Phase 1` is limited to Time Context only.
+- `Phase 1` does **not** approve:
+  - Sender Distribution chart-window rendering for `1D` / `Custom`
+  - `workflow_scope` expansion
+  - `analysis_scope` expansion
+  - route/query changes
+- Sender Distribution `1D` / `Custom` chart-window rendering is explicitly deferred to a later phase.
+
+### Execution status
+
+- This was a docs-only control-plane alignment pass.
+- No product code, route behavior, or query behavior changed in `ACE-030`.
+- Control-plane ambiguity about the next shared-analysis step is now removed.
+- The active shared-analysis execution phase is now:
+  - `Phase 1 — Time Context chart-only window implementation`
+
+### Next executable step
+
+- Execute `Phase 1 — Time Context only` implementation for Sender Overview.
+- Implement `1D` and `Custom` as chart-only windows in Time Context while keeping:
+  - `All indexed`, `1Y`, `1Q`, `1M`, `1W` as the only workflow-driving chips
+  - Sender Distribution unchanged in this phase
+  - no `workflow_scope` or `analysis_scope` expansion
+  - no route/query changes
+
+## 🚀 April 4 — ACE-028 Sender Distribution Monthly `30d` Truth Fix Accepted
+
+### Current governing state
+
+- `ACE-027` is now completed and PM-verified as the narrow Sender Distribution scope-congruency pass.
+- Sender Distribution now shows the accepted visible chip grammar:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+- Visible `2M` and `6M` are now removed from Sender Distribution UI only.
+- `1D` and `Custom` were not part of the accepted Sender Distribution grammar in `ACE-027`; chart-only treatment is now approved separately under `ACE-030`.
+- `ACE-028` is now completed and PM-verified as the narrow Sender Distribution monthly `30d` truth correction.
+- Exact implementation scope for the accepted monthly truth fix:
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts` only
+- Exact accepted correction:
+  - `loadGmailSenderDistributionForTenant(...)` now excludes `analysisScope === '30d'` from the persisted snapshot shortcut
+  - Sender Distribution `1M` now falls through to the same truthful non-snapshot path already used by workspace truth
+- This accepted monthly truth fix did **not** change:
+  - Time Context
+  - backend/API contracts
+  - route/query shape
+  - `OperationsAnalysisScope`
+  - Decision Mode semantics
+  - pagination
+  - sender ordering logic
+  - lower-card anchoring
+  - `1W`, `1Q`, `1Y`, or `all_indexed`
+
+### Execution status
+
+- PM verification confirmed on the protected-trusted review route:
+  - Sender Distribution `1M` now shows `48`
+  - the workflow below shows `48`
+  - Time Context `1M` remains correct
+  - the primary monthly mismatch is resolved
+- The accepted Sender Distribution monthly truth fix is narrow and backend-only.
+- Separate performance follow-up item only:
+  - `1Y` still has a significant workflow-load delay; `1Q` is slower than ideal but materially better; `1W` is near-instant. This is a separate future performance diagnosis item and not part of the accepted monthly `30d` Sender Distribution truth fix.
+
+### Next executable step
+
+- Shared-analysis next-step ambiguity is now resolved under `ACE-030`.
+- Execute `Phase 1 — Time Context only` implementation for chart-only `1D` / `Custom`.
+- Keep Sender Distribution `1D` / `Custom` rendering deferred to a later phase.
+
+---
+
+## 🚀 April 3 — ACE-026 Time Context Pass 1 Scope Congruency Accepted
+
+### Current governing state
+
+- `ACE-026` is now accepted and PM-verified as the Time Context-only Pass 1 scope-congruency implementation.
+- The Time Context review rail now exposes the accepted visible scope grammar:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+- The accepted Pass 1 mapping is:
+  - `all_indexed -> all_indexed`
+  - `last_year -> 365d`
+  - `last_quarter -> 90d`
+  - `last_month -> 30d`
+  - `last_week -> 7d`
+- `1D` and `Custom` were intentionally hidden in the accepted Pass 1 state; chart-only handling is now approved separately under `ACE-030`.
+- This accepted pass is limited to the Time Context chart-scope adapter and does **not** change:
+  - Sender Distribution behavior
+  - Decision Mode
+  - backend/API contracts
+  - route/query shape
+  - `OperationsAnalysisScope`
+  - lower-card anchoring behavior
+- Accepted truth remains preserved for:
+  - `all_indexed`
+  - monthly `30d`
+  - weekly `7d`
+  - the broad Time Context chart contract
+
+### Validation status
+
+- PM verification confirmed:
+  - Time Context chips now show `All indexed`, `1Y`, `1Q`, `1M`, `1W`
+  - `1D` and `Custom` are not visible, which is correct for Pass 1
+  - `1Y` loaded and clicked-bucket filtering behaved correctly
+  - `1Q` loaded and clicked-bucket filtering behaved correctly
+  - `1M` still behaves correctly
+  - `1W` still behaves correctly
+  - `All indexed` still behaves correctly
+  - Sender Distribution behavior appears unchanged
+- Separate observation only:
+  - newly exposed `1Y` and `1Q` scopes still have significant load-time cost
+  - PM observed roughly `61s` on `1Y`
+  - PM observed roughly `19s` on `1Q`
+
+### Next executable step
+
+- This accepted pass is complete.
+- The later Sender Distribution chip-congruency and monthly `30d` truth follow-up are now accepted separately.
+- The next shared-analysis execution step is now committed under `ACE-030`:
+  - `Phase 1 — Time Context only` implementation for chart-only `1D` / `Custom`
+- Do not widen Phase 1 into Sender Distribution rendering, `workflow_scope` expansion, or `analysis_scope` expansion.
+
+### Explicit boundary
+
+- `ACE-026` is Time Context only and accepted.
+- `1D` and `Custom` remain outside the accepted Pass 1 workflow-driving surface; the approved next step is chart-only treatment in Time Context under `ACE-030`.
+- The observed `1Y` / `1Q` load-time cost is separate from this acceptance and must not be treated as a regression to the accepted Pass 1 functional behavior.
+- This pass does not reopen Cleanup Groups, runtime redesign, Sender Distribution implementation, or any already accepted parity work.
+
+## 🚀 April 3 — ACE-025 Weekly `1W` Time Context Truth Alignment Accepted
+
+### Current governing state
+
+- `ACE-025` is now accepted for the narrow weekly `workflow_scope=7d` Sender Overview / Time Context coherence fix only.
+- Weekly `1W` is now internally coherent on the accepted protected-trusted review route.
+- The visible weekly chart and the counted sender universe now match the same visible UTC-day window semantics.
+- The accepted weekly broad baseline on the tested route is now:
+  - one populated visible day bucket
+  - matching visible sender/workflow totals
+  - coherent bucket drilldown after click
+- The earlier mixed-truth weekly regression is resolved in the accepted baseline.
+- This pass does **not** change:
+  - monthly `30d`
+  - `all_indexed`
+  - label transport
+  - visuals
+  - backend/API contracts outside the narrow weekly row-backed correction
+
+### Validation status
+
+- Targeted ESLint passed for:
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- Focused TypeScript grep produced no errors for:
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- The accepted weekly verification route is:
+  - `/operations/review?workflow_scope=7d&cluster_id=structural.protected_trust`
+- Accepted weekly proof now records the current coherent baseline:
+  - fresh Time Context base view shows one populated visible UTC-day bucket (`Mar 29 = 2`)
+  - the visible weekly workflow total on that route is `2`
+  - clicking the populated visible bucket settles coherently to active senders `2` and workflow total `2`
+- Separate non-blocking runtime note only:
+  - transient loading jitter or a temporary empty hero state can still appear during route churn
+  - that runtime jitter is not part of the accepted weekly `ACE-025` fix and does not reopen it
+
+### Next executable step
+
+- Return the active execution focus to Cleanup Groups Lane B — review entry behavior for decomposed parents.
+- Keep auto-scroll / refocus as a separate polish-only follow-up outside the accepted weekly truth fix.
+- Do not reopen weekly `1W` truth alignment unless a new parity regression is observed.
+
+### Explicit boundary
+
+- `ACE-025` is weekly-only and accepted.
+- This pass does not reopen `ACE-023` or `ACE-024`.
+- This pass does not widen into monthly truth, `all_indexed`, runtime redesign, transient route-churn loading jitter, transport redesign, or visual polish.
+
+## 🚀 April 3 — ACE-024 Time Context Lower-Card Anchoring Accepted
+
+### Current governing state
+
+- `ACE-024` is now accepted as completed for the narrow review-page Time Context lower-card anchoring fix.
+- `web/src/components/runtime/GmailCleanupComponents.tsx` now treats the selected Time Context bucket as the authoritative lower-card anchor whenever a bucket is active.
+- Hover remains preview-only:
+  - the quick-read tooltip can still change on hover
+  - the lower Time Context cards and interpretation rows no longer switch away from the selected bucket
+- Clearing narrowed state now returns the lower Time Context cards to the existing default-focus behavior.
+- This pass does **not** change:
+  - review-page selection flow
+  - route/session behavior
+  - workflow narrowing behavior
+  - monthly truth logic
+  - backend/API behavior
+  - chart broadness or render source
+
+### Validation status
+
+- PM/browser validation is now accepted for the validated protected-trusted monthly route:
+  - selected bucket stays anchored after click
+  - lower-card content follows the selected bucket correctly
+  - hover no longer steals the lower-card anchor once a bucket is selected
+  - `Clear narrowed state` returns the lower card to the existing default-focus behavior
+  - monthly filtering behavior remains correct after selection
+- Targeted ESLint passed for:
+  - `web/src/components/runtime/GmailCleanupComponents.tsx`
+
+### Next executable step
+
+- Open a new narrow PLAN MODE diagnosis pass for the weekly `1W` lower-card/workflow-scope inconsistency only.
+- Keep auto-scroll / refocus as separate polish-only work.
+
+### Explicit boundary
+
+- `ACE-024` is accepted and closed.
+- The separate weekly `1W` inconsistency remains open and must not be blended into this accepted fix.
+- This pass was limited to the lower Time Context anchoring behavior inside `GmailCleanupComponents.tsx` plus required documentation propagation.
+- This pass did not reopen `ACE-023` and did not widen into any other Time Context, workflow, runtime, or backend lane.
+
+## 🚀 April 3 — ACE-023 Monthly `30d` Core Truth Correction Accepted
+
+### Current governing state
+
+- `ACE-023` is now accepted as completed for the monthly `30d` core truth correction.
+- The system is operating from the stable rollback baseline restored on April 2, 2026.
+- The monthly `30d` chart/filter truth mismatch is now fixed and PM-verified on protected-trusted:
+  - `2026-03-06`: `9` in chart, `9` in filtered workflow
+  - `2026-03-20`: `8` in chart, `8` in filtered workflow
+  - `2026-03-30`: `3` in chart, `3` in filtered workflow
+- `All Indexed` still matches after click and remains preserved by the accepted correction.
+- The accepted correction remains narrowly scoped to monthly `30d` core truth alignment only.
+
+### Phase status
+
+- Phase 1 — Monthly Trust Diagnosis: completed
+- Phase 2 — Monthly Trust Correction: completed
+- Phase 3 — Parity Confirmation: completed
+- Phase 4 — Scope Consistency: not active under `ACE-023`
+- Phase 5 — Polish: not active under `ACE-023`
+
+### Next executable step
+
+- Open a separate narrow PLAN MODE diagnosis pass for possible `1W` lower-card workflow-scope inconsistency.
+- Keep auto-scroll / refocus as separate polish work, not part of the accepted monthly truth correction.
+
+### Explicit boundary
+
+- `ACE-023` remains completed and accepted.
+- Remaining follow-ups are explicitly separate from the accepted monthly `30d` correction:
+  - lower-card anchoring after selection (`ACE-024`)
+  - possible weekly `1W` lower-card workflow-scope mismatch
+  - auto-scroll / refocus polish
+- `ACE-019` remains completed historical context and `ACE-023` is now completed as well.
+
+## Historical Milestone Log
+
+Entries below preserve earlier pass-local implementation history. If any statement below conflicts with the governing state above or `ACTIVE_CHANGE_EVENTS.md`, treat the governing state above as authoritative.
+
+## 🚀 April 2 — Time Context Review-Page Stabilization Rollback Implemented
+
+### What changed
+
+- The unstable April 2 Time Context review-page parity/source-selection regression chain was rolled back in:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/components/runtime/GmailCleanupComponents.tsx`
+- The review page is now restored to the last stable broad-chart / stable-rail baseline before today’s forward Time Context parity/source-selection fixes:
+  - bucket-active chart source selection no longer uses the detached-scope broad-overview preference path
+  - top summary cards and workflow-panel feedback visuals no longer pulse or mutate around pending narrowing state
+  - the Time Context rail no longer re-centers the whole chart read on the clicked bucket or applies the pending selected-bucket visual treatment
+
+### Current implemented state
+
+- The broad chart and Time Context rail are back on the stable pre-regression render contract.
+- Clicking a Time Context bucket should no longer mutate the rest of the chart presentation or apply the regressed rail styling layer.
+- The original protected-trusted parity mismatch is not considered resolved in the current branch.
+- Targeted lint passed for:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/components/runtime/GmailCleanupComponents.tsx`
+
+### Explicit boundary
+
+- This pass is limited to review-page rollback/stabilization code plus required control-plane propagation.
+- This pass does not change backend/API bucket-membership logic, runtime/rehydrate behavior, ACE-005 scope, or introduce any new forward parity fix.
+- PM live validation is still required for:
+  - protected-trusted / `30d` rail stability after click
+  - protected-trusted / `1M` rail stability after click
+- Self-serve localhost route proof remains blocked in the current session because the review route is still auth-gated before the protected-trusted rail becomes inspectable.
+
+---
+
+## 🚀 April 2 — Protected-Trusted Time Context Display-State Parity Correction Implemented
+
+### What changed
+
+- The residual protected-trusted `5 -> 9` Time Context parity failure was corrected as a review-page display-state fix, not a server bucket-membership fix.
+- On bucket-applied state, the review page now drives narrowed sender totals from the applied bucket workspace total instead of the broad sender-key-derived `sharedWorkflowSubset.resolvedSenderCount` path.
+- The Time Context lower-card workflow-universe total now reads from that same applied bucket workspace total.
+
+### Current implemented state
+
+- Protected-trusted bucket apply now keeps the authoritative `sender_count` / `total_senders` response aligned across:
+  - top summary sender total
+  - Time Context lower-card workflow-scope total
+  - row coverage strip totals
+- The chart remains broad and unchanged.
+- The existing row workflow path remains intact.
+- Targeted lint on `review/page.tsx` passed with no new warnings from this pass.
+
+### Explicit boundary
+
+- This pass is limited to review-page display-state composition.
+- This pass does not reopen backend/API bucket-membership logic.
+- This pass does not change rail visuals, runtime architecture, performance behavior, or ACE-005 scope.
+
+---
+
+## 🚀 April 2 — Protected-Trusted Time Context Parity Correction Implemented
+
+### What changed
+
+- The protected-trusted Time Context parity regression is now corrected in code on the review route.
+- Bucket-selected workflow membership now resolves from the same row-backed bucket truth as the visible Time Context chart instead of sender-history inference from `first_seen` / `last_activity`.
+- Selecting a Time Context bucket now resets `sender_page` back to the first narrowed page so a non-zero bucket cannot inherit an invalid broad-list page and render as an empty selected state.
+- The broad-rail contract remains intact:
+  - Time Context stays broad in the rail
+  - only the workflow below narrows
+
+### Current implemented state
+
+- Protected-trusted bucket apply now uses the chart-aligned sender universe for:
+  - narrowed workflow totals
+  - top summary sender totals
+  - Decision Mode authoritative sender order
+- Later-page bucket selection now restores to a valid narrowed page instead of stranding the workflow on an out-of-range page from the broader sender list.
+- Targeted lint on the changed review/runtime files passed with no new warnings from this pass.
+
+### Explicit boundary
+
+- This pass does not redesign rail visuals.
+- This pass does not widen into ACE-005, runtime architecture, performance work, or Time Context grammar/polish work.
+- Live protected-trusted browser revalidation remains the required final acceptance step outside this implementation pass.
+
+---
+
+## 🚀 April 2 — Review-Page Narrowing Feedback Layer Implemented
+
+### What changed
+
+- Sender Distribution clicks, Time Context bucket clicks, and review-page narrowing/reset controls now show immediate interaction feedback on the review page.
+- The review page now uses one scoped pending-interaction model across:
+  - rail highlight state
+  - rail status pill
+  - workflow header copy
+  - top summary-card pulse/loading treatment
+- The April 2 follow-up correction pass cleaned up the pending presentation:
+  - rail targets now register immediately with a stronger but geometry-stable pending treatment
+  - Sender Distribution and Time Context remain full-scope context surfaces while the workflow below narrows
+  - stacked glow / multi-outline emphasis was removed so the workflow area stays the primary updating surface
+  - rail status pills remain obvious, but no longer overpower the chart
+  - the workflow area still reacts immediately with a visible updating banner, brighter loading shell, and stronger in-place loading state
+- The remaining April 2 rail-context correction pass fixed the actual source of the last collapse regression on the validated `3000` review route:
+  - Sender Distribution now renders from the broad rail sender dataset instead of the narrowed workflow sender subset
+  - Time Context now prefers the broader coverage workspace for rail context instead of falling back to the narrowed workflow workspace when sender focus is active
+  - browser proof on `3000` confirmed the rail stays broad after interaction:
+    - Sender Distribution remained `850` ranked slots before and after sender click
+    - Time Context remained `20` visible buckets after bucket click
+- Pending completion no longer relies on route change alone.
+- Pending now clears only after:
+  - requested route/session state is present
+  - the authoritative sender universe matches that requested narrowed state
+  - relevant loading states are clear
+
+### Current accepted state
+
+- The feedback layer is visual/interaction-only and does not change data flow.
+- Reset actions clear stale narrowed highlights immediately and show `Returning to broader scope…` while the broader sender universe restores.
+- Time Context Lane B parity remains intact:
+  - no new rehydrate path
+  - no chart/workflow mismatch contract change
+  - no backend/runtime redesign in this pass
+
+### Explicit boundary
+
+- This pass does not change narrowing contract, backend behavior, caching, or performance architecture.
+- The only behavioral correction beyond pending presentation is the render-source fix that keeps the rails bound to their intended broad-context datasets/workspaces while the workflow below narrows.
+
+---
+
+## 🚀 April 2 — Time Context Lane B Closeout Accepted
+
+### What changed
+
+- Analysis Rail / Time Context Lane B is now accepted as closed for workflow-filtering/parity behavior on the validated scoped review route.
+- The accepted closeout covers:
+  - bucket-to-workflow parity
+  - selected-bucket authority after hover/unhover
+  - duplicate authoritative-context chip/key cleanup on the validated route
+- The closeout does not include broader runtime simplification and does not require removal of the cold-boot review bootstrap request.
+
+### Current accepted state
+
+- Lane A remains accepted and unchanged.
+- Lane B is now closed for Time Context filtering/parity behavior on the validated scoped review route.
+- Cold-boot `POST /api/agents/playground` remains accepted as required review-route bootstrap behavior under the current architecture and is not a Lane B blocker.
+- ACE-005 remains open as a separate runtime follow-up for any residual malformed inbox-analysis caller outside the narrowed review-route chain.
+
+### Explicit boundary
+
+- This closeout is for Time Context / Shared Analysis Rail workflow-filtering behavior only.
+- It does not close the broader Time Context grammar lock.
+- It does not close ACE-005.
+- It does not imply broader runtime redesign or removal of review-route bootstrap behavior.
+
+---
+
+## 🚀 April 2 — Review-Path Runtime Hygiene Narrowed
+
+### What changed
+
+- The scoped review-path inbox-analysis callers remain guarded against empty actions before fetch.
+- `/api/integrations/gmail/inbox-analysis` now distinguishes empty-body runtime noise from true missing actions:
+  - `reason: "empty_request_body"` when no body is received or JSON yields `null`/`undefined`
+  - `reason: "missing_action"` only when a valid object exists but `action` is missing/blank
+  - `reason: "invalid_json"` when a non-empty body cannot be parsed
+- Inbox-analysis diagnostics now also log `body_length` and `parse_status` alongside referer/origin/body keys so transport noise is separated cleanly from real caller mistakes.
+- Review-path tracing now confirms the cold-boot `/api/agents/playground` request is the review-shell runtime bootstrap request, not Time Context bucket interaction.
+
+### Current accepted state
+
+- The accepted selected-bucket parity fix remains intact.
+- Hover/unhover selected-bucket authority remains intact.
+- Duplicate authoritative-context chip/key cleanup remains intact.
+- Fresh-boot real review-route sessions can still emit malformed inbox-analysis POSTs even though current checked-in callers are guarded before fetch.
+- Those malformed requests are now classified as empty-body transport/runtime noise instead of being folded into `missing_action`.
+- The only current source-tree callers for `/api/integrations/gmail/inbox-analysis` remain the guarded runtime clients in `operationsWorkspace.ts` and `gmailCleanupWorkspace.ts`, so ACE-005 remains focused on identifying the emitting runtime path rather than relaxing the route contract.
+
+### Explicit boundary
+
+- Fresh review boot still emits one successful `rehydrate_only` `POST /api/agents/playground` request in live probing.
+- That request is currently proven required under the present review-route architecture:
+  - `OperationsRuntimeProvider` cold-boots by calling `fetchOperationsRuntimeSnapshot`
+  - `review/page.tsx` blocks on `runtime.data` / `renderRuntimeData` before it can resolve clusters, cache version, and selected workflow context
+- Bucket interaction is not implicated by the scoped callers.
+- This pass only separates empty-body runtime noise from true missing-action requests; it does not identify or remove the emitting caller yet.
+
+---
+
+## 🚀 April 1 — Time Context Lane B Single-Universe Enforcement Propagated
+
+### What changed
+
+- Time Context bucket selection now resolves through one explicit authoritative sender universe instead of competing with adjacent workflow filters.
+- Session-only bucket state can now combine deterministically with the active workflow scope and focused sender / drilldown state without creating dual workflow truth.
+- Sender rows, workflow summary, pagination totals, Sender Distribution ordering/counts, and Decision Mode queue progression now read from the same resolved ordered sender set.
+- Bucket highlighting remains visual-only for the chart itself:
+  - the chart stays full-scope
+  - aggregation does not collapse
+- The implementation preserves the locked boundaries:
+  - no new route param
+  - no bucket-interaction `/api/agents/playground`
+  - no page-wide rehydrate
+  - no Cleanup Groups identity writes
+- The April 2 correction pass tightened the selected-bucket authority path:
+  - selected-bucket summary cards now read from the same resolved sender universe as the narrowed workflow
+  - the Time Context truth panel now restores the selected bucket after hover instead of falling back to the default/peak read
+  - Sender Distribution authoritative-context chips are now deduped with deterministic keys, removing duplicate `1W`/duplicate-key rendering noise
+- The April 2 selected-bucket authority correction narrowed the remaining `5 -> 9` drift:
+  - bucket filtering now resolves sender membership from the same sender-level Time Context semantics as the clicked chart bucket instead of a broader row-any-message bucket match
+  - selected-bucket summary/count surfaces now prefer the currently narrowed bucket workspace over broader coverage fallbacks when bucket truth is active
+
+### Current accepted state
+
+- Lane A Time Context truth/grammar remains accepted and unchanged.
+- Lane B contract enforcement is now implemented for:
+  - session-only bucket selection
+  - pre-bucket route snapshot restore on `Clear narrowed state`
+  - one explicit resolved sender universe across active workflow filters
+  - Decision Mode queue consumption of the already narrowed authoritative workflow order
+  - selected-bucket authority across summary cards and the Time Context truth panel
+  - hover preview separation from selected-bucket truth
+  - deterministic authoritative-context chip rendering in Sender Distribution
+- Cleanup Groups accepted behavior remains locked:
+  - Marketing chooser behavior
+  - direct-open parents
+  - review-unit integrity
+
+### Explicit boundary
+
+- This pass implemented the Lane B contract-enforcement layer that is now accepted.
+- Lane B closeout is now captured separately as accepted workflow-filtering/parity behavior.
+- Residual empty `action:""` runtime noise remains separate under ACE-005.
 
 ---
 
@@ -112,7 +1235,9 @@ Project Manager: Codex Operating System active (`Oliver -> Project Manager -> Co
 - Analysis Rail / Time Context / Charts is the parallel worktree stream:
   - Lane A Time Context rebuild is implemented.
   - Row-backed monthly aggregation, same-array truth enforcement, non-additive bucket truth, axis readability improvements, and ghost-slot rendering are part of current reality.
-  - Lane B bucket-to-workflow filtering, residual data validation/reconciliation, and empty `action:""` runtime-noise investigation remain open.
+  - Lane B is accepted as closed for workflow-filtering/parity behavior on the validated scoped review route.
+  - The broader Time Context grammar lock remains open as separate follow-up work.
+  - ACE-005 runtime-noise investigation remains open and separate from the Lane B closeout.
 - Current active boundaries remain explicit:
   - no new taxonomy work
   - no root-surface redesign

@@ -666,6 +666,49 @@ export const GMAIL_PRESSURE_TREND_GROUPINGS = [
 
 export type GmailPressureTrendGrouping = (typeof GMAIL_PRESSURE_TREND_GROUPINGS)[number]
 
+export const GMAIL_CANONICAL_TIMELINE_CONTRACT_VERSION = 'ace046_phase3_timeline_v1' as const
+
+export type GmailCanonicalTimelineContractVersion =
+  typeof GMAIL_CANONICAL_TIMELINE_CONTRACT_VERSION
+
+export const GMAIL_CANONICAL_TIMELINE_METRIC_FAMILIES = [
+  'sender_activity',
+  'message_pressure',
+] as const
+
+export type GmailCanonicalTimelineMetricFamily =
+  (typeof GMAIL_CANONICAL_TIMELINE_METRIC_FAMILIES)[number]
+
+export type GmailCanonicalTimelineFilterContract = {
+  source_dataset: 'gmail_index_rows'
+  time_zone: string
+  coverage_start_at: string | null
+  coverage_end_at: string | null
+  allowed_sender_key_count: number | null
+}
+
+export type GmailTimeContextBucketSelection = {
+  label: string
+  bucket_start_at: string
+  bucket_end_exclusive_at: string
+}
+
+export type GmailCanonicalSenderActivityTimelineBucket = {
+  label: string
+  count: number
+  sender_count: number
+  message_count?: number | null
+  bucket_start_iso: string | null
+  bucket_end_exclusive_iso: string | null
+  contract_version: GmailCanonicalTimelineContractVersion
+  metric_family: 'sender_activity'
+  scope_key: OperationsAnalysisScope
+  grouping: Extract<GmailPressureTrendGrouping, 'hour' | 'day' | 'week' | 'month'>
+  time_zone: string
+  source_dataset: 'gmail_index_rows'
+  filter_contract: GmailCanonicalTimelineFilterContract
+}
+
 export type GmailPressureTrendBucket = GmailPressureTimelineBucket & {
   bucket_start_at: string
   bucket_end_at: string
@@ -693,6 +736,52 @@ export type GmailPressureTrendData = {
   }
   time_zone: string
   series: GmailPressureTrendBucket[]
+  source: 'gmail_index_cache'
+}
+
+export type GmailSenderOverviewWindowData = {
+  analysis_scope: OperationsAnalysisScope
+  selected_cluster: {
+    cluster_id: string
+    canonical_cluster_id: string
+    legacy_cluster_ids: string[]
+    cluster_type: string
+    title: string
+    query: string
+    message_count: number
+    sender_count: number
+  }
+  window: {
+    key: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+    label: string
+    requested_start: string | null
+    requested_end: string | null
+    effective_start: string | null
+    effective_end: string | null
+    limited_by_indexed_coverage: boolean
+  }
+  grouping: {
+    key: GmailPressureTrendGrouping
+    label: string
+  }
+  indexed_coverage: {
+    indexed_total_rows: number
+    indexed_inbox_rows: number
+    indexed_date_span_start: string | null
+    indexed_date_span_end: string | null
+  }
+  time_zone: string
+  series: Array<
+    Pick<GmailPressureTrendBucket, 'label' | 'count' | 'bucket_start_at' | 'bucket_end_at'> & {
+      message_count?: number | null
+    }
+  >
+  summary: {
+    active_sender_count: number
+    supporting_message_count: number
+    dominant_sender: string | null
+    semantic_resolution_distribution: GmailSenderWorkspaceData['analytics']['semantic_resolution_distribution']
+  }
   source: 'gmail_index_cache'
 }
 
@@ -937,12 +1026,8 @@ export type GmailSenderWorkspaceData = {
     operator_profile_mode_distribution: GmailSenderWorkspaceOperatorProfileModeDistributionEntry[]
     /** @deprecated Use `semantic_provenance_distribution`. */
     category_summary_source_distribution: GmailSenderWorkspaceCategorySummarySourceDistributionEntry[]
-    sender_activity_timeline: Array<{
-      label: string
-      sender_count: number
-      message_count?: number | null
-    }>
-    sender_activity_timeline_granularity: 'day' | 'week' | 'month'
+    sender_activity_timeline: GmailCanonicalSenderActivityTimelineBucket[]
+    sender_activity_timeline_granularity: 'hour' | 'day' | 'week' | 'month'
     cluster_contribution: Array<{
       sender: string
       sender_key: string
@@ -1565,6 +1650,16 @@ function readClientInboxAnalysisCache<T>(cacheKey: string): T | null {
   return cached.data as T
 }
 
+function clearClientInboxAnalysisCache(cacheKey: string): void {
+  gmailInboxAnalysisClientCache.delete(cacheKey)
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.removeItem(clientInboxAnalysisStorageKey(cacheKey))
+  } catch {
+    // Ignore storage failures during cache eviction.
+  }
+}
+
 function writeClientInboxAnalysisCache<T>(cacheKey: string, data: T): T {
   const entry = {
     expiresAtMs: Date.now() + GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_TTL_MS,
@@ -1626,6 +1721,7 @@ async function requestCachedInboxAnalysis<T>(params: {
   action:
     | 'mailbox_intelligence'
     | 'mailbox_pressure_trend'
+    | 'sender_overview_window'
     | 'sender_distribution'
     | 'sender_workspace'
     | 'confirmation_preview'
@@ -1633,6 +1729,7 @@ async function requestCachedInboxAnalysis<T>(params: {
   body: Record<string, unknown>
   errorMessage: string
   signal?: AbortSignal
+  acceptCachedData?: (data: T) => boolean
 }): Promise<{ ok: true; data: T } | { ok: false; error: string; aborted?: true }> {
   const action = typeof params.action === 'string' && params.action.trim() ? params.action.trim() : ''
   if (!action) {
@@ -1646,10 +1743,21 @@ async function requestCachedInboxAnalysis<T>(params: {
     return { ok: false, error: 'Inbox analysis action is required before requesting Gmail analysis.' }
   }
 
-  const cached =
-    readClientInboxAnalysisCache<T>(params.cacheKey) ||
-    readPersistedClientInboxAnalysisCache<T>(params.cacheKey)
-  if (cached) return { ok: true, data: cached }
+  const inMemoryCached = readClientInboxAnalysisCache<T>(params.cacheKey)
+  if (inMemoryCached) {
+    if (!params.acceptCachedData || params.acceptCachedData(inMemoryCached)) {
+      return { ok: true, data: inMemoryCached }
+    }
+    clearClientInboxAnalysisCache(params.cacheKey)
+  }
+
+  const persistedCached = readPersistedClientInboxAnalysisCache<T>(params.cacheKey)
+  if (persistedCached) {
+    if (!params.acceptCachedData || params.acceptCachedData(persistedCached)) {
+      return { ok: true, data: persistedCached }
+    }
+    clearClientInboxAnalysisCache(params.cacheKey)
+  }
 
   const inflight = gmailInboxAnalysisClientInflight.get(params.cacheKey)
   if (inflight) {
@@ -2036,6 +2144,7 @@ function mailboxIntelligenceCacheMatches(params: {
 }
 
 const PRESSURE_TREND_CLIENT_CACHE_VERSION = 'v2'
+const SENDER_OVERVIEW_WINDOW_CLIENT_CACHE_VERSION = 'v1'
 
 function pressureTrendCacheKey(params: {
   clusters: GmailCleanupClusterRef[]
@@ -2072,6 +2181,12 @@ function senderWorkspaceCacheKey(params: {
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewStart?: string | null
+  senderOverviewEnd?: string | null
+  timeZone?: string | null
 }): string {
   const semanticFocusSignature = params.semanticFocus
     ? [
@@ -2081,10 +2196,20 @@ function senderWorkspaceCacheKey(params: {
         params.semanticFocus.surfacedSubtypeKeys.slice().sort().join(',') || 'none',
       ].join(':')
     : 'none'
+  const timeContextTruthContract =
+    params.timeContextBucketLabel == null &&
+    params.senderOverviewWindow == null &&
+    (params.analysisScope === 'all_indexed' ||
+      params.analysisScope === '7d' ||
+      params.analysisScope === '30d' ||
+      params.analysisScope === '365d')
+      ? 'shared_canonical_time_context_v5'
+      : 'legacy_time_context_contract'
   return [
     'sender_workspace',
     params.analysisScope,
     params.cacheVersion,
+    timeContextTruthContract,
     clusterCacheSignature(params.selectedCluster),
     ...sortedClusterCacheSignatures(params.allClusters),
     params.includeClusterSenderKeys ? 'with_cluster_sender_keys' : 'without_cluster_sender_keys',
@@ -2097,14 +2222,28 @@ function senderWorkspaceCacheKey(params: {
     semanticFocusSignature,
     params.previewEvidenceSenderKey || 'no-preview-evidence-sender',
     params.timeContextBucketLabel?.trim() || 'no-time-context-bucket',
+    params.timeContextBucketStartAt || 'no-time-context-bucket-start',
+    params.timeContextBucketEndExclusiveAt || 'no-time-context-bucket-end',
+    params.senderOverviewWindow || 'no-sender-overview-window',
+    params.senderOverviewStart || 'no-sender-overview-start',
+    params.senderOverviewEnd || 'no-sender-overview-end',
+    params.timeZone || 'UTC',
   ].join('|||')
 }
 
-function senderDistributionCacheKey(params: {
+export function buildGmailSenderDistributionCacheKey(params: {
   selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
   analysisScope: OperationsAnalysisScope
   cacheVersion: string
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewStart?: string | null
+  senderOverviewEnd?: string | null
+  timeZone?: string | null
 }): string {
   const semanticFocusSignature = params.semanticFocus
     ? [
@@ -2119,7 +2258,37 @@ function senderDistributionCacheKey(params: {
     params.analysisScope,
     params.cacheVersion,
     clusterCacheSignature(params.selectedCluster),
+    ...sortedClusterCacheSignatures(params.allClusters),
     semanticFocusSignature,
+    params.timeContextBucketLabel || 'no-time-context-bucket',
+    params.timeContextBucketStartAt || 'no-time-context-bucket-start',
+    params.timeContextBucketEndExclusiveAt || 'no-time-context-bucket-end',
+    params.senderOverviewWindow || 'no-sender-overview-window',
+    params.senderOverviewStart || 'no-sender-overview-start',
+    params.senderOverviewEnd || 'no-sender-overview-end',
+    params.timeZone || 'UTC',
+  ].join('|||')
+}
+
+function senderOverviewWindowCacheKey(params: {
+  selectedCluster: GmailCleanupClusterRef
+  analysisScope: OperationsAnalysisScope
+  cacheVersion: string
+  pressureWindow: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+  pressureStart: string | null
+  pressureEnd: string | null
+  timeZone: string
+}): string {
+  return [
+    'sender_overview_window',
+    SENDER_OVERVIEW_WINDOW_CLIENT_CACHE_VERSION,
+    params.analysisScope,
+    params.cacheVersion,
+    clusterCacheSignature(params.selectedCluster),
+    params.pressureWindow,
+    params.pressureStart || 'none',
+    params.pressureEnd || 'none',
+    params.timeZone || 'UTC',
   ].join('|||')
 }
 
@@ -2286,6 +2455,82 @@ export function readLatestCachedGmailMailboxIntelligence(params: {
   return latestEntry?.data || null
 }
 
+function senderWorkspaceRequiresCanonicalTimeContextTimeline(params: {
+  analysisScope: OperationsAnalysisScope
+  timeContextBucketLabel?: string | null
+  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+}): boolean {
+  if (params.timeContextBucketLabel != null) return false
+  if (params.senderOverviewWindow != null) return false
+  return (
+    params.analysisScope === 'all_indexed' ||
+    params.analysisScope === '7d' ||
+    params.analysisScope === '30d' ||
+    params.analysisScope === '365d'
+  )
+}
+
+function senderWorkspaceTimelineScopeContract(
+  analysisScope: OperationsAnalysisScope
+): {
+  grouping: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
+  bucketCount: number | null
+} | null {
+  if (analysisScope === 'all_indexed') return { grouping: 'month', bucketCount: null }
+  if (analysisScope === '365d') return { grouping: 'month', bucketCount: 12 }
+  if (analysisScope === '90d') return { grouping: 'week', bucketCount: 13 }
+  if (analysisScope === '30d') return { grouping: 'day', bucketCount: 30 }
+  if (analysisScope === '7d') return { grouping: 'day', bucketCount: 7 }
+  return null
+}
+
+export function senderWorkspaceHasCanonicalTimeContextTimeline(params: {
+  analysisScope: OperationsAnalysisScope
+  workspace: GmailSenderWorkspaceData | null | undefined
+}
+): boolean {
+  if (!params.workspace) return false
+  const scopeContract = senderWorkspaceTimelineScopeContract(params.analysisScope)
+  if (!scopeContract) return false
+  const items = Array.isArray(params.workspace.analytics?.sender_activity_timeline)
+    ? params.workspace.analytics.sender_activity_timeline
+    : []
+  if (items.length === 0) return false
+  if (params.workspace.analytics?.sender_activity_timeline_granularity !== scopeContract.grouping) {
+    return false
+  }
+  if (scopeContract.bucketCount != null && items.length !== scopeContract.bucketCount) {
+    return false
+  }
+
+  let previousBucketEndExclusiveMs: number | null = null
+  for (const item of items) {
+    if (item.contract_version !== GMAIL_CANONICAL_TIMELINE_CONTRACT_VERSION) return false
+    if (item.metric_family !== 'sender_activity') return false
+    if (!item.time_zone || !item.grouping) return false
+    if (item.grouping !== scopeContract.grouping) return false
+    const bucketStartMs =
+      typeof item.bucket_start_iso === 'string' ? Date.parse(item.bucket_start_iso) : Number.NaN
+    const bucketEndExclusiveMs =
+      typeof item.bucket_end_exclusive_iso === 'string'
+        ? Date.parse(item.bucket_end_exclusive_iso)
+        : Number.NaN
+    if (!Number.isFinite(bucketStartMs) || !Number.isFinite(bucketEndExclusiveMs)) return false
+    if (bucketEndExclusiveMs <= bucketStartMs) return false
+    if (previousBucketEndExclusiveMs != null && bucketStartMs !== previousBucketEndExclusiveMs) {
+      return false
+    }
+    previousBucketEndExclusiveMs = bucketEndExclusiveMs
+  }
+
+  if (scopeContract.bucketCount != null) {
+    return true
+  }
+
+  // All indexed buckets are intentionally non-additive: one sender may appear in multiple months.
+  return true
+}
+
 export function readCachedGmailSenderWorkspace(params: {
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
@@ -2301,6 +2546,12 @@ export function readCachedGmailSenderWorkspace(params: {
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewStart?: string | null
+  senderOverviewEnd?: string | null
+  timeZone?: string | null
 }): GmailSenderWorkspaceData | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
@@ -2311,6 +2562,16 @@ export function readCachedGmailSenderWorkspace(params: {
   const sort = params.sort ?? 'message_count'
   const direction = params.direction ?? 'desc'
   const includeClusterSenderKeys = params.includeClusterSenderKeys === true
+  const senderOverviewStart =
+    typeof params.senderOverviewStart === 'string' && params.senderOverviewStart.trim()
+      ? params.senderOverviewStart.trim()
+      : null
+  const senderOverviewEnd =
+    typeof params.senderOverviewEnd === 'string' && params.senderOverviewEnd.trim()
+      ? params.senderOverviewEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
   const cacheKey = senderWorkspaceCacheKey({
     selectedCluster: params.selectedCluster,
     allClusters: params.allClusters,
@@ -2326,30 +2587,127 @@ export function readCachedGmailSenderWorkspace(params: {
       semanticFocus: params.semanticFocus ?? null,
       previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
       timeContextBucketLabel: params.timeContextBucketLabel ?? null,
+      timeContextBucketStartAt:
+        typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
+          ? params.timeContextBucketStartAt.trim()
+          : null,
+      timeContextBucketEndExclusiveAt:
+        typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+        params.timeContextBucketEndExclusiveAt.trim()
+          ? params.timeContextBucketEndExclusiveAt.trim()
+          : null,
+      senderOverviewWindow: params.senderOverviewWindow ?? null,
+      senderOverviewStart,
+      senderOverviewEnd,
+      timeZone,
     })
-  return (
+  const cached =
     readClientInboxAnalysisCache<GmailSenderWorkspaceData>(cacheKey) ||
     readPersistedClientInboxAnalysisCache<GmailSenderWorkspaceData>(cacheKey)
-  )
+  if (!cached) return null
+    if (
+      senderWorkspaceRequiresCanonicalTimeContextTimeline({
+        analysisScope,
+        timeContextBucketLabel: params.timeContextBucketLabel ?? null,
+        senderOverviewWindow: params.senderOverviewWindow ?? null,
+      }) &&
+    !senderWorkspaceHasCanonicalTimeContextTimeline({
+      analysisScope,
+      workspace: cached,
+    })
+  ) {
+    clearClientInboxAnalysisCache(cacheKey)
+    return null
+  }
+  return cached
 }
 
 export function readCachedGmailSenderDistribution(params: {
   selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewStart?: string | null
+  senderOverviewEnd?: string | null
+  timeZone?: string | null
 }): GmailSenderDistributionData | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
-  const cacheKey = senderDistributionCacheKey({
+  const senderOverviewStart =
+    typeof params.senderOverviewStart === 'string' && params.senderOverviewStart.trim()
+      ? params.senderOverviewStart.trim()
+      : null
+  const senderOverviewEnd =
+    typeof params.senderOverviewEnd === 'string' && params.senderOverviewEnd.trim()
+      ? params.senderOverviewEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
+  const cacheKey = buildGmailSenderDistributionCacheKey({
     selectedCluster: params.selectedCluster,
+    allClusters: params.allClusters,
     analysisScope,
     cacheVersion,
     semanticFocus: params.semanticFocus ?? null,
+    timeContextBucketLabel: params.timeContextBucketLabel ?? null,
+    timeContextBucketStartAt:
+      typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
+        ? params.timeContextBucketStartAt.trim()
+        : null,
+    timeContextBucketEndExclusiveAt:
+      typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+      params.timeContextBucketEndExclusiveAt.trim()
+        ? params.timeContextBucketEndExclusiveAt.trim()
+        : null,
+    senderOverviewWindow: params.senderOverviewWindow ?? null,
+    senderOverviewStart,
+    senderOverviewEnd,
+    timeZone,
   })
   return (
     readClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey) ||
     readPersistedClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey)
+  )
+}
+
+export function readCachedGmailSenderOverviewWindow(params: {
+  selectedCluster: GmailCleanupClusterRef
+  analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
+  pressureWindow: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
+}): GmailSenderOverviewWindowData | null {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const pressureStart =
+    typeof params.pressureStart === 'string' && params.pressureStart.trim()
+      ? params.pressureStart.trim()
+      : null
+  const pressureEnd =
+    typeof params.pressureEnd === 'string' && params.pressureEnd.trim()
+      ? params.pressureEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
+  const cacheKey = senderOverviewWindowCacheKey({
+    selectedCluster: params.selectedCluster,
+    analysisScope,
+    cacheVersion,
+    pressureWindow: params.pressureWindow,
+    pressureStart,
+    pressureEnd,
+    timeZone,
+  })
+  return (
+    readClientInboxAnalysisCache<GmailSenderOverviewWindowData>(cacheKey) ||
+    readPersistedClientInboxAnalysisCache<GmailSenderOverviewWindowData>(cacheKey)
   )
 }
 
@@ -2475,6 +2833,12 @@ export async function fetchGmailSenderWorkspace(params: {
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewStart?: string | null
+  senderOverviewEnd?: string | null
+  timeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
 }): Promise<{ ok: true; data: GmailSenderWorkspaceData } | { ok: false; error: string; aborted?: true }> {
@@ -2487,6 +2851,16 @@ export async function fetchGmailSenderWorkspace(params: {
   const direction = params.direction ?? 'desc'
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const includeClusterSenderKeys = params.includeClusterSenderKeys === true
+  const senderOverviewStart =
+    typeof params.senderOverviewStart === 'string' && params.senderOverviewStart.trim()
+      ? params.senderOverviewStart.trim()
+      : null
+  const senderOverviewEnd =
+    typeof params.senderOverviewEnd === 'string' && params.senderOverviewEnd.trim()
+      ? params.senderOverviewEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
 
   return requestCachedInboxAnalysis<GmailSenderWorkspaceData>({
     action: 'sender_workspace',
@@ -2505,6 +2879,19 @@ export async function fetchGmailSenderWorkspace(params: {
       semanticFocus: params.semanticFocus ?? null,
       previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
       timeContextBucketLabel: params.timeContextBucketLabel ?? null,
+      timeContextBucketStartAt:
+        typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
+          ? params.timeContextBucketStartAt.trim()
+          : null,
+      timeContextBucketEndExclusiveAt:
+        typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+        params.timeContextBucketEndExclusiveAt.trim()
+          ? params.timeContextBucketEndExclusiveAt.trim()
+          : null,
+      senderOverviewWindow: params.senderOverviewWindow ?? null,
+      senderOverviewStart,
+      senderOverviewEnd,
+      timeZone,
     }),
     body: {
       analysis_scope: analysisScope,
@@ -2584,6 +2971,20 @@ export async function fetchGmailSenderWorkspace(params: {
         typeof params.timeContextBucketLabel === 'string' && params.timeContextBucketLabel.trim()
           ? params.timeContextBucketLabel.trim()
           : null,
+      time_context_bucket_start_at:
+        typeof params.timeContextBucketStartAt === 'string' &&
+        params.timeContextBucketStartAt.trim()
+          ? params.timeContextBucketStartAt.trim()
+          : null,
+      time_context_bucket_end_exclusive_at:
+        typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+        params.timeContextBucketEndExclusiveAt.trim()
+          ? params.timeContextBucketEndExclusiveAt.trim()
+          : null,
+      sender_overview_window: params.senderOverviewWindow ?? null,
+      sender_overview_start: senderOverviewStart,
+      sender_overview_end: senderOverviewEnd,
+      time_zone: timeZone,
       semantic_focus: params.semanticFocus
         ? {
             family: params.semanticFocus.family,
@@ -2596,27 +2997,75 @@ export async function fetchGmailSenderWorkspace(params: {
     },
     errorMessage: 'Failed to load sender workspace.',
     signal: params.signal,
+    acceptCachedData: (data) => {
+      if (
+        !senderWorkspaceRequiresCanonicalTimeContextTimeline({
+          analysisScope,
+          timeContextBucketLabel: params.timeContextBucketLabel ?? null,
+          senderOverviewWindow: params.senderOverviewWindow ?? null,
+        })
+      ) {
+        return true
+      }
+      return senderWorkspaceHasCanonicalTimeContextTimeline({
+        analysisScope,
+        workspace: data,
+      })
+    },
   })
 }
 
 export async function fetchGmailSenderDistribution(params: {
   selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewStart?: string | null
+  senderOverviewEnd?: string | null
+  timeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
 }): Promise<{ ok: true; data: GmailSenderDistributionData } | { ok: false; error: string; aborted?: true }> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const senderOverviewStart =
+    typeof params.senderOverviewStart === 'string' && params.senderOverviewStart.trim()
+      ? params.senderOverviewStart.trim()
+      : null
+  const senderOverviewEnd =
+    typeof params.senderOverviewEnd === 'string' && params.senderOverviewEnd.trim()
+      ? params.senderOverviewEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
 
   return requestCachedInboxAnalysis<GmailSenderDistributionData>({
     action: 'sender_distribution',
-    cacheKey: senderDistributionCacheKey({
+    cacheKey: buildGmailSenderDistributionCacheKey({
       selectedCluster: params.selectedCluster,
+      allClusters: params.allClusters,
       analysisScope,
       cacheVersion,
       semanticFocus: params.semanticFocus ?? null,
+      timeContextBucketLabel: params.timeContextBucketLabel ?? null,
+      timeContextBucketStartAt:
+        typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
+          ? params.timeContextBucketStartAt.trim()
+          : null,
+      timeContextBucketEndExclusiveAt:
+        typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+        params.timeContextBucketEndExclusiveAt.trim()
+          ? params.timeContextBucketEndExclusiveAt.trim()
+          : null,
+      senderOverviewWindow: params.senderOverviewWindow ?? null,
+      senderOverviewStart,
+      senderOverviewEnd,
+      timeZone,
     }),
     body: {
       analysis_scope: analysisScope,
@@ -2652,6 +3101,54 @@ export async function fetchGmailSenderDistribution(params: {
             ? Math.max(0, Math.round(params.selectedCluster.messageCount))
             : undefined,
       },
+      clusters: params.allClusters.map((cluster) => ({
+        cluster_id: cluster.clusterId,
+        canonical_cluster_id:
+          typeof cluster.canonicalClusterId === 'string' && cluster.canonicalClusterId.trim()
+            ? cluster.canonicalClusterId.trim()
+            : undefined,
+        legacy_cluster_ids:
+          Array.isArray(cluster.legacyClusterIds) && cluster.legacyClusterIds.length > 0
+            ? cluster.legacyClusterIds
+            : undefined,
+        source_cluster_ids:
+          Array.isArray(cluster.sourceClusterIds) && cluster.sourceClusterIds.length > 0
+            ? cluster.sourceClusterIds
+            : undefined,
+        cluster_type: cluster.clusterType,
+        title: cluster.title,
+        query: cluster.query,
+        sender_count:
+          typeof cluster.senderCount === 'number' && Number.isFinite(cluster.senderCount)
+            ? Math.max(0, Math.round(cluster.senderCount))
+            : undefined,
+        message_count:
+          typeof cluster.messageCount === 'number' && Number.isFinite(cluster.messageCount)
+            ? Math.max(0, Math.round(cluster.messageCount))
+            : undefined,
+        estimated_count:
+          typeof cluster.estimatedCount === 'number' && Number.isFinite(cluster.estimatedCount)
+            ? Math.max(0, Math.round(cluster.estimatedCount))
+            : undefined,
+      })),
+      time_context_bucket_label:
+        typeof params.timeContextBucketLabel === 'string' && params.timeContextBucketLabel.trim()
+          ? params.timeContextBucketLabel.trim()
+          : null,
+      time_context_bucket_start_at:
+        typeof params.timeContextBucketStartAt === 'string' &&
+        params.timeContextBucketStartAt.trim()
+          ? params.timeContextBucketStartAt.trim()
+          : null,
+      time_context_bucket_end_exclusive_at:
+        typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+        params.timeContextBucketEndExclusiveAt.trim()
+          ? params.timeContextBucketEndExclusiveAt.trim()
+          : null,
+      sender_overview_window: params.senderOverviewWindow ?? null,
+      sender_overview_start: senderOverviewStart,
+      sender_overview_end: senderOverviewEnd,
+      time_zone: timeZone,
       semantic_focus: params.semanticFocus
         ? {
             family: params.semanticFocus.family,
@@ -2663,6 +3160,115 @@ export async function fetchGmailSenderDistribution(params: {
       ...contextParams(params.requestContext),
     },
     errorMessage: 'Failed to load Sender Distribution.',
+    signal: params.signal,
+  })
+}
+
+export async function fetchGmailSenderOverviewWindow(params: {
+  selectedCluster: GmailCleanupClusterRef
+  allClusters: GmailCleanupClusterRef[]
+  analysisScope?: OperationsAnalysisScope
+  cacheVersion?: string | null
+  pressureWindow: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+  pressureStart?: string | null
+  pressureEnd?: string | null
+  timeZone?: string | null
+  requestContext?: OperationsInboxAnalysisRequestContext
+  signal?: AbortSignal
+}): Promise<
+  { ok: true; data: GmailSenderOverviewWindowData } | { ok: false; error: string; aborted?: true }
+> {
+  const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
+  const cacheVersion = params.cacheVersion?.trim() || 'default'
+  const pressureStart =
+    typeof params.pressureStart === 'string' && params.pressureStart.trim()
+      ? params.pressureStart.trim()
+      : null
+  const pressureEnd =
+    typeof params.pressureEnd === 'string' && params.pressureEnd.trim()
+      ? params.pressureEnd.trim()
+      : null
+  const timeZone =
+    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
+
+  return requestCachedInboxAnalysis<GmailSenderOverviewWindowData>({
+    action: 'sender_overview_window',
+    cacheKey: senderOverviewWindowCacheKey({
+      selectedCluster: params.selectedCluster,
+      analysisScope,
+      cacheVersion,
+      pressureWindow: params.pressureWindow,
+      pressureStart,
+      pressureEnd,
+      timeZone,
+    }),
+    body: {
+      analysis_scope: analysisScope,
+      cache_version: params.cacheVersion ?? null,
+      selected_cluster: {
+        cluster_id: params.selectedCluster.clusterId,
+        canonical_cluster_id:
+          typeof params.selectedCluster.canonicalClusterId === 'string' &&
+          params.selectedCluster.canonicalClusterId.trim()
+            ? params.selectedCluster.canonicalClusterId.trim()
+            : undefined,
+        legacy_cluster_ids:
+          Array.isArray(params.selectedCluster.legacyClusterIds) &&
+          params.selectedCluster.legacyClusterIds.length > 0
+            ? params.selectedCluster.legacyClusterIds
+            : undefined,
+        cluster_type: params.selectedCluster.clusterType,
+        title: params.selectedCluster.title,
+        query: params.selectedCluster.query,
+        sender_count:
+          typeof params.selectedCluster.senderCount === 'number' &&
+          Number.isFinite(params.selectedCluster.senderCount)
+            ? Math.max(0, Math.round(params.selectedCluster.senderCount))
+            : undefined,
+        message_count:
+          typeof params.selectedCluster.messageCount === 'number' &&
+          Number.isFinite(params.selectedCluster.messageCount)
+            ? Math.max(0, Math.round(params.selectedCluster.messageCount))
+            : undefined,
+        estimated_count:
+          typeof params.selectedCluster.estimatedCount === 'number' &&
+          Number.isFinite(params.selectedCluster.estimatedCount)
+            ? Math.max(0, Math.round(params.selectedCluster.estimatedCount))
+            : undefined,
+      },
+      clusters: params.allClusters.map((cluster) => ({
+        cluster_id: cluster.clusterId,
+        canonical_cluster_id:
+          typeof cluster.canonicalClusterId === 'string' && cluster.canonicalClusterId.trim()
+            ? cluster.canonicalClusterId.trim()
+            : undefined,
+        legacy_cluster_ids:
+          Array.isArray(cluster.legacyClusterIds) && cluster.legacyClusterIds.length > 0
+            ? cluster.legacyClusterIds
+            : undefined,
+        cluster_type: cluster.clusterType,
+        title: cluster.title,
+        query: cluster.query,
+        sender_count:
+          typeof cluster.senderCount === 'number' && Number.isFinite(cluster.senderCount)
+            ? Math.max(0, Math.round(cluster.senderCount))
+            : undefined,
+        message_count:
+          typeof cluster.messageCount === 'number' && Number.isFinite(cluster.messageCount)
+            ? Math.max(0, Math.round(cluster.messageCount))
+            : undefined,
+        estimated_count:
+          typeof cluster.estimatedCount === 'number' && Number.isFinite(cluster.estimatedCount)
+            ? Math.max(0, Math.round(cluster.estimatedCount))
+            : undefined,
+      })),
+      pressure_window: params.pressureWindow,
+      pressure_start: pressureStart,
+      pressure_end: pressureEnd,
+      time_zone: timeZone,
+      ...contextParams(params.requestContext),
+    },
+    errorMessage: 'Failed to load Time Context chart window.',
     signal: params.signal,
   })
 }

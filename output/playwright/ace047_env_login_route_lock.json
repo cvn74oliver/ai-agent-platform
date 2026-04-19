@@ -1,0 +1,71 @@
+{
+  "envCredentialsUsed": true,
+  "loginAttemptedFromEnvLocal": true,
+  "loginSucceeded": true,
+  "authStateRefreshed": true,
+  "loginSurface": {
+    "href": "http://localhost:3000/login",
+    "title": "Automata",
+    "hasLoginHeading": true,
+    "bodyPreview": "Sign in to Automata\nSign In with Password\nor\nSend Magic Link"
+  },
+  "postLoginSurface": {
+    "href": "http://localhost:3000/dashboard",
+    "title": "Automata – Dashboard",
+    "bodyPreview": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\noliver.j.carlin@gmail.com\n\nLogout\n\nDASHBOARD\n\nWelcome back, oliver.j.carlin@gmail.com\n\nSnapshot analytics across your agents, training data, and recent usage.\n\nLoading dashboard metrics\n\nRefreshing agent, training, and session summaries for this workspace.\n\nWORKSPACE PROFILE\n\nYour onboarding data\n\nThis profile powers the default workspace context used throughout Automata.\n\nEdit Profile\n\nCOMPANY\n\nCurative Mushrooms\n\nTONE\n\nCasual\n\nGOAL\n\nExpert at Growing Mushrooms",
+    "hasLoginHeading": false,
+    "dashboardVisible": true
+  },
+  "authenticatedRoute": {
+    "href": "http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust",
+    "title": "Automata",
+    "bodyPreview": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\noliver.j.carlin@gmail.com\n\nLogout\n\nOPERATIONS WORKSPACE\n\nSession-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.\n\nWORKFLOW SCOPE\n\nThis control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.\n\n1W\n1M\n2M\n1Q\n6M\n1Y\nAll indexed\nRefresh cleanup analysis\n\nRefreshing cleanup analysis does not increase indexed mailbox coverage.\n\nSmart SyncContinue BackfillRun full mailbox reindex\n\nWorkflow scope view: All indexed · Last refresh: —\n\nEffective discovery window: —\n\nLast regenerated: —\n\nRefreshing cleanup analysis in the background. Current cleanup groups stay visible until the new results are ready.\n\nMAILBOX INDEX\n\nMailbox index status unavailable\n\nMailbox index health has not loaded yet.\n\nCONTROL CENTER\n\nManagement is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.\n\nWORKFLOW\n\nMailbox Intelligence\n\nMission, status, and high-level cleanup summary\n\nCleanup Groups\n\nFull sender-group selection surface\n\nSender Overview\n\nOrientation, scope, and progress before focused review\n\nDecision Mode\n\nOne sender at a time, four actions, no Gmail mutation\n\nManagement\n\nDestination states, execution truth, and follow-up\n\nLEGACY & AUDIT\n\nPending Approvals\n\nLegacy queue surface kept route-safe for older runtime flows\n\nExecuted Actions\n\nLegacy execution audit view\n\nHistory\n\nLegacy audit timeline and runtime history\n\nTOOLS\n\nAI Playground Chat\n\nGeneral chat/testing surface\n\nLoading sender decisions workspace…\n\nAI ASSISTANT\n\nContextual help (secondary)\n\nSyncing…\n\nUse the suggested prompts for this page, or ask any context-specific question.\n\nSUGGESTED PROMPTS\n\nWhat does this cleanup group represent before I start decisions?\nHow many senders are already managed versus still eligible?\nWhen should I leave Overview and enter Decision Mode?\nAsk",
+    "hasLoginHeading": false,
+    "operationsWorkspaceVisible": true,
+    "selectedCleanupGroupVisible": false,
+    "workflowScopeVisible": true,
+    "timeContextTabVisible": false,
+    "railSource": null,
+    "railState": null,
+    "timeContext": {
+      "href": "http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust",
+      "railSource": null,
+      "railState": null,
+      "bucketCount": null,
+      "rawBucketCount": null,
+      "granularity": null,
+      "labels": [],
+      "hasTimeframeNotYetLoaded": false,
+      "hasNoVisibleTimeContextYet": false,
+      "selectedCleanupGroupVisible": false,
+      "bodyPreview": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\noliver.j.carlin@gmail.com\n\nLogout\n\nOPERATIONS WORKSPACE\n\nSession-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.\n\nWORKFLOW SCOPE\n\nThis control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.\n\n1W\n1M\n2M\n1Q\n6M\n1Y\nAll indexed\nRefresh cleanup analysis\n\nRefreshing cleanup analysis does not increase indexed mailbox coverage.\n\nSmart SyncContinue BackfillRun full mailbox reindex\n\nWorkflow scope view: All indexed · Last refresh: —\n\nEffective discovery window: —\n\nLast regenerated: —\n\nRefreshing cleanup analysis in the background. Current cleanup groups stay visible until the new results are ready.\n\nMAILBOX INDEX\n\nMailbox index status unavailable\n\nMailbox index health has not loaded yet.\n\nCONTROL CENTER\n\nManagement is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.\n\nWORKFLOW\n\nMailbox Intelligence\n\nMission, status, and high-level cleanup summary\n\nCleanup Groups\n\nFull sender-group selection surface\n\nSender Overview\n\nOrientation, scope, and progress before focused review\n\nDecision Mode\n\nOne sender at a time, four actions, no Gmail mutation\n\nManagement\n\nDestination states, execution truth, and follow-up\n\nLEGACY & AUDIT\n\nPending Approvals\n\nLegacy queue surface kept route-safe for older runtime flows\n\nExecuted Actions\n\nLegacy execution audit view\n\nHistory\n\nLegacy audit timeline and runtime history\n\nTOOLS\n\nAI Playground Chat\n\nGeneral chat/testing surface\n\nLoading sender decisions workspace…\n\nAI ASSISTANT\n\nContextual help (secondary)\n\nSyncing…\n\nUse the suggested prompts for this page, or ask any context-specific question.\n\nSUGGESTED PROMPTS\n\nWhat does this cleanup group represent before I start decisions?\nHow many senders are already managed versus still eligible?\nWhen should I leave Overview and enter Decision Mode?\nAsk"
+    }
+  },
+  "traces": {
+    "inboxAnalysis": [],
+    "mailboxIndex": [
+      {
+        "url": "http://localhost:3000/api/integrations/gmail/mailbox-index",
+        "status": 200,
+        "method": "GET",
+        "action": null,
+        "request_phase": null,
+        "request_source": null,
+        "request_component": null,
+        "request_reason": null,
+        "analysis_scope": null,
+        "payload_error": null,
+        "payload_reason": null,
+        "ok": true
+      }
+    ],
+    "consoleErrors": []
+  },
+  "artifacts": {
+    "loginSuccessScreenshot": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_env_login_success.png",
+    "authenticatedRouteScreenshot": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_env_login_route.png",
+    "authenticatedTimeContextScreenshot": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_env_login_time_context.png",
+    "refreshedAuthState": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_env_login_state.json",
+    "outputJson": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_env_login_route_lock.json"
+  }
+}

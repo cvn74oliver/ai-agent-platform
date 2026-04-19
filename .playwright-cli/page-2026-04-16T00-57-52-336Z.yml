@@ -1,0 +1,11 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - heading "Sign in to Automata" [level=1] [ref=e3]
+    - textbox "you@example.com" [ref=e4]
+    - textbox "Password" [ref=e5]
+    - button "Sign In with Password" [ref=e6]
+    - generic [ref=e7]: or
+    - button "Send Magic Link" [ref=e8]
+  - button "Open Next.js Dev Tools" [ref=e14] [cursor=pointer]:
+    - img [ref=e15]
+  - alert [ref=e18]

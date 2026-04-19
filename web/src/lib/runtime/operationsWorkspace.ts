@@ -869,8 +869,13 @@ export type OperationsSelectedClusterRailFamilyScopeEntry = {
   visible_cluster_count: number
   timeline:
     | {
-        granularity: 'day' | 'week' | 'month'
-        items: Array<{ label: string; count: number }>
+        granularity: 'hour' | 'day' | 'week' | 'month'
+        items: Array<{
+          label: string
+          count: number
+          bucket_start_iso?: string | null
+          bucket_end_exclusive_iso?: string | null
+        }>
       }
     | null
   signal:
@@ -962,6 +967,7 @@ export async function fetchOperationsRuntimeSnapshot(params: {
   analysisScope?: OperationsAnalysisScope
   forceMailboxProfileRefresh?: boolean
   preferredClusterId?: string | null
+  transitionEdge?: 'smart_sync_handoff' | 'build_pending_poll' | null
 }): Promise<OperationsRuntimeResponse> {
   const res = await fetch('/api/agents/playground', {
     method: 'POST',
@@ -977,6 +983,11 @@ export async function fetchOperationsRuntimeSnapshot(params: {
       preferred_cluster_id:
         typeof params.preferredClusterId === 'string' && params.preferredClusterId.trim()
           ? params.preferredClusterId.trim()
+          : null,
+      transition_edge:
+        params.transitionEdge === 'smart_sync_handoff' ||
+        params.transitionEdge === 'build_pending_poll'
+          ? params.transitionEdge
           : null,
     }),
   })

@@ -12,7 +12,7 @@ Use this checklist whenever you want to start a new isolated Codex thread in its
 2. Go to the main repo:
 
    ```bash
-   cd /Users/olivercarlin/Documents/ai-agent-platform
+   cd /Users/olivercarlin/Dev/ai-agent-platform
    ```
 
 3. Check your branch:
@@ -91,13 +91,13 @@ Worktrees do **not** automatically copy ignored local files like `.env.local`.
 1. Copy the web env file:
 
    ```bash
-   cp /Users/olivercarlin/Documents/ai-agent-platform/web/.env.local /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild/web/.env.local
+   cp /Users/olivercarlin/Dev/ai-agent-platform/web/.env.local /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/web/.env.local
    ```
 
 2. Confirm it exists:
 
    ```bash
-   ls -la /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild/web/.env.local
+   ls -la /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/web/.env.local
    ```
 
 3. If your project uses any other ignored local config files, copy those too.
@@ -110,7 +110,7 @@ Worktrees do **not** automatically copy ignored local files like `.env.local`.
 2. Open this folder only:
 
    ```
-   /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
+   /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild
    ```
 
 3. Keep your main repo in a separate VS Code window.
@@ -124,7 +124,7 @@ Worktrees do **not** automatically copy ignored local files like `.env.local`.
 2. Select the worktree folder:
 
    ```
-   /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
+   /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild
    ```
 
 3. Give it a clear name, for example:
@@ -157,7 +157,7 @@ Worktrees do **not** automatically copy ignored local files like `.env.local`.
 1. Navigate to the web directory inside the worktree:
 
    ```bash
-   cd /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild/web
+   cd /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/web
    ```
 
 2. Install dependencies (first time only):
@@ -226,7 +226,7 @@ Notes:
 1. In the worktree repo, check status:
 
    ```bash
-   cd /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
+   cd /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild
    git status
    ```
 
@@ -255,7 +255,7 @@ Notes:
 1. Go back to the main repo:
 
    ```bash
-   cd /Users/olivercarlin/Documents/ai-agent-platform
+   cd /Users/olivercarlin/Dev/ai-agent-platform
    ```
 
 2. Make sure main is up to date:
@@ -286,7 +286,7 @@ After merging, run your normal checks from the **main repo**, not the worktree.
 Examples:
 
 ```bash
-cd /Users/olivercarlin/Documents/ai-agent-platform
+cd /Users/olivercarlin/Dev/ai-agent-platform
 ```
 
 Then run whatever applies for that project, such as:
@@ -312,7 +312,7 @@ Only do this after:
 1. Remove the worktree folder from Git:
 
    ```bash
-   git worktree remove /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
+   git worktree remove /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild
    ```
 
 2. Delete the branch locally:
@@ -372,7 +372,7 @@ Use this when the worktree needs to propagate only docs / control-plane files in
 1. In the worktree, commit and push the docs changes:
 
    ```bash
-   cd /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
+   cd /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild
    git add ai-agent-platform-docs AGENTS.md
    git commit -m "Docs-only sync from worktree"
    git push origin cleanup-taxonomy-rebuild
@@ -381,7 +381,7 @@ Use this when the worktree needs to propagate only docs / control-plane files in
 2. In the main repo, pull only the approved docs paths:
 
    ```bash
-   cd /Users/olivercarlin/Documents/ai-agent-platform
+   cd /Users/olivercarlin/Dev/ai-agent-platform
    git checkout main
    git pull origin main
    git checkout cleanup-taxonomy-rebuild -- ai-agent-platform-docs AGENTS.md
@@ -401,7 +401,7 @@ Use this when the worktree needs the latest control-plane or operating docs from
 1. In the worktree:
 
    ```bash
-   cd /Users/olivercarlin/Documents/ai-agent-platform-cleanup-taxonomy-rebuild
+   cd /Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild
    git fetch origin
    git checkout origin/main -- ai-agent-platform-docs AGENTS.md
    git status

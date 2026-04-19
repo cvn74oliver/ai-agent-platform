@@ -17,6 +17,7 @@ import {
   isManualFullRunActive,
   isMailboxIndexRunActive,
   loadGmailMailboxIndexCoverageForTenant,
+  loadGmailMailboxRecentHealthForTenant,
   loadGmailMailboxIndexState,
   primeAcceptedOperatorBackfillRunForTenant,
   primeAcceptedSmartSyncRunForTenant,
@@ -41,6 +42,14 @@ import {
 const MAILBOX_INDEX_MANUAL_ACTION_COOLDOWN_MS = 15 * 1000
 const INCREMENTAL_REFRESH_MAX_CHANGED_MESSAGES = 2_000
 const INCREMENTAL_REFRESH_MAX_AFFECTED_SENDERS = 500
+const SMART_SYNC_MANAGED_ANALYSIS_SCOPES: GmailArtifactAnalysisScope[] = [
+  'all_indexed',
+  '7d',
+  '30d',
+  '90d',
+  '180d',
+  '365d',
+]
 
 type AuthContext =
   | { ok: true; supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>; tenantId: string }
@@ -90,18 +99,19 @@ async function buildArtifactRefreshScopeTargets(params: {
   publications: GmailArtifactPublicationRow[]
   logPrefix: string
 }): Promise<ArtifactRefreshScopeTarget[]> {
-  const targets =
-    params.publications.length > 0
-      ? params.publications.map((publication) => ({
-          analysisScope: publication.analysis_scope,
-          publication,
-        }))
-      : [
-          {
-            analysisScope: 'all_indexed' as GmailArtifactAnalysisScope,
-            publication: null,
-          },
-        ]
+  const publicationByScope = new Map(
+    params.publications.map((publication) => [publication.analysis_scope, publication] as const)
+  )
+  const managedScopes = Array.from(
+    new Set<GmailArtifactAnalysisScope>([
+      ...SMART_SYNC_MANAGED_ANALYSIS_SCOPES,
+      ...params.publications.map((publication) => publication.analysis_scope),
+    ])
+  )
+  const targets = managedScopes.map((analysisScope) => ({
+    analysisScope,
+    publication: publicationByScope.get(analysisScope) ?? null,
+  }))
 
   return Promise.all(
     targets.map(async (target) => {
@@ -717,7 +727,7 @@ export async function GET() {
     const auth = await resolveAuthContext()
     if (!auth.ok) return auth.response
 
-    const [state, coverage, publications] = await Promise.all([
+    const [state, coverage, publications, recentHealth] = await Promise.all([
       loadGmailMailboxIndexState({
         supabase: auth.supabase,
         tenantId: auth.tenantId,
@@ -727,6 +737,10 @@ export async function GET() {
         tenantId: auth.tenantId,
       }),
       loadGmailArtifactPublicationStatesForTenant({
+        supabase: auth.supabase,
+        tenantId: auth.tenantId,
+      }),
+      loadGmailMailboxRecentHealthForTenant({
         supabase: auth.supabase,
         tenantId: auth.tenantId,
       }),
@@ -750,11 +764,16 @@ export async function GET() {
       publications[0] ??
       null
     const historicalBackfill = buildHistoricalBackfillSummary(state)
+    const hasFalseHealthyState = recentHealth.false_healthy_state
     const syncHealth =
       executionState === 'failed' || executionState === 'stalled'
         ? indexedCount > 0
           ? 'degraded_usable'
           : 'unavailable'
+        : hasFalseHealthyState
+          ? indexedCount > 0
+            ? 'degraded_usable'
+            : 'unavailable'
         : indexedCount > 0
           ? 'healthy'
           : 'uninitialized'
@@ -789,7 +808,8 @@ export async function GET() {
               ? state.last_growth_delta > 0
               : null,
         sync_health: syncHealth,
-        usable_with_cached_index: indexedCount > 0,
+        usable_with_cached_index: indexedCount > 0 && !hasFalseHealthyState,
+        recent_window_health: recentHealth,
         last_index_duration_ms: state?.last_index_duration_ms ?? null,
         has_gmail_connection: hasGmailConnection,
         artifact_refresh: primaryPublication
@@ -853,6 +873,16 @@ export async function POST(req: Request) {
       typeof body?.max_messages === 'number' ? body.max_messages : null
     )
     const trigger = normalizeGmailMailboxIndexTrigger(body?.trigger, requestedMode)
+    const recentHealth =
+      trigger === 'smart_sync' || trigger === 'manual_full_reindex'
+        ? await loadGmailMailboxRecentHealthForTenant({
+            supabase: auth.supabase,
+            tenantId: auth.tenantId,
+          })
+        : null
+    const forceFreshHeadRecovery =
+      recentHealth?.false_healthy_state === true &&
+      (trigger === 'smart_sync' || trigger === 'manual_full_reindex')
     const heavyActionKey = ['mailbox_index_manual_action', auth.tenantId].join('::')
     const logHeavyMailboxIndexAction = (params: {
       blockedBy: 'already_running' | 'cooldown_active' | null
@@ -906,7 +936,13 @@ export async function POST(req: Request) {
       )
     }
     const mode =
-      trigger === 'smart_sync' ? 'incremental' : trigger === 'operator_backfill' ? 'full' : requestedMode
+      trigger === 'smart_sync'
+        ? forceFreshHeadRecovery
+          ? 'full'
+          : 'incremental'
+        : trigger === 'operator_backfill'
+          ? 'full'
+          : requestedMode
     const background =
       trigger === 'smart_sync' || trigger === 'operator_backfill'
         ? true
@@ -924,6 +960,7 @@ export async function POST(req: Request) {
           requested_mode: requestedMode,
           effective_mode: mode,
           background,
+          force_fresh_head_recovery: forceFreshHeadRecovery,
         },
       })
       return NextResponse.json(
@@ -953,6 +990,7 @@ export async function POST(req: Request) {
             requested_mode: requestedMode,
             effective_mode: mode,
             background,
+            force_fresh_head_recovery: forceFreshHeadRecovery,
           },
         })
         return NextResponse.json({
@@ -973,6 +1011,7 @@ export async function POST(req: Request) {
             requested_mode: requestedMode,
             effective_mode: mode,
             background,
+            force_fresh_head_recovery: forceFreshHeadRecovery,
           },
         })
         return NextResponse.json(
@@ -1003,6 +1042,7 @@ export async function POST(req: Request) {
             effective_mode: mode,
             background,
             requested_backfill_window_months: requestedBackfillWindowMonths,
+            force_fresh_head_recovery: forceFreshHeadRecovery,
           },
         })
         return NextResponse.json({
@@ -1045,6 +1085,7 @@ export async function POST(req: Request) {
             tenantId: auth.tenantId,
             runId,
             maxMessages,
+            forceFreshHeadRecovery,
             currentState,
           })
           acceptedRunData = {
@@ -1094,6 +1135,7 @@ export async function POST(req: Request) {
               mode,
               maxMessages,
               allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
+              forceFreshHeadRecovery,
               backfillWindowMonths:
                 trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
               logPrefix: '[integrations/gmail/mailbox-index/background]',
@@ -1119,6 +1161,7 @@ export async function POST(req: Request) {
             effective_mode: mode,
             background: true,
             max_messages: maxMessages,
+            force_fresh_head_recovery: forceFreshHeadRecovery,
             run_id: acceptedRunData?.run_id || runId,
             rows_before: acceptedRunData?.rows_before ?? null,
             backfill_window_months: acceptedRunData?.backfill_window_months ?? null,
@@ -1138,6 +1181,7 @@ export async function POST(req: Request) {
               max_messages: maxMessages,
               execution_state: 'running',
             },
+            recent_window_health: recentHealth,
           },
           { status: 202 }
         )
@@ -1149,6 +1193,7 @@ export async function POST(req: Request) {
         mode,
         maxMessages,
         allowFullRescanOnHistoryGap: trigger !== 'smart_sync',
+        forceFreshHeadRecovery,
         backfillWindowMonths:
           trigger === 'operator_backfill' ? requestedBackfillWindowMonths : undefined,
         logPrefix: '[integrations/gmail/mailbox-index]',
@@ -1165,6 +1210,7 @@ export async function POST(req: Request) {
             effective_mode: mode,
             background: false,
             max_messages: maxMessages,
+            force_fresh_head_recovery: forceFreshHeadRecovery,
             reason: result.reason,
           },
         })

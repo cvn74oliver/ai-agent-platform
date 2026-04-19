@@ -27,6 +27,7 @@ import {
   activityTimelineBucketKeyForTimestamp,
   activityTimelineGranularityForScope,
   assignSenderCleanupGroupDecision,
+  buildCanonicalSenderWorkspaceActivityTimeline,
   buildCleanupGroupIntelligence,
   buildGmailPressureTrendData,
   buildQueryClusterBrowserSenderBreakdown,
@@ -62,6 +63,7 @@ import {
   upsertGmailSenderWorkspaceSeedHeaders,
   upsertGmailSenderWorkspaceSeedRows,
 } from '@/lib/integrations/gmail/gmailArtifactStore'
+import type { GmailMailboxIndexRow } from '@/lib/integrations/gmail/gmailMailboxIndexer'
 import {
   GMAIL_PRESSURE_TREND_ARTIFACT_WINDOWS,
   gmailPressureTrendArtifactBucketFamilyForWindow,
@@ -142,6 +144,7 @@ type SenderWorkspaceAnalyticsSeedSender = {
   sender_key: string
   cleanup_group_message_count: number
   last_activity: string | null
+  first_seen?: string | null
   category_summary: string
   semantic_family: GmailSenderWorkspaceData['senders'][number]['semantic_family']
   semantic_pattern: GmailSenderWorkspaceData['senders'][number]['semantic_pattern']
@@ -276,7 +279,10 @@ function resolveSeedRowLastActivityAt(params: {
   rollupRow: Pick<GmailSenderScopeRollupRow, 'last_seen'>
   statsRow: Pick<GmailSenderStatsArtifactRow, 'last_seen'> | null
 }): string | null {
-  return normalizeNullableText(params.statsRow?.last_seen) || normalizeNullableText(params.rollupRow.last_seen)
+  return (
+    normalizeNullableText(params.rollupRow.last_seen) ||
+    normalizeNullableText(params.statsRow?.last_seen)
+  )
 }
 
 function nowIso(): string {
@@ -365,16 +371,6 @@ function primarySenderWorkspaceCategory(summary: string): string {
   const head = summary.split('·')[0]?.trim() || ''
   const cleaned = head.replace(/\(\d+\)\s*$/, '').trim()
   return cleaned || 'Other'
-}
-
-function timelineLabelForSenderActivity(
-  lastSeen: string | null,
-  granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
-): string | null {
-  if (!lastSeen) return null
-  const lastSeenMs = Date.parse(lastSeen)
-  if (!Number.isFinite(lastSeenMs)) return null
-  return activityTimelineBucketKeyForTimestamp(lastSeenMs, granularity)
 }
 
 function activityTimelineLabelForBucket(
@@ -480,9 +476,18 @@ function senderMessageSignals(params: {
   return { machineHit, humanHit }
 }
 
+function nonHourlyTimelineGranularity(
+  granularity: ReturnType<typeof activityTimelineGranularityForScope>
+): GmailWholeMailboxAggregateCheckpoint['timeline_granularity'] {
+  if (granularity === 'week' || granularity === 'month') return granularity
+  return 'day'
+}
+
 function createWholeMailboxAggregate(analysisScope: GmailArtifactAnalysisScope): GmailWholeMailboxAggregateCheckpoint {
   return {
-    timeline_granularity: activityTimelineGranularityForScope(analysisScope as GmailAnalysisScope),
+    timeline_granularity: nonHourlyTimelineGranularity(
+      activityTimelineGranularityForScope(analysisScope as GmailAnalysisScope)
+    ),
     category_counts: {},
     human_automation_counts: {
       'Automation-heavy': 0,
@@ -1779,25 +1784,46 @@ function resolveSenderSignal(statsRow: GmailSenderStatsArtifactRow | null): Gmai
 }
 
 function buildSenderActivityTimeline(params: {
-  senders: Array<{ last_activity: string | null }>
+  senders: SenderWorkspaceAnalyticsSeedSender[]
+  previewRows?: GmailPreviewIndexRow[]
   analysisScope: GmailArtifactAnalysisScope
+  coverageStartIso?: string | null
+  coverageEndIso?: string | null
 }): {
   items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
   granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
 } {
-  const granularity = activityTimelineGranularityForScope(params.analysisScope as GmailAnalysisScope)
-  const counts = new Map<string, number>()
-  for (const sender of params.senders) {
-    const label = timelineLabelForSenderActivity(sender.last_activity, granularity)
-    if (!label) continue
-    counts.set(label, (counts.get(label) || 0) + 1)
-  }
+  const rowBackedTimelineRows: GmailMailboxIndexRow[] = Array.isArray(params.previewRows)
+    ? params.previewRows.map(
+        (row) =>
+          ({
+            tenant_id: row.tenant_id,
+            message_id: row.message_id,
+            thread_id: row.thread_id,
+            sender: row.sender,
+            subject: row.subject,
+            internal_date_ms: row.internal_date_ms,
+            date: row.date,
+            label_ids: row.label_ids,
+            category_labels: row.category_labels,
+            is_in_inbox: row.is_in_inbox,
+            is_unread: row.is_unread,
+            is_starred: row.is_starred,
+            is_important: row.is_important,
+            indexed_at: row.created_at || row.updated_at || nowIso(),
+            updated_at: row.updated_at || row.created_at || nowIso(),
+          }) as GmailMailboxIndexRow
+      )
+    : []
+  const canonical = buildCanonicalSenderWorkspaceActivityTimeline({
+    rows: rowBackedTimelineRows,
+    analysisScope: params.analysisScope as GmailAnalysisScope,
+    coverageStartIso: params.coverageStartIso,
+    coverageEndIso: params.coverageEndIso,
+  })
   return {
-    items: Array.from(counts.entries())
-      .sort((left, right) => left[0].localeCompare(right[0]))
-      .slice(-8)
-      .map(([label, sender_count]) => ({ label, sender_count })),
-    granularity,
+    items: canonical.items,
+    granularity: canonical.granularity,
   }
 }
 
@@ -2074,6 +2100,7 @@ function buildSeedRowsAndHeaders(params: {
           sender_key: rollupRow.sender_key,
           cleanup_group_message_count: cleanupGroupMessageCount,
           last_activity: lastActivityAt,
+          first_seen: rollupRow.first_seen,
           category_summary: categoryProfile.category_summary,
           semantic_family: semantic.semantic_family,
           semantic_pattern: semantic.semantic_pattern,
@@ -2101,7 +2128,10 @@ function buildSeedRowsAndHeaders(params: {
     })()
     const senderActivityTimeline = buildSenderActivityTimeline({
       senders: analyticsSeedSenders,
+      previewRows: Array.from(clusterPreviewRowsBySenderKey.values()).flat(),
       analysisScope: params.analysisScope,
+      coverageStartIso: null,
+      coverageEndIso: null,
     })
     const semanticAnalytics = buildSemanticAnalyticsDistributions(analyticsSeedSenders)
     const clusterMessageCount = clusterMessageCountById.get(clusterId) || 0
@@ -2641,7 +2671,9 @@ function buildWholeMailboxSnapshot(params: {
       top_senders: params.candidateUniverse.top_senders,
       sender_volume_distribution: params.candidateUniverse.sender_volume_distribution,
       activity_timeline: params.candidateUniverse.activity_timeline,
-      activity_timeline_granularity: params.candidateUniverse.activity_timeline_granularity,
+      activity_timeline_granularity: nonHourlyTimelineGranularity(
+        params.candidateUniverse.activity_timeline_granularity
+      ),
       category_breakdown: params.candidateUniverse.category_breakdown,
       human_vs_automation: params.candidateUniverse.human_vs_automation,
     },
@@ -2658,10 +2690,8 @@ function buildWholeMailboxSnapshot(params: {
           : 'Current cleanup candidates are mostly low-risk machine-like traffic.',
     },
     cleanup_groups: params.clusterSummaries.map((summary) => {
-      const summaryPayload = summary.summary_payload as Partial<
-        GmailMailboxIntelligenceData['cleanup_groups'][number]
-      >
-      return {
+      const summaryPayload = (summary.summary_payload || {}) as Record<string, unknown>
+      const cleanupGroupEntry: GmailMailboxIntelligenceData['cleanup_groups'][number] = {
         cluster_id: summary.cluster_id,
         canonical_cluster_id:
           typeof summaryPayload.cleanup_group_canonical_cluster_id === 'string'
@@ -2685,46 +2715,48 @@ function buildWholeMailboxSnapshot(params: {
         share_pct: summary.share_pct,
         dominant_sender: summary.dominant_sender,
         dominant_semantic_family:
-          summaryPayload.dominant_semantic_family || null,
+          (summaryPayload.dominant_semantic_family as GmailMailboxIntelligenceData['cleanup_groups'][number]['dominant_semantic_family']) ||
+          null,
         dominant_semantic_pattern:
-          summaryPayload.dominant_semantic_pattern || null,
+          (summaryPayload.dominant_semantic_pattern as GmailMailboxIntelligenceData['cleanup_groups'][number]['dominant_semantic_pattern']) ||
+          null,
         dominant_pattern: summary.dominant_pattern,
         protected_message_count: summary.protected_message_count,
         uncertain_sender_count: summary.uncertain_sender_count,
         surface_tier:
-          typeof summaryPayload.cleanup_group_surface_tier === 'string'
+          ((typeof summaryPayload.cleanup_group_surface_tier === 'string'
             ? summaryPayload.cleanup_group_surface_tier
-            : 'secondary',
+            : 'secondary') as GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_tier']),
         surface_kind:
-          typeof summaryPayload.cleanup_group_surface_kind === 'string'
+          ((typeof summaryPayload.cleanup_group_surface_kind === 'string'
             ? summaryPayload.cleanup_group_surface_kind
-            : 'secondary_candidate',
+            : 'secondary_candidate') as GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_kind']),
         surface_visibility:
-          typeof summaryPayload.cleanup_group_surface_visibility === 'string'
+          ((typeof summaryPayload.cleanup_group_surface_visibility === 'string'
             ? summaryPayload.cleanup_group_surface_visibility
-            : 'visible',
+            : 'visible') as GmailMailboxIntelligenceData['cleanup_groups'][number]['surface_visibility']),
         top_level_rank:
           typeof summaryPayload.cleanup_group_top_level_rank === 'number'
             ? summaryPayload.cleanup_group_top_level_rank
             : null,
         promotion_status:
-          typeof summaryPayload.cleanup_group_promotion_status === 'string'
+          ((typeof summaryPayload.cleanup_group_promotion_status === 'string'
             ? summaryPayload.cleanup_group_promotion_status
-            : 'unresolved',
+            : 'unresolved') as GmailMailboxIntelligenceData['cleanup_groups'][number]['promotion_status']),
         selected_semantic_axis:
           summaryPayload.cleanup_group_selected_semantic_axis === 'family' ||
           summaryPayload.cleanup_group_selected_semantic_axis === 'pattern'
             ? summaryPayload.cleanup_group_selected_semantic_axis
             : null,
         operator_value_status:
-          typeof summaryPayload.cleanup_group_operator_value_status === 'string'
+          ((typeof summaryPayload.cleanup_group_operator_value_status === 'string'
             ? summaryPayload.cleanup_group_operator_value_status
-            : 'not_applicable',
+            : 'not_applicable') as GmailMailboxIntelligenceData['cleanup_groups'][number]['operator_value_status']),
         review_units_required: summaryPayload.cleanup_group_review_units_required === true,
         review_unit_basis:
-          typeof summaryPayload.cleanup_group_review_unit_basis === 'string'
+          ((typeof summaryPayload.cleanup_group_review_unit_basis === 'string'
             ? summaryPayload.cleanup_group_review_unit_basis
-            : 'not_promoted',
+            : 'not_promoted') as GmailMailboxIntelligenceData['cleanup_groups'][number]['review_unit_basis']),
         review_unit_count:
           typeof summaryPayload.cleanup_group_review_unit_count === 'number'
             ? summaryPayload.cleanup_group_review_unit_count
@@ -2737,34 +2769,37 @@ function buildWholeMailboxSnapshot(params: {
           typeof summaryPayload.semantic_rollup_hash === 'string'
             ? summaryPayload.semantic_rollup_hash
             : null,
-        semantic_rollup: summaryPayload.semantic_rollup || null,
+        semantic_rollup:
+          (summaryPayload.semantic_rollup as GmailMailboxIntelligenceData['cleanup_groups'][number]['semantic_rollup']) ||
+          null,
         semantic_family_distribution: Array.isArray(summaryPayload.semantic_family_distribution)
-          ? summaryPayload.semantic_family_distribution
+          ? (summaryPayload.semantic_family_distribution as GmailMailboxIntelligenceData['cleanup_groups'][number]['semantic_family_distribution'])
           : [],
         semantic_pattern_distribution: Array.isArray(summaryPayload.semantic_pattern_distribution)
-          ? summaryPayload.semantic_pattern_distribution
+          ? (summaryPayload.semantic_pattern_distribution as GmailMailboxIntelligenceData['cleanup_groups'][number]['semantic_pattern_distribution'])
           : [],
         semantic_resolution_distribution: Array.isArray(
           summaryPayload.semantic_resolution_distribution
         )
-          ? summaryPayload.semantic_resolution_distribution
+          ? (summaryPayload.semantic_resolution_distribution as GmailMailboxIntelligenceData['cleanup_groups'][number]['semantic_resolution_distribution'])
           : [],
         semantic_confidence_distribution: Array.isArray(
           summaryPayload.semantic_confidence_distribution
         )
-          ? summaryPayload.semantic_confidence_distribution
+          ? (summaryPayload.semantic_confidence_distribution as GmailMailboxIntelligenceData['cleanup_groups'][number]['semantic_confidence_distribution'])
           : [],
         semantic_provenance_distribution: Array.isArray(
           summaryPayload.semantic_provenance_distribution
         )
-          ? summaryPayload.semantic_provenance_distribution
+          ? (summaryPayload.semantic_provenance_distribution as GmailMailboxIntelligenceData['cleanup_groups'][number]['semantic_provenance_distribution'])
           : [],
         semantic_umbrella_distribution: Array.isArray(
           summaryPayload.semantic_umbrella_distribution
         )
-          ? summaryPayload.semantic_umbrella_distribution
+          ? (summaryPayload.semantic_umbrella_distribution as GmailMailboxIntelligenceData['cleanup_groups'][number]['semantic_umbrella_distribution'])
           : [],
       }
+      return cleanupGroupEntry
     }),
     sender_ranking: senderRanking,
     initial_pressure_trend: pressureTrend.ok ? pressureTrend.data : null,

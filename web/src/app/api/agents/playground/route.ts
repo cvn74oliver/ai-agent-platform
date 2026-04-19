@@ -25,7 +25,10 @@ import {
   buildPlaygroundSystemPrompt,
 } from '@/lib/runtime/playgroundPromptBuilder'
 import { loadPlaygroundRagContext } from '@/lib/runtime/playgroundRagService'
-import { loadPlaygroundRuntimeState } from '@/lib/runtime/runtimeStateService'
+import {
+  loadPlaygroundRuntimeState,
+  type PlaygroundRuntimeRefreshFailureDiagnostics,
+} from '@/lib/runtime/runtimeStateService'
 import {
   finishHeavyAction,
   logHeavyActionEvent,
@@ -62,6 +65,7 @@ async function resolvePlaygroundSupabaseClient() {
 
 export async function POST(req: Request) {
   const requestStartedAt = Date.now()
+  let requestRehydrateOnly = false
   const timing = {
     request_normalize_ms: 0,
     session_resolution_ms: 0,
@@ -99,6 +103,7 @@ export async function POST(req: Request) {
       mailbox_profile_window_days?: 30 | 60
       analysis_scope?: OperationsAnalysisScope
       preferred_cluster_id?: string
+      transition_edge?: 'smart_sync_handoff' | 'build_pending_poll'
     }
     const normalizedRequest = normalizePlaygroundRequestBody(body)
     const forceMailboxProfileRefresh = body.refresh_mailbox_profile === true
@@ -106,6 +111,10 @@ export async function POST(req: Request) {
     const preferredClusterId =
       typeof body.preferred_cluster_id === 'string' && body.preferred_cluster_id.trim()
         ? body.preferred_cluster_id.trim()
+        : null
+    const transitionEdge =
+      body.transition_edge === 'smart_sync_handoff' || body.transition_edge === 'build_pending_poll'
+        ? body.transition_edge
         : null
     const analysisScope = normalizeOperationsAnalysisScope(
       typeof body.analysis_scope === 'string' && body.analysis_scope.trim()
@@ -138,6 +147,7 @@ export async function POST(req: Request) {
       lastUserMessage,
       lastUserMessageText,
     } = normalizedRequest
+    requestRehydrateOnly = rehydrateOnly
     const isReviewDetailMode = requestMode === 'playground_review_detail'
     timing.request_normalize_ms = Date.now() - normalizeStartedAt
 
@@ -343,9 +353,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const manualRuntimeRefreshKey = forceMailboxProfileRefresh
-      ? ['manual_runtime_refresh', agent.id, analysisScope].join('::')
-      : null
+    const bypassManualRuntimeRefreshGuard =
+      rehydrateOnly && forceMailboxProfileRefresh && analysisScope === 'all_indexed'
+    const manualRuntimeRefreshKey =
+      forceMailboxProfileRefresh && !bypassManualRuntimeRefreshGuard
+        ? ['manual_runtime_refresh', agent.id, analysisScope].join('::')
+        : null
     let manualRuntimeRefreshStartedAt: number | null = null
     if (manualRuntimeRefreshKey) {
       const guard = tryStartHeavyAction({
@@ -395,6 +408,17 @@ export async function POST(req: Request) {
           trigger_source: sessionOrigin || null,
         })}`
       )
+    } else if (bypassManualRuntimeRefreshGuard) {
+      console.info(
+        `[playground][manual-regeneration] ${JSON.stringify({
+          event: 'guard_bypassed_for_build_pending_rehydrate',
+          route: '/api/agents/playground',
+          request_mode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
+          selected_analysis_scope: analysisScope,
+          agent_id: agent.id,
+          trigger_source: sessionOrigin || null,
+        })}`
+      )
     }
 
     const runtimeStateStartedAt = Date.now()
@@ -419,6 +443,7 @@ export async function POST(req: Request) {
         forceMailboxProfileRefresh,
         analysisScope,
         preferredClusterId,
+        transitionEdge,
         requestMode: rehydrateOnly ? 'rehydrate_only' : 'full_chat',
       }))
     } finally {
@@ -532,11 +557,42 @@ export async function POST(req: Request) {
       runtimeApprovalQueueItems,
     })
 
+    const rehydrateDiagnostics =
+      rehydrateOnly
+        ? {
+            request_force_mailbox_profile_refresh: forceMailboxProfileRefresh,
+            request_analysis_scope: analysisScope,
+            runtime_cleanup_plan_generated_at: runtimeCleanupPlan?.generated_at || null,
+            runtime_cleanup_plan_cluster_count: runtimeCleanupPlan?.clusters.length || 0,
+            runtime_mailbox_profile_generated_at: runtimeMailboxProfile?.generated_at || null,
+            runtime_mailbox_profile_freshness_last_generated_at:
+              runtimeMailboxProfile?.freshness?.last_generated_at || null,
+            derived_cache_version:
+              runtimeCleanupPlan?.generated_at ||
+              runtimeMailboxProfile?.freshness?.last_generated_at ||
+              runtimeMailboxProfile?.generated_at ||
+              null,
+            manual_cleanup_regeneration_diagnostics: manualCleanupRegenerationDiagnostics,
+          }
+        : null
+
+    if (rehydrateDiagnostics) {
+      ;(
+        responseData as typeof responseData & {
+          runtime_rehydrate_diagnostics?: typeof rehydrateDiagnostics
+        }
+      ).runtime_rehydrate_diagnostics = rehydrateDiagnostics
+    }
+
     if (rehydrateOnly) {
       logTiming({
         rehydrateOnly: true,
         status: 200,
-        outcome: 'rehydrate_ok',
+        outcome:
+          manualCleanupRegenerationDiagnostics?.continuityState ===
+          'build_pending_showing_stable_snapshot'
+            ? 'rehydrate_build_pending_ok'
+            : 'rehydrate_ok',
       })
       return NextResponse.json(buildPlaygroundSuccessResponse({ responseData }))
     }
@@ -665,16 +721,48 @@ export async function POST(req: Request) {
     return NextResponse.json(buildPlaygroundSuccessResponse({ responseData: finalizedResponseData }))
 
   } catch (err) {
-    console.error('[playground] unexpected error:', err)
+    const runtimeRefreshDiagnostics =
+      isPlaygroundRuntimeRefreshFailureDiagnostics(err) && err.playgroundRuntimeRefreshDiagnostics
+        ? err.playgroundRuntimeRefreshDiagnostics
+        : null
+    console.error('[playground] unexpected error:', {
+      error_message: err instanceof Error ? err.message : String(err),
+      error_stack: err instanceof Error ? err.stack ?? null : null,
+      runtime_refresh_diagnostics: runtimeRefreshDiagnostics,
+    })
     const errorResponse = buildPlaygroundErrorResponse({
       status: 500,
       error: 'Unexpected error in playground route.',
     })
     logTiming({
-      rehydrateOnly: false,
+      rehydrateOnly: requestRehydrateOnly,
       status: errorResponse.status,
       outcome: 'unexpected_error',
     })
-    return NextResponse.json(errorResponse.body, { status: errorResponse.status })
+    return NextResponse.json(
+      runtimeRefreshDiagnostics
+        ? ({
+            ...errorResponse.body,
+            diagnostics: {
+              failing_phase: runtimeRefreshDiagnostics.failingPhase,
+              runtime_refresh: runtimeRefreshDiagnostics,
+            },
+          } as typeof errorResponse.body & {
+            diagnostics: {
+              failing_phase: PlaygroundRuntimeRefreshFailureDiagnostics['failingPhase']
+              runtime_refresh: PlaygroundRuntimeRefreshFailureDiagnostics
+            }
+          })
+        : errorResponse.body,
+      { status: errorResponse.status }
+    )
   }
+}
+
+function isPlaygroundRuntimeRefreshFailureDiagnostics(
+  value: unknown
+): value is {
+  playgroundRuntimeRefreshDiagnostics?: PlaygroundRuntimeRefreshFailureDiagnostics
+} {
+  return typeof value === 'object' && value !== null && 'playgroundRuntimeRefreshDiagnostics' in value
 }

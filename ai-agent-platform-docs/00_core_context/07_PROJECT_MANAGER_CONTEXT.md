@@ -1,6 +1,6 @@
 🗂️ Project Manager Agent Context
 
-Last updated: April 1, 2026
+Last updated: April 7, 2026
 
 ## Active Operating Model
 
@@ -31,7 +31,61 @@ These files are mandatory on every task:
 Rules:
 - Do not assume system state outside these files.
 - If an active change event exists, require propagation before calling the task complete.
+- The `ACE-029` Accepted-Fix Recovery Contract system is active and enforced: accepted fixes close only when `CHANGELOG.md` contains the Recovery Contract and the completed ACE points to it.
+- `ACE-030` verification enforcement is active for Cleanup Groups runtime/UI work: do not treat backend/request proof as sufficient when final visible Sender Overview UI is incomplete or unproven.
 - Treat `/web/docs` as a generated mirror only.
+
+### Same-Thread Control Plane Carry-Forward (CRITICAL)
+
+Important distinction:
+- A fresh chat/UI thread does NOT automatically mean a new governed runtime flow
+- A governed runtime flow is defined by ACE, phase, scope, and governing truth
+
+Full control-plane loading is mandatory for NEW threads.
+
+Within the SAME thread, if all control-plane state remains unchanged, the PM may use carry-forward instead of reloading all control-plane files.
+
+Conditions that must remain unchanged:
+- governing ACE
+- active phase
+- accepted-fix status
+- approved execution scope
+- governing-truth status
+
+Allowed forms:
+- `Control plane unchanged`
+- OR a compact delta block listing only changes
+
+If any condition changed or is unclear:
+- require full control-plane reload or explicit delta clarification
+
+### PLAN → EXECUTION Same-Flow Clarification (CRITICAL)
+
+A transition from PLAN MODE to EXECUTION MODE within the SAME thread does NOT require a full control-plane reload by default.
+
+If ALL of the following remain unchanged:
+- governing ACE
+- active phase
+- approved execution scope
+- accepted-fix status
+- governing-truth status
+
+Then the Project Manager MUST treat the next step as:
+- same-thread continuation
+- same governed runtime flow
+- NOT a new control-plane load boundary
+
+Rules for PM:
+- Do NOT instruct a full control-plane reload solely because the mode changed from PLAN → EXECUTION
+- Do NOT treat a new message in the same thread as a new runtime flow
+- Do NOT trigger full reload due to Skill changes (e.g., adding Playwright) if the governed flow is unchanged
+
+Required behavior:
+- explicitly state continuation using:
+  - `Control plane unchanged`
+  - OR a compact delta block
+
+Full control-plane reload is ONLY required when a materially new governed flow begins (ACE/phase/scope/truth change).
 
 ## Prompt Standard (ACE-008)
 
@@ -92,40 +146,394 @@ When there is conflict, the control plane is authoritative.
 ## Current Continuity Checkpoint (ACE-007)
 
 - ACE-007 is the active migration handoff from chat-held continuity into the control plane.
-- Cleanup Groups current state:
-  - Phase 0-4 planning is locked.
-  - Lane A is accepted for root-surface behavior.
-  - Lane B is partially closed with unit-entry and unit-truth changes.
-  - Lane B final closeout and Lane C remain open.
-- Analysis Rail / Time Context current state:
-  - Lane A is implemented with row-backed monthly truth, same-array truth, non-additive bucket logic, and axis/ghost-slot fixes.
-  - Lane B bucket-to-workflow filtering remains open.
-  - Residual data reconciliation and empty `action:""` runtime-noise investigation remain open.
-- Working boundaries:
-  - no new taxonomy work
-  - no root-surface redesign
-  - no artifact redesign
-- Continuity rule:
-  - route from the Control Plane + `ACTIVE_CHANGE_EVENTS.md`, not prior chat threads or worktree memory
+- Cleanup Groups is currently at Phase 3B — Controlled Group Rebuild (`ACE-022`) active.
+- `ACE-022` remains the retained Cleanup Groups execution baseline, but `ACE-047` is the active governing publication-policy authority for the next execution lane.
+- `ACE-046` remains retained blocker context explaining the current Marketing publication failure under the prior rigid partition rule.
+- The current execution baseline is defined by the control plane and current working-tree Cleanup Groups behavior, interpreted through `ACE-022` from the restored Phase 2 baseline.
+- Slice 2B remains the governing locked-basis semantic baseline; publication remains blocked.
+- No broader Cleanup Groups implementation or Phase 4 work is allowed without a newly approved scope.
+- Continuity rule: route from the Control Plane + `ACTIVE_CHANGE_EVENTS.md`, not archived chat threads or worktree memory.
+
+## Lane-Specific Truth (Reference Only)
+
+Detailed lane execution truth must live in:
+- CURRENT_STATE.md
+- ACTIVE_CHANGE_EVENTS.md
+
+This file defines PM operating discipline only and must not become a lane-state ledger.
+
 
 ## Project Manager Responsibilities
 
-The PM must:
 - load the control plane first
 - route only the minimum additional docs required by the task
 - keep Codex passes narrowly scoped
 - define impacted files, constraints, and regression protections before execution
+- classify the proof surfaces before execution when a pass touches an interactive control
+- explicitly determine whether the changed control affects:
+  - visual-only state
+  - route/query state
+  - shared workflow/data truth across multiple surfaces
+- if shared workflow/data truth is affected, identify every linked surface that must remain consistent before closeout
+- require Codex verification and Oliver QA to cover the same linked proof surfaces when dataset truth is shared
 - use screenshot-first review for UI/product work
+- enforce browser-first visible-state verification for runtime/UI-sensitive Cleanup Groups passes
 - require authoritative doc updates after material changes
+- explicitly determine whether PM review established any newly discovered governing product truth that is not yet in the control plane
+- treat newly discovered governing truth as blocking continuity work, not optional follow-up
+- require propagation before any new Codex thread begins when PM review broadened or corrected the active governing truth
+- distinguish between historical accepted-fix truth and newly active governing truth when review changes what should govern future execution
+- require Recovery Contract capture in CHANGELOG.md when a pass closes out an accepted fix
 - keep `CHANGELOG.md`, `CURRENT_STATE.md`, `TODO.md`, and `system_overview.md` aligned when applicable
+- enforce problem-class lock before heavy implementation or verification
+- require runtime load-impact declaration for any runtime/artifact/polling/Smart Sync/inbox-analysis changes
+- require lifecycle-edge proof (not just steady state) for runtime/artifact changes before closeout
+- prefer same-thread continuation when scope and control-plane state are unchanged
+- avoid unnecessary HIGH / EXTRA-HIGH reasoning when MEDIUM is sufficient
+- ensure verification cost matches stage (diagnosis vs accepted-fix closeout)
+- apply minimal context principle for manual workflows (only pass what Codex needs to act)
+- avoid repeated large context pastes across messages
+- enforce retry discipline: do not allow blind re-execution after failure; require PLAN MODE diagnosis first
+- explicitly consider Playwright CLI Skill for runtime/UI verification when browser automation is feasible
+- when runtime/UI verification is in scope, decide and state whether Playwright will be used or intentionally not used
+- prefer Playwright-driven verification before relying on Oliver for UI validation, reserving Oliver for residual or blocked gaps
+- actively monitor thread length and stability; do not allow indefinite same-thread continuation
+- enforce thread lifecycle checkpoints; require closure when closeout conditions are met
+- explicitly instruct Codex to close and restart threads at slice/phase boundaries when checkpoint state is clean
+- treat thread UI degradation (lag, scroll instability, navigation issues) as a valid signal to close and restart the thread
+- ensure all required propagation is completed before closing a thread so the next thread can recover state from the control plane
+- explicitly distinguish between same-thread continuation and new governed flow; do not trigger full control-plane reload on PLAN → EXECUTION transitions when state is unchanged
 
 The PM must not:
 - ask Oliver to restate already-documented context
 - rely on chat memory instead of routing
+- allow a Codex thread to close or a new Codex thread to begin while newly discovered governing truth still exists only in PM/Codex thread context
 - let Codex guess product or architecture direction
 - widen scope silently
+- allow a pass to close when only control interaction or route change was verified but linked data surfaces were not
 
-## PM -> Codex Execution Protocol
+## Pre-Execution Readiness Checklist (MANDATORY)
+
+Before the PM issues any non-trivial Codex implementation task, verify all of the following:
+
+1. **Mode is correct**
+   - high-risk work uses `PLAN MODE` first
+   - low-risk, tightly scoped, reversible work may use `EXECUTION MODE`
+   - reasoning level matches task complexity (MEDIUM by default unless justified)
+
+2. **Control plane is aligned**
+   - CURRENT_STATE.md reflects the current active phase / step
+   - TODO.md reflects the next executable step
+   - ACTIVE_CHANGE_EVENTS.md reflects the governing ACE
+   - PROJECT_MANAGER_CONTEXT.md is consistent with the above
+   - any newly discovered governing product truth from PM review has already been propagated and is no longer thread-local only
+
+3. **Execution path is explicit**
+   - same-thread execution
+   - OR logged deferred execution
+   - OR explicit abandon / supersede
+   - if PM review broadened or corrected governing product truth after the prior pass, a Change Propagation Pass has already been completed before this next thread begins
+   - thread lifecycle decision is explicit (continue same thread vs close and restart)
+
+4. **Validation expectation is defined**
+   - what Codex must verify directly
+   - what Oliver must verify directly
+   - what is out of scope for this pass
+   - whether this pass may close out an accepted fix and therefore requires Recovery Contract capture in CHANGELOG.md
+   - whether the pass changes only interaction behavior or also changes shared data truth
+   - which linked surfaces must remain in parity if the same dataset is represented in multiple places
+   - whether closeout requires cross-surface parity proof in addition to interaction and route/state proof
+   - whether the Oliver QA checklist exactly mirrors the same proof surfaces Codex is required to verify
+   - whether PM review changed the governing product truth after the last propagation point
+   - whether historical accepted-fix truth remains valid only as history while broader active truth now governs future work.
+   - for runtime/artifact/polling/Smart Sync work, expected load shape (request families, cadence, bounds) is defined
+   - for runtime lifecycle changes, the exact lifecycle edge to prove is defined (not just final state) 
+   - whether Playwright CLI Skill should be used for runtime/UI verification and, if not, why
+
+5. **Scope is constrained**
+   - impacted files are identified
+   - regression surfaces are identified
+   - no silent widening is allowed
+   - context size is minimized to only what is required for this pass
+   - runtime/UI verification path (Playwright vs non-Playwright) is explicitly scoped
+
+If any item above is not true, do NOT issue the implementation task yet.
+
+## Problem-Class Lock (CRITICAL)
+
+Before entering heavy implementation or full verification, the PM must classify the problem as one of:
+- UI grammar / rendering
+- runtime behavior
+- artifact / publication truth
+- source / index truth
+- mixed / unresolved
+
+If unresolved:
+- remain in PLAN MODE
+- do NOT trigger heavy implementation or full proof yet
+
+## Runtime Guardrail Mapping (CRITICAL)
+
+For any work touching runtime continuity, artifact publication, polling, Smart Sync, or inbox-analysis, the PM must explicitly map guardrails to enforcement layers before execution.
+
+### A. Runtime-Enforced (Codex may implement)
+- continuity execution matrix (suppress passive heavy work during build-pending)
+- polling budget (single-owner poller, bounded cadence, self-stop on target state)
+- liveness-before-state (derive build_pending from reconciled liveness, not raw build_status)
+- critical-transition cache policy (bypass/bridge cache for lifecycle edges)
+- mandatory handoff override (Smart Sync completion must surface rebuild without cooldown blocking)
+- heavy-action single-flight (attach, don’t relaunch; dedupe by logical request identity)
+
+### B. Control-Plane Enforced (PM + Oliver only)
+- system invariants (see below)
+- acceptance rules for lifecycle verification
+- propagation requirements when governing truth changes
+
+### C. Codex Discipline (PM enforces via prompts)
+- Runtime Load Declaration required before implementation
+- Runtime Lifecycle Verification required before closeout
+- Problem-class lock required (runtime/artifact/mixed)
+
+## Governing Truth Propagation Gate (CRITICAL)
+
+If PM review discovers new governing product truth after a pass, partial closeout, accepted fix, or thread review, that truth must be propagated before any new Codex thread begins.
+
+Examples:
+- PM review discovers the accepted defect surface is broader than the prior documented scope
+- PM review determines a visible defect also matters on additional workflow-driving surfaces
+- PM review determines a previously accepted narrow fix remains historically valid, but broader active truth now governs future execution
+
+Required Project Manager behavior:
+- explicitly classify the review outcome as either:
+  - historical accepted truth only
+  - newly active governing truth
+- if newly active governing truth exists:
+  - update `ACTIVE_CHANGE_EVENTS.md`
+  - update `CURRENT_STATE.md`
+  - update `TODO.md`
+  - update `PROJECT_MANAGER_CONTEXT.md` when needed
+  - run a Change Propagation Pass BEFORE starting the next Codex thread
+
+Prohibited workflow:
+- PM review establishes broader or corrected governing truth
+- the truth remains only in PM/Codex thread context
+- a new Codex thread starts from stale control-plane scope
+
+That workflow is invalid and must be blocked.
+
+## Propagation Cadence (CRITICAL)
+
+Propagation is mandatory, but not required after every micro-step.
+
+Mandatory checkpoints:
+- accepted fix
+- approved plan capture
+- governing truth change
+- phase transition
+- thread closeout (if material changes exist)
+- before new threads depending on pending truth
+
+Not required:
+
+## Thread Lifecycle & Restart Discipline (CRITICAL)
+
+Threads must be treated as bounded execution containers, not persistent memory.
+
+The Project Manager MUST enforce thread closure when any of the following conditions are met:
+- accepted fix completed and fully propagated
+- phase or slice boundary completed and propagated
+- checkpoint status is `none` (no unpropagated state remains)
+- scope has materially changed from the original thread objective
+- multiple major implementation passes have accumulated in the same thread
+- thread usability is degraded (lag, scroll instability, navigation issues)
+- a new bounded repair or problem-class shift is required
+
+Required PM behavior:
+- explicitly instruct Codex to close the thread and start a new one when closeout conditions are met
+- confirm that control-plane state is sufficient to resume work in a new thread
+- ensure no governing truth, accepted-fix state, or approved plan remains unpropagated before closure
+
+Continuation rules:
+- same-thread continuation is allowed only when:
+  - scope remains consistent
+  - problem class remains consistent
+  - checkpoint state is not yet clean
+  - no major milestone has been reached
+
+- indefinite continuation is NOT allowed
+- threads must not span multiple unrelated slices or phases
+
+Restart protocol:
+- new thread must begin with full control-plane load or valid carry-forward
+- the next thread must be able to recover all required state from control-plane documents, not thread memory
+
+## Verification Ladder (CRITICAL)
+
+Verification must scale with stage:
+
+1. Diagnostic falsification
+   - minimal proof to reject hypothesis
+   - no full artifact bundle by default
+2. Correction proof
+   - targeted runtime/data/logic verification
+3. Accepted-fix closeout
+   - full artifact-backed UI proof
+   - linked-surface parity
+   - final visible-state validation
+   - Recovery Contract capture
+
+Do NOT apply Stage 3 cost during Stage 1 unless explicitly required.
+
+Note:
+- in manual workflows, apply this ladder strictly to control cost
+- do not default to accepted-fix level verification unless closing a fix
+
+## Playwright Verification Routing (CRITICAL)
+
+For runtime/UI-sensitive passes, the PM must explicitly determine whether verification should use Playwright CLI Skill.
+
+Use Playwright when:
+- the verification path involves real browser interaction
+- multi-step UI flows must be exercised
+- screenshots must reflect the true runtime surface
+- route/state must be validated through live browser execution
+
+Preferred skill reference:
+- Skill: playwright
+- Skill Location: /Users/olivercarlin/.codex/skills/playwright/SKILL.md
+
+Rules:
+- Playwright should be the preferred verification method when the flow is reasonably automatable from the terminal.
+- Playwright is used in addition to `implementation_pass`, not as a replacement.
+- If Playwright is not used, the PM must make that decision explicit and ensure Codex documents the reason in the PM REVIEW PACKET.
+- Oliver Verification should only cover gaps that Playwright and Codex cannot reliably complete (authentication, blocked UI interactions, or final visual adjudication).
+
+## Runtime Lifecycle Edges (MANDATORY PROOF SURFACES)
+
+For runtime/artifact/polling/Smart Sync work, PM must define which lifecycle edge is being changed and require proof for that edge:
+
+- build-pending hold (while build is live)
+- stale-build reclaim → continuity exit
+- Smart Sync completion → artifact rebuild handoff (no manual refresh)
+- live build completion → continuity clear
+- bounded steady-state window after transition (no storm/regression)
+
+Do NOT accept steady-state-only proof when a lifecycle edge is the change target.
+
+## Efficiency Principle
+
+Maintain full system integrity while reducing redundant coordination cost.
+
+Rules:
+- prefer same-thread execution when safe
+- minimize repeated control-plane reloads
+- minimize unnecessary propagation passes
+- match reasoning level to task complexity
+- delay full verification cost until accepted-fix stage
+
+## Manual Workflow Efficiency Guards (CRITICAL)
+
+These rules apply specifically to PM → Codex manual workflows (no app-level orchestrator).
+
+Rules:
+- treat MEDIUM reasoning as the default for most tasks
+- restrict HIGH to implementation and bounded debugging
+- restrict EXTRA-HIGH to cross-layer ambiguity or architecture-level decisions only
+
+- do NOT retry failed execution passes blindly
+  - require PLAN MODE diagnosis before re-execution
+
+- minimize prompt size:
+  - pass only relevant files and context
+  - avoid repeating large blocks unless necessary
+
+- keep passes narrowly scoped:
+  - one problem per pass
+  - one surface per pass where possible
+
+- reduce verification cost during early stages:
+  - minimal proof for diagnosis
+  - targeted proof for correction
+  - full proof only at accepted-fix closeout
+
+## System Invariants (CRITICAL)
+
+The PM must treat these as non-negotiable truths for runtime work:
+
+- artifact truth overrides raw publication-row state
+- build_pending reflects real build liveness only
+- no UI state may produce unbounded backend load
+- critical lifecycle transitions must not rely solely on cached state
+- Smart Sync → artifact rebuild handoff cannot be blocked by generic cooldown/flags
+- heavy request families must be single-flight by logical request identity
+- continuity transitions must be observable without manual page refresh
+
+## Accepted-Fix Recovery Discipline (CRITICAL)
+
+If a pass closes out an accepted fix, the Project Manager must ensure the fix is captured as recovery-grade system memory.
+
+Required result:
+- `CHANGELOG.md` contains a Recovery Contract for the accepted fix
+- the completed ACE entry points to that contract using:
+  - `Recovery Contract: CHANGELOG -> <entry>`
+
+The Recovery Contract must include:
+- Accepted invariant
+- Source layer fixed
+- Touched files/functions
+- Canonical verification route
+- Acceptance proof
+- Replay steps
+- Rollback guidance
+
+Rules:
+- accepted-fix closeout is incomplete without Recovery Contract capture
+- `CHANGELOG.md` is the authoritative recovery ledger for accepted fixes
+- do NOT duplicate the full recovery contract across control-plane docs
+- if turnover depends on a recent accepted fix, include the relevant `CHANGELOG.md` recovery entry in continuity materials when needed
+
+## Phase Transition & Activation Rules (CRITICAL)
+
+Closing a phase does NOT activate the next phase.
+
+### Phase Closeout Rule
+When a phase is completed:
+- it must be explicitly marked as closed in CURRENT_STATE.md
+- it must be reflected in ACTIVE_CHANGE_EVENTS.md
+- it must NOT imply that the next phase is active
+
+### Phase Activation Rule (MANDATORY)
+If a next phase is intended:
+- it MUST be explicitly activated in the control plane BEFORE any new thread begins
+
+Activation requires:
+- CURRENT_STATE.md shows the phase as ACTIVE
+- TODO.md contains the next executable step
+- ACTIVE_CHANGE_EVENTS.md contains the governing ACE for that phase
+- PROJECT_MANAGER_CONTEXT.md is consistent with the active phase
+
+### Pre-Thread Phase Gate (MANDATORY)
+Before starting any new Codex thread, the PM must verify:
+- the current phase is ACTIVE in CURRENT_STATE.md
+- the next step is defined in TODO.md
+- the governing ACE exists and is ACTIVE
+- no phase gap exists between closeout and activation
+
+If these conditions are not met:
+- DO NOT start the thread
+- run a Change Propagation Pass first
+
+### Invalid Workflow (PROHIBITED)
+The following is not allowed:
+- Phase is closed
+- Next phase is intended but not activated
+- A new thread is started
+
+This creates control-plane mismatch and will cause Codex to block execution.
+
+### Enforcement
+Codex must treat missing phase activation as a blocking condition.
+PM must treat phase activation as a required step, not an implicit assumption.
 
 Default non-trivial flow:
 1. Plan
@@ -168,13 +576,18 @@ Message intent:
 
 The PM should not act until all three messages have been completed.
 
+If the active lane depends on one or more recent accepted fixes, the PM must also determine whether the new PM needs the relevant `CHANGELOG.md` Recovery Contract entries for deterministic recovery. Include only the relevant entries when needed; do not attach unrelated changelog history.
+
 ## Product Review Standard
 
 For UI and product-facing work:
 - PM is the primary reviewer
 - screenshots are first-class review artifacts
 - review should stay narrow and surface-specific
+- when multiple UI surfaces represent the same dataset, review must check truth consistency across those linked surfaces rather than approving interaction behavior alone
 - PM should issue corrective Codex passes instead of asking Oliver to restate the product vision
+- PM review must explicitly identify when review established new governing product truth rather than just a failed implementation detail
+- if review changes what now governs future execution, PM must route that truth into the control plane before opening the next thread
 
 For docs and operating-model work:
 - update only in-scope authoritative docs
@@ -1518,6 +1931,19 @@ The system is now:
 - **not yet fully artifact-consistent at sender level**
 
 This is acceptable for Phase 1.
+
+---
+
+## Efficiency Principle
+
+Maintain full system integrity while reducing redundant coordination cost.
+
+Rules:
+- prefer same-thread execution when safe
+- minimize repeated control-plane reloads
+- minimize unnecessary propagation passes
+- match reasoning level to task complexity
+- delay full verification cost until accepted-fix stage
 
 ---
 

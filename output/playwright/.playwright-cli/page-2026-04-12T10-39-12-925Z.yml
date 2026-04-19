@@ -1,0 +1,127 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "Automata" [ref=e6] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e8]
+          - generic [ref=e18]: Automata
+        - navigation [ref=e19]:
+          - link "Dashboard" [ref=e20] [cursor=pointer]:
+            - /url: /dashboard
+          - link "Agents" [ref=e21] [cursor=pointer]:
+            - /url: /agents
+          - link "Automations" [ref=e22] [cursor=pointer]:
+            - /url: /automations
+          - link "Settings" [ref=e23] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e24]:
+          - paragraph [ref=e25]: Loading...
+          - button "Logout" [ref=e26]
+    - main [ref=e27]:
+      - generic [ref=e30]:
+        - complementary [ref=e31]:
+          - generic [ref=e32]:
+            - paragraph [ref=e33]: Operations Workspace
+            - paragraph [ref=e34]: Session-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.
+            - generic [ref=e35]:
+              - paragraph [ref=e36]: Workflow scope
+              - paragraph [ref=e37]: This control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.
+              - combobox [ref=e38]:
+                - option "1W"
+                - option "1M"
+                - option "2M"
+                - option "1Q"
+                - option "6M"
+                - option "1Y"
+                - option "All indexed" [selected]
+              - button "Refresh cleanup analysis" [ref=e39]
+              - paragraph [ref=e40]: Refreshing cleanup analysis does not increase indexed mailbox coverage.
+              - button "Smart Sync" [ref=e41]
+              - button "Continue Backfill" [ref=e42]
+              - button "Run full mailbox reindex" [ref=e43]
+              - paragraph [ref=e44]: "Workflow scope view: All indexed · Last refresh: —"
+              - paragraph [ref=e45]: "Effective discovery window: —"
+              - paragraph [ref=e46]: "Last regenerated: —"
+              - paragraph [ref=e47]: Refreshing cleanup analysis in the background. Current cleanup groups stay visible until the new results are ready.
+              - generic [ref=e48]:
+                - paragraph [ref=e49]: Mailbox index
+                - paragraph [ref=e50]: Mailbox index status unavailable
+                - paragraph [ref=e51]: Mailbox index health has not loaded yet.
+            - generic [ref=e52]:
+              - paragraph [ref=e53]: Control center
+              - paragraph [ref=e54]: Management is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - paragraph [ref=e57]: Workflow
+              - generic [ref=e58]:
+                - link "Mailbox Intelligence Mission, status, and high-level cleanup summary" [ref=e59] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/intelligence
+                  - generic [ref=e60]:
+                    - paragraph [ref=e61]: Mailbox Intelligence
+                    - paragraph [ref=e62]: Mission, status, and high-level cleanup summary
+                - link "Cleanup Groups Full sender-group selection surface" [ref=e63] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/clusters
+                  - generic [ref=e64]:
+                    - paragraph [ref=e65]: Cleanup Groups
+                    - paragraph [ref=e66]: Full sender-group selection surface
+                - link "Sender Overview Orientation, scope, and progress before focused review" [ref=e67] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust
+                  - generic [ref=e68]:
+                    - paragraph [ref=e69]: Sender Overview
+                    - paragraph [ref=e70]: Orientation, scope, and progress before focused review
+                - link "Decision Mode One sender at a time, four actions, no Gmail mutation" [ref=e71] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust&mode=decision
+                  - generic [ref=e72]:
+                    - paragraph [ref=e73]: Decision Mode
+                    - paragraph [ref=e74]: One sender at a time, four actions, no Gmail mutation
+                - link "Management Destination states, execution truth, and follow-up" [ref=e75] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/management
+                  - generic [ref=e76]:
+                    - paragraph [ref=e77]: Management
+                    - paragraph [ref=e78]: Destination states, execution truth, and follow-up
+            - generic [ref=e79]:
+              - paragraph [ref=e80]: Legacy & Audit
+              - generic [ref=e81]:
+                - link "Pending Approvals Legacy queue surface kept route-safe for older runtime flows" [ref=e82] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/approvals
+                  - generic [ref=e83]:
+                    - paragraph [ref=e84]: Pending Approvals
+                    - paragraph [ref=e85]: Legacy queue surface kept route-safe for older runtime flows
+                - link "Executed Actions Legacy execution audit view" [ref=e86] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/history?tab=executed
+                  - generic [ref=e87]:
+                    - paragraph [ref=e88]: Executed Actions
+                    - paragraph [ref=e89]: Legacy execution audit view
+                - link "History Legacy audit timeline and runtime history" [ref=e90] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/history
+                  - generic [ref=e91]:
+                    - paragraph [ref=e92]: History
+                    - paragraph [ref=e93]: Legacy audit timeline and runtime history
+            - generic [ref=e94]:
+              - paragraph [ref=e95]: Tools
+              - link "AI Playground Chat General chat/testing surface" [ref=e97] [cursor=pointer]:
+                - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/playground
+                - generic [ref=e98]:
+                  - paragraph [ref=e99]: AI Playground Chat
+                  - paragraph [ref=e100]: General chat/testing surface
+        - generic [ref=e102]: Loading sender decisions workspace…
+        - complementary [ref=e103]:
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - paragraph [ref=e106]: AI Assistant
+              - paragraph [ref=e107]: Contextual help (secondary)
+            - generic [ref=e108]: Syncing…
+          - paragraph [ref=e110]: Use the suggested prompts for this page, or ask any context-specific question.
+          - generic [ref=e111]:
+            - paragraph [ref=e112]: Suggested prompts
+            - generic [ref=e113]:
+              - button "What does this cleanup group represent before I start decisions?" [ref=e114]
+              - button "How many senders are already managed versus still eligible?" [ref=e115]
+              - button "When should I leave Overview and enter Decision Mode?" [ref=e116]
+          - generic [ref=e117]:
+            - textbox "Ask AI about this page…" [ref=e118]
+            - button "Ask" [disabled] [ref=e119]
+  - button "Open Next.js Dev Tools" [ref=e125] [cursor=pointer]:
+    - img [ref=e126]
+  - alert [ref=e129]

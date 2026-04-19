@@ -262,6 +262,20 @@ function validateArtifactVersion(params: {
   snapshotPayload: Record<string, unknown>
 }): string[] {
   const errors: string[] = []
+  const cleanupGroupSourceClusterIds = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.filter(
+          (entry): entry is string => typeof entry === 'string' && entry.trim().length > 0
+        )
+      : []
+  const previewRowReferencesCleanupCandidateGroup = (params: {
+    clusterId: string
+    payload: Record<string, unknown> | null | undefined
+  }): boolean =>
+    isCleanupCandidateGroupId(params.clusterId) ||
+    cleanupGroupSourceClusterIds(params.payload?.cleanup_group_source_cluster_ids).some(
+      (clusterId) => isCleanupCandidateGroupId(clusterId)
+    )
   const headerClusterIds = new Set(params.headers.map((row) => row.cluster_id))
   const summaryClusterIds = new Set(params.clusterSummaries.map((row) => row.cluster_id))
   if (headerClusterIds.size !== summaryClusterIds.size) {
@@ -299,7 +313,10 @@ function validateArtifactVersion(params: {
     cleanup_groups?: unknown
   }
   const candidatePreviewRowCount = params.previewRows.filter((row) =>
-    isCleanupCandidateGroupId(row.cluster_id)
+    previewRowReferencesCleanupCandidateGroup({
+      clusterId: row.cluster_id,
+      payload: row.preview_payload,
+    })
   ).length
   if (
     typeof snapshot.whole_mailbox?.sender_count === 'number' &&
@@ -617,6 +634,10 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
         statsBySenderKey: impactedStatsBySenderKey,
         rollups: nextRollups,
       })
+      const consistentPreviewRows = sortPreviewRows([
+        ...nextPreviewRows.filter((row) => !impactedClusterIds.has(row.cluster_id)),
+        ...impactedClusterRows.projectedPreviewRows,
+      ])
 
       const nextHeaders = sortHeaders([
         ...headers
@@ -645,7 +666,7 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
         coverage,
         aggregate: nextAggregate,
         rollups: nextRollups,
-        previewRows: nextPreviewRows,
+        previewRows: consistentPreviewRows,
         clusterSummaries: nextClusterSummaries,
       })
       const mailboxIntelligenceMs = Math.max(0, Date.now() - mailboxIntelligenceStartedAt)
@@ -656,7 +677,7 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
         seedRows: nextSeedRows,
         rollups: nextRollups,
         clusterSummaries: nextClusterSummaries,
-        previewRows: nextPreviewRows,
+        previewRows: consistentPreviewRows,
         snapshotPayload: mailboxIntelligenceRows.snapshotPayload as unknown as Record<string, unknown>,
       })
       if (consistencyErrors.length > 0) {
@@ -705,7 +726,7 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
         }),
         upsertGmailPreviewIndexRows({
           supabase: params.supabase,
-          rows: nextPreviewRows,
+          rows: consistentPreviewRows,
         }),
       ])
       const writeMs = Math.max(0, Date.now() - writeStartedAt)
@@ -717,7 +738,7 @@ export async function refreshPublishedGmailArtifactsIncrementally(params: {
         gmail_cluster_summaries: nextClusterSummaries.length,
         gmail_mailbox_intelligence_snapshots: mailboxIntelligenceRows.snapshotRows.length,
         gmail_mailbox_intelligence_buckets: mailboxIntelligenceRows.bucketRows.length,
-        gmail_preview_index: nextPreviewRows.length,
+        gmail_preview_index: consistentPreviewRows.length,
       }
       const publishStartedAt = Date.now()
       await publishGmailArtifactBuild({

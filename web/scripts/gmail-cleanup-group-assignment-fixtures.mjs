@@ -226,6 +226,48 @@ const fixtureCases = [
     expectedCleanupCandidate: false,
   },
   {
+    id: 'subscription_promotions_broader_rows_rescue',
+    sender: 'newsletter@promo.example',
+    rows: rowsFor('newsletter@promo.example', [
+      {
+        subject: 'Newsletter picks for you',
+        category_labels: ['CATEGORY_PROMOTIONS'],
+        daysAgo: 1,
+      },
+      {
+        subject: 'Account notification',
+        category_labels: ['CATEGORY_PRIMARY'],
+        daysAgo: 4,
+      },
+    ]),
+    expectedLegacyClusterId: null,
+    expectedLegacyExclusionReason: 'too_few_safe_rows',
+    expectedAssignedGroupId: 'subscription-senders',
+    expectedAssignmentReason: 'behavioral_broader_rows',
+    expectedCleanupCandidate: true,
+  },
+  {
+    id: 'subscription_newsletter_broader_rows_rescue',
+    sender: 'digest@news.example',
+    rows: rowsFor('digest@news.example', [
+      {
+        subject: 'Weekly newsletter digest',
+        category_labels: ['CATEGORY_UPDATES'],
+        daysAgo: 1,
+      },
+      {
+        subject: 'Digest available',
+        category_labels: ['CATEGORY_PRIMARY'],
+        daysAgo: 6,
+      },
+    ]),
+    expectedLegacyClusterId: null,
+    expectedLegacyExclusionReason: 'too_few_safe_rows',
+    expectedAssignedGroupId: 'subscription-senders',
+    expectedAssignmentReason: 'behavioral_broader_rows',
+    expectedCleanupCandidate: true,
+  },
+  {
     id: 'needs_review_safe_ratio_too_low',
     sender: 'no-reply@ratio.example',
     rows: rowsFor('no-reply@ratio.example', [
@@ -519,8 +561,8 @@ assert.equal(
 )
 assert.equal(
   previewRows.some((row) => row.sender_key === historicalSenderKey),
-  false,
-  'Historical out-of-inbox sender should not require preview rows to stay in the artifact'
+  true,
+  'Historical out-of-inbox sender should use the structural preview fallback in the artifact'
 )
 
 const protectedHistoricalSenderKey = normalizeSender('vip@archive.example')

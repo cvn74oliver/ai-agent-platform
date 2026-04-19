@@ -43,8 +43,13 @@ const METADATA_RATE_LIMIT_BASE_DELAY_MS = 1_000
 const HISTORY_RECOVERY_FULL_SCAN_COOLDOWN_MS = 30 * 60 * 1000
 const HISTORY_RECOVERY_PARTIAL_SCAN_COOLDOWN_MS = 10 * 60 * 1000
 const SMART_SYNC_BOUNDED_SCAN_MAX_MESSAGES = 2_500
+const MAILBOX_INDEX_RECENT_HEALTH_WINDOW_DAYS = 14
+const MAILBOX_INDEX_FRESH_HEAD_RECOVERY_WINDOW_DAYS = 45
+const MAILBOX_INDEX_RECENT_HEALTH_QUERY_LIMIT = 20_000
+const MAILBOX_INDEX_MAX_NEWEST_MESSAGE_AGE_MS = 18 * 60 * 60 * 1000
 const INDEXED_ROWS_CACHE_TTL_MS = 1000 * 60 * 3
 const INDEX_QUERY_CONCURRENCY = 8
+const UTC_DAY_MS = 24 * 60 * 60 * 1000
 
 type GmailConnectionRow = {
   access_token: unknown
@@ -219,6 +224,23 @@ export type GmailMailboxIndexCoverage = {
   indexed_date_span_end: string | null
 }
 
+export type GmailMailboxRecentHealth = {
+  recent_window_days: number
+  recent_cutoff_at: string
+  indexed_newest_message_at: string | null
+  newest_message_age_ms: number | null
+  newest_message_behind_expected: boolean
+  missing_recent_days: string[]
+  gap_pairs: Array<{ from: string; to: string; missing_days: number }>
+  recent_day_counts: Array<{ date: string; count: number }>
+  false_healthy_state: boolean
+  reason:
+    | 'recent_gap_detected'
+    | 'newest_message_behind_expected'
+    | 'recent_gap_and_newest_lag'
+    | null
+}
+
 type IndexedRowsCacheEntry = {
   expires_at_ms: number
   rows: GmailMailboxIndexRow[]
@@ -258,6 +280,7 @@ type GmailMailboxIndexTerminalReason =
   | 'gmail_list_failed'
   | 'gmail_metadata_failed'
   | 'database_failed'
+  | 'recent_window_reached'
   | 'sender_stats_failed'
   | 'already_running'
   | 'incremental_sync_complete'
@@ -677,6 +700,10 @@ function dateIsoFromMetadata(message: GmailMessageMetadataResponse): string | nu
   const parsed = Date.parse(dateHeader)
   if (!Number.isFinite(parsed)) return null
   return new Date(parsed).toISOString()
+}
+
+function isUsableMailboxInternalDateMs(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
 function normalizeLabelIds(labelIds: unknown): string[] {
@@ -1361,7 +1388,7 @@ function mapMetadataToIndexRow(params: {
         : null,
     sender,
     subject,
-    internal_date_ms: Number.isFinite(internalDateMs) ? Math.round(internalDateMs) : null,
+    internal_date_ms: isUsableMailboxInternalDateMs(internalDateMs) ? Math.round(internalDateMs) : null,
     date: dateIso,
     label_ids: labelIds,
     category_labels: categoryLabelsFromLabelIds(labelIds),
@@ -1492,9 +1519,9 @@ function buildArtifactRefreshHint(params: {
 function comparableMailboxIndexSeenAtIso(row: GmailMailboxIndexComparableRow): string | null {
   if (typeof row.date === 'string' && row.date.trim()) {
     const parsed = Date.parse(row.date)
-    if (Number.isFinite(parsed)) return new Date(parsed).toISOString()
+    if (Number.isFinite(parsed) && parsed > 0) return new Date(parsed).toISOString()
   }
-  if (typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)) {
+  if (isUsableMailboxInternalDateMs(row.internal_date_ms)) {
     return new Date(row.internal_date_ms).toISOString()
   }
   return null
@@ -1693,6 +1720,7 @@ export async function loadGmailMailboxIndexCoverageForTenant(params: {
       .select('internal_date_ms')
       .eq('tenant_id', params.tenantId)
       .not('internal_date_ms', 'is', null)
+      .gt('internal_date_ms', 0)
       .order('internal_date_ms', { ascending: true })
       .limit(1)
       .maybeSingle(),
@@ -1701,6 +1729,7 @@ export async function loadGmailMailboxIndexCoverageForTenant(params: {
       .select('internal_date_ms')
       .eq('tenant_id', params.tenantId)
       .not('internal_date_ms', 'is', null)
+      .gt('internal_date_ms', 0)
       .order('internal_date_ms', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -1716,14 +1745,12 @@ export async function loadGmailMailboxIndexCoverageForTenant(params: {
       : indexedInboxQuery.count
   const oldestDateMs =
     oldestRowQuery.error ||
-    typeof oldestRowQuery.data?.internal_date_ms !== 'number' ||
-    !Number.isFinite(oldestRowQuery.data.internal_date_ms)
+    !isUsableMailboxInternalDateMs(oldestRowQuery.data?.internal_date_ms)
       ? null
       : oldestRowQuery.data.internal_date_ms
   const newestDateMs =
     newestRowQuery.error ||
-    typeof newestRowQuery.data?.internal_date_ms !== 'number' ||
-    !Number.isFinite(newestRowQuery.data.internal_date_ms)
+    !isUsableMailboxInternalDateMs(newestRowQuery.data?.internal_date_ms)
       ? null
       : newestRowQuery.data.internal_date_ms
 
@@ -1748,6 +1775,130 @@ function computeIndexCompletionPct(params: {
   }
   const ratio = (params.indexedMessageCount / params.mailboxEstimatedTotal) * 100
   return roundPercent(clamp(ratio, 0, 100))
+}
+
+function startOfUtcDayMs(valueMs: number): number {
+  const date = new Date(valueMs)
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
+function utcDayKeyFromMs(valueMs: number): string {
+  return new Date(startOfUtcDayMs(valueMs)).toISOString().slice(0, 10)
+}
+
+function utcDayDiff(fromDay: string, toDay: string): number {
+  const fromMs = Date.parse(`${fromDay}T00:00:00.000Z`)
+  const toMs = Date.parse(`${toDay}T00:00:00.000Z`)
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return 0
+  return Math.max(0, Math.round((toMs - fromMs) / UTC_DAY_MS))
+}
+
+function enumerateUtcDayKeys(startMs: number, endMs: number): string[] {
+  const keys: string[] = []
+  let cursorMs = startOfUtcDayMs(startMs)
+  const finalMs = startOfUtcDayMs(endMs)
+  while (cursorMs <= finalMs) {
+    keys.push(utcDayKeyFromMs(cursorMs))
+    cursorMs += UTC_DAY_MS
+  }
+  return keys
+}
+
+export async function loadGmailMailboxRecentHealthForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  nowMs?: number
+  recentWindowDays?: number
+}): Promise<GmailMailboxRecentHealth> {
+  const nowMs = params.nowMs ?? Date.now()
+  const recentWindowDays = Math.max(
+    1,
+    Math.round(params.recentWindowDays ?? MAILBOX_INDEX_RECENT_HEALTH_WINDOW_DAYS)
+  )
+  const recentCutoffMs = startOfUtcDayMs(nowMs - (recentWindowDays - 1) * UTC_DAY_MS)
+  const [{ data: recentRows }, { data: newestRow }] = await Promise.all([
+    params.supabase
+      .from('gmail_messages')
+      .select('internal_date_ms')
+      .eq('tenant_id', params.tenantId)
+      .not('internal_date_ms', 'is', null)
+      .gte('internal_date_ms', recentCutoffMs)
+      .order('internal_date_ms', { ascending: false })
+      .limit(MAILBOX_INDEX_RECENT_HEALTH_QUERY_LIMIT),
+    params.supabase
+      .from('gmail_messages')
+      .select('internal_date_ms')
+      .eq('tenant_id', params.tenantId)
+      .not('internal_date_ms', 'is', null)
+      .order('internal_date_ms', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  const recentDayCounts = new Map<string, number>()
+  for (const row of Array.isArray(recentRows) ? recentRows : []) {
+    if (typeof row?.internal_date_ms !== 'number' || !Number.isFinite(row.internal_date_ms)) continue
+    const dayKey = utcDayKeyFromMs(row.internal_date_ms)
+    recentDayCounts.set(dayKey, (recentDayCounts.get(dayKey) ?? 0) + 1)
+  }
+
+  const dayKeys = enumerateUtcDayKeys(recentCutoffMs, nowMs)
+  const dayCountRows = dayKeys.map((date) => ({
+    date,
+    count: recentDayCounts.get(date) ?? 0,
+  }))
+  const activeDays = dayCountRows.filter((row) => row.count > 0).map((row) => row.date)
+  const gapPairs: Array<{ from: string; to: string; missing_days: number }> = []
+  const missingRecentDays: string[] = []
+  for (let index = 1; index < activeDays.length; index += 1) {
+    const previousDay = activeDays[index - 1]
+    const currentDay = activeDays[index]
+    const diffDays = utcDayDiff(previousDay, currentDay)
+    if (diffDays <= 1) continue
+    gapPairs.push({
+      from: previousDay,
+      to: currentDay,
+      missing_days: diffDays - 1,
+    })
+    let missingCursorMs = Date.parse(`${previousDay}T00:00:00.000Z`) + UTC_DAY_MS
+    const currentDayMs = Date.parse(`${currentDay}T00:00:00.000Z`)
+    while (missingCursorMs < currentDayMs) {
+      missingRecentDays.push(utcDayKeyFromMs(missingCursorMs))
+      missingCursorMs += UTC_DAY_MS
+    }
+  }
+
+  const newestMessageMs =
+    typeof newestRow?.internal_date_ms === 'number' && Number.isFinite(newestRow.internal_date_ms)
+      ? newestRow.internal_date_ms
+      : null
+  const newestMessageIso = newestMessageMs != null ? new Date(newestMessageMs).toISOString() : null
+  const newestMessageAgeMs =
+    newestMessageMs != null ? Math.max(0, Math.round(nowMs - newestMessageMs)) : null
+  const newestMessageBehindExpected =
+    newestMessageAgeMs != null && newestMessageAgeMs > MAILBOX_INDEX_MAX_NEWEST_MESSAGE_AGE_MS
+  const falseHealthyState = missingRecentDays.length > 0 || newestMessageBehindExpected
+  const reason =
+    missingRecentDays.length > 0 && newestMessageBehindExpected
+      ? 'recent_gap_and_newest_lag'
+      : missingRecentDays.length > 0
+        ? 'recent_gap_detected'
+        : newestMessageBehindExpected
+          ? 'newest_message_behind_expected'
+          : null
+
+  return {
+    recent_window_days: recentWindowDays,
+    recent_cutoff_at: new Date(recentCutoffMs).toISOString(),
+    indexed_newest_message_at: newestMessageIso,
+    newest_message_age_ms: newestMessageAgeMs,
+    newest_message_behind_expected: newestMessageBehindExpected,
+    missing_recent_days: missingRecentDays,
+    gap_pairs: gapPairs,
+    recent_day_counts: dayCountRows,
+    false_healthy_state: falseHealthyState,
+    reason,
+  }
 }
 
 async function recomputeSenderStatsForTenant(params: {
@@ -2223,7 +2374,7 @@ function resolveOperatorBackfillCampaignTarget(params: {
 function findOldestInternalDateIso(rows: Array<Pick<GmailMailboxIndexRow, 'internal_date_ms'>>): string | null {
   let oldestMs: number | null = null
   for (const row of rows) {
-    if (typeof row.internal_date_ms !== 'number' || !Number.isFinite(row.internal_date_ms)) continue
+    if (!isUsableMailboxInternalDateMs(row.internal_date_ms)) continue
     oldestMs = oldestMs == null ? row.internal_date_ms : Math.min(oldestMs, row.internal_date_ms)
   }
   return oldestMs == null ? null : new Date(oldestMs).toISOString()
@@ -3239,6 +3390,7 @@ export async function primeAcceptedSmartSyncRunForTenant(params: {
   tenantId: string
   runId: string
   maxMessages: number
+  forceFreshHeadRecovery?: boolean
   currentState?: GmailMailboxIndexState | null
 }): Promise<GmailAcceptedMailboxIndexRun> {
   const tenantId = params.tenantId.trim()
@@ -3253,7 +3405,7 @@ export async function primeAcceptedSmartSyncRunForTenant(params: {
     tenantId,
   })
   const requestedMode = 'incremental' as const
-  const effectiveMode = 'incremental' as const
+  const effectiveMode = params.forceFreshHeadRecovery ? ('full' as const) : ('incremental' as const)
   const mailboxEstimatedTotal =
     currentState?.mailbox_estimated_total != null &&
     Number.isFinite(currentState.mailbox_estimated_total)
@@ -3298,6 +3450,7 @@ export async function primeAcceptedSmartSyncRunForTenant(params: {
       requested_mode: requestedMode,
       effective_mode: effectiveMode,
       rows_before: rowsBefore,
+      force_fresh_head_recovery: params.forceFreshHeadRecovery === true,
       resume_checkpoint_present: false,
     })}`
   )
@@ -3427,6 +3580,8 @@ async function runFullMailboxIndexForTenant(params: {
   maxMessages: number
   logPrefix: string
   run: GmailMailboxIndexRunContext
+  disableResumeCheckpoint?: boolean
+  recentRecoveryWindowDays?: number | null
 }): Promise<GmailMailboxIndexSyncResult> {
   const runStartedAt = Date.now()
   const phaseMs = {
@@ -3480,8 +3635,19 @@ async function runFullMailboxIndexForTenant(params: {
           : params.run.rowsBefore,
     })
   }
-  const resumeCheckpoint =
-    params.run.trigger === 'operator_backfill'
+  const recentRecoveryWindowDays =
+    typeof params.recentRecoveryWindowDays === 'number' && params.recentRecoveryWindowDays > 0
+      ? Math.max(1, Math.round(params.recentRecoveryWindowDays))
+      : null
+  const recentRecoveryCutoffAtMs =
+    recentRecoveryWindowDays != null
+      ? startOfUtcDayMs(Date.now() - (recentRecoveryWindowDays - 1) * UTC_DAY_MS)
+      : Number.NaN
+  const recentRecoveryCutoffAt =
+    Number.isFinite(recentRecoveryCutoffAtMs) ? new Date(recentRecoveryCutoffAtMs).toISOString() : null
+  const resumeCheckpoint = params.disableResumeCheckpoint
+    ? null
+    : params.run.trigger === 'operator_backfill'
       ? buildOperatorBackfillResumeCheckpoint(priorState)
       : isResumeCapableFullTrigger(params.run.trigger)
         ? buildManualFullResumeCheckpoint(priorState)
@@ -3518,6 +3684,19 @@ async function runFullMailboxIndexForTenant(params: {
       }),
       reason: resumeCheckpoint ? null : 'no_usable_checkpoint_in_state',
     })
+  }
+  if (params.disableResumeCheckpoint) {
+    console.info(
+      `${params.logPrefix} ${JSON.stringify({
+        event: 'fresh_head_recovery_selected',
+        run_id: params.run.runId,
+        trigger: params.run.trigger,
+        requested_mode: params.run.requestedMode,
+        effective_mode: 'full',
+        recent_recovery_window_days: recentRecoveryWindowDays,
+        recent_recovery_cutoff_at: recentRecoveryCutoffAt,
+      })}`
+    )
   }
   const startedFromCheckpoint = Boolean(resumeCheckpoint)
   let yieldDetail =
@@ -3622,6 +3801,7 @@ async function runFullMailboxIndexForTenant(params: {
   let lastCommittedProcessedAt = resumeCheckpoint?.processedAt ?? null
   let stoppedOnEmptyPage = false
   let historicalWindowReached = false
+  let recentRecoveryWindowReached = false
   let boundaryPageIndex: number | null = null
   let boundaryOldestInternalDate: string | null = null
   let shouldFetchNextPage =
@@ -4060,10 +4240,36 @@ async function runFullMailboxIndexForTenant(params: {
         )
       }
     }
+    if (Number.isFinite(recentRecoveryCutoffAtMs) && oldestPageInternalDate) {
+      const oldestPageInternalDateMs = Date.parse(oldestPageInternalDate)
+      if (
+        Number.isFinite(oldestPageInternalDateMs) &&
+        oldestPageInternalDateMs <= recentRecoveryCutoffAtMs
+      ) {
+        recentRecoveryWindowReached = true
+        boundaryPageIndex = committedPageIndex
+        boundaryOldestInternalDate = oldestPageInternalDate
+        console.info(
+          `${params.logPrefix} ${JSON.stringify({
+            event: 'recent_recovery_boundary_reached',
+            run_id: params.run.runId,
+            trigger: params.run.trigger,
+            recent_recovery_window_days: recentRecoveryWindowDays,
+            recent_recovery_cutoff_at: recentRecoveryCutoffAt,
+            boundary_page_index: boundaryPageIndex,
+            boundary_oldest_internal_date: boundaryOldestInternalDate,
+          })}`
+        )
+      }
+    }
     if (shouldEmitHeartbeatLog) {
       lastHeartbeatAtMs = Date.now()
     }
-    shouldFetchNextPage = !historicalWindowReached && pageToken !== null && processed < maxMessages
+    shouldFetchNextPage =
+      !historicalWindowReached &&
+      !recentRecoveryWindowReached &&
+      pageToken !== null &&
+      processed < maxMessages
   }
 
   const countIndexedStartedAt = Date.now()
@@ -4125,11 +4331,13 @@ async function runFullMailboxIndexForTenant(params: {
   const durationMs = Math.max(0, Math.round(Date.now() - runStartedAt))
   const terminalReason: GmailMailboxIndexTerminalReason = historicalWindowReached
     ? 'historical_window_reached'
-    : stoppedOnEmptyPage
-      ? 'empty_page'
-      : processed >= maxMessages && pageToken !== null
-        ? 'requested_limit_reached'
-        : 'gmail_pagination_exhausted'
+    : recentRecoveryWindowReached
+      ? 'recent_window_reached'
+      : stoppedOnEmptyPage
+        ? 'empty_page'
+        : processed >= maxMessages && pageToken !== null
+          ? 'requested_limit_reached'
+          : 'gmail_pagination_exhausted'
   const backfillCampaignCompleted =
     params.run.trigger === 'operator_backfill' &&
     (terminalReason === 'historical_window_reached' ||
@@ -5189,6 +5397,7 @@ export async function syncGmailMailboxIndexForTenant(params: {
   maxMessages?: number
   backfillWindowMonths?: GmailOperatorBackfillWindowMonths
   allowFullRescanOnHistoryGap?: boolean
+  forceFreshHeadRecovery?: boolean
   logPrefix?: string
   runId?: string
   trigger?: GmailMailboxIndexTrigger
@@ -5224,6 +5433,15 @@ export async function syncGmailMailboxIndexForTenant(params: {
     supabase: params.supabase,
     tenantId,
   })
+  const recentHealth =
+    trigger === 'smart_sync' || trigger === 'manual_full_reindex'
+      ? await loadGmailMailboxRecentHealthForTenant({
+          supabase: params.supabase,
+          tenantId,
+        })
+      : null
+  const forceFreshHeadRecovery =
+    params.forceFreshHeadRecovery === true || recentHealth?.false_healthy_state === true
   const rowsBefore = await countIndexedMessagesForTenant({
     supabase: params.supabase,
     tenantId,
@@ -5238,6 +5456,10 @@ export async function syncGmailMailboxIndexForTenant(params: {
       : trigger === 'operator_backfill'
         ? 'full'
         : mode
+  const effectiveMode =
+    forceFreshHeadRecovery && (trigger === 'smart_sync' || trigger === 'manual_full_reindex')
+      ? 'full'
+      : requestedMode
   const run: GmailMailboxIndexRunContext = {
     runId,
     trigger,
@@ -5256,8 +5478,11 @@ export async function syncGmailMailboxIndexForTenant(params: {
         run_id: runId,
         trigger,
         rows_before: rowsBefore,
-        strategy: 'incremental_history_sync',
+        strategy: forceFreshHeadRecovery ? 'fresh_head_recent_recovery' : 'incremental_history_sync',
         requested_mode: requestedMode,
+        effective_mode: effectiveMode,
+        recovery_reason: recentHealth?.reason ?? null,
+        recent_missing_days: recentHealth?.missing_recent_days ?? [],
         checkpoint_present: false,
       })}`
     )
@@ -5310,13 +5535,17 @@ export async function syncGmailMailboxIndexForTenant(params: {
     })
   }
 
-  if (requestedMode === 'full') {
+  if (effectiveMode === 'full') {
     return runFullMailboxIndexForTenant({
       supabase: params.supabase,
       tenantId,
       maxMessages,
       logPrefix,
       run,
+      disableResumeCheckpoint: forceFreshHeadRecovery,
+      recentRecoveryWindowDays: forceFreshHeadRecovery
+        ? MAILBOX_INDEX_FRESH_HEAD_RECOVERY_WINDOW_DAYS
+        : null,
     })
   }
 

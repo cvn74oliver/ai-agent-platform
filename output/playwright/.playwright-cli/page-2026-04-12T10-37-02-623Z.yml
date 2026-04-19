@@ -1,0 +1,302 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "Automata" [ref=e6] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e8]
+          - generic [ref=e18]: Automata
+        - navigation [ref=e19]:
+          - link "Dashboard" [ref=e20] [cursor=pointer]:
+            - /url: /dashboard
+          - link "Agents" [ref=e21] [cursor=pointer]:
+            - /url: /agents
+          - link "Automations" [ref=e22] [cursor=pointer]:
+            - /url: /automations
+          - link "Settings" [ref=e23] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e24]:
+          - paragraph [ref=e25]: Loading...
+          - button "Logout" [ref=e26]
+    - main [ref=e27]:
+      - generic [ref=e30]:
+        - complementary [ref=e31]:
+          - generic [ref=e32]:
+            - paragraph [ref=e33]: Operations Workspace
+            - paragraph [ref=e34]: Session-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.
+            - generic [ref=e35]:
+              - paragraph [ref=e36]: Workflow scope
+              - paragraph [ref=e37]: This control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.
+              - combobox [ref=e38]:
+                - option "1W"
+                - option "1M"
+                - option "2M"
+                - option "1Q"
+                - option "6M"
+                - option "1Y"
+                - option "All indexed" [selected]
+              - button "Refresh cleanup analysis" [ref=e39]
+              - paragraph [ref=e40]: Refreshing cleanup analysis does not increase indexed mailbox coverage.
+              - button "Smart Sync" [ref=e41]
+              - button "Continue Backfill" [ref=e42]
+              - button "Run full mailbox reindex" [ref=e43]
+              - paragraph [ref=e44]: "Workflow scope view: All indexed · Last refresh: 5:36:58 PM"
+              - paragraph [ref=e45]: "Effective discovery window: all indexed"
+              - paragraph [ref=e46]: "Last regenerated: —"
+              - generic [ref=e47]:
+                - paragraph [ref=e48]: Mailbox index
+                - paragraph [ref=e49]: Mailbox index status unavailable
+                - paragraph [ref=e50]: Mailbox index health has not loaded yet.
+            - generic [ref=e51]:
+              - paragraph [ref=e52]: Control center
+              - paragraph [ref=e53]: Management is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.
+          - generic [ref=e54]:
+            - generic [ref=e55]:
+              - paragraph [ref=e56]: Workflow
+              - generic [ref=e57]:
+                - link "Mailbox Intelligence Mission, status, and high-level cleanup summary" [ref=e58] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/intelligence
+                  - generic [ref=e59]:
+                    - paragraph [ref=e60]: Mailbox Intelligence
+                    - paragraph [ref=e61]: Mission, status, and high-level cleanup summary
+                - link "Cleanup Groups Full sender-group selection surface" [ref=e62] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/clusters
+                  - generic [ref=e63]:
+                    - paragraph [ref=e64]: Cleanup Groups
+                    - paragraph [ref=e65]: Full sender-group selection surface
+                - link "Sender Overview Orientation, scope, and progress before focused review" [ref=e66] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust
+                  - generic [ref=e67]:
+                    - paragraph [ref=e68]: Sender Overview
+                    - paragraph [ref=e69]: Orientation, scope, and progress before focused review
+                - link "Decision Mode One sender at a time, four actions, no Gmail mutation" [ref=e70] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust&mode=decision
+                  - generic [ref=e71]:
+                    - paragraph [ref=e72]: Decision Mode
+                    - paragraph [ref=e73]: One sender at a time, four actions, no Gmail mutation
+                - link "Management Destination states, execution truth, and follow-up" [ref=e74] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/management
+                  - generic [ref=e75]:
+                    - paragraph [ref=e76]: Management
+                    - paragraph [ref=e77]: Destination states, execution truth, and follow-up
+            - generic [ref=e78]:
+              - paragraph [ref=e79]: Legacy & Audit
+              - generic [ref=e80]:
+                - link "Pending Approvals Legacy queue surface kept route-safe for older runtime flows" [ref=e81] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/approvals
+                  - generic [ref=e82]:
+                    - paragraph [ref=e83]: Pending Approvals
+                    - paragraph [ref=e84]: Legacy queue surface kept route-safe for older runtime flows
+                - link "Executed Actions Legacy execution audit view" [ref=e85] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/history?tab=executed
+                  - generic [ref=e86]:
+                    - paragraph [ref=e87]: Executed Actions
+                    - paragraph [ref=e88]: Legacy execution audit view
+                - link "History Legacy audit timeline and runtime history" [ref=e89] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/history
+                  - generic [ref=e90]:
+                    - paragraph [ref=e91]: History
+                    - paragraph [ref=e92]: Legacy audit timeline and runtime history
+            - generic [ref=e93]:
+              - paragraph [ref=e94]: Tools
+              - link "AI Playground Chat General chat/testing surface" [ref=e96] [cursor=pointer]:
+                - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/playground
+                - generic [ref=e97]:
+                  - paragraph [ref=e98]: AI Playground Chat
+                  - paragraph [ref=e99]: General chat/testing surface
+        - generic [ref=e101]:
+          - generic [ref=e102]:
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - paragraph [ref=e105]: Selected Cleanup Group
+                - heading "Protected / trusted senders" [level=1] [ref=e106]
+                - paragraph [ref=e107]: "Sender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay."
+              - generic [ref=e108]:
+                - link "Cleanup Groups" [ref=e109] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/clusters
+                - link "Open Management" [ref=e110] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/management
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - paragraph [ref=e113]: Senders in workflow scope
+                - paragraph [ref=e114]: —
+                - paragraph [ref=e115]: Scoped sender count will appear here as soon as the current cleanup group finishes loading.
+              - generic [ref=e116]:
+                - paragraph [ref=e117]: Managed already
+                - paragraph [ref=e118]: —
+                - paragraph [ref=e119]: Managed sender coverage will appear once scoped sender truth is ready.
+              - generic [ref=e120]:
+                - paragraph [ref=e121]: Still to review
+                - paragraph [ref=e122]: —
+                - paragraph [ref=e123]: Ready for review.
+              - generic [ref=e124]:
+                - paragraph [ref=e125]: Supporting messages in workflow scope
+                - paragraph [ref=e126]: —
+                - paragraph [ref=e127]: Scoped supporting-message volume will appear once the current cleanup group finishes loading.
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - generic [ref=e130]:
+                  - paragraph [ref=e131]: Workflow review goal
+                  - paragraph [ref=e132]: Give every sender in this cleanup group a decision.
+                  - paragraph [ref=e133]: Coverage is sender-level, not message-level.
+                - generic [ref=e134]:
+                  - paragraph [ref=e135]: Covered senders
+                  - paragraph [ref=e136]: — / —
+                  - paragraph [ref=e137]: Scoped sender coverage is loading.
+              - generic [ref=e140]:
+                - generic [ref=e141]: Sender coverage is loading for this cleanup group.
+                - generic [ref=e142]: Next-step guidance will appear once exact sender coverage is ready.
+          - generic [ref=e143]:
+            - paragraph [ref=e145]: Refreshing scoped sender evidence in the background…
+            - generic [ref=e147]:
+              - generic [ref=e148]:
+                - generic [ref=e149]:
+                  - paragraph [ref=e150]: Page truth guide
+                  - paragraph [ref=e151]: This review page keeps mailbox sync and artifact freshness visible, while hero metrics, workflow scope, sender rows, Sender Distribution, and Time Context now read the same active sender universe.
+                - generic [ref=e152]: Unified workflow scope
+              - generic [ref=e153]:
+                - generic [ref=e154]:
+                  - paragraph [ref=e155]: Mailbox index / sync truth
+                  - paragraph [ref=e156]: Mailbox index status unavailable
+                  - paragraph [ref=e157]: Mailbox coverage truth will appear here once the mailbox index health check is ready.
+                - generic [ref=e158]:
+                  - paragraph [ref=e159]: Artifact freshness / publication truth
+                  - paragraph [ref=e160]: Artifact cached
+                  - paragraph [ref=e161]: Published runtime truth last generated 4/12/2026, 7:33:04 AM. Workflow totals and rails read this publication layer separately from live sync progress.
+                - generic [ref=e162]:
+                  - paragraph [ref=e163]: Workflow truth
+                  - paragraph [ref=e164]: All indexed workflow truth
+                  - paragraph [ref=e165]: "All indexed is driving the sender workflow, coverage, and Decision Mode queue. Current sender universe: 0 senders."
+                - generic [ref=e166]:
+                  - paragraph [ref=e167]: Chart compare truth
+                  - paragraph [ref=e168]: Workflow-aligned chart window
+                  - paragraph [ref=e169]: All indexed is currently driving the chart, workflow summary, sender rows, Sender Distribution, and Decision Mode queue together. Chart totals and workflow totals still describe different metrics inside that same sender universe.
+            - generic [ref=e170]:
+              - generic [ref=e171]:
+                - paragraph [ref=e172]: How to review this group
+                - paragraph [ref=e173]: Read the group quickly, then move into sender review with a clear frame.
+              - generic [ref=e174]:
+                - generic [ref=e175]:
+                  - paragraph [ref=e176]: Why this group exists
+                  - paragraph [ref=e177]: Coverage lane. This group brings together senders that mostly behave the same way, so you can use it as a normal sender-first cleanup pass.
+                - generic [ref=e178]:
+                  - paragraph [ref=e179]: Review approach
+                  - paragraph [ref=e180]: Use this as a normal cleanup pass. Start with the strongest visible senders, then use the sender card to confirm the pattern before deciding.
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - generic [ref=e183]:
+                - generic [ref=e184]:
+                  - paragraph [ref=e185]: Inside this group (share of group senders)
+                  - paragraph [ref=e186]: Largest visible families ranked by share of group senders. Use this as the internal-structure view, separate from message-weight concentration below.
+                - generic [ref=e187]:
+                  - paragraph [ref=e188]: No semantic mix is visible yet
+                  - paragraph [ref=e189]: Published semantic family mix will appear here once the artifact-backed overview finishes loading.
+              - generic [ref=e190]:
+                - generic [ref=e191]:
+                  - paragraph [ref=e192]: Sender concentration (top contributors by message share)
+                  - paragraph [ref=e193]: Visible top contributors ranked by share of all group messages. This is a contributor view, not the full sender distribution.
+                - generic [ref=e194]:
+                  - paragraph [ref=e195]: No sender concentration is visible yet
+                  - paragraph [ref=e196]: Top contributors by message share will appear here once the scoped sender workspace finishes loading.
+            - generic [ref=e197]:
+              - generic [ref=e198]:
+                - generic [ref=e199]:
+                  - paragraph [ref=e200]: How stable this read is
+                  - paragraph [ref=e201]: Family-level descriptive read across all visible senders in this group.
+                - generic [ref=e202]: Sender read loading
+              - generic [ref=e203]:
+                - paragraph [ref=e204]: No read stability is visible yet
+                - paragraph [ref=e205]: Stability summary will appear here once the artifact-backed overview finishes loading.
+            - generic [ref=e207]:
+              - generic [ref=e208]:
+                - generic [ref=e209]:
+                  - paragraph [ref=e210]: Analysis rail
+                  - generic [ref=e211]: Sender Distribution
+                  - generic [ref=e212]: Aligned to page scope
+                  - generic [ref=e213]: Showing Dec 2, 2022 - Apr 12, 2026 · quarterly bars
+                - paragraph [ref=e214]: Rank senders inside the current workflow scope. Scope chips still change the shared sender universe, while bar clicks keep the rail in local focus without collapsing the workflow below.
+                - paragraph [ref=e215]: All indexed is driving Sender Distribution, the workflow list, and Decision Mode together.
+                - tablist "Shared Analysis Rail tabs" [ref=e216]:
+                  - tab "Sender Distribution" [selected] [ref=e217]
+                  - tab "Time Context" [ref=e218]
+                - generic [ref=e221]:
+                  - generic [ref=e222]:
+                    - button "All indexed" [pressed] [ref=e223]
+                    - button "1Y" [ref=e224]
+                    - button "1Q" [ref=e225]
+                    - button "1M" [ref=e226]
+                    - button "1W" [ref=e227]
+                    - button "1D" [ref=e228]
+                    - button "Custom" [ref=e229]
+                  - paragraph [ref=e230]: Window changes update Sender Distribution, the sender workflow, and Decision Mode together without leaving this tab.
+              - generic [ref=e233]:
+                - paragraph [ref=e234]: Loading authoritative sender distribution
+                - paragraph [ref=e235]: All indexed is driving the full cleanup-group sender universe for this rail. The workflow below stays mounted while the chart catches up.
+                - generic [ref=e237]: All indexed
+            - generic [ref=e238]:
+              - generic [ref=e240]:
+                - paragraph [ref=e241]: Sender workflow
+                - paragraph [ref=e242]: Review senders
+                - paragraph [ref=e243]: Start with the strongest rows here, then open a sender to confirm the evidence before deciding.
+                - generic [ref=e245]: Workflow scope matches page
+                - paragraph [ref=e246]: All indexed is driving the sender workflow, coverage, and Decision Mode queue.
+              - generic [ref=e247]:
+                - generic [ref=e248]:
+                  - generic [ref=e249]:
+                    - paragraph [ref=e250]: Review this list
+                    - paragraph [ref=e251]: Start with the strongest rows here, then open a sender to confirm before deciding.
+                  - generic [ref=e252]:
+                    - button "Highest impact" [ref=e253]
+                    - button "Most recent" [ref=e254]
+                    - button "Most unread" [ref=e255]
+                - generic [ref=e256]:
+                  - paragraph [ref=e257]: No sender rows are ready on this page yet
+                  - paragraph [ref=e258]: This page is still filling in. The next sender rows will appear here shortly.
+            - generic [ref=e259]:
+              - generic [ref=e260]:
+                - generic [ref=e261]:
+                  - paragraph [ref=e262]: Already decided here
+                  - paragraph [ref=e263]: Managed senders
+                - generic [ref=e264]:
+                  - generic [ref=e265]:
+                    - paragraph [ref=e266]: Keep
+                    - paragraph [ref=e267]: —
+                    - paragraph [ref=e268]: Stays out of review.
+                  - generic [ref=e269]:
+                    - paragraph [ref=e270]: Archive
+                    - paragraph [ref=e271]: —
+                    - paragraph [ref=e272]: Waits in Management.
+                  - generic [ref=e273]:
+                    - paragraph [ref=e274]: Custom Rules
+                    - paragraph [ref=e275]: —
+                    - paragraph [ref=e276]: Pending refinement.
+                  - generic [ref=e277]:
+                    - paragraph [ref=e278]: Quarantine
+                    - paragraph [ref=e279]: —
+                    - paragraph [ref=e280]: Deferred until reopened.
+              - generic [ref=e281]:
+                - generic [ref=e282]:
+                  - paragraph [ref=e283]: Ready to review
+                  - paragraph [ref=e284]: Decision handoff
+                  - generic [ref=e286]: Workflow scope matches page
+                - paragraph [ref=e287]: Decision Mode is the next step when you are ready to move from overview into one-sender-at-a-time action.
+                - link "Start Reviewing Senders" [ref=e288] [cursor=pointer]:
+                  - /url: /agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust&mode=decision&overlay_intent=guided
+                - paragraph [ref=e289]: Loading the exact cluster-global review count before handing this group into Decision Mode.
+        - complementary [ref=e290]:
+          - generic [ref=e292]:
+            - paragraph [ref=e293]: AI Assistant
+            - paragraph [ref=e294]: Contextual help (secondary)
+          - paragraph [ref=e296]: Use the suggested prompts for this page, or ask any context-specific question.
+          - generic [ref=e297]:
+            - paragraph [ref=e298]: Suggested prompts
+            - generic [ref=e299]:
+              - button "What does this cleanup group represent before I start decisions?" [ref=e300]
+              - button "How many senders are already managed versus still eligible?" [ref=e301]
+              - button "When should I leave Overview and enter Decision Mode?" [ref=e302]
+          - generic [ref=e303]:
+            - textbox "Ask AI about this page…" [ref=e304]
+            - button "Ask" [disabled] [ref=e305]
+  - button "Open Next.js Dev Tools" [ref=e311] [cursor=pointer]:
+    - img [ref=e312]
+  - alert [ref=e315]

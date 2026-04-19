@@ -1,369 +1,1045 @@
 
 
-# Time Context Rebuild Phased Execution Plan
+# Time Context Rebuild — Phased Execution Plan (Current)
 
 ## Purpose
 
-This document is the **source of truth** for the Time Context rebuild lane inside Sender Overview.
+This document is the **execution roadmap** for the Time Context lane inside Sender Overview.
 
-It exists because the previous Time Context parity pass regressed core behavior. We are no longer treating Time Context as an ad hoc polish task. We are treating it as a phased rebuild with locked acceptance criteria.
+It exists to keep PM and Codex aligned on:
+- where the lane is right now
+- what truth is already locked
+- what is still broken
+- what order the remaining work must follow
+- what each future pass is and is not allowed to do
 
-This document is intentionally narrow and should help the PM and Codex stay aligned on:
-- what the restored baseline is
-- what is already working and must not be broken
-- what Time Context must eventually do
-- what does **not** count as success
-- how implementation must be split into safe phases
+This file is the **phase / sequencing document**.
+
+Use `TIME_CONTEXT_SPEC.md` as the **behavioral source of truth** for:
+- scope semantics
+- bucket rules
+- cross-scope truth
+- accepted visible surfaces
+- fail conditions
 
 ---
 
-## Current Baseline (Locked)
+## Relationship To The Time Context Spec
 
-The current branch is the **rollback-restored baseline** after the broken Time Context parity pass was removed.
+These two files now work together and must not drift apart.
 
-What is true right now:
-- Sender Distribution is working again.
-- Sender Distribution chart/workflow parity is restored on validated cases.
-- Workflow-local controls such as `Clear narrowed state` and `Back to All indexed` are working in the accepted Sender Distribution lane.
-- Time Context is back to its older contextual behavior and is **not yet** a reliable workflow-driving filter surface.
-- `semantic.marketing_subscriptions` is loading normally again after the rollback stabilization fix.
+### `TIME_CONTEXT_SPEC.md`
+Use for:
+- product truth
+- implementation truth
+- regression truth
+- PASS / FAIL truth
 
-This baseline is the regression floor.
+### `TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md`
+Use for:
+- execution order
+- phase boundaries
+- sniper pass design
+- lane sequencing
+- what must be fixed first vs later
 
-Nothing in the future Time Context work is allowed to break:
-- Cleanup group loading
+Rule:
+- if these documents conflict, the spec defines behavior and this plan must be updated to match it.
+
+---
+
+## Current Situation (Locked)
+
+We are no longer in an open-ended “improve the chart” phase.
+
+We are in a **controlled rebuild lane** because prior passes created repeated regressions across:
+- scope semantics
+- visible bucket coverage
+- chart/workflow parity
+- sender-distribution/time-context congruency
+- runtime stability
+- verification quality
+
+The lane now has two distinct truths:
+
+### 1. Behavioral truth is locked in the spec
+The Time Context system is now explicitly defined and should no longer be inferred from code, prior thread memory, or partial UI behavior.
+
+### 2. Execution must now be sniper-phased
+Future work must be split into tightly bounded phases so Codex does not mix:
+- runtime recovery
+- chart grammar
+- scope semantics
+- workflow narrowing
+- cross-surface parity
+- performance hardening
+
+---
+
+## Current Locked Product Decisions
+
+These decisions are now explicit and should govern all future work unless intentionally superseded.
+
+### 1. One Month
+- `1M` means **rolling 30 days**
+- not calendar month
+- not “current month to date”
+
+### 2. One Quarter
+- `1Q` means **rolling 90 days**
+- bucket unit = **weekly buckets**
+- not daily buckets
+- not calendar quarter
+
+### 3. One Year
+- `1Y` means **rolling 365 days**
+- grouped into calendar months
+- must include current month
+- missing months must remain visible as zero-value months
+
+### 4. All Indexed
+- full available sender-time dataset
+- grouped by calendar month
+
+### 5. Time Context truth model
+A sender must appear in **every bucket where it had ≥1 qualifying message**.
+
+No single-assignment / latest-activity bucket logic is allowed.
+
+---
+
+## Regression Floor (Must Not Break)
+
+No future Time Context pass is allowed to regress:
+- cleanup-group loading
 - Sender Distribution behavior
 - canonical cleanup-group hydration
 - workflow scope truth
 - Decision Mode handoff integrity
+- local clear/reset behavior already accepted elsewhere in Sender Overview
+- runtime stability on the review route
+- accepted artifact/runtime recovery behavior
+
+If a Time Context pass improves chart math but breaks any of the above, the pass is FAIL.
 
 ---
 
-## Milestone Status — March 31, 2026
+## Current Known Problem Areas
 
-The scoped **Time Context truth-reconciliation pass** is now accepted for the validated Shared Analysis Rail routes.
+The active lane is not one bug. It is a sequence of tightly related defects.
 
-What this milestone means:
-- `All Indexed` monthly truth is now materially reconciled on the validated routes.
-- `1M` and `1W` remain browser-valid in the validated cases.
-- focused-bucket truth now reads as aligned with rendered bucket data in the validated cases.
+### A. Scope semantics drift
+Historically, scopes have changed meaning across passes.
+Examples:
+- `1M` acting like current month instead of rolling 30 days
+- `1W` collapsing to fewer visible buckets
+- `1D` collapsing to a partial-hour window
+- `1Y` missing April / current month
 
-What this milestone does **not** mean:
-- the full Time Context rebuild is complete
-- Time Context filtering / bucket-driven workflow narrowing is accepted
-- chart/workflow parity under the future interactive narrowing contract is closed
-- residual empty `action:""` inbox-analysis runtime noise is resolved
+### B. Visible bucket grammar drift
+Even when backend truth improved, visible charts have still failed by:
+- hiding expected buckets
+- collapsing empty periods
+- showing `no visible data` when data exists
+- failing to preserve required zero-bucket visibility
 
-The broader rebuild remains open until:
-- Time Context grammar is fully locked
-- the filtering contract is locked
-- bucket-driven workflow narrowing is implemented and browser-proven
-- chart/workflow parity is proven under that interactive contract
+### C. Cross-surface truth drift
+Time Context has repeatedly diverged from:
+- Sender Distribution
+- workflow sender list
+- top summary cards
 
----
+### D. Runtime churn risk
+The route has shown repeated heavy request churn / noisy runtime activity during testing.
+Time Context work must not reintroduce:
+- `/api/agents/playground` interaction-time rehydrate
+- request loops
+- heavy refresh churn
+- runtime instability that risks Supabase health
 
-## Clarification: What Time Context Is Supposed To Become
-
-Time Context is not supposed to remain just a passive chart.
-
-The intended end state is:
-- Time Context is a **real analysis surface** inside the shared rail
-- its scope strip matches the visual and interaction seriousness of the Mailbox Intelligence Pressure Trend controls
-- its bucket rendering is coherent for the selected scope
-- selecting a bucket actually narrows the workflow below
-- chart and workflow come from the **same authoritative sender universe**
-- the page remains stable and does not rehydrate or fall into partial/truth-conflicting states
-
-That means the real product question is:
-
-> How do we make Time Context behave like a trustworthy workflow-narrowing surface without reintroducing the regression that just forced rollback?
+### E. Verification-surface drift
+Codex has repeatedly verified backend truth or partial UI truth without proving the actual bar charts / accepted visible surfaces.
+That is no longer acceptable.
 
 ---
 
-## What Is Already Working And Must Be Preserved
+## What Success Means Now
 
-### Accepted Sender Distribution work
-These are already accepted and must not be destabilized by Time Context work:
-- full sender-distribution surface
-- chart/workflow parity on validated cases
-- sender-focused narrowing behavior
-- workflow-local `Clear narrowed state`
-- workflow-local `Back to All indexed`
-- tiny-subset pagination truth
+This rebuild is successful only when all of the following are true:
 
-### Restored Time Context baseline
-The rollback restored:
-- no broken route-backed Time Context subset behavior
-- no partial top-level Time Context truth competing with workflow truth
-- no empty `action:""` inbox-analysis noise in validated flows
-- no interaction-time `/api/agents/playground` rehydrate regression in validated flows
+1. Time Context scopes keep one stable meaning across passes
+2. Chart bucket coverage matches the scope contract exactly
+3. Empty intervals remain visible when required by the spec
+4. Bucket click genuinely narrows workflow truth
+5. Sender Distribution, workflow list, and top summary cards all reflect the same narrowed sender universe
+6. No hidden runtime rehydrate / request loop is introduced
+7. Codex verifies the actual chart surfaces, not just backend payloads
+
+Anything less is partial progress, not acceptance.
 
 ---
 
-## What Is Broken / Still Missing
+## Execution Strategy (Critical)
 
-These are the real remaining Time Context gaps from the restored baseline:
+We are now moving forward in **sniper-focused phases**.
 
-1. **Bucket click does not yet drive workflow narrowing**
-   - Selecting a period bucket does not behave like Sender Distribution selection.
-   - The workflow below can remain broad while the chart appears focused.
+Rules:
+- one phase = one class of problem
+- one execution pass = one bounded defect surface
+- no mixed fixes
+- no “while we are here” work
+- no silent scope widening
 
-2. **Bucket grammar is not yet fully trustworthy**
-   - `1W` and `1M` need coherent spacing/coverage logic.
-   - Empty days/weeks should not collapse the visual grammar into misleading merged blocks.
-
-3. **Scope strip is not yet aligned with the intended framework**
-   - It does not yet cleanly mirror the seriousness and ordering expectations inspired by the Pressure Trend surface.
-
-4. **Time Context does not yet feel like a finished operator surface**
-   - It still reads more like contextual information than a deliberate workflow-driving analysis mode.
+Implementation may only move to the next phase when the current phase is green.
 
 ---
 
-## What Success Actually Looks Like
+# Phase Map (Current)
 
-A successful Time Context rebuild does **not** mean:
-- the chart looks prettier
-- the bars are re-colored
-- the labels are renamed
-- the scope strip is cosmetically rearranged
-- a bucket highlights visually but does not change the workflow
-
-A successful Time Context rebuild **does** mean:
-- the chart is visually coherent for each scope
-- the chart and workflow are derived from the same authoritative sender universe
-- a valid bucket click changes the workflow below in a real, inspectable way
-- the user can clear the narrowed state locally without confusion
-- no hidden rehydrate or partial-truth regression is reintroduced
-
----
-
-## Anti-Cheating Rules
-
-These rules exist so this lane cannot claim success with cosmetic changes only.
-
-1. No milestone counts if Time Context still behaves as a passive chart.
-2. No milestone counts if bucket selection highlights visually but does not narrow the workflow.
-3. No milestone counts if chart counts and workflow counts are not explicitly reconcilable.
-4. No milestone counts if `All Indexed` still communicates ambiguous top-level truth.
-5. No milestone counts if `1W` / `1M` visually compress empty intervals in a way that makes the period feel incomplete.
-6. No milestone counts if the implementation reintroduces:
-   - empty `action:""` inbox-analysis requests
-   - `/api/agents/playground` interaction-time rehydrate
-   - semantic cleanup-group hydration instability
-
----
-
-## Scope Constraints
-
-This rebuild is intentionally narrow.
-
-### In scope
-- Time Context inside the Shared Analysis Rail
-- Time Context scope-strip behavior
-- Time Context bucket rendering grammar
-- Time Context to workflow narrowing behavior
-- local clear/reset behavior required to support that narrowing
-- documentation and validation for this lane
-
-### Out of scope
-- Sender Distribution redesign
-- Cleanup Groups redesign
-- taxonomy changes
-- Decision Mode redesign
-- lower legacy sender-contribution cleanup
-- generalized performance architecture redesign
-- backend artifact redesign unless separately approved later
-
----
-
-## Phase 0 — Baseline Lock
+## Phase 0 — Documentation Lock (COMPLETE AFTER THIS UPDATE)
 
 ### Objective
-Freeze the rollback-restored state so future work cannot quietly redefine what “working” means.
+Bring the Time Context lane documents into alignment with current reality.
 
 ### Deliverables
-- this document approved as the Time Context rebuild source of truth
-- rollback-restored baseline explicitly named as the comparison target
-- acceptance language aligned with the validation tracker
+- `TIME_CONTEXT_SPEC.md` defines behavioral truth
+- this phased plan defines execution order
+- PM and Codex no longer rely on old milestone language as active truth
 
 ### Acceptance
-The phase is complete only when:
-- PM agrees what the current baseline is
-- PM agrees what is broken vs what is merely unfinished
-- PM agrees that forward work starts from the restored baseline, not from the failed parity pass
+Complete when:
+- both documents agree on scope semantics and success conditions
+- future passes can route from docs instead of thread memory
 
 ---
 
-## Phase 1 — Visual Grammar Lock
+## Phase 1 — Runtime Safety / Churn Containment
 
 ### Objective
-Define the visual/time-bucket rules before touching workflow-driving behavior again.
+Ensure Time Context interaction and route usage do not create runtime churn or dangerous heavy-request behavior.
 
-### Questions this phase must answer
-- What is the exact scope order shown in Time Context?
-- Which scopes must exist now, and which are deferred?
-- How should `1W` render when some days have zero activity?
-- How should `1M` render when some weeks or days are sparse?
-- What does the chart count represent at each scope?
-- Which Pressure Trend conventions are inspirational vs mandatory?
+### Why this is first
+If runtime is unstable, every later Time Context validation becomes unreliable and expensive.
 
-### Required output
-A written spec that explicitly defines:
-- scope strip order
-- bucket unit for each scope
-- whether empty intervals remain visually reserved
-- what “coherent period coverage” means for each scope
-- what the chart count means in plain language
+### In scope
+- request-loop diagnosis
+- interaction-time rehydrate detection
+- heavy-route churn tied to review route / analysis switching
+- proving that Time Context interaction does not destabilize runtime
+
+### Out of scope
+- chart semantics
+- bucket grammar redesign
+- workflow narrowing redesign
+- visual polish
 
 ### Acceptance
-This phase is complete only when a reviewer can answer:
-- what each bar means
-- what the denominator is
-- what happens when there are empty intervals
-- what the user should expect when changing scopes
+This phase is green only when:
+- no interaction-time `/api/agents/playground` rehydrate is triggered by Time Context interaction
+- no repeated heavy refresh churn / loop is observed
+- no Supabase-risking terminal flood is reintroduced by Time Context testing
+
+### Notes
+If runtime stability is already proven in the active branch at the moment of a pass, that proof must still be stated explicitly before moving forward.
 
 ---
 
-## Phase 2 — Functional Parity Contract
+## Phase 2 — Scope Semantics Lock
 
 ### Objective
-Lock the behavior contract for bucket-driven workflow narrowing before implementation resumes.
+Make every Time Context scope mean exactly one thing and never silently change across patches.
 
-### Questions this phase must answer
-- When should a Time Context bucket be clickable?
-- What exact route/session state should change when a bucket is selected?
-- What should remain broad context vs what should become narrowed workflow truth?
-- How should `Clear narrowed state` behave for Time Context?
-- How should `Back to All indexed` behave after Time Context narrowing?
-- How do we prove chart/workflow parity in each validated case?
+### Locked target semantics
+- `1D` = last 24 hours, 24 hourly buckets
+- `1W` = last 7 days, 7 daily buckets
+- `1M` = rolling 30 days, 30 daily buckets
+- `1Q` = rolling 90 days, weekly buckets
+- `1Y` = rolling 365 days, calendar months
+- `all_indexed` = full dataset, calendar months
 
-### Required output
-A behavior contract that states:
-- authoritative sender universe source
-- bucket selection behavior
-- workflow narrowing behavior
-- local clear/reset behavior
-- non-ready / comparison-only behavior
-- what is not allowed to happen again
+### In scope
+- scope definition alignment
+- bucket-count contract by scope
+- current-month inclusion rules
+- empty-bucket visibility rules per scope
+
+### Out of scope
+- workflow click behavior
+- performance optimization
+- UI polish
 
 ### Acceptance
-This phase is complete only when the contract makes it impossible to misunderstand:
-- whether Time Context is passive or workflow-driving
-- what counts the chart is showing
-- what changes in the workflow after a click
+This phase is green only when:
+- each scope has one stable meaning
+- visible bucket count matches that meaning
+- current month appears when required
+- empty intervals remain visible when required
+- no scope silently changes behavior between passes
 
 ---
 
-## Phase 3 — Narrow Implementation Lanes
+## Phase 3 — Canonical Dataset / Boundary Contract Enforcement
 
-Implementation must be split into separate, approval-gated lanes.
+### Objective
+Ensure all Time Context views are fed by one canonical dataset and one boundary contract before bucketing.
 
-### Lane A — Scope strip and chart grammar only
-Focus:
-- scope strip ordering
-- bucket unit grammar
-- empty-interval rendering rules
+### In scope
+- same row universe across scopes
+- same timezone boundary logic
+- same lower/upper bound contract
+- removal of scope-specific truth drift
 
-Status as of 2026-03-31:
-- scoped Time Context truth reconciliation is accepted for the validated routes
-- `All Indexed` monthly truth is materially reconciled in those validated cases
-- `1M` and `1W` remain browser-valid in those validated cases
-- Lane A is still only the pre-selection truth/grammar lane and does not close the broader rebuild
+### Out of scope
+- visual redesign
+- workflow interaction polish
+- performance hardening beyond what is required to prove correctness
 
-Must not include:
-- workflow-driving bucket clicks
-- new subset routing
-- new forward filtering behavior
+### Acceptance
+This phase is green only when:
+- same overlapping periods reconcile across scopes
+- `1D == 1W` on the same day
+- `1W == 1M` on the overlapping period
+- `1M == 1Y` on the same current month
 
-### Lane B — Workflow-driving bucket selection
-Focus:
-- bucket click contract
+---
+
+## Phase 4 — Visible Chart Grammar Compliance
+
+### Objective
+Make the rendered charts obey the spec visually, not just mathematically.
+
+### In scope
+- visible bucket count correctness
+- preserving required zero buckets
+- ensuring `no visible data` only appears when dataset is genuinely empty
+- fixing collapsed / missing visible bars
+- current-month visual presence
+
+### Out of scope
 - workflow narrowing
-- chart/workflow parity
-- clear/reset symmetry
+- Decision Mode changes
+- performance work
 
-Must not include:
-- new visual redesign ideas
-- new metric layers
-- generalized performance changes
+### Acceptance
+This phase is green only when the accepted visible surfaces are correct:
+- chart itself
+- lower workflow list (broad vs narrowed truth context stated clearly)
+- sender distribution
+- top summary cards
 
-### Lane C — polish only after behavior is stable
-Focus:
-- copy refinement
-- hover/supporting-context cleanup
-- any final visual cleanup
-
-Must not begin until Lanes A and B are browser-green.
+This phase FAILS if backend parity passes but the actual chart is visibly wrong.
 
 ---
 
-## Browser-Proof Acceptance Matrix
+## Phase 5 — Workflow-Narrowing Contract
 
-Any forward implementation pass must include browser proof for:
+### Objective
+Make Time Context a trustworthy workflow-driving surface instead of a passive chart.
 
-### Protected / trusted
-- `All Indexed`
-- `1M`
-- `1W`
+### In scope
+- bucket click behavior
+- narrowed sender-universe application
+- workflow transition from broad state to narrowed state
+- clear/reset behavior
+- ensuring visual selection corresponds to real workflow truth
 
-### Marketing subscriptions
-- normal page hydration
-- at least one valid narrowed Time Context case once bucket filtering is reintroduced
+### Out of scope
+- visual polish beyond what is necessary for interaction clarity
+- performance hardening
 
-### Required proof statements
-Each validation packet must explicitly state:
-- what the chart counts represent in that scope
-- whether the workflow below is broad or narrowed
-- whether chart and workflow come from the same sender universe
-- whether any `/api/agents/playground` request happened during interaction
-- whether any empty `action:""` inbox-analysis request happened during interaction
+### Acceptance
+This phase is green only when:
+- bucket click registers immediately
+- bucket click resolves into one authoritative narrowed sender universe
+- workflow list matches the selected bucket exactly
+- Sender Distribution matches the same narrowed sender universe exactly
+- top summary cards match the same narrowed sender universe exactly
+- clear/reset returns cleanly to the broader state
 
-### Failure conditions
-The pass fails immediately if any validated case shows:
-- ambiguous top-level truth
+---
+
+## Phase 6 — Cross-Surface Acceptance
+
+### Objective
+Prove that Time Context, Sender Distribution, workflow list, and top summary cards all stay aligned under the same truth.
+
+### In scope
+- accepted visible surface verification
+- linked-surface parity proof
+- proving no drift between surfaces
+
+### Out of scope
+- new features
+- performance redesign
+
+### Acceptance
+This phase is green only when all linked surfaces reconcile on the accepted route for the tested scope / bucket.
+
+---
+
+## Phase 7 — Performance Hardening (Deferred Until Truth Is Green)
+
+### Objective
+Reduce the material load-time cost on broad scopes without re-breaking truth.
+
+### In scope
+- narrow diagnosis / fixes for expensive broad scopes such as `1Y` and `1Q`
+- only after semantic and visible truth are accepted
+
+### Out of scope
+- redesigning scope semantics
+- changing Time Context truth contract
+
+### Acceptance
+This phase is green only when performance improves without regressing:
+- scope semantics
+- bucket grammar
+- workflow narrowing
+- cross-surface truth
+- runtime safety
+
+---
+
+# Execution Rules For Codex
+
+## Non-negotiable rules
+1. Do not mix phases.
+2. Do not solve runtime churn and chart grammar in the same pass.
+3. Do not solve workflow narrowing and performance in the same pass.
+4. Do not verify backend truth only.
+5. Do not use adjacent proof surfaces instead of the actual chart.
+6. Do not call a phase complete if the visible chart still violates the spec.
+
+## Required proof style
+Every implementation pass must explicitly state:
+- phase being worked
+- accepted defect surface
+- what is in scope
+- what is out of scope
+- exact PASS / FAIL result
+
+---
+
+# Browser-Proof Requirements (Going Forward)
+
+Any future Time Context pass must prove the exact accepted visible surfaces.
+
+## Required surfaces
+- chart itself
+- workflow list
+- Sender Distribution
+- top summary cards
+
+## Required statements
+Each proof packet must explicitly state:
+- what the selected scope means
+- how many visible buckets are expected
+- whether empty intervals should remain visible
+- whether the workflow is broad or narrowed
+- whether Sender Distribution is broad or narrowed
+- whether top summary cards are broad or narrowed
+- whether any runtime churn occurred during the test
+
+## Automatic fail conditions
+The pass fails immediately if any tested route shows:
+- missing expected buckets
+- missing required current month
+- collapsed visible coverage
+- `no visible data` when data exists
 - chart/workflow mismatch
-- broken semantic hydration
-- hidden rehydrate
-- empty-action noise
-- visually incoherent bucket coverage relative to the defined grammar
+- Time Context / Sender Distribution mismatch
+- top-summary mismatch
+- hidden runtime rehydrate / churn regression
 
 ---
 
-## Proposed Next Document Work
+# Immediate Next Direction
 
-After this phased plan is accepted, the next document to create should be a dedicated spec for **Time Context visual grammar + behavioral contract**.
+The immediate mission is now:
+1. keep the docs locked
+2. use the spec as behavioral truth
+3. execute only one phase at a time
+4. force Codex to verify the actual bar charts and linked visible surfaces
 
-Suggested filename:
-`TIME_CONTEXT_SCOPE_AND_FILTER_SPEC.md`
+We are no longer allowing Time Context work to proceed as a broad “fix whatever looks wrong” lane.
 
-That document should lock:
-- exact scope strip order
-- exact bucket semantics by scope
-- exact click/filter contract
-- exact clear/reset contract
-- exact browser-proof acceptance checklist
-
-This plan document should remain the parent roadmap; the spec should become the implementation source for the first forward lane.
+It is now a tightly governed rebuild with explicit sniper phases.
 
 ---
 
-## Current Direction From Here
+# Summary
 
-We are no longer “just fixing the chart.”
+Time Context is no longer an ad hoc chart polish problem.
 
-We are defining a reusable framework-level rule for how an analysis chart becomes a trustworthy workflow-narrowing surface.
+It is a controlled rebuild lane with:
+- locked product truth
+- locked scope semantics
+- locked regression floor
+- locked execution sequencing
 
-That matters beyond Gmail because the same logic can later generalize to:
-- support inboxes
-- finance/accounting workspaces
-- operations queues
-- any entity/time-driven workflow surface
+Future success depends on this rule:
 
-So the immediate mission is:
-1. lock the baseline
-2. lock the Time Context grammar
-3. lock the Time Context filtering contract
-4. only then re-enter implementation in narrow lanes
+> first lock what Time Context means,
+> then lock what each phase is allowed to do,
+> then verify the real visible surfaces,
+> and only then accept the pass.
+# Time Context Rebuild — Phased Execution Plan (Current)
 
-That is how this becomes a win instead of another regression.
+## Purpose
+
+This document is the **execution roadmap** for the Time Context lane inside Sender Overview.
+
+It exists to keep PM and Codex aligned on:
+- where the lane is right now
+- what truth is already locked
+- what is still broken
+- what order the remaining work must follow
+- what each future pass is and is not allowed to do
+
+This file is the **phase / sequencing document**.
+
+Use `TIME_CONTEXT_SPEC.md` as the **behavioral source of truth** for:
+- scope semantics
+- bucket rules
+- cross-scope truth
+- accepted visible surfaces
+- fail conditions
+
+---
+
+## Relationship To The Time Context Spec
+
+These two files now work together and must not drift apart.
+
+### `TIME_CONTEXT_SPEC.md`
+Use for:
+- product truth
+- implementation truth
+- regression truth
+- PASS / FAIL truth
+
+### `TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md`
+Use for:
+- execution order
+- phase boundaries
+- sniper pass design
+- lane sequencing
+- what must be fixed first vs later
+
+Rule:
+- if these documents conflict, the spec defines behavior and this plan must be updated to match it.
+
+---
+
+## Current Situation (Locked)
+
+We are no longer in an open-ended “improve the chart” phase.
+
+We are in a **controlled rebuild lane** because prior passes created repeated regressions across:
+- scope semantics
+- visible bucket coverage
+- chart/workflow parity
+- sender-distribution/time-context congruency
+- runtime stability
+- verification quality
+- route readiness / settle reliability
+
+The lane now has three distinct truths:
+
+### 1. Behavioral truth is locked in the spec
+The Time Context system is now explicitly defined and should no longer be inferred from code, prior thread memory, or partial UI behavior.
+
+### 2. Execution must now be sniper-phased
+Future work must be split into tightly bounded phases so Codex does not mix:
+- runtime recovery
+- route readiness
+- chart grammar
+- scope semantics
+- workflow narrowing
+- cross-surface parity
+- performance hardening
+
+### 3. Verification must happen only on a READY route
+A Time Context verdict is only valid after the canonical route has reached a real settled state.
+Pre-settle loading, shell, bootstrap, and fallback states are diagnostic only.
+
+---
+
+## Current Locked Product Decisions
+
+These decisions are now explicit and should govern all future work unless intentionally superseded.
+
+### 1. One Month
+- `1M` means **rolling 30 days**
+- not calendar month
+- not “current month to date”
+
+### 2. One Quarter
+- `1Q` means **rolling 90 days**
+- bucket unit = **weekly buckets**
+- visible contract = **13 fixed weekly buckets**
+- edge weeks may be clipped to preserve the rolling 90-day meaning
+- not daily buckets
+- not calendar quarter
+
+### 3. One Year
+- `1Y` means **rolling 365 days**
+- grouped into calendar months
+- must include current month
+- missing months must remain visible as zero-value months
+
+### 4. All Indexed
+- full available sender-time dataset
+- grouped by calendar month
+
+### 5. Time Context truth model
+A sender must appear in **every bucket where it had ≥1 qualifying message**.
+
+No single-assignment / latest-activity bucket logic is allowed.
+
+---
+
+## Regression Floor (Must Not Break)
+
+No future Time Context pass is allowed to regress:
+- cleanup-group loading
+- Sender Distribution behavior
+- canonical cleanup-group hydration
+- workflow scope truth
+- Decision Mode handoff integrity
+- local clear/reset behavior already accepted elsewhere in Sender Overview
+- runtime stability on the review route
+- accepted artifact/runtime recovery behavior
+- accepted route READY behavior once achieved
+
+If a Time Context pass improves chart math but breaks any of the above, the pass is FAIL.
+
+---
+
+## Current Known Problem Areas
+
+The active lane is not one bug. It is a sequence of tightly related defects.
+
+### A. Scope semantics drift
+Historically, scopes have changed meaning across passes.
+Examples:
+- `1M` acting like current month instead of rolling 30 days
+- `1W` collapsing to fewer visible buckets
+- `1D` collapsing to a partial-hour window
+- `1Y` missing April / current month
+
+### B. Visible bucket grammar drift
+Even when backend truth improved, visible charts have still failed by:
+- hiding expected buckets
+- collapsing empty periods
+- showing `no visible data` when data exists
+- failing to preserve required zero-bucket visibility
+
+### C. Cross-surface truth drift
+Time Context has repeatedly diverged from:
+- Sender Distribution
+- workflow sender list
+- top summary cards
+
+### D. Runtime churn risk
+The route has shown repeated heavy request churn / noisy runtime activity during testing.
+Time Context work must not reintroduce:
+- `/api/agents/playground` interaction-time rehydrate
+- request loops
+- heavy refresh churn
+- runtime instability that risks Supabase health
+
+### E. Verification-surface drift
+Codex has repeatedly verified backend truth or partial UI truth without proving the actual bar charts / accepted visible surfaces.
+That is no longer acceptable.
+
+### F. Route readiness / verification timing
+A recurring failure mode has been evaluating Time Context before the route actually reached READY.
+This created false failures and wasted passes.
+
+Examples:
+- shell/loading states mistaken for semantic failures
+- fallback copy observed before baseline runtime data was attached
+- verdicts issued before the selected cleanup group, Time Context tab, and rail were actually ready
+
+---
+
+## What Success Means Now
+
+This rebuild is successful only when all of the following are true:
+
+1. Time Context scopes keep one stable meaning across passes
+2. Chart bucket coverage matches the scope contract exactly
+3. Empty intervals remain visible when required by the spec
+4. Bucket click genuinely narrows workflow truth
+5. Sender Distribution, workflow list, and top summary cards all reflect the same narrowed sender universe
+6. No hidden runtime rehydrate / request loop is introduced
+7. Codex verifies the actual chart surfaces, not just backend payloads
+8. All verification is performed only after the route reaches READY; pre-settle observations are diagnostic only and cannot be used for PASS / FAIL decisions
+
+Anything less is partial progress, not acceptance.
+
+---
+
+## Execution Strategy (Critical)
+
+We are now moving forward in **sniper-focused phases**.
+
+Rules:
+- one phase = one class of problem
+- one execution pass = one bounded defect surface
+- no mixed fixes
+- no “while we are here” work
+- no silent scope widening
+
+Implementation may only move to the next phase when the current phase is green.
+
+---
+
+# Phase Map (Current)
+
+## Phase 0 — Documentation Lock (COMPLETE)
+
+### Objective
+Bring the Time Context lane documents into alignment with current reality.
+
+### Deliverables
+- `TIME_CONTEXT_SPEC.md` defines behavioral truth
+- this phased plan defines execution order
+- PM and Codex no longer rely on old milestone language as active truth
+
+### Acceptance
+Complete when:
+- both documents agree on scope semantics and success conditions
+- future passes can route from docs instead of thread memory
+
+---
+
+## Phase 1 — Runtime Safety / Churn Containment (COMPLETE)
+
+### Objective
+Ensure Time Context interaction and route usage do not create runtime churn or dangerous heavy-request behavior.
+
+### Why this was first
+If runtime is unstable, every later Time Context validation becomes unreliable and expensive.
+
+### In scope
+- request-loop diagnosis
+- interaction-time rehydrate detection
+- heavy-route churn tied to review route / analysis switching
+- proving that Time Context interaction does not destabilize runtime
+
+### Out of scope
+- chart semantics
+- bucket grammar redesign
+- workflow narrowing redesign
+- visual polish
+
+### Acceptance
+This phase was green only when:
+- no interaction-time `/api/agents/playground` rehydrate was triggered by Time Context interaction
+- no repeated heavy refresh churn / loop remained
+- no Supabase-risking terminal flood was reintroduced by Time Context testing
+
+### Current status
+Accepted and closed.
+
+---
+
+## Phase 1.5 — Route Readiness / Verification Stability (COMPLETE)
+
+### Objective
+Ensure the canonical review route reliably reaches a true READY state before any Time Context verification is performed.
+
+### Why this existed
+Recent passes revealed that some apparent Time Context failures were actually pre-settle route states, not real semantic failures.
+
+Time Context verification is invalid until:
+- baseline runtime snapshot is attached
+- selected cleanup group is visible
+- Time Context rail is mounted
+- rail state is `ready`
+
+### In scope
+- runtime snapshot attach timing
+- `/api/agents/playground` rehydrate completion
+- baseline cleanup-group hydration
+- READY gate timing and verification protocol
+
+### Out of scope
+- Time Context semantics
+- bucket grammar
+- workflow narrowing
+- Sender Distribution behavior
+
+### Acceptance
+This phase was complete only when:
+- canonical route consistently reached READY within the verification window
+- selected cleanup group was visible
+- Time Context tab was visible
+- rail state was `ready`
+- no verification was performed on pre-settle state
+
+### Current status
+Accepted and closed.
+
+---
+
+## Phase 2 — Scope Semantics Lock (ACTIVE)
+
+### Objective
+Make every Time Context scope mean exactly one thing and never silently change across patches.
+
+### Phase gate
+This phase MUST NOT be evaluated unless Phase 1.5 READY conditions are satisfied.
+Any failure observed before READY is invalid verification and must be treated as a blocked-proof condition, not a semantic failure.
+
+### Locked target semantics
+- `1D` = last 24 hours, 24 hourly buckets
+- `1W` = last 7 days, 7 daily buckets
+- `1M` = rolling 30 days, 30 daily buckets
+- `1Q` = rolling 90 days, 13 fixed weekly buckets
+- `1Y` = rolling 365 days, 12 calendar months including current month
+- `all_indexed` = full dataset, calendar months
+
+### In scope
+- scope definition alignment
+- bucket-count contract by scope
+- current-month inclusion rules
+- empty-bucket visibility rules per scope
+- `all_indexed` scope viability on the accepted route
+
+### Out of scope
+- workflow click behavior
+- performance optimization
+- UI polish
+
+### Current reality
+Recent scopes have materially improved under post-settle verification, but `all_indexed` has remained the residual blocker in accepted-surface proof.
+So Phase 2 is still active and cannot close until `all_indexed` also satisfies the same contract.
+
+### Acceptance
+This phase is green only when:
+- each scope has one stable meaning
+- visible bucket count matches that meaning
+- current month appears when required
+- empty intervals remain visible when required
+- no scope silently changes behavior between passes
+- `all_indexed` renders monthly chart truth on the accepted route after READY
+
+---
+
+## Phase 3 — Canonical Dataset / Boundary Contract Enforcement
+
+### Objective
+Ensure all Time Context views are fed by one canonical dataset and one boundary contract before bucketing.
+
+### In scope
+- same row universe across scopes
+- same timezone boundary logic
+- same lower/upper bound contract
+- removal of scope-specific truth drift
+
+### Out of scope
+- visual redesign
+- workflow interaction polish
+- performance hardening beyond what is required to prove correctness
+
+### Acceptance
+This phase is green only when:
+- same overlapping periods reconcile across scopes
+- `1D == 1W` on the same day
+- `1W == 1M` on the overlapping period
+- `1M == 1Y` on the same current month
+- `1Y` current month reconciles with `all_indexed` current month when covered history includes that month
+
+---
+
+## Phase 4 — Visible Chart Grammar Compliance
+
+### Objective
+Make the rendered charts obey the spec visually, not just mathematically.
+
+### In scope
+- visible bucket count correctness
+- preserving required zero buckets
+- ensuring `no visible data` only appears when dataset is genuinely empty
+- fixing collapsed / missing visible bars
+- current-month visual presence
+
+### Out of scope
+- workflow narrowing
+- Decision Mode changes
+- performance work
+
+### Acceptance
+This phase is green only when the accepted visible surfaces are correct:
+- chart itself
+- lower workflow list (broad vs narrowed truth context stated clearly)
+- sender distribution
+- top summary cards
+
+This phase FAILS if backend parity passes but the actual chart is visibly wrong.
+
+---
+
+## Phase 5 — Workflow-Narrowing Contract
+
+### Objective
+Make Time Context a trustworthy workflow-driving surface instead of a passive chart.
+
+### In scope
+- bucket click behavior
+- narrowed sender-universe application
+- workflow transition from broad state to narrowed state
+- clear/reset behavior
+- ensuring visual selection corresponds to real workflow truth
+
+### Out of scope
+- visual polish beyond what is necessary for interaction clarity
+- performance hardening
+
+### Acceptance
+This phase is green only when:
+- bucket click registers immediately
+- bucket click resolves into one authoritative narrowed sender universe
+- workflow list matches the selected bucket exactly
+- Sender Distribution matches the same narrowed sender universe exactly
+- top summary cards match the same narrowed sender universe exactly
+- clear/reset returns cleanly to the broader state
+
+---
+
+## Phase 6 — Cross-Surface Acceptance
+
+### Objective
+Prove that Time Context, Sender Distribution, workflow list, and top summary cards all stay aligned under the same truth.
+
+### In scope
+- accepted visible surface verification
+- linked-surface parity proof
+- proving no drift between surfaces
+
+### Out of scope
+- new features
+- performance redesign
+
+### Acceptance
+This phase is green only when all linked surfaces reconcile on the accepted route for the tested scope / bucket.
+
+---
+
+## Phase 7 — Performance Hardening (Deferred Until Truth Is Green)
+
+### Objective
+Reduce the material load-time cost on broad scopes without re-breaking truth.
+
+### In scope
+- narrow diagnosis / fixes for expensive broad scopes such as `1Y` and `1Q`
+- only after semantic and visible truth are accepted
+
+### Out of scope
+- redesigning scope semantics
+- changing Time Context truth contract
+
+### Acceptance
+This phase is green only when performance improves without regressing:
+- scope semantics
+- bucket grammar
+- workflow narrowing
+- cross-surface truth
+- runtime safety
+- route readiness
+
+---
+
+# Execution Rules For Codex
+
+## Non-negotiable rules
+1. Do not mix phases.
+2. Do not solve runtime churn and chart grammar in the same pass.
+3. Do not solve route-readiness work and semantics work in the same pass.
+4. Do not solve workflow narrowing and performance in the same pass.
+5. Do not verify backend truth only.
+6. Do not use adjacent proof surfaces instead of the actual chart.
+7. Do not call a phase complete if the visible chart still violates the spec.
+8. Do not issue PASS / FAIL verdicts from pre-settle state.
+
+## Required proof style
+Every implementation or verification pass must explicitly state:
+- phase being worked
+- accepted defect surface
+- what is in scope
+- what is out of scope
+- exact PASS / FAIL / BLOCKED result
+- whether READY was achieved before verification
+
+---
+
+# Browser-Proof Requirements (Going Forward)
+
+Any future Time Context pass must prove the exact accepted visible surfaces.
+
+## Required surfaces
+- chart itself
+- workflow list
+- Sender Distribution
+- top summary cards
+
+## Required statements
+Each proof packet must explicitly state:
+- what the selected scope means
+- how many visible buckets are expected
+- whether empty intervals should remain visible
+- whether the workflow is broad or narrowed
+- whether Sender Distribution is broad or narrowed
+- whether top summary cards are broad or narrowed
+- whether any runtime churn occurred during the test
+- whether READY was achieved before any verdict was issued
+
+## Automatic fail conditions
+The pass fails immediately if any tested route shows:
+- missing expected buckets
+- missing required current month
+- collapsed visible coverage
+- `no visible data` when data exists after READY
+- chart/workflow mismatch
+- Time Context / Sender Distribution mismatch
+- top-summary mismatch
+- hidden runtime rehydrate / churn regression
+- any PASS / FAIL decision made from pre-settle state
+
+---
+
+# Immediate Next Direction
+
+The immediate mission is now:
+1. keep the docs locked
+2. use the spec as behavioral truth
+3. execute only one phase at a time
+4. force Codex to verify the actual bar charts and linked visible surfaces
+5. treat READY as a required verification gate, not a best-effort wait
+
+We are no longer allowing Time Context work to proceed as a broad “fix whatever looks wrong” lane.
+
+It is now a tightly governed rebuild with explicit sniper phases.
+
+---
+
+# Summary
+
+Time Context is no longer an ad hoc chart polish problem.
+
+It is a controlled rebuild lane with:
+- locked product truth
+- locked scope semantics
+- locked regression floor
+- locked execution sequencing
+- locked route-readiness verification discipline
+
+Future success depends on this rule:
+
+> first lock what Time Context means,
+> then lock what each phase is allowed to do,
+> then verify the real visible surfaces only after READY,
+> and only then accept the pass.

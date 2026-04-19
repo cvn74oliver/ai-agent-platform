@@ -1,0 +1,651 @@
+{
+  "name": "scope_1m",
+  "screenshotPath": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_phase2_final_postsettle/scope_1m.png",
+  "state": {
+    "href": "http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?workflow_scope=30d&cluster_id=structural.protected_trust",
+    "railState": "ready",
+    "railSource": "workflow_workspace",
+    "railScope": "30d",
+    "hasRoot": true,
+    "granularity": "day",
+    "bucketCount": 30,
+    "rawBucketCount": 30,
+    "compressedMode": "false",
+    "hiddenBucketCount": 0,
+    "bucketDetails": [
+      {
+        "label": "Mar 17 - Mar 18, 2026",
+        "count": 46,
+        "messageCount": 67
+      },
+      {
+        "label": "Mar 18 - Mar 19, 2026",
+        "count": 42,
+        "messageCount": 76
+      },
+      {
+        "label": "Mar 19 - Mar 20, 2026",
+        "count": 57,
+        "messageCount": 87
+      },
+      {
+        "label": "Mar 20 - Mar 21, 2026",
+        "count": 35,
+        "messageCount": 55
+      },
+      {
+        "label": "Mar 21 - Mar 22, 2026",
+        "count": 33,
+        "messageCount": 44
+      },
+      {
+        "label": "Mar 22 - Mar 23, 2026",
+        "count": 36,
+        "messageCount": 47
+      },
+      {
+        "label": "Mar 23 - Mar 24, 2026",
+        "count": 36,
+        "messageCount": 53
+      },
+      {
+        "label": "Mar 24 - Mar 25, 2026",
+        "count": 47,
+        "messageCount": 72
+      },
+      {
+        "label": "Mar 25 - Mar 26, 2026",
+        "count": 38,
+        "messageCount": 51
+      },
+      {
+        "label": "Mar 26 - Mar 27, 2026",
+        "count": 42,
+        "messageCount": 54
+      },
+      {
+        "label": "Mar 27 - Mar 28, 2026",
+        "count": 33,
+        "messageCount": 54
+      },
+      {
+        "label": "Mar 28 - Mar 29, 2026",
+        "count": 23,
+        "messageCount": 29
+      },
+      {
+        "label": "Mar 29 - Mar 30, 2026",
+        "count": 39,
+        "messageCount": 65
+      },
+      {
+        "label": "Mar 30 - Mar 31, 2026",
+        "count": 46,
+        "messageCount": 97
+      },
+      {
+        "label": "Mar 31 - Apr 1, 2026",
+        "count": 46,
+        "messageCount": 90
+      },
+      {
+        "label": "Apr 1 - Apr 2, 2026",
+        "count": 35,
+        "messageCount": 72
+      },
+      {
+        "label": "Apr 2 - Apr 3, 2026",
+        "count": 42,
+        "messageCount": 71
+      },
+      {
+        "label": "Apr 3 - Apr 4, 2026",
+        "count": 36,
+        "messageCount": 63
+      },
+      {
+        "label": "Apr 4 - Apr 5, 2026",
+        "count": 34,
+        "messageCount": 40
+      },
+      {
+        "label": "Apr 5 - Apr 6, 2026",
+        "count": 33,
+        "messageCount": 45
+      },
+      {
+        "label": "Apr 6 - Apr 7, 2026",
+        "count": 36,
+        "messageCount": 49
+      },
+      {
+        "label": "Apr 7 - Apr 8, 2026",
+        "count": 37,
+        "messageCount": 53
+      },
+      {
+        "label": "Apr 8 - Apr 9, 2026",
+        "count": 36,
+        "messageCount": 49
+      },
+      {
+        "label": "Apr 9 - Apr 10, 2026",
+        "count": 36,
+        "messageCount": 52
+      },
+      {
+        "label": "Apr 10 - Apr 11, 2026",
+        "count": 36,
+        "messageCount": 48
+      },
+      {
+        "label": "Apr 11 - Apr 12, 2026",
+        "count": 22,
+        "messageCount": 31
+      },
+      {
+        "label": "Apr 12 - Apr 13, 2026",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Apr 13 - Apr 14, 2026",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Apr 14 - Apr 15, 2026",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Apr 15 - Apr 16, 2026",
+        "count": 0,
+        "messageCount": 0
+      }
+    ],
+    "bucketLabels": [
+      "Mar 17 - Mar 18, 2026",
+      "Mar 18 - Mar 19, 2026",
+      "Mar 19 - Mar 20, 2026",
+      "Mar 20 - Mar 21, 2026",
+      "Mar 21 - Mar 22, 2026",
+      "Mar 22 - Mar 23, 2026",
+      "Mar 23 - Mar 24, 2026",
+      "Mar 24 - Mar 25, 2026",
+      "Mar 25 - Mar 26, 2026",
+      "Mar 26 - Mar 27, 2026",
+      "Mar 27 - Mar 28, 2026",
+      "Mar 28 - Mar 29, 2026",
+      "Mar 29 - Mar 30, 2026",
+      "Mar 30 - Mar 31, 2026",
+      "Mar 31 - Apr 1, 2026",
+      "Apr 1 - Apr 2, 2026",
+      "Apr 2 - Apr 3, 2026",
+      "Apr 3 - Apr 4, 2026",
+      "Apr 4 - Apr 5, 2026",
+      "Apr 5 - Apr 6, 2026",
+      "Apr 6 - Apr 7, 2026",
+      "Apr 7 - Apr 8, 2026",
+      "Apr 8 - Apr 9, 2026",
+      "Apr 9 - Apr 10, 2026",
+      "Apr 10 - Apr 11, 2026",
+      "Apr 11 - Apr 12, 2026",
+      "Apr 12 - Apr 13, 2026",
+      "Apr 13 - Apr 14, 2026",
+      "Apr 14 - Apr 15, 2026",
+      "Apr 15 - Apr 16, 2026"
+    ],
+    "axisLabels": [
+      "Mar 18",
+      "Mar 21",
+      "Mar 24",
+      "Mar 27",
+      "Mar 30",
+      "Apr 2",
+      "Apr 5",
+      "Apr 8",
+      "Apr 11",
+      "Apr 14",
+      "Apr 16"
+    ],
+    "loadingCopy": [],
+    "fallbackCopy": [],
+    "activeSendersText": "57",
+    "supportingMessagesText": "87",
+    "truthSummary": "How to read these numbersMar 19 - Mar 20, 2026Active senders in this bucket57Supporting messages in this bucket87Senders in current workflow scope—57 scoped senders fall inside Mar 19 - Mar 20, 2026. 87 supporting messages counts emails from those same senders in that day.",
+    "workflowTotals": [
+      "—"
+    ],
+    "scopeButtons": [
+      {
+        "text": "Logout",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Logout",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Refresh cleanup analysis",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Smart Sync",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Continue Backfill (36m)",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Run full mailbox reindex",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Commerce / shipping",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Account / service updates",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Marketing / promotional",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 2 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 2 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#1oliver@curativemushrooms.com8,004 messages6%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#2support@curativemushrooms.com4,631 messages3%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#3instant-updates@mail.zillow.com2,844 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#4seaworld@m.seaworldparks.com2,772 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#5harryanddavid@harryanddavid-email.com2,597 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#6automation@networkmerchants.com2,414 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Sender Distribution",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Time Context",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "All indexed",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1Y",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1Q",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1M",
+        "pressed": "true",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1W",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1D",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Custom",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Previous",
+        "pressed": null,
+        "busy": null,
+        "disabled": true
+      },
+      {
+        "text": "Next",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Back to All indexed",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Highest impact",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Most recent",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Most unread",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "noreply@mail.app.supabase.ioReview carefullymail.app.supabase.io · Last activity 4/12/202638 msgs2 unreadAccount / service updatesAccount / service updates · Service / account updatesProof on screenPersonal · Updates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "outgoing@safewebservices.comReview carefullysafewebservices.com · Last activity 4/8/202629 msgs27 unreadCommerce / shippingCommerce / shipping · early invoices / receipts signalProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "support@voomly.comReview carefullyvoomly.com · Last activity 4/12/202610 msgs4 unreadMarketing / promotionalMarketing / promotional · early product marketing update signalProof on screenPromotions",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "support@westcoast-processing.comReview carefullywestcoast-processing.com · Last activity 4/9/202610 msgsMixed semantic contextCommerce / shipping · mixed semantic readProof on screenPersonal",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "noreply@supabase.comReview carefullysupabase.com · Last activity 4/8/20267 msgs6 unreadAccount / service updatesAccount / service updates · Security alertsProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "no-reply@amazon.comReview carefullyamazon.com · Last activity 4/12/20266 msgs6 unreadCommerce / shippingCommerce / shipping · early commerce / shipping updates signalProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "support@resolve.payaldous.comReview carefullyresolve.payaldous.com · Last activity 4/10/20265 msgs4 unreadAccount / service updatesAccount / service updates · early general updates signalProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "noreply@github.comReview carefullygithub.com · Last activity 4/6/20265 msgsAlerts / securitySecurity alerts · Alerts / securityProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "dfas-smartdocs@mail.milReview carefullymail.mil · Last activity 4/3/20264 msgs3 unreadAccount / service updatesAccount / service updates · Promotional cycleProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "veteransbenefits@messages.va.govReview carefullymessages.va.gov · Last activity 4/7/20264 msgs3 unreadAccount / service updatesAccount / service updates · Promotional cycleProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Previous",
+        "pressed": null,
+        "busy": null,
+        "disabled": true
+      },
+      {
+        "text": "Next",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "What does this cleanup group represent before I start decisions?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "How many senders are already managed versus still eligible?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "When should I leave Overview and enter Decision Mode?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Ask",
+        "pressed": null,
+        "busy": null,
+        "disabled": true
+      }
+    ],
+    "textSample": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\noliver.j.carlin@gmail.com\n\nLogout\n\nOPERATIONS WORKSPACE\n\nSession-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.\n\nWORKFLOW SCOPE\n\nThis control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.\n\n1W\n1M\n2M\n1Q\n6M\n1Y\nAll indexed\nRefresh cleanup analysis\n\nRefreshing cleanup analysis does not increase indexed mailbox coverage.\n\nSmart SyncContinue Backfill (36m)Run full mailbox reindex\n\nWorkflow scope view: 30d · Last refresh: 3:21:47 PM\n\nRuntime baseline: All indexed · Workflow scope switching stays inside the current review page while chart compare windows stay separate in Time Context.\n\nEffective discovery window: all indexed\n\nLast regenerated: —\n\nMAILBOX INDEX\n\nHistorical backfill complete for recent 24-month window\n\nIndexed rows: 237,628\n\nCoverage: 12/2/2022 -> 4/12/2026\n\nCompleted: 3/19/2026, 2:22:57 PM\n\nBackfill target: recent 24-month window\n\nHistorical cutoff: 3/19/2024\n\nSmart Sync will maintain new activity going forward\n\nOptional extended backfill to 36 months is available\n\nCONTROL CENTER\n\nManagement is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.\n\nWORKFLOW\n\nMailbox Intelligence\n\nMission, status, and high-level cleanup summary\n\nCleanup Groups\n\nFull sender-group selection surface\n\nSender Overview\n\nOrientation, scope, and progress before focused review\n\nDecision Mode\n\nOne sender at a time, four actions, no Gmail mutation\n\nManagement\n\nDestination states, execution truth, and follow-up\n\nLEGACY & AUDIT\n\nPending Approvals\n\nLegacy queue surface kept route-safe for older runtime flows\n\nExecuted Actions\n\nLegacy execution audit view\n\nHistory\n\nLegacy audit timeline and runtime history\n\nTOOLS\n\nAI Playground Chat\n\nGeneral chat/testing surface\n\nSELECTED CLEANUP GROUP\n\nProtected / trusted senders\n\nSender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay.\n\nCleanup Groups\nOpen Management\n\nSENDERS IN WORKFLOW SCOPE\n\n37\n\nReview is sender-first.\n\nMANAGED ALREADY\n\n0\n\nAlready covered.\n\nSTILL TO REVIEW\n\n37\n\nReady for review.\n\nSUPPORTING MESSAGES IN WORKFLOW SCOPE\n\n161\n\nSupports sender priority.\n\nWORKFLOW REVIEW GOAL\n\nGive every sender in this cleanup group a decision.\n\nCoverage is sender-level, not message-level.\n\nCOVERED SENDERS\n\n0 / 37\n\n37 senders still remaining\n\n0 covered · 37 remaining\nNext step: review the 127 senders that still need a decision in Decision Mode.\n\nPAGE TRUTH GUIDE\n\nThis review page keeps mailbox sync and artifact freshness visible, while hero metrics, workflow scope, sender rows, Sender Distribution, and Time Context now read the same active sender universe.\n\nUnified workflow scope\n\nMAILBOX INDEX / SYNC TRUTH\n\nMailbox index failed\n\nMailbox index coverage currently tracks 237,628 indexed rows. Smart Sync and backfill update this mailbox coverage truth.\n\nARTIFACT FRESHNESS / PUBLICATION TRUTH\n\nArtifact stale\n\nPublished runtime truth last generated 4/16/2026, 6:06:44 AM. Workflow totals and rails read this publication layer separately from live sync progress.\n\nWORKFLOW TRUTH\n\n1M workflow truth\n\n1M remains the workflow scope boundary, and the final sender universe is the deterministic intersection of 1"
+  },
+  "phase": "scope_1M"
+}

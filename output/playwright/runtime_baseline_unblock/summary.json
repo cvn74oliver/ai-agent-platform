@@ -1,0 +1,83 @@
+{
+  "ready": false,
+  "readyAtMs": null,
+  "totalElapsedMs": 47410,
+  "last": {
+    "elapsedMs": 44384,
+    "href": "http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust",
+    "title": "Automata",
+    "operationsWorkspaceVisible": true,
+    "selectedCleanupGroupVisible": true,
+    "timeContextTabVisible": true,
+    "loadingSenderDecisionsWorkspace": false,
+    "loadingShellFirstEntryState": false,
+    "hasTimeframeNotYetLoaded": false,
+    "hasNoVisibleTimeContextYet": false,
+    "railState": "unavailable_scope",
+    "railSource": "unavailable_scope",
+    "text": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\noliver.j.carlin@gmail.com\n\nLogout\n\nOPERATIONS WORKSPACE\n\nSession-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.\n\nWORKFLOW SCOPE\n\nThis control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.\n\n1W\n1M\n2M\n1Q\n6M\n1Y\nAll indexed\nRefresh cleanup analysis\n\nRefreshing cleanup analysis does not increase indexed mailbox coverage.\n\nSmart SyncContinue Backfill (36m)Run full mailbox reindex\n\nWorkflow scope view: All indexed · Last refresh: 1:20:10 PM\n\nEffective discovery window: all indexed\n\nLast regenerated: —\n\nMAILBOX INDEX\n\nHistorical backfill complete for recent 24-month window\n\nIndexed rows: 237,628\n\nCoverage: 12/2/2022 -> 4/12/2026\n\nCompleted: 3/19/2026, 2:22:57 PM\n\nBackfill target: recent 24-month window\n\nHistorical cutoff: 3/19/2024\n\nSmart Sync will maintain new activity going forward\n\nOptional extended backfill to 36 months is available\n\nCONTROL CENTER\n\nManagement is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.\n\nWORKFLOW\n\nMailbox Intelligence\n\nMission, status, and high-level cleanup summary\n\nCleanup Groups\n\nFull sender-group selection surface\n\nSender Overview\n\nOrientation, scope, and progress before focused review\n\nDecision Mode\n\nOne sender at a time, four actions, no Gmail mutation\n\nManagement\n\nDestination states, execution truth, and follow-up\n\nLEGACY & AUDIT\n\nPending Approvals\n\nLegacy queue surface kept route-safe for older runtime flows\n\nExecuted Actions\n\nLegacy execution audit view\n\nHistory\n\nLegacy audit timeline and runtime history\n\nTOOLS\n\nAI Playground Chat\n\nGeneral chat/testing surface\n\nSELECTED CLEANUP GROUP\n\nProtected / trusted senders\n\nSender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay.\n\nCleanup Groups\nOpen Management\n\nSENDERS IN WORKFLOW SCOPE\n\n—\n\nScoped sender count will appear here as soon as the current cleanup group finishes loading.\n\nMANAGED ALREADY\n\n—\n\nManaged sender coverage will appear once scoped sender truth is ready.\n\nSTILL TO REVIEW\n\n—\n\nReady for review.\n\nSUPPORTING MESSAGES IN WORKFLOW SCOPE\n\n—\n\nScoped supporting-message volume will appear once the current cleanup group finishes loading.\n\nWORK"
+  },
+  "apiRequests": [
+    {
+      "url": "http://localhost:3000/api/integrations/gmail/mailbox-index",
+      "method": "GET",
+      "status": 200,
+      "durationMs": 2968,
+      "action": null,
+      "request_phase": null,
+      "request_reason": null,
+      "analysis_scope": null,
+      "rehydrate_only": null,
+      "transition_edge": null,
+      "ok": null,
+      "error": null,
+      "diagnostics": null
+    },
+    {
+      "url": "http://localhost:3000/api/agents/playground",
+      "method": "POST",
+      "status": 200,
+      "durationMs": 31421,
+      "action": null,
+      "request_phase": null,
+      "request_reason": null,
+      "analysis_scope": "all_indexed",
+      "rehydrate_only": true,
+      "transition_edge": null,
+      "ok": null,
+      "error": null,
+      "diagnostics": null
+    },
+    {
+      "url": "http://localhost:3000/api/integrations/gmail/inbox-analysis",
+      "method": "POST",
+      "status": null,
+      "durationMs": null,
+      "action": "sender_workspace",
+      "request_phase": "deferred",
+      "request_reason": "sender_overview",
+      "analysis_scope": "all_indexed",
+      "rehydrate_only": null,
+      "transition_edge": null,
+      "ok": null,
+      "error": null,
+      "diagnostics": null
+    },
+    {
+      "url": "http://localhost:3000/api/integrations/gmail/inbox-analysis",
+      "method": "POST",
+      "status": 409,
+      "durationMs": 635,
+      "action": "sender_distribution",
+      "request_phase": "initial_paint",
+      "request_reason": "sender_distribution_chart",
+      "analysis_scope": "all_indexed",
+      "rehydrate_only": null,
+      "transition_edge": null,
+      "ok": false,
+      "error": "Initial page-load live analysis is temporarily disabled for safety.",
+      "diagnostics": null
+    }
+  ],
+  "outDir": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/runtime_baseline_unblock"
+}

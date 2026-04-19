@@ -1,0 +1,708 @@
+{
+  "name": "scope_returnAllIndexed",
+  "screenshotPath": "/Users/olivercarlin/Documents/ai-agent-platform/output/playwright/ace047_phase2_final_postsettle/scope_returnAllIndexed.png",
+  "state": {
+    "href": "http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust",
+    "railState": "ready",
+    "railSource": "hydrated_page",
+    "railScope": "all_indexed",
+    "hasRoot": true,
+    "granularity": "month",
+    "bucketCount": 41,
+    "rawBucketCount": 41,
+    "compressedMode": "false",
+    "hiddenBucketCount": 0,
+    "bucketDetails": [
+      {
+        "label": "Dec 2 - Dec 31, 2022",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Dec 31, 2022 - Jan 31, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Jan 31 - Feb 28, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Feb 28 - Mar 31, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Mar 31 - Apr 30, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Apr 30 - May 31, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "May 31 - Jun 30, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Jun 30 - Jul 31, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Jul 31 - Aug 31, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Aug 31 - Sep 30, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Sep 30 - Oct 31, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Oct 31 - Nov 30, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Nov 30 - Dec 31, 2023",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Dec 31, 2023 - Jan 31, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Jan 31 - Feb 29, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Feb 29 - Mar 31, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Mar 31 - Apr 30, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Apr 30 - May 31, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "May 31 - Jun 30, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Jun 30 - Jul 31, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Jul 31 - Aug 31, 2024",
+        "count": 0,
+        "messageCount": 0
+      },
+      {
+        "label": "Aug 31 - Sep 30, 2024",
+        "count": 144,
+        "messageCount": 1667
+      },
+      {
+        "label": "Sep 30 - Oct 31, 2024",
+        "count": 195,
+        "messageCount": 1948
+      },
+      {
+        "label": "Oct 31 - Nov 30, 2024",
+        "count": 205,
+        "messageCount": 1934
+      },
+      {
+        "label": "Nov 30 - Dec 31, 2024",
+        "count": 246,
+        "messageCount": 2245
+      },
+      {
+        "label": "Dec 31, 2024 - Jan 31, 2025",
+        "count": 248,
+        "messageCount": 1997
+      },
+      {
+        "label": "Jan 31 - Feb 28, 2025",
+        "count": 228,
+        "messageCount": 1705
+      },
+      {
+        "label": "Feb 28 - Mar 31, 2025",
+        "count": 248,
+        "messageCount": 2178
+      },
+      {
+        "label": "Mar 31 - Apr 30, 2025",
+        "count": 231,
+        "messageCount": 1943
+      },
+      {
+        "label": "Apr 30 - May 31, 2025",
+        "count": 231,
+        "messageCount": 2078
+      },
+      {
+        "label": "May 31 - Jun 30, 2025",
+        "count": 239,
+        "messageCount": 1856
+      },
+      {
+        "label": "Jun 30 - Jul 31, 2025",
+        "count": 269,
+        "messageCount": 2017
+      },
+      {
+        "label": "Jul 31 - Aug 31, 2025",
+        "count": 227,
+        "messageCount": 1837
+      },
+      {
+        "label": "Aug 31 - Sep 30, 2025",
+        "count": 251,
+        "messageCount": 1905
+      },
+      {
+        "label": "Sep 30 - Oct 31, 2025",
+        "count": 221,
+        "messageCount": 1968
+      },
+      {
+        "label": "Oct 31 - Nov 30, 2025",
+        "count": 203,
+        "messageCount": 1983
+      },
+      {
+        "label": "Nov 30 - Dec 31, 2025",
+        "count": 198,
+        "messageCount": 1971
+      },
+      {
+        "label": "Dec 31, 2025 - Jan 31, 2026",
+        "count": 195,
+        "messageCount": 1739
+      },
+      {
+        "label": "Jan 31 - Feb 28, 2026",
+        "count": 165,
+        "messageCount": 1624
+      },
+      {
+        "label": "Feb 28 - Mar 31, 2026",
+        "count": 180,
+        "messageCount": 1833
+      },
+      {
+        "label": "Mar 31 - Apr 12, 2026",
+        "count": 107,
+        "messageCount": 663
+      }
+    ],
+    "bucketLabels": [
+      "Dec 2 - Dec 31, 2022",
+      "Dec 31, 2022 - Jan 31, 2023",
+      "Jan 31 - Feb 28, 2023",
+      "Feb 28 - Mar 31, 2023",
+      "Mar 31 - Apr 30, 2023",
+      "Apr 30 - May 31, 2023",
+      "May 31 - Jun 30, 2023",
+      "Jun 30 - Jul 31, 2023",
+      "Jul 31 - Aug 31, 2023",
+      "Aug 31 - Sep 30, 2023",
+      "Sep 30 - Oct 31, 2023",
+      "Oct 31 - Nov 30, 2023",
+      "Nov 30 - Dec 31, 2023",
+      "Dec 31, 2023 - Jan 31, 2024",
+      "Jan 31 - Feb 29, 2024",
+      "Feb 29 - Mar 31, 2024",
+      "Mar 31 - Apr 30, 2024",
+      "Apr 30 - May 31, 2024",
+      "May 31 - Jun 30, 2024",
+      "Jun 30 - Jul 31, 2024",
+      "Jul 31 - Aug 31, 2024",
+      "Aug 31 - Sep 30, 2024",
+      "Sep 30 - Oct 31, 2024",
+      "Oct 31 - Nov 30, 2024",
+      "Nov 30 - Dec 31, 2024",
+      "Dec 31, 2024 - Jan 31, 2025",
+      "Jan 31 - Feb 28, 2025",
+      "Feb 28 - Mar 31, 2025",
+      "Mar 31 - Apr 30, 2025",
+      "Apr 30 - May 31, 2025",
+      "May 31 - Jun 30, 2025",
+      "Jun 30 - Jul 31, 2025",
+      "Jul 31 - Aug 31, 2025",
+      "Aug 31 - Sep 30, 2025",
+      "Sep 30 - Oct 31, 2025",
+      "Oct 31 - Nov 30, 2025",
+      "Nov 30 - Dec 31, 2025",
+      "Dec 31, 2025 - Jan 31, 2026",
+      "Jan 31 - Feb 28, 2026",
+      "Feb 28 - Mar 31, 2026",
+      "Mar 31 - Apr 12, 2026"
+    ],
+    "axisLabels": [
+      "Nov '22",
+      "Apr '23",
+      "Oct '23",
+      "Apr '24",
+      "Oct '24",
+      "Apr '25",
+      "Oct '25",
+      "Mar '26"
+    ],
+    "loadingCopy": [],
+    "fallbackCopy": [],
+    "activeSendersText": "269",
+    "supportingMessagesText": "2,017",
+    "truthSummary": "How to read these numbersJun 30 - Jul 31, 2025Active senders in this bucket269Supporting messages in this bucket2,017Senders in current workflow scope1,844269 scoped senders fall inside Jun 30 - Jul 31, 2025. The current workflow scope still contains 1,844 total senders, and this month is one additive slice of that canonical sender-time distribution. 2,017 supporting messages counts emails from those same senders in that month.",
+    "workflowTotals": [
+      "1,844"
+    ],
+    "scopeButtons": [
+      {
+        "text": "Logout",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Logout",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Refresh cleanup analysis",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Smart Sync",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Continue Backfill (36m)",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Run full mailbox reindex",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Commerce / shipping",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Account / service updates",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Marketing / promotional",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 5 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 2 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Show 2 subtypes",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#1oliver@curativemushrooms.com8,004 messages6%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#2support@curativemushrooms.com4,631 messages3%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#3instant-updates@mail.zillow.com2,844 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#4seaworld@m.seaworldparks.com2,772 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#5harryanddavid@harryanddavid-email.com2,597 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "#6automation@networkmerchants.com2,414 messages2%",
+        "pressed": "false",
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Sender Distribution",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Time Context",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "All indexed",
+        "pressed": "true",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1Y",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1Q",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1M",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1W",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "1D",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Custom",
+        "pressed": "false",
+        "busy": "false",
+        "disabled": false
+      },
+      {
+        "text": "Previous",
+        "pressed": null,
+        "busy": null,
+        "disabled": true
+      },
+      {
+        "text": "Next",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Highest impact",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Most recent",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Most unread",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "oliver@curativemushrooms.comReview carefullycurativemushrooms.com · Last activity 4/1/20268,004 msgs7,864 unreadMixed semantic contextCommerce / shipping · mixed semantic readProof on screenPromotions",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "support@curativemushrooms.comReview carefullycurativemushrooms.com · Last activity 3/7/20264,631 msgs4,617 unreadMixed semantic contextAccount / service updates · mixed semantic readProof on screenPersonal",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "automation@networkmerchants.comReview carefullynetworkmerchants.com · Last activity 10/8/20252,414 msgs2,384 unreadCommerce / shippingCommerce / shipping · Service / account updatesProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "instant-updates@mail.zillow.comManagedReview carefullymail.zillow.com · Last activity 4/12/20262,844 msgs2,840 unreadMarketing / promotionalMarketing / promotional · early product launch / updates signalProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "seaworld@m.seaworldparks.comManagedReview carefullym.seaworldparks.com · Last activity 4/12/20262,772 msgs3,910 unreadMarketing / promotionalMarketing / promotional · early deals / discounts signalProof on screenPromotions",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "harryanddavid@harryanddavid-email.comManagedReview carefullyharryanddavid-email.com · Last activity 4/12/20262,597 msgs2,597 unreadMarketing / promotionalMarketing / promotional · early deals / discounts signalProof on screenPromotions",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "noreply@r.groupon.comManagedReview carefullyr.groupon.com · Last activity 4/12/20262,353 msgs2,353 unreadMarketing / promotionalMarketing / promotional · early deals / discounts signalProof on screenPromotions",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "news@smartagents.comManagedReview carefullysmartagents.com · Last activity 4/12/20262,203 msgs2,199 unreadMixed semantic contextMarketing / promotional · mixed semantic readProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "consumer@e.mail.realtor.comManagedReview carefullye.mail.realtor.com · Last activity 4/12/20262,114 msgs3,121 unreadMarketing / promotionalMarketing / promotional · early product launch / updates signalProof on screenUpdates",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "potd@jvzoo.comManagedReview carefullyjvzoo.com · Last activity 7/17/20241,922 msgs1,921 unreadMarketing / promotionalMarketing / promotional · early deals / discounts signalProof on screenPromotions",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Decision Mode",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Quick preview",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Previous",
+        "pressed": null,
+        "busy": null,
+        "disabled": true
+      },
+      {
+        "text": "Next",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "What does this cleanup group represent before I start decisions?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "How many senders are already managed versus still eligible?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "When should I leave Overview and enter Decision Mode?",
+        "pressed": null,
+        "busy": null,
+        "disabled": false
+      },
+      {
+        "text": "Ask",
+        "pressed": null,
+        "busy": null,
+        "disabled": true
+      }
+    ],
+    "textSample": "Automata\nDashboard\nAgents\nAutomations\nSettings\n\noliver.j.carlin@gmail.com\n\nLogout\n\nOPERATIONS WORKSPACE\n\nSession-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.\n\nWORKFLOW SCOPE\n\nThis control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.\n\n1W\n1M\n2M\n1Q\n6M\n1Y\nAll indexed\nRefresh cleanup analysis\n\nRefreshing cleanup analysis does not increase indexed mailbox coverage.\n\nSmart SyncContinue Backfill (36m)Run full mailbox reindex\n\nWorkflow scope view: All indexed · Last refresh: 3:21:47 PM\n\nEffective discovery window: all indexed\n\nLast regenerated: —\n\nMAILBOX INDEX\n\nHistorical backfill complete for recent 24-month window\n\nIndexed rows: 237,628\n\nCoverage: 12/2/2022 -> 4/12/2026\n\nCompleted: 3/19/2026, 2:22:57 PM\n\nBackfill target: recent 24-month window\n\nHistorical cutoff: 3/19/2024\n\nSmart Sync will maintain new activity going forward\n\nOptional extended backfill to 36 months is available\n\nCONTROL CENTER\n\nManagement is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.\n\nWORKFLOW\n\nMailbox Intelligence\n\nMission, status, and high-level cleanup summary\n\nCleanup Groups\n\nFull sender-group selection surface\n\nSender Overview\n\nOrientation, scope, and progress before focused review\n\nDecision Mode\n\nOne sender at a time, four actions, no Gmail mutation\n\nManagement\n\nDestination states, execution truth, and follow-up\n\nLEGACY & AUDIT\n\nPending Approvals\n\nLegacy queue surface kept route-safe for older runtime flows\n\nExecuted Actions\n\nLegacy execution audit view\n\nHistory\n\nLegacy audit timeline and runtime history\n\nTOOLS\n\nAI Playground Chat\n\nGeneral chat/testing surface\n\nSELECTED CLEANUP GROUP\n\nProtected / trusted senders\n\nSender Overview keeps the workflow simple: understand the group, scan the sender list, then open the exact sender you want in the same in-place Decision Mode overlay.\n\nCleanup Groups\nOpen Management\n\nSENDERS IN WORKFLOW SCOPE\n\n1,844\n\nReview is sender-first.\n\nMANAGED ALREADY\n\n13\n\nAlready covered.\n\nSTILL TO REVIEW\n\n1,831\n\nReady for review.\n\nSUPPORTING MESSAGES IN WORKFLOW SCOPE\n\n134,237\n\nSupports sender priority.\n\nWORKFLOW REVIEW GOAL\n\nGive every sender in this cleanup group a decision.\n\nCoverage is sender-level, not message-level.\n\nCOVERED SENDERS\n\n13 / 1,844\n\n1,831 senders still remaining\n\n13 covered · 1,831 remaining\nNext step: review the 1,831 senders that still need a decision in Decision Mode.\n\nPAGE TRUTH GUIDE\n\nThis review page keeps mailbox sync and artifact freshness visible, while hero metrics, workflow scope, sender rows, Sender Distribution, and Time Context now read the same active sender universe.\n\nUnified workflow scope\n\nMAILBOX INDEX / SYNC TRUTH\n\nMailbox index failed\n\nMailbox index coverage currently tracks 237,628 indexed rows. Smart Sync and backfill update this mailbox coverage truth.\n\nARTIFACT FRESHNESS / PUBLICATION TRUTH\n\nArtifact stale\n\nPublished runtime truth last generated 4/16/2026, 6:06:44 AM. Workflow totals and rails read this publication layer separately from live sync progress.\n\nWORKFLOW TRUTH\n\nAll indexed workflow truth\n\nAll indexed is driving the sender workflow, coverage, and Decision Mode queue. Current sender universe: 1,844 senders.\n\nCHART COMPARE TRUTH\n\nWorkflow-aligned chart window\n\nAll indexed is currently driving the chart, workf"
+  },
+  "phase": "scope_All indexed"
+}

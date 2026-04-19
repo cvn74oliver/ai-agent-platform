@@ -1,8 +1,9 @@
 # ✅ TODO — AI Agent Platform (Web)
-_Last updated: 2026-04-01 (ACE-012 hot-file merge hardening propagated • ACE-009/ACE-010 worktree sync and hot-file merge protocol propagated • ACE-008 prompt standardization propagated • ACE-007 multi-thread work captured in the control plane • Cleanup Groups and Time Context follow-up remain open) (cleanup-groups Lane B review-page unit truth accepted • Lane B still active)_
+_Last updated: 2026-04-16 (ACE-047 Time Context Rebuild remains the active governing lane • Time Context remains under controlled phased rebuild • execution remains spec-driven from `TIME_CONTEXT_SPEC.md` and `TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md` • Phase 1 — Runtime Safety / Churn Containment is now accepted and complete • active phase is now Phase 2 — Scope Semantics Lock • runtime READY unblock is accepted and no longer blocks Phase 2 verification • next executable step is Phase 2 final post-settle verification on the accepted route using the locked verification protocol • prior ACE-046 runtime/request hardening and Time Context scoped-state work remain preserved as historical accepted truth • no Time Context implementation may proceed outside the defined rebuild phases • ACE-041 execution efficiency optimization layer remains active system behavior • same-thread carry-forward, checkpoint-based propagation cadence, verification ladder discipline, reasoning-tier optimization, and PM context boundary rules remain governing control-plane expectations • ACE-040 Smart Sync continuity + UI stabilization remains accepted and complete for the canonical Analysis Rail review route • ACE-039 mailbox-index freshness recovery remains accepted and complete as the upstream data-truth contract • ACE-033 Protected Files Enforcement System remains active control-plane truth)_
 
 - Operating model — healthy (`Oliver -> Project Manager -> Codex`)
 - Control Plane — active
+- `ACE-041` execution-efficiency layer — active
 - Orientation layer — active
 - Routing system — active
 - Skills layer — active
@@ -11,6 +12,554 @@ _Last updated: 2026-04-01 (ACE-012 hot-file merge hardening propagated • ACE-0
 ## 🔥 Current Focus (This Week)
 
 ----
+
+- Most recent governing and accepted items:
+  - `ACE-047` Time Context Rebuild is now active:
+    - Time Context is now governed as a phased rebuild lane
+    - behavioral truth is defined in `TIME_CONTEXT_SPEC.md`
+    - execution sequencing is defined in `TIME_CONTEXT_REBUILD_PHASED_EXECUTION_PLAN.md`
+    - active phase is now:
+      - Phase 2 — Scope Semantics Lock
+    - accepted Phase 1 closeout:
+      - eliminated mailbox-index poll loop caused by stale `active_run` gating
+      - runtime now polls only when `execution_state === 'running'`
+      - cold load, scope switching, and idle now operate with zero unnecessary churn
+      - Recovery Contract: `CHANGELOG.md` -> `April 16, 2026 — Phase 1 Runtime Safety Fix`
+    - accepted runtime READY unblock:
+      - canonical protected-trust review route now reaches READY within the locked protocol window
+      - baseline runtime snapshot attaches without blocking on heavy selected-cluster bootstrap
+      - runtime snapshot attachment is no longer the active Phase 2 blocker
+      - Recovery Contract: `CHANGELOG.md` -> `April 16, 2026 — ACE-047 Runtime READY Unblock Accepted`
+    - current next step:
+      - rerun Phase 2 final post-settle verification on the accepted route using the locked verification protocol
+      - verify only after READY is reached
+      - prove `all_indexed` monthly chart truth and the locked scope loop
+      - confirm bucket counts, current-month visibility, and cross-scope parity from post-settle proof
+    - no Time Context implementation may proceed outside the phased rebuild order
+    - accepted historical runtime/request stabilizations remain preserved and must not be reopened without new canonical-route evidence
+  - `ACE-044` Sender Distribution `All indexed` Reconciliation Cleanup is now accepted:
+    - accepted runtime continuity remains stable under `ACE-040`
+    - accepted Time Context render authority remains stable under `ACE-042`
+    - accepted coverage / backfill display remains stable under `ACE-043`
+    - Sender Distribution `All indexed` is now populated on the accepted Operations Review surface
+    - no false `distribution incomplete` state remains
+    - linked-surface parity is aligned across the accepted sender-universe surfaces
+  - `ACE-045` Operations Review Hero/Layout Cleanup is now accepted:
+    - the accepted runtime continuity layer remains stable under `ACE-040`
+    - the accepted Time Context render-authority layer remains stable under `ACE-042`
+    - the accepted coverage / backfill display contract remains stable under `ACE-043`
+    - the accepted Sender Distribution `All indexed` reconciliation contract remains stable under `ACE-044`
+    - Sender Review Goal is restored inside the hero under the KPI cards
+    - Smart Sync continuity and Page Truth Guide remain outside the hero
+    - no visible top-fold regression remains on the accepted Operations Review surface
+    - keep any future copy polish or broader shell redesign separate from this accepted fix
+  - `ACE-043` Coverage / Backfill Display Contract Cleanup is now accepted:
+    - accepted runtime continuity remains stable under `ACE-040`
+    - accepted Time Context render authority remains stable under `ACE-042`
+    - no visible `1970` remains on the accepted Operations Review surface
+    - the shared mailbox coverage/backfill shell now settles onto real mailbox-index truth instead of remaining stuck unavailable
+    - stale epoch-span values may still exist in session storage as non-user-visible technical debt and are not part of the accepted visible defect surface
+    - `ACE-044` is now accepted and closed
+  - `ACE-042` Time Context render authority + scope unification is now accepted:
+    - the runtime continuity layer remains stable under accepted `ACE-040`
+    - the review-page render authority layer is now stabilized on the accepted Operations Review surface
+    - accepted proof includes:
+      - `All indexed -> 1D` settling to hourly `24` buckets
+      - `1W -> 1D` settling to the same hourly `24` buckets independent of prior workflow scope
+      - Smart Sync `1W` / `1M` remaining quantitative with no fallback/status oscillation
+    - follow-on lanes remain separate:
+      - hero/layout cleanup
+  - `ACE-041` Control Plane execution-efficiency optimization layer is active:
+    - same-thread carry-forward is allowed only when governing ACE, active phase, accepted-fix status, approved scope, and governing-truth status remain unchanged
+    - propagation remains mandatory at defined checkpoints and is not required after every micro-step
+    - verification must follow the diagnostic -> correction -> accepted-fix closeout ladder
+    - `MEDIUM` is now the default reasoning tier unless ambiguity, cross-layer risk, or architectural scope requires escalation
+    - `PROJECT_MANAGER_CONTEXT.md` remains the canonical PM operating-model file only and must not become a lane-state ledger
+    - lane-specific truth must continue to live in `CURRENT_STATE.md` and `ACTIVE_CHANGE_EVENTS.md`
+  - `ACE-040` Smart Sync continuity + UI stabilization is now accepted:
+    - `ACE-039` remains complete as the accepted upstream data-truth recovery and must not be reopened unless new proof disproves the fixed source layer
+    - drift-producing Smart Sync now preserves the last stable snapshot during active artifact build instead of crashing forced refresh
+    - the page now swaps to rotated runtime truth without clearing visible content or leaving loading-only / placeholder-only final UI
+    - transient downstream `409` guard churn was proven non-final and non-user-visible in the accepted flow
+    - separate Analysis Rail follow-up moved through the accepted Coverage / Backfill Display Contract Cleanup lane, and Sender Distribution `All indexed` reconciliation later landed as accepted `ACE-044`
+  - `ACE-039` Mailbox-index freshness recovery is now accepted:
+    - current `1W` / `1M` Time Context failures must be treated as a data-truth / source-of-truth recovery problem
+    - this must NOT be treated as a UI grammar-only problem
+    - the chart remains the final pass surface, but the accepted fix now restores the upstream truth feeding that chart
+    - approved root cause was `stale index reuse`
+    - earliest proven failure boundary was the mailbox-index freshness / checkpoint layer
+    - no future pass should hide, compress, or visually remove empty periods when the real expectation is that qualifying recent data should exist
+    - accepted implementation landed in:
+      - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+      - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+    - accepted recovery proof now includes:
+      - raw `gmail_messages` continuity restored across `2026-03-30` through `2026-04-03`
+      - `gmail_sender_stats.last_seen` continuity restored across the same span
+      - `1W` sender workspace now renders `7` non-zero daily buckets from `Mar 31` through `Apr 6`
+      - `1M` sender workspace now renders `30` non-zero daily buckets through late March into early April
+      - corroborating `Custom` workspace and overview both align at `254 active senders / 1143 supporting messages`
+  - `ACE-038` Time Context fixed-slot UI grammar recovery is now accepted:
+    - `ACE-037` remains historically correct as the accepted narrow chart-only fix for `1D` / `Custom`
+    - `1D` and `Custom` remain compressed compare-only/chart-only continuity surfaces
+  - `1W` must preserve a fixed 7-day frame with 7 visible daily buckets, including visible zero slots
+  - `1M` must preserve a fixed 30-day frame with 30 visible daily buckets, including visible zero slots
+  - bars are now visually clamped inside day slots on `1W` / `1M`
+    - this is preserved as accepted historical context only and does not govern the active `ACE-039` mailbox-index recovery lane
+  - `ACE-037` Time Context chart-only continuity recovery is accepted:
+    - `1D` and `Custom` now compress inactive periods out of the visible chart so active bars flow consecutively
+    - explicit disclosure copy now states inactive periods are hidden in compressed mode
+    - raw bucket truth remains authoritative for focused lower-card reads
+    - empty custom windows now render an explicit no-active-time-context state
+  - `ACE-036` Gmail marketing classification coverage + Sender Distribution `1W` UI consistency recovery is accepted:
+    - `semantic.marketing_subscriptions` now rescues broader-row non-human promotional/newsletter senders when the broader sender evidence already resolves to `subscription-senders`
+    - live `30d` marketing artifact moved `subscription-senders` from `192` to `248`
+    - live `30d` marketing artifact moved `needs-review-senders` from `177` to `121`
+    - live recent marketing coverage now reports `missing_promotional_days = []`
+    - exact canonical marketing review route now proves Sender Distribution `1W` clicks to `workflow_scope=7d`
+  - `ACE-035` Gmail artifact-integrity incremental refresh recovery is accepted:
+    - incremental artifact refresh now rewrites impacted preview rows, headers, cluster summaries, and mailbox intelligence from the same projected preview dataset
+    - incremental validation now counts cleanup-candidate preview rows using the same cleanup-group reference rules as mailbox intelligence
+    - live `all_indexed`, `7d`, and `30d` incremental artifact refreshes all published successfully
+    - live logs no longer emit preview/header mismatch or candidate-count mismatch errors
+    - live `1W` continuity = `7` daily buckets and live `1M` continuity = `30` daily buckets
+  - `ACE-034` Gmail Analysis Rail freshness recovery is accepted:
+    - successful publish now clears stale failed freshness metadata
+    - recent-scope publication rows are now created/queued for `7d`, `30d`, `90d`, `180d`, and `365d`
+    - live `7d` artifact publication succeeded and no longer resolves via missing publication truth
+  - `ACE-033` protected-file enforcement is now active control-plane truth; protected files are read-only unless Oliver explicitly scopes them for edit
+  - `ACE-032` turnover alignment is fully propagated; `Analysis Rail PM v2` is now the active lane owner and the lane is reset to `PLAN MODE` before further implementation
+  - `ACE-031` control-plane closeout alignment is fully propagated and closed; the hardened runtime/UI verification standard is now accepted control-plane truth
+  - `ACE-031` did not reopen already-correct source rule files; no pending source-rule rewrite work remains for this event
+  - `ACE-029` control-plane hardening is fully propagated and closed; no pending implementation work remains for this event
+  - Sender Distribution Pass 2 scope congruency is complete and PM-verified
+  - Sender Distribution monthly `30d` truth correction is complete and PM-verified
+- Recovery Contract system status:
+  - `CHANGELOG.md` remains the authoritative recovery ledger for accepted fixes
+  - `TODO.md` carries continuity only and does not duplicate full Recovery Contracts
+- ACE-041 control-plane efficiency status:
+  - propagation cadence optimization is active
+  - verification ladder discipline is active
+  - reasoning-tier optimization is active
+  - PM context boundary rules remain active and unchanged
+  - no conflicting control-plane work should reintroduce full-reload, full-proof, or high-reasoning defaults outside the allowed conditions
+- Protected-file enforcement status:
+  - control-plane documents remain editable when explicitly in scope
+  - protected system-rule and turnover files must not be modified during normal execution or propagation passes without explicit Oliver approval
+- Verification hardening status:
+  - the hardened runtime/UI verification rules are already landed in the authoritative execution-rule sources
+  - this control-plane pass only captures that accepted state and does not reopen those source rule files
+- Analysis Rail lane owner:
+  - `Analysis Rail PM v2`
+- Next shared-analysis executable step is now:
+  - Phase 2 final post-settle verification on the accepted route using the locked verification protocol
+  - Objective:
+    - wait for the READY gate before evaluating Phase 2 truth
+    - prove `all_indexed` renders monthly chart truth without fallback
+    - run the locked scope loop and confirm bucket counts, current-month visibility, and cross-scope parity
+  - Scope:
+    - Phase 2 verification only
+    - canonical protected-trust review route
+    - post-settle screenshots, DOM/state, and request trace tied to the READY state
+  - Constraints:
+    - preserve accepted Phase 1 runtime stability
+    - preserve accepted runtime READY unblock
+    - do not reopen runtime churn containment
+    - do not implement new Time Context semantics during verification
+    - do not move beyond Phase 2 until scope semantics are locked
+  - Preserve accepted historical continuity, guardrail, handoff, scoped-state, runtime-stability, and runtime-readiness contracts while Phase 2 verification executes
+
+### ACE-046 — Analysis Rail Remaining Stability + Time Truth Cleanup
+- [x] Create `ACE-046` in `ACTIVE_CHANGE_EVENTS.md`
+- [x] Set `ACE-046` as the active governing Analysis Rail lane in `CURRENT_STATE.md`
+- [x] Record the remaining Analysis Rail package as the active next-work structure
+- [x] Preserve phase order as governing truth:
+  - Phase 1 — Rail Stability / Request Discipline
+  - Phase 2 — Time Truth / Coverage Congruence
+  - Phase 3 — Canonical Time Context Truth Model Implementation
+- [x] Implement Phase 1 — Rail Stability / Request Discipline
+  - eliminate overlapping Sender Distribution request churn
+  - resolve `already_running` / cooldown contention
+  - stabilize scope switching behavior (`All indexed`, `1Y`, `1Q`, `1M`, `1W`)
+  - clarify/normalize the authoritative scoped request path for protected/trusted senders
+- [x] Record the Phase 1 Recovery Contract in `CHANGELOG.md`
+- [x] Accept Phase 1 as the stable rail request-discipline contract while keeping `ACE-046` active for later phases
+- [x] Accept runtime continuity build-liveness reconciliation under `ACE-046`
+  - stale build rows no longer hold runtime in build-pending indefinitely
+  - runtime continuity now uses reconciled `build_is_live` truth before emitting build-pending state
+  - Recovery Contract: `CHANGELOG.md` -> `April 9, 2026 — ACE-046 Runtime Continuity Build-Liveness Reconciliation Accepted`
+- [x] Accept Smart Sync -> artifact rebuild handoff under `ACE-046`
+  - rebuild now triggers or becomes visible immediately after Smart Sync completion without manual refresh
+  - `flag_disabled` / `cooldown` gating no longer blocks the required handoff
+- [x] Accept runtime guardrail enforcement layer under `ACE-046`
+  - continuity execution matrix is now enforced during build-pending runtime continuity
+  - lifecycle polling is bounded and same-edge refreshes coalesce instead of stacking
+  - critical lifecycle edges bypass stale publication-cache reads while steady-state caching remains intact
+  - guarded heavy-action consumers attach instead of relaunching overlapping runtime work
+  - Recovery Contract: `CHANGELOG.md` -> `April 10, 2026 — ACE-046 Runtime Guardrail Enforcement Layer Accepted`
+- [x] Accept runtime request-flood stabilization under `ACE-046`
+  - build-pending flood is resolved
+  - failed-artifact rehydrate flood is resolved
+  - bounded single-owner polling is now established on the canonical protected-trust review route
+  - Recovery Contract: `CHANGELOG.md` -> `April 13, 2026 — ACE-046 Runtime Request-Flood Stabilization (Build-Pending + Failed-Artifact) Accepted`
+- [x] Implement Phase 2 — Time Truth / Coverage Congruence
+  - preserve protected-trust `all_indexed` review baseline at canonical `1844`
+  - accept scoped Time Context page-state rebuild in `review/page.tsx`
+  - confirm live canonical-route proof on:
+    - `7d`
+    - `30d`
+    - `90d`
+    - `365d`
+  - confirm no render loop / no red overlay / no flicker on the accepted run
+  - confirm bucket isolation on scoped `30d`
+  - Recovery Contract: `CHANGELOG.md` -> `April 11, 2026 — ACE-046 Phase 2 — Scoped Time Context State-Model Rebuild Accepted`
+- [ ] Preserve historical ACE-046 Phase 3 continuity as non-active context only
+  - canonical timeline contract (`ace046_phase3_timeline_v1`) remains historical planning continuity
+  - no Phase 3 implementation may proceed while `ACE-047` Phase 2 is the active governing lane
+  - reconciliation expectations from the former verification-discipline event remain historical acceptance context only until the phased rebuild reactivates a later implementation phase
+
+### ACE-045 — Operations Review Hero/Layout Cleanup
+- [x] Create `ACE-045` in `ACTIVE_CHANGE_EVENTS.md`
+- [x] Set `ACE-045` as the active governing Analysis Rail lane in `CURRENT_STATE.md`
+- [x] Record the current system as:
+  - stable runtime / Smart Sync continuity layer
+  - stable Time Context render authority layer
+  - stable coverage / backfill display contract layer
+  - stable Sender Distribution `All indexed` reconciliation layer
+  - unstable Operations Review hero/layout hierarchy
+- [x] Record the active defect scope explicitly:
+  - hero container cleanup
+  - visual hierarchy restoration
+  - section reordering and grouping on the Operations Review top fold
+  - preserve separation from runtime continuity, Time Context, coverage/backfill, Sender Distribution, and layout redesign beyond the accepted surface
+- [x] Implement Operations Review Hero/Layout Cleanup (`ACE-045`)
+- [x] Capture top-fold proof showing:
+  - Sender Review Goal restored inside the hero under KPI cards
+  - Smart Sync continuity remains outside the hero
+  - Page Truth Guide remains outside the hero
+  - no visible top-fold regression remains
+- [x] Keep Sender Distribution, Time Context, coverage/backfill, and Decision Mode smoke-stable while this layout lane lands
+- [x] Record the accepted Recovery Contract in `CHANGELOG.md`
+- [x] Close `ACE-045` as the accepted Operations Review hero/layout hierarchy contract
+
+### ACE-044 — Sender Distribution `All indexed` Reconciliation Cleanup
+- [x] Create `ACE-044` in `ACTIVE_CHANGE_EVENTS.md`
+- [x] Set `ACE-044` as the active governing Analysis Rail lane in `CURRENT_STATE.md`
+- [x] Record the current system as:
+  - stable runtime / Smart Sync continuity layer
+  - stable Time Context render authority layer
+  - stable coverage / backfill display contract layer
+  - unstable Sender Distribution `All indexed` reconciliation layer
+- [x] Record the active defect scope explicitly:
+  - full-population Sender Distribution truth for `All indexed`
+  - remove the false `distribution incomplete` render-block
+  - align the distribution dataset with the authoritative workflow sender universe
+  - preserve separation from coverage/backfill, Time Context, runtime continuity, and layout work
+- [x] Implement Sender Distribution All indexed Reconciliation Cleanup (`ACE-044`)
+- [x] Capture accepted-surface proof showing:
+  - populated `All indexed` Sender Distribution
+  - no false `distribution incomplete` state
+  - linked-surface parity aligned across workflow summary, sender workflow total, Decision Mode, and workspace pagination total
+- [x] Close out `ACE-044` with a Recovery Contract in `CHANGELOG.md`
+- [x] Activate the separate hero/layout cleanup lane as `ACE-045`
+- Approved architecture for Sender Overview:
+  - pre-`ACE-040` chart-only / workflow-driving splits remain preserved as historical context only where they conflict with the accepted continuity lane
+  - any further Time Context / Sender Distribution scope unification must be re-scoped as a separate lane before execution
+- Explicit Phase 1 boundaries:
+  - preserve prior accepted fixes as historical context
+  - do not expand beyond separately scoped post-`ACE-040` follow-up lanes
+- Execution continuity expectation:
+  - do not treat `1W` / `1M` as a UI grammar-only problem
+  - do not hide, compress, or visually remove empty periods as the primary fix hypothesis when expected recent qualifying data should exist
+  - treat cross-surface parity as mandatory before any new feature work
+  - keep `ACE-039` preserved as the fixed upstream layer while accepted `ACE-040` continuity remains closed unless disproved
+- Separate Gmail artifact follow-up:
+  - `ACE-035` is accepted; do not reopen the fixed incremental artifact-integrity lane unless a new live mismatch is proven
+  - keep any unrelated Smart Sync / mailbox-index runtime noise separate from the accepted artifact publish and continuity recovery
+- Separate shared-analysis lane follow-up:
+  - `ACE-036` is accepted; do not reopen the fixed marketing classification / Sender Distribution `1W` path unless new live coverage gaps or a new dead-chip regression are proven
+  - `ACE-037` and `ACE-038` are preserved as historical accepted context
+  - `ACE-039` remains the accepted upstream data-truth recovery
+  - `ACE-040` is now accepted historical closeout for Smart Sync continuity + UI stabilization
+  - keep the `1970` coverage display anomaly and `all-indexed` Sender Distribution render inconsistency separate from the accepted `ACE-040` contract
+  - `ACE-042` remains accepted historical truth for Time Context render authority + scope unification
+
+### ACE-042 — Time Context Render Authority + Scope Unification
+- [x] Create `ACE-042` in `ACTIVE_CHANGE_EVENTS.md`
+- [x] Set `ACE-042` as the active governing Analysis Rail lane in `CURRENT_STATE.md`
+- [x] Record the current system as:
+  - stable runtime / Smart Sync continuity layer
+  - unstable Time Context render authority layer
+- [x] Record the active defect cluster explicitly:
+  - flicker
+  - scope coupling
+  - chart grammar instability
+- [x] Implement Time Context render authority + scope unification (`ACE-042`)
+- [x] Record the accepted Recovery Contract in `CHANGELOG.md`
+- [x] Close `ACE-042` as the accepted Time Context render authority + scope unification contract
+- [x] Split the follow-on cleanup work into separate Coverage / Backfill and Sender Distribution lanes, with Coverage / Backfill now active under `ACE-043`
+- [x] Promote hero/layout cleanup into the active separate Analysis Rail lane as `ACE-045`
+
+### ACE-043 — Coverage / Backfill Display Contract Cleanup
+- [x] Create `ACE-043` in `ACTIVE_CHANGE_EVENTS.md`
+- [x] Set `ACE-043` as the active governing Analysis Rail lane in `CURRENT_STATE.md`
+- [x] Record the current system as:
+  - stable runtime / Smart Sync continuity layer
+  - stable Time Context render authority layer
+  - unstable coverage / display contract layer
+- [x] Record the active defect scope explicitly:
+  - remove `1970` / epoch fallback leakage
+  - ensure visible coverage reflects the real indexed / backfill window
+  - align mailbox coverage display with mailbox-index truth
+  - fix display-contract interpretation on the review page
+- [x] Implement Coverage / Backfill Display Contract Cleanup (`ACE-043`)
+- [x] Record the accepted Recovery Contract in `CHANGELOG.md`
+- [x] Close `ACE-043` as the accepted coverage / backfill display contract cleanup
+- [x] Keep Sender Distribution `All indexed` queued as the next separate Analysis Rail lane
+
+### ACE-040 — Post-ACE-039 Stabilization, Scope/Chart Parity, and Smart Sync Continuity
+- [x] Record `ACE-040` as the active governing stabilization phase after `ACE-039`
+- [x] Preserve `ACE-039` as the accepted completed data-truth recovery contract
+- [x] Record that post-`ACE-039` work must enforce cross-surface parity before any new feature work
+- [x] Record that no chart is considered correct unless it matches workflow scope and all linked surfaces
+- [x] Record the corrected Smart Sync continuity contract:
+  - snapshot / `cacheVersion` rotation is required only for drift-producing changed-truth completions
+  - a no-op Smart Sync completion is not continuity-failure proof by itself
+- [x] Record the build-pending Smart Sync continuity contract:
+  - forced refresh must not attempt runtime regeneration during `refresh_in_progress / building`
+  - the system must serve the last stable snapshot, expose build-pending state, and rotate `generated_at` / `cacheVersion` only after build completion
+- [x] Implement stable-snapshot-while-building contract
+- [x] Prove drift-producing Smart Sync preserves the last stable snapshot during build-pending continuity
+- [x] Prove final ready-state runtime swap rotates `generated_at` / `cacheVersion` and completes downstream `sender_workspace` / `sender_distribution`
+- [x] Fix final UI stabilization so the page remains populated through the ready-state swap
+- [x] Record the accepted Recovery Contract in `CHANGELOG.md`
+- [x] Close `ACE-040` as the accepted Smart Sync continuity + UI stabilization contract
+
+### ACE-041 — Control Plane Execution Efficiency Optimization Layer
+- [x] Confirm `ACE-041` exists in `ACTIVE_CHANGE_EVENTS.md`
+- [x] Record the efficiency optimization layer as active system behavior in `CURRENT_STATE.md`
+- [x] Confirm `PROJECT_MANAGER_CONTEXT.md` already reflects same-thread carry-forward, propagation cadence, verification ladder, reasoning-tier optimization, and PM context boundary rules
+- [x] Confirm `AGENTS.md` already enforces the ACE-041 operating-model rules
+- [x] Confirm `SYSTEM_MEMORY_MAP.md` remains consistent with PM context canonicalization and lane-truth routing
+- [x] Confirm no conflicting pending TODO guidance remains for propagation cadence, verification ladder, or reasoning-tier optimization
+
+### ACE-039 — Time Context Recent-Period Source-Of-Truth Recovery
+- [x] Record `ACE-039` as the active governing Time Context event in the control plane
+- [x] Preserve `ACE-037` and `ACE-038` as historical accepted context
+- [x] Record that current `1W` / `1M` failures are a recent-period data-truth / source-of-truth recovery problem
+- [x] Record that this must NOT be treated as a UI grammar-only problem
+- [x] Record that the chart remains the final pass surface but the implementation target is the upstream truth feeding the chart
+- [x] Record that no future pass should hide, compress, or visually remove empty periods when the real expectation is that qualifying recent data should exist
+- [x] Record the approved root cause as `stale index reuse`
+- [x] Record the earliest proven failure boundary as the mailbox-index freshness / checkpoint layer
+- [x] Set the next executable step to mailbox-index freshness recovery implementation in:
+  - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- [x] Record the active recovery target explicitly:
+  - detect false healthy state
+  - stop treating stale cached index truth as usable
+  - force fresh head-of-mailbox recovery
+  - prevent stale checkpoint reuse from governing recent recovery
+- [x] Implement mailbox-index false-healthy detection in:
+  - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+- [x] Upgrade `smart_sync` recent-gap recovery from stale incremental reuse to fresh head-of-mailbox recovery
+- [x] Disable checkpoint resume during recent-gap recovery and terminate the recovery run at the recent-window boundary
+- [x] Live-verify restored upstream truth in:
+  - raw `gmail_messages`
+  - `gmail_sender_stats`
+  - `sender_workspace`
+  - final Time Context `1W`
+  - final Time Context `1M`
+  - corroborating `Custom`
+- [x] Record the accepted Recovery Contract in `CHANGELOG.md`
+
+### ACE-038 — Time Context Continuity Grammar Clarification
+- [x] Record `ACE-038` as the governing Time Context continuity event in the control plane
+- [x] Preserve `ACE-037` as the accepted narrow historical fix for `1D` / `Custom`
+- [x] Propagate the clarified surface grammar into:
+  - `CURRENT_STATE.md`
+  - `TODO.md`
+  - `PROJECT_MANAGER_CONTEXT.md`
+  - `ACTIVE_CHANGE_EVENTS.md`
+- [x] Record the governing split explicitly:
+  - `1D` / `Custom` = compressed compare-only/chart-only continuity
+  - `1W` = fixed 7-day frame with visible zero slots
+  - `1M` = fixed 30-day frame with visible zero slots
+- [x] Record that this clarification is UI grammar only and does not approve runtime/data-path changes
+- [x] Set the next executable step to:
+  - narrow UI grammar correction implementation pass for `1W` / `1M`
+- [x] Start the narrow UI grammar correction implementation pass for `1W` / `1M`
+- [x] Clamp visible `1W` / `1M` bars to their fixed day-slot bounds without changing bucket counts
+- [x] Keep `1W` / `1M` zero days visibly reserved in the final chart
+- [x] Keep `1D` / `Custom` compressed behavior unchanged
+- [x] Live-verify exact accepted defect surfaces `1W` and `1M` with screenshot, DOM/state, and request-trace proof
+- [x] Record the accepted Recovery Contract in `CHANGELOG.md`
+
+### ACE-037 — Time Context Chart-Only Continuity Recovery
+- [x] Load the approved narrow post-turnover plan for Time Context chart-only continuity
+- [x] Add a Time Context render adapter for `last_day` and `custom` that derives compressed visible chart items from raw bucket items
+- [x] Stop rendering zero-value placeholder slots in compressed mode
+- [x] Preserve raw bucket truth for hover, focus, and lower-card readouts
+- [x] Add explicit inactive-period disclosure in compressed mode
+- [x] Preserve explicit empty-state behavior for fully empty compressed windows
+- [x] Keep `All indexed`, `1Y`, `1Q`, `1M`, and `1W` unchanged in this pass
+- [x] Live-verify cold `1D` and sparse `Custom` on the canonical review route with screenshot, DOM/state, and request-trace proof
+- [x] Live-verify explicit empty-state behavior on an empty custom window
+- [x] Record the accepted Recovery Contract in `CHANGELOG.md`
+
+### ACE-036 — Gmail Marketing Classification Coverage + Sender Distribution `1W` UI Consistency Recovery
+- [x] Diagnose recent Gmail-vs-cluster mismatch for `semantic.marketing_subscriptions`
+- [x] Identify the avoidable exclusion path in sender classification
+- [x] Narrowly relax marketing classification so broader-row subscription evidence can rescue non-human promotional/newsletter senders
+- [x] Preserve artifact pipeline, Smart Sync ingestion, workflow-window logic, and route shape
+- [x] Fix Sender Distribution `1W` click path without weakening workflow truth or detached-rail safeguards
+- [x] Repo-verify marketing broader-row rescue with fixture coverage
+- [x] Live-verify published `30d` marketing artifact improves realistic coverage
+- [x] Live-verify recent marketing coverage reports `missing_promotional_days = []`
+- [x] Live-verify the exact canonical marketing review route updates to `workflow_scope=7d` when Sender Distribution `1W` is clicked
+- [x] Live-verify the accepted click flow shows no `409` guard churn
+
+### ACE-035 — Gmail Artifact Integrity Incremental Refresh Recovery
+- [x] Fix incremental preview/header mismatch by rebuilding impacted preview rows from the projected cluster output before validation and persistence
+- [x] Fix incremental candidate-count mismatch by validating cleanup-candidate preview rows with the same cleanup-group reference rules used by mailbox intelligence
+- [x] Preserve integrity checks and partial-build rejection behavior
+- [x] Live-verify Smart Sync still produces real incremental mailbox drift
+- [x] Live-verify `all_indexed` incremental artifact refresh publishes successfully instead of failing integrity validation
+- [x] Live-verify `7d` and `30d` incremental artifact refreshes publish successfully
+- [x] Live-verify forbidden integrity log fragments are absent:
+  - `references missing header`
+  - `candidate message count no longer matches preview rows`
+- [x] Live-verify week/month continuity:
+  - `1W / 7d` = `7` daily buckets
+  - `1M / 30d` = `30` daily buckets
+
+### ACE-034 — Gmail Analysis Rail Smart Sync Freshness Recovery
+- [x] Clear stale failed freshness metadata on successful publish for the build/version that actually published
+- [x] Manage recent publication scopes during Smart Sync artifact refresh planning:
+  - `7d`
+  - `30d`
+  - `90d`
+  - `180d`
+  - `365d`
+- [x] Preserve `unavailable_scope` as an integrity safeguard
+- [x] Repo-verify stale publish recovery with simulated stale failed freshness metadata
+- [x] Live-verify recent-scope publication rows are created or queued instead of silently skipped
+- [x] Live-verify `7d` publishes successfully and no longer fails through missing recent publication truth
+- [x] Live-verify injected `refresh_failed` freshness on `7d` is cleared by a later successful publish
+- Separate performance follow-up item:
+  - `1Y` still has a significant workflow-load delay; `1Q` is slower than ideal but materially better; `1W` is near-instant. This is a separate future performance diagnosis item and not part of the accepted monthly `30d` Sender Distribution truth fix.
+- Keep weekly auto-scroll / refocus polish and any transient post-click settle notes separate from the accepted `ACE-025` truth fix.
+- Keep transient loading jitter / temporary empty hero state during route churn separate as a non-blocking runtime issue, not part of accepted weekly `ACE-025`.
+
+### ACE-033 — Protected Files Enforcement System
+- [x] Record protected-file enforcement as active control-plane truth
+- [x] Record that protected files now enforce read-only boundaries unless Oliver explicitly scopes them for edit
+- [x] Keep this propagation pass scoped to control-plane documents only
+- [x] Do not modify protected files during this pass
+- [ ] Apply the protected-file boundary consistently on future execution, propagation, and turnover passes
+- [ ] Require explicit Oliver approval before any future protected-file edit attempt
+
+### ACE-032 — Analysis Rail PM v2 Turnover Activation
+- [x] Retire `Analysis Rail PM v1` and activate `Analysis Rail PM v2` in the control plane
+- [x] Align `CURRENT_STATE.md`, `TODO.md`, `PROJECT_MANAGER_CONTEXT.md`, `ACTIVE_CHANGE_EVENTS.md`, and `CHANGELOG.md` to the new Analysis Rail lane ownership
+- [x] Reset the Analysis Rail lane so immediate next work is `PLAN MODE`, not direct implementation
+- [x] Run `PLAN MODE` for `1D` Time Context correction and stability under `Analysis Rail PM v2`
+- [x] Approve the post-turnover narrow implementation path before any Analysis Rail EXECUTION MODE thread starts
+
+### ACE-031 — Verification Hardening Closeout Alignment
+- [x] Locate the revised `ACE-031` closeout-alignment event in `ACTIVE_CHANGE_EVENTS.md`
+- [x] Record that the hardened runtime/UI verification standard is now accepted control-plane truth
+- [x] Record that the authoritative execution-rule source documents already contained the hardened rules before this pass
+- [x] Keep this pass scoped to control-plane alignment only
+- [x] Do not reopen or rewrite already-correct source rule files in this pass
+- [x] Close `ACE-031` as fully propagated once all listed control-plane docs are aligned
+
+### ACE-030 — Sender Overview `1D` / `Custom` Chart-Only Architecture
+- [x] Capture the approved Sender Overview architecture in the control plane
+- [x] Record that `1D` and `Custom` are approved as chart-only windows
+- [x] Record that existing accepted chips remain workflow-driving:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+- [x] Commit the next shared-analysis execution step as:
+  - `Phase 1 — Time Context only` implementation
+- [x] Record that Sender Distribution `1D` / `Custom` rendering is deferred to a later phase
+- [x] Record that no `workflow_scope` or `analysis_scope` expansion is approved in Phase 1
+- [x] Re-enter the Analysis Rail lane in `PLAN MODE` for `1D` Time Context correction and stability before Phase 1 execution resumes
+- [x] Execute `Phase 1 — Time Context only` implementation for chart-only `1D` / `Custom` after the post-turnover plan is approved
+- [x] Keep Sender Distribution unchanged in Phase 1
+- [x] Keep route/query behavior unchanged in Phase 1
+
+### ACE-027 — Sender Distribution Pass 2 Scope Congruency
+- [x] Capture Sender Distribution scope-congruency Pass 2 as the committed next execution step in the control plane
+- [x] Execute the narrow Sender Distribution-only pass in:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- [x] Restrict visible Sender Distribution chips to:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+- [x] Remove visible `2M` / `6M` from Sender Distribution UI only
+- [x] Keep `1D` and `Custom` deferred and out of this pass
+- [x] Preserve:
+  - Time Context behavior
+  - backend/API contracts
+  - route/query shape
+  - `OperationsAnalysisScope`
+  - lower-card anchoring
+  - monthly `30d`, weekly `7d`, and `all_indexed` accepted parity
+  - Decision Mode semantics
+  - pagination
+  - sender ordering logic
+
+### ACE-028 — Sender Distribution Monthly `30d` Truth Correction
+- [x] Diagnose the remaining Sender Distribution `1M` / `workflow_scope=30d` truth mismatch on the protected-trusted review route
+- [x] Confirm the exact divergence point is the Sender Distribution persisted-snapshot shortcut, not workflow truth or Time Context
+- [x] Implement the smallest safe backend fix in:
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+- [x] Exclude `analysisScope === '30d'` from the Sender Distribution persisted snapshot shortcut
+- [x] Preserve:
+  - route/query shape
+  - API contract shape
+  - Time Context behavior
+  - Decision Mode semantics
+  - sender ordering logic
+  - pagination behavior
+  - `1W`, `1Q`, `1Y`, and `all_indexed`
+- [x] PM-verify:
+  - Sender Distribution `1M` = `48`
+  - workflow below = `48`
+  - Time Context `1M` remains correct
+- [x] Record the separate performance note without treating it as an open blocker on the accepted monthly truth fix
+
+### ACE-026 — Time Context Pass 1 Scope Congruency
+- [x] Introduce a Time Context-local chart-scope adapter without changing Sender Distribution
+- [x] Expose the accepted visible Time Context scope grammar:
+  - `All indexed`
+  - `1Y`
+  - `1Q`
+  - `1M`
+  - `1W`
+- [x] Preserve safe workflow mapping:
+  - `all_indexed -> all_indexed`
+  - `last_year -> 365d`
+  - `last_quarter -> 90d`
+  - `last_month -> 30d`
+  - `last_week -> 7d`
+- [x] Keep `1D` and `Custom` intentionally hidden in Pass 1
+- [x] Preserve accepted parity for:
+  - `all_indexed`
+  - monthly `30d`
+  - weekly `7d`
+  - lower-card anchoring
+- [x] Confirm Sender Distribution behavior remains unchanged in PM review
+- [x] Record the observed `1Y` / `1Q` load-time cost as a separate issue, not part of acceptance
+- [x] Commit the next narrow follow-up thread as:
+  - Sender Distribution scope-congruency Pass 2
+- [x] Keep narrow `1Y` / `1Q` performance diagnosis deferred as a separate non-blended lane
 
 ### ACE-009 — Worktree Sync Automation + Conflict Recovery System
 - [x] Define docs-only sync as the official control-plane / documentation sync path between `main` and active worktrees
@@ -60,24 +609,68 @@ _Last updated: 2026-04-01 (ACE-012 hot-file merge hardening propagated • ACE-0
   - `00_core_context/agent_activation_checklist.md` (new file is called something else)
 - [x] Preserve ACE-006 operating-model language while migrating current work into the control plane
 
-### Shared Analysis Rail — Time Context Rebuild
-- [x] Capture Lane A as implemented for:
-  - scope strip enforcement on `All Indexed`, `1M`, and `1W`
-  - monthly/daily bucket grammar correctness
-  - empty interval preservation
-- [x] Capture the current Time Context truth fixes:
-  - row-backed monthly aggregation
-  - same-array truth enforcement between chart and workflow
-  - removal of artifact-seeded timeline mismatch
-  - non-additive bucket truth clarification
-  - axis readability improvements
-  - ghost-slot rendering for zero buckets
-- [ ] Complete the broader Time Context grammar lock
-- [ ] Lock the bucket-to-workflow filtering contract (Lane B)
-- [ ] Prove interactive chart/workflow parity under that narrowing contract
-- [ ] Finish residual data validation and reconciliation
-- [ ] Resolve residual empty `action:""` inbox-analysis runtime noise as a separate follow-up
-- [ ] Keep the runtime-noise follow-up separate from Time Context rebuild acceptance
+### ACE-023 — Time Context Monthly `30d` Trust Recovery
+- [x] Record `ACE-023` as the governing Time Context change event
+- [x] Record the stable rollback baseline as the execution floor for this lane
+- [x] Lock Time Context trust recovery to the phased model:
+  - Phase 1 — Monthly Trust Diagnosis
+  - Phase 2 — Monthly Trust Correction
+  - Phase 3 — Parity Confirmation
+  - Phase 4 — Scope Consistency
+  - Phase 5 — Polish
+- [x] Lock active implementation scope to the monthly `30d` mismatch only
+- [x] Record `All Indexed` and `1W` as control comparisons only
+- [x] Record Sniper Mode constraints for this lane:
+  - no UI polish
+  - no performance work
+  - no runtime hygiene work
+  - no multi-surface fixes until monthly truth is stable
+- [x] Confirm the exact monthly mismatch path from the stable rollback baseline
+- [x] Fix monthly Time Context bucket truth mismatch
+- [x] Implement the smallest safe monthly-only correction for the `30d` lane
+- [x] Run monthly parity confirmation after the correction lands
+  - protected-trusted / `30d`: clicked monthly bucket count matches the filtered sender total below
+  - request/response monthly truth matches the visible monthly bucket truth
+- [x] Re-check `All Indexed` and `1W` only as control comparisons after the monthly correction
+- [x] Keep `ACE-005` runtime-noise follow-up separate from `ACE-023`
+
+### ACE-024 — Time Context Lower-Card Anchoring
+- [x] Complete the narrow PLAN MODE diagnosis pass for selected-bucket lower-card anchoring after Time Context selection
+- [x] Implement the rail-only lower-card anchoring fix inside `web/src/components/runtime/GmailCleanupComponents.tsx`
+- [x] Make the selected bucket the authoritative lower-card truth while a bucket is active
+- [x] Keep hover preview-only so tooltip/quick read can change without replacing lower-card truth
+- [x] Restore the existing default-focus lower-card behavior after `Clear narrowed state`
+- [x] Keep review-page selection flow, route/session behavior, workflow narrowing, monthly truth logic, backend/API, and chart render source unchanged
+- [x] Run targeted ESLint on the changed component
+- [x] PM/browser-validate:
+  - click bucket → lower card anchors to selected bucket
+  - hover another bucket → tooltip/preview changes but lower card stays selected
+  - unhover → lower card still stays selected
+  - clear narrowed state → lower card returns to default focus
+  - no regression in selected outline, workflow narrowing, or monthly truth
+- [x] Accept and close `ACE-024` as a separate fix that does not include the weekly `1W` inconsistency
+
+### ACE-025 — Time Context Weekly `1W` Truth Alignment
+- [x] Complete the narrow PLAN MODE diagnosis pass for the weekly `workflow_scope=7d` mismatch only
+- [x] Make persisted-snapshot `7d` Time Context overview timelines row-backed before broad weekly chart data is returned
+- [x] Keep the weekly chart bucket truth aligned with the row-backed narrowed workflow bucket truth
+- [x] Make the weekly bucket-active lower-card workflow-scope total settle from the narrowed workflow coverage workspace
+- [x] Keep `30d`, `all_indexed`, label transport, visuals, and unrelated backend/API behavior unchanged
+- [x] Run targeted ESLint on the changed files
+- [x] Run focused TypeScript grep for the changed files
+- [x] Record the accepted weekly Sender Overview / Time Context baseline on the canonical route:
+  - `/operations/review?workflow_scope=7d&cluster_id=structural.protected_trust`
+  - fresh Time Context base view shows one populated visible UTC-day bucket
+  - visible weekly sender/workflow totals remain internally coherent
+  - bucket drilldown remains coherent after click
+- [x] PM/browser-verify the weekly `1W` route and close `ACE-025` if accepted
+  - accepted broad weekly baseline = one populated visible day bucket
+  - visible weekly workflow total matches the visible sender universe on the tested route
+  - populated-bucket drilldown settles coherently after click
+  - transient loading jitter / temporary empty hero state during route churn remains a separate non-blocking runtime issue
+
+### Time Context — Post-ACE-023 Remaining Narrow Follow-Ups
+- [ ] Keep auto-scroll / refocus as separate polish-only follow-up work
 ### 🚧 Cleanup Groups — Structural Rebuild (NEW PRIMARY FOCUS)
 
 - [x] Phase 0 — Baseline lock
@@ -147,7 +740,20 @@ Notes:
 - Lane B is active, with spillover review-unit integrity and review-page unit-truth correction accepted.
 - Lane B is not yet closed.
 - Residual empty-action inbox-analysis runtime noise remains open as a separate follow-up.
-- Do not widen the next thread beyond the locked Lane B scope.
+- Cleanup Groups Lane B review entry behavior remains active as a separate workstream.
+- The Analysis Rail lane is now governed by `Analysis Rail PM v2`.
+- The next shared-analysis executable step is now:
+  - run a narrow `PLAN MODE` diagnostic for recent-period Time Context truth on:
+    - `1W`
+    - `1M`
+    - corroborating `Custom` windows
+  - diagnostic focus must be upstream truth:
+    - row-backed timeline inputs
+    - artifact freshness / snapshot truth
+    - recent-scope publication correctness
+    - timeline-source divergence
+    - related runtime/data-path defects
+- Keep Cleanup Groups Lane B separate from the shared-analysis planning-reset lane; do not widen them into each other.
 
 ----
 
