@@ -188,7 +188,8 @@ Status: ACTIVE — GIT PRESERVATION PASS; WORKTREE-RETIREMENT/HANDOFF PREPARATIO
   - [x] Git preservation PASS: main/cleanup/candidate branches pushed with parity; temporary worktree removed after proof
   - [ ] Worktree uniqueness audit then safe retirement; formal Claude handoff/root `CLAUDE.md`; final reconciliation before any ACE-049 activation
   - [x] Successor handoff artifacts authored; classification audit-ready, not implementation-ready
-  - [ ] Transfer/commit/push eight documentation artifacts; Claude first assignment is read-only live-state audit; ACE-049 inactive
+  - [x] Eight successor documentation artifacts committed/pushed on main `1caf3b20ff3694146845c1eba016cfae6323fbfd`; local/tracking/live parity and clean main confirmed
+  - [ ] Claude first assignment: read-only live-state audit and handoff reconciliation; ACE-049 inactive
   - [x] Redundant `56ab`, `9ae2`, `ad0d`, cleanup checkout retired after redundancy proof; refs retained
   - [ ] Candidate correction: add accepted artifact store to make exact seven-file live parity before `33ad` retirement
   - [ ] Archive identical `7865`/`a985` two-file intermediate state once on superseded/non-authoritative branch; push/parity before retirement

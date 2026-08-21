@@ -1005,7 +1005,8 @@ Final successor-handoff authoring — audit-ready, 2026-08-21:
 - Candidate preservation is live `2597caf8a55da22aa4801958e156c2d665641c74` with exact seven accepted/build-proven files. Archival superseded/intermediate branch is live `59f6c7a778084ccad4aaa60985a989d807e36af1` with exact two files. Main `2ffcae1f...` and cleanup `c690dffe...` remain live.
 - Worktree deletion of `33ad` was rejected by destructive-action safety because it would discard superseded control-plane variants and duplicated local proof. `33ad`, `7865`, `a985`, and active CPA `95b7` remain; deletion needs explicit operator decision. Previously removed `56ab`, `9ae2`, `ad0d`, and cleanup checkout remain preserved by branches.
 - Authoritative successor artifacts: root `CLAUDE.md`, `docs/00_control_plane/handoffs/CODEX_TO_CLAUDE_HANDOFF.md`, and `docs/00_control_plane/handoffs/CLAUDE_FIRST_ASSIGNMENT.md`.
-- Classification: SUCCESSOR AUDIT READY / SUCCESSOR IMPLEMENTATION NOT READY. `ACE-049` remains queued/inactive. Next: transfer/commit/push the eight documentation artifacts, then Claude performs read-only audit and reconciles handoff against live state.
+- The exact eight successor documents are committed/pushed on main as `1caf3b20ff3694146845c1eba016cfae6323fbfd` (`docs: add Claude successor handoff`); local main, `origin/main`, and live remote main have parity, and main worktree/index/unmerged state is clean with diff-check PASS.
+- Classification: SUCCESSOR AUDIT READY / SUCCESSOR IMPLEMENTATION NOT READY. `ACE-049` remains queued/inactive. Next: Claude performs the read-only institutional audit and reconciles the live handoff against refs, worktrees, and authoritative state; no implementation is authorized.
 
 Explicit non-claims:
 - Current-tree remediation does not claim Git-history remediation, broader credential rotation, route hardening, framework upgrade, Vercel adjudication, schema reconciliation, cleanup-lineage integration, or product implementation.

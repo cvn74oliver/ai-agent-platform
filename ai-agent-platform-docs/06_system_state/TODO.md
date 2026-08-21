@@ -247,7 +247,8 @@ _Last updated: 2026-08-21 • two-file response-lifecycle correction source ACCE
   - [ ] Preserve identical `7865`/`a985` intermediate two-file state on `codex/archive/ace-048-intermediate-lifecycle`, labeled superseded/non-authoritative; push/parity then retire only `7865`/`a985`.
   - [ ] Prepare formal Claude handoff and root `CLAUDE.md` importing official `AGENTS.md`; first successor task read-only audit; activate `ACE-049` only after final reconciliation/readiness.
   - [x] Successor handoff artifacts authored: root `CLAUDE.md`, formal handoff, and self-contained first read-only assignment.
-  - [ ] Transfer/commit/push all eight successor/control-plane documentation artifacts, then run Claude read-only audit against live refs/worktrees/control plane. `ACE-049` stays inactive.
+  - [x] Transfer/commit/push all eight successor/control-plane documentation artifacts: live main/origin/main parity at `1caf3b20ff3694146845c1eba016cfae6323fbfd` (`docs: add Claude successor handoff`), with main clean and diff-check passed.
+  - [ ] Run Claude's read-only audit against live refs/worktrees/control plane and reconcile any factual discrepancy before implementation. `ACE-049` stays inactive.
   - [x] Precheck abort: no build consumed; canonical default-porcelain fingerprint is `e9fc350d28b88335b17bbcb36ff1f7fd74793cee9d262a76f6768fee566ca61d`, not supplied `48e3e70e`; all-untracked/NUL variants are non-blocking distinct algorithms.
   - [ ] Before build, verify original-main ignored `web/.env.local` exists; copy it byte-for-byte temporarily to candidate without reading/logging values; validate names/presence only; remove after sanitized evidence capture and exclude from evidence.
   - [x] Precheck abort #2: six candidate native modules byte-identical to original main; persistent `com.apple.provenance` is non-causal metadata and must be recorded, not removed. No xattr mutation retry.

@@ -222,7 +222,8 @@ Project Manager: Automata Control Plane active (current implementation environme
 - Preserved candidate branch is live `2597caf8a55da22aa4801958e156c2d665641c74` with seven accepted/build-proven files; archival intermediate branch is live `59f6c7a778084ccad4aaa60985a989d807e36af1`; main `2ffcae1f...`, cleanup `c690dffe...`.
 - Root `CLAUDE.md` imports `AGENTS.md`; formal handoff and first read-only assignment are authoritative under `docs/00_control_plane/handoffs/`.
 - `33ad`, `7865`, `a985`, and CPA `95b7` remain because destructive safety rejected deletion that could discard local variants/proof. Any deletion requires explicit operator authority after audit.
-- Next: land eight documentation artifacts, then Claude performs the read-only institutional audit. `ACE-049` remains inactive until successor-readiness criteria and final reconciliation are met.
+- The exact eight handoff/control-plane documents are live on main at `1caf3b20ff3694146845c1eba016cfae6323fbfd` (`docs: add Claude successor handoff`); local main, `origin/main`, and live remote main are in parity, with main worktree/index/unmerged clean.
+- Next: Claude performs the read-only institutional audit. `ACE-049` remains inactive until successor-readiness criteria and final reconciliation are met; no implementation is authorized.
 
 #### Worktree-retirement audit correction — bounded preservation active
 
