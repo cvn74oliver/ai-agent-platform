@@ -24,6 +24,10 @@ import {
   buildPersistedSemanticRollupArtifactFields,
 } from '@/lib/integrations/gmail/gmailSemanticRollupContract'
 import {
+  materializeGmailReviewUnits,
+  validateGmailReviewUnitContract,
+} from '@/lib/integrations/gmail/gmailReviewUnitContract'
+import {
   activityTimelineBucketKeyForTimestamp,
   activityTimelineGranularityForScope,
   assignSenderCleanupGroupDecision,
@@ -43,6 +47,7 @@ import {
   senderSignalFromText,
   type GmailAnalysisScope,
   type GmailCleanupClusterSpec,
+  type CleanupGroupArtifactSurfaceDecision,
 } from '@/lib/integrations/gmail/inboxAnalysis'
 import {
   loadGmailPreviewIndexRowsForArtifactVersion,
@@ -76,6 +81,7 @@ import type {
   GmailMailboxIntelligenceData,
   GmailPressureTimelineBucket,
   GmailSenderWorkspaceData,
+  GmailSharedGroupSemanticRollup,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 
 const STREAM_BATCH_SIZE = 1000
@@ -84,6 +90,49 @@ const FINALIZE_SENDER_STATS_BATCH_SIZE = 50
 const SUPABASE_RETRY_ATTEMPTS = 4
 const SUPABASE_RETRY_DELAY_MS = 750
 const STRUCTURAL_PREVIEW_SEED_LIMIT = 5
+
+function reviewUnitBasisForParent(params: {
+  sourceClusterId: string
+  projectedClusterId: string
+}): GmailSharedGroupSemanticRollup['review_unit_plan']['basis'] {
+  if (
+    params.projectedClusterId === 'semantic.marketing_subscriptions' ||
+    params.projectedClusterId.startsWith('semantic-parent:subscription-senders:')
+  ) {
+    return 'subtype-first'
+  }
+  if (
+    params.projectedClusterId === 'structural.protected_trust' ||
+    params.sourceClusterId === 'protected-trusted-senders'
+  ) {
+    return 'protection-reason-first'
+  }
+  if (
+    params.projectedClusterId === 'structural.unresolved' ||
+    params.sourceClusterId === 'needs-review-senders'
+  ) {
+    return 'exclusion-reason-first'
+  }
+  return 'family-first'
+}
+
+function latestReviewUnitArtifactCutoffAt(
+  drafts: Array<{
+    clusterSeedSenders: Array<{ seedRow: GmailSenderWorkspaceSeedRow }>
+  }>
+): string {
+  const timestamps = drafts
+    .flatMap((draft) => draft.clusterSeedSenders.map((entry) => entry.seedRow.last_activity_at))
+    .filter(
+      (value): value is string =>
+        typeof value === 'string' && Number.isFinite(Date.parse(value)) && Date.parse(value) > 0
+    )
+    .sort((left, right) => Date.parse(right) - Date.parse(left))
+  if (!timestamps[0]) {
+    throw new Error('Review-unit candidate generation requires a deterministic artifact cutoff timestamp.')
+  }
+  return timestamps[0]
+}
 
 export type GmailMailboxStreamRow = {
   tenant_id: string
@@ -2058,6 +2107,7 @@ function buildSeedRowsAndHeaders(params: {
           cluster_id: clusterId,
           sender_key: rollupRow.sender_key,
           artifact_version: params.artifactVersion,
+          review_unit_id: null,
           default_rank: senderIndex + 1,
           sender: rollupRow.sender,
           sender_domain: rows[0]
@@ -2078,6 +2128,7 @@ function buildSeedRowsAndHeaders(params: {
           seed_payload: {
             assigned_cleanup_group_id: rollupRow.assigned_cleanup_group_id,
             assignment_reason: rollupRow.assignment_reason,
+            cleanup_exclusion_reason: rollupRow.cleanup_exclusion_reason,
             is_cleanup_candidate: rollupRow.is_cleanup_candidate,
             category_summary: categoryProfile.category_summary,
             dominant_pattern: dominantPattern,
@@ -2204,12 +2255,88 @@ function buildSeedRowsAndHeaders(params: {
     }))
   )
 
+  const globalSenderKeys = new Set<string>()
+  let globalParentSenderCount = 0
+  for (const draft of clusterDrafts) {
+    globalParentSenderCount += draft.senderCount
+    for (const entry of draft.clusterSeedSenders) {
+      if (globalSenderKeys.has(entry.seedRow.sender_key)) {
+        throw new Error(`Review-unit candidate assigns sender ${entry.seedRow.sender_key} to multiple parents.`)
+      }
+      globalSenderKeys.add(entry.seedRow.sender_key)
+    }
+  }
+  if (globalSenderKeys.size !== globalParentSenderCount) {
+    throw new Error('Review-unit candidate parent totals do not equal the global cleanup universe.')
+  }
+  const reviewUnitArtifactCutoffAt = latestReviewUnitArtifactCutoffAt(clusterDrafts)
+
   for (const draft of clusterDrafts) {
     const surfacePlan = surfacePlans.get(draft.sourceClusterId) || null
+    if (!surfacePlan) {
+      throw new Error(`Review-unit candidate is missing a surface plan for ${draft.sourceClusterId}.`)
+    }
     const projectedClusterId = surfacePlan?.projectedClusterId || draft.sourceClusterId
+    const actionable = surfacePlan.surface.kind !== 'historical_parent'
+    const reviewUnitBasis = reviewUnitBasisForParent({
+      sourceClusterId: draft.sourceClusterId,
+      projectedClusterId,
+    })
+    const materializedReviewUnits = materializeGmailReviewUnits({
+      parentId: projectedClusterId,
+      parentLabel: surfacePlan.projectedTitle || draft.clusterSpec.title,
+      basis: reviewUnitBasis,
+      actionable,
+      artifactCutoffAt: reviewUnitArtifactCutoffAt,
+      senders: draft.clusterSeedSenders.map((entry) => ({
+        senderKey: entry.seedRow.sender_key,
+        semanticFamilyKey: entry.seedRow.semantic_family_key,
+        semanticSubtypeKey: entry.seedRow.semantic_subtype_key,
+        semanticPatternKey: entry.seedRow.semantic_pattern_key,
+        lastActivityAt: entry.seedRow.last_activity_at,
+        messageCount: entry.seedRow.cleanup_group_message_count,
+        assignmentReason:
+          typeof entry.seedRow.seed_payload.assignment_reason === 'string'
+            ? entry.seedRow.seed_payload.assignment_reason
+            : null,
+        exclusionReason:
+          typeof entry.seedRow.seed_payload.cleanup_exclusion_reason === 'string'
+            ? entry.seedRow.seed_payload.cleanup_exclusion_reason
+            : null,
+      })),
+    })
+    const reviewUnitValidation = validateGmailReviewUnitContract({
+      parentId: projectedClusterId,
+      actionable,
+      parentSenderKeys: draft.clusterSeedSenders.map((entry) => entry.seedRow.sender_key),
+      units: materializedReviewUnits.units,
+      reviewUnitIdBySenderKey: materializedReviewUnits.reviewUnitIdBySenderKey,
+    })
+    if (reviewUnitValidation.errors.length > 0) {
+      throw new Error(`Review-unit candidate validation failed: ${reviewUnitValidation.errors.join(' ')}`)
+    }
+    const materializedSurfacePlan: CleanupGroupArtifactSurfaceDecision = {
+      ...surfacePlan,
+      promotion: {
+        ...surfacePlan.promotion,
+        metrics: {
+          ...surfacePlan.promotion.metrics,
+          actionable_review_unit_count: materializedReviewUnits.units.length,
+          largest_review_unit_sender_count: reviewUnitValidation.largestUnitSenderCount,
+        },
+      },
+      review_unit_plan: {
+        required: actionable,
+        basis: reviewUnitBasis,
+        trigger_reason: actionable ? 'published_membership_requires_bounded_child_selection' : null,
+        units: materializedReviewUnits.units,
+      },
+    }
     const projectedSeedRows = draft.clusterSeedSenders.map((entry) => ({
       ...entry.seedRow,
       cluster_id: projectedClusterId,
+      review_unit_id:
+        materializedReviewUnits.reviewUnitIdBySenderKey.get(entry.seedRow.sender_key) || null,
       seed_payload: {
         ...entry.seedRow.seed_payload,
         cleanup_group_canonical_cluster_id:
@@ -2248,7 +2375,7 @@ function buildSeedRowsAndHeaders(params: {
       senderCount: draft.senderCount,
       messageCount: draft.clusterMessageCount,
       semanticAnalytics: draft.semanticAnalytics,
-      artifactSurfaceDecision: surfacePlan,
+      artifactSurfaceDecision: materializedSurfacePlan,
     })
     const sharePct =
       totalAssignedGroupMessages > 0
@@ -2303,6 +2430,7 @@ function buildSeedRowsAndHeaders(params: {
       cluster_contribution: draft.clusterContribution,
       artifact_capabilities: {
         focused_semantic_page: true,
+        focused_review_unit_page: actionable,
       },
     }
     const summaryPayload = {

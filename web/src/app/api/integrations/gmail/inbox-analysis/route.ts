@@ -981,6 +981,10 @@ export async function POST(req: Request) {
               surfaced_subtype_keys?: unknown
             })
           : null
+      const reviewUnitId =
+        typeof body?.review_unit_id === 'string' && body.review_unit_id.trim()
+          ? body.review_unit_id.trim()
+          : null
       const effectivePageSize = clampSenderWorkspacePageSize({
         requestedPageSize: pageSize,
         page,
@@ -1067,6 +1071,7 @@ export async function POST(req: Request) {
         senderOverviewEnd,
         timeZone,
         requestAgentId: requestMeta.agentId,
+        reviewUnitId,
         semanticFocus:
           semanticFocus &&
           typeof semanticFocus.family === 'string' &&
@@ -1354,6 +1359,10 @@ export async function POST(req: Request) {
               surfaced_subtype_keys?: unknown
             })
           : null
+      const reviewUnitId =
+        typeof body?.review_unit_id === 'string' && body.review_unit_id.trim()
+          ? body.review_unit_id.trim()
+          : null
       const senderOverviewWindow =
         body?.sender_overview_window === 'last_day' || body?.sender_overview_window === 'custom'
           ? body.sender_overview_window
@@ -1500,6 +1509,7 @@ export async function POST(req: Request) {
                   : [],
               }
             : null,
+        reviewUnitId,
       })
 
       if (!distribution.ok) {
@@ -1511,6 +1521,7 @@ export async function POST(req: Request) {
         cluster_id: selectedCluster.cluster_id,
         sender_count: distribution.data.selected_cluster.sender_count,
         returned_sender_count: distribution.data.senders.length,
+        review_unit_id: reviewUnitId,
         time_context_bucket_label: timeContextBucketLabel,
         time_context_bucket_start_at: timeContextBucketStartAt,
         time_context_bucket_end_exclusive_at: timeContextBucketEndExclusiveAt,

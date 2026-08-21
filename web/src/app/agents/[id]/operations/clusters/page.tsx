@@ -24,6 +24,7 @@ import {
   getCleanupGroupSurfaceTier,
   isCleanupGroupSurfacedInUi,
   type CleanupGroupRecommendationReason,
+  type CleanupGroupPublishedReviewUnit,
   type CleanupGroupSurfaceKind,
   getCleanupGroupStartWith,
   getCleanupGroupWhyExists,
@@ -32,8 +33,6 @@ import {
 } from '@/lib/runtime/cleanupGroupPresentation'
 import { buildGmailSemanticPresentationPolicy } from '@/lib/runtime/gmailSemanticPresentationPolicy'
 import { serializeOperationsQuery } from '@/lib/runtime/operationsWorkspace'
-
-const MARKETING_PARENT_CANONICAL_ID = 'semantic.marketing_subscriptions'
 
 function normalizedCount(value: number | null | undefined): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
@@ -120,14 +119,25 @@ function buildCleanupGroupFocusHref(params: {
   return `/agents/${params.agentId}/operations/clusters${query ? `?${query}` : ''}#cleanup-group-cards`
 }
 
-function isMarketingCleanupGroup(canonicalClusterId: string | null | undefined): boolean {
-  return canonicalClusterId === MARKETING_PARENT_CANONICAL_ID
+function buildRenderableReviewUnits(
+  reviewUnits: CleanupGroupPublishedReviewUnit[]
+): CleanupGroupPublishedReviewUnit[] {
+  return reviewUnits.filter((unit) => unit.senderCount > 0)
 }
 
-function buildRenderableReviewUnits<T extends { senderCount: number; targetState: string }>(
-  reviewUnits: T[]
-): T[] {
-  return reviewUnits.filter((unit) => unit.senderCount > 0 && unit.targetState !== 'oversized')
+function actionableReviewUnitsReady(params: {
+  parentSenderCount: number | null
+  reviewUnits: Array<{ senderCount: number; targetState: string }>
+}): boolean {
+  return (
+    params.parentSenderCount != null &&
+    params.reviewUnits.length > 0 &&
+    params.reviewUnits.every(
+      (unit) => unit.senderCount > 0 && unit.targetState !== 'oversized'
+    ) &&
+    params.reviewUnits.reduce((sum, unit) => sum + unit.senderCount, 0) ===
+      params.parentSenderCount
+  )
 }
 
 function cleanupGroupSurfaceRoleLabel(kind: CleanupGroupSurfaceKind): string {
@@ -504,14 +514,7 @@ export default function OperationsClustersPage() {
             >
               Back to intelligence
             </Link>
-            {recommendedGroup && !isMarketingCleanupGroup(recommendedGroup.canonicalClusterId) ? (
-              <Link
-                href={`/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(recommendedGroup.clusterId)}`}
-                className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
-              >
-                Open sender overview
-              </Link>
-            ) : recommendedGroup ? (
+            {recommendedGroup ? (
               <Link
                 href={buildCleanupGroupFocusHref({
                   agentId,
@@ -520,7 +523,7 @@ export default function OperationsClustersPage() {
                 })}
                 className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
               >
-                Choose a Marketing unit
+                Choose a child unit
               </Link>
             ) : (
               <a
@@ -652,13 +655,11 @@ export default function OperationsClustersPage() {
           {intentSnapshots.map((snapshot) => {
             const snapshotGroup = snapshot.group
             const snapshotHref = snapshotGroup
-              ? isMarketingCleanupGroup(snapshotGroup.canonicalClusterId)
-                ? buildCleanupGroupFocusHref({
-                    agentId,
-                    query,
-                    focusClusterId: snapshotGroup.clusterId,
-                  })
-                : `/agents/${agentId}/operations/review${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(snapshotGroup.clusterId)}`
+              ? buildCleanupGroupFocusHref({
+                  agentId,
+                  query,
+                  focusClusterId: snapshotGroup.clusterId,
+                })
               : null
             const snapshotContent = (
               <>
@@ -765,14 +766,12 @@ export default function OperationsClustersPage() {
                   {featuredLaneGroups.map((group) => {
                     const isFocused = focusedClusterId === group.clusterId
                     const isRecommended = recommendedClusterId === group.clusterId
-                    const isMarketingParent = isMarketingCleanupGroup(group.canonicalClusterId)
+                    const actionableParent = group.surfaceKind !== 'historical_parent'
                     const renderableReviewUnits = buildRenderableReviewUnits(group.reviewUnits)
-                    const marketingUnitsReady =
-                      isMarketingParent &&
-                      renderableReviewUnits.length > 0 &&
-                      renderableReviewUnits.length === group.reviewUnits.length &&
-                      renderableReviewUnits.reduce((sum, unit) => sum + unit.senderCount, 0) ===
-                        group.senderCount
+                    const reviewUnitsReady = actionableReviewUnitsReady({
+                      parentSenderCount: group.senderCount,
+                      reviewUnits: renderableReviewUnits,
+                    })
                     const cardClassName = isFocused
                       ? 'border-cyan-700/60 bg-[linear-gradient(180deg,rgba(17,53,73,0.18),rgba(17,23,34,0.98))]'
                       : group.surfaceKind === 'semantic_parent'
@@ -833,44 +832,59 @@ export default function OperationsClustersPage() {
                             </p>
                             <p className="mt-2 text-sm leading-6 text-gray-300">{group.whyExists}</p>
                           </div>
-                          {isMarketingParent ? (
+                          {actionableParent ? (
                             <div className="app-surface-card-inset rounded-xl p-3">
                               <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                                Choose unit
+                                Choose child unit
                               </p>
                               <p className="mt-2 text-sm leading-6 text-gray-200">
-                                {marketingUnitsReady
-                                  ? 'Start from a bounded published unit. Marketing subscriptions does not open as a broad parent from this root card.'
-                                  : 'Published Marketing units are unavailable or do not reconcile to the parent, so review entry is paused.'}
+                                {reviewUnitsReady
+                                  ? 'Start from one bounded published child. This actionable parent never opens as a broad sender queue.'
+                                  : 'Published child membership is unavailable, oversized, or does not reconcile to this parent, so review entry is paused.'}
                               </p>
-                              {marketingUnitsReady ? (
+                              {renderableReviewUnits.length > 0 ? (
                                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                  {renderableReviewUnits.map((unit) => (
-                                    <Link
-                                      key={unit.id}
-                                      href={buildDerivedReviewUnitHref({
-                                        agentId,
-                                        query,
-                                        clusterId: group.canonicalClusterId || group.clusterId,
-                                        unitId: unit.id,
-                                      })}
-                                      className="rounded-xl border border-cyan-700/45 bg-cyan-950/15 p-3 text-left transition hover:border-cyan-600/70 hover:bg-cyan-950/20"
-                                    >
-                                      <p className="text-sm font-medium text-cyan-50">{unit.label}</p>
-                                      <p className="mt-1 text-xs text-cyan-100/90">
-                                        {unit.senderCount.toLocaleString()} senders
-                                      </p>
-                                      <p className="mt-1 text-[11px] text-cyan-200/80">
-                                        {unit.groupSharePct}% of parent · {unit.targetLabel}
-                                      </p>
-                                    </Link>
-                                  ))}
+                                  {renderableReviewUnits.map((unit) => {
+                                    const content = (
+                                      <>
+                                        <p className="text-sm font-medium text-cyan-50">{unit.label}</p>
+                                        <p className="mt-1 text-xs text-cyan-100/90">
+                                          {unit.senderCount.toLocaleString()} senders
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-cyan-200/80">
+                                          {unit.groupSharePct}% of parent · {unit.targetLabel}
+                                        </p>
+                                      </>
+                                    )
+                                    return reviewUnitsReady && unit.targetState !== 'oversized' ? (
+                                      <Link
+                                        key={unit.id}
+                                        href={buildDerivedReviewUnitHref({
+                                          agentId,
+                                          query,
+                                          clusterId: group.canonicalClusterId || group.clusterId,
+                                          unitId: unit.id,
+                                        })}
+                                        className="rounded-xl border border-cyan-700/45 bg-cyan-950/15 p-3 text-left transition hover:border-cyan-600/70 hover:bg-cyan-950/20"
+                                      >
+                                        {content}
+                                      </Link>
+                                    ) : (
+                                      <div
+                                        key={unit.id}
+                                        className="rounded-xl border border-amber-700/35 bg-amber-950/15 p-3 text-left"
+                                      >
+                                        {content}
+                                      </div>
+                                    )
+                                  })}
                                 </div>
-                              ) : (
+                              ) : null}
+                              {!reviewUnitsReady ? (
                                 <div className="mt-3 rounded-xl border border-amber-700/35 bg-amber-950/20 px-3 py-3 text-xs leading-5 text-amber-100">
-                                  Review entry remains paused until all five published units are valid and reconcile exactly to the 857-sender parent.
+                                  Review entry remains paused until every published child is at most 400 senders and the child total matches the parent exactly.
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           ) : null}
                           {group.startWith ? (
@@ -917,18 +931,6 @@ export default function OperationsClustersPage() {
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {!isMarketingParent ? (
-                            <Link
-                              href={`/agents/${agentId}/operations/review${query}${
-                                query ? '&' : '?'
-                              }cluster_id=${encodeURIComponent(
-                                group.canonicalClusterId || group.clusterId
-                              )}`}
-                              className="rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
-                            >
-                              Open full group
-                            </Link>
-                          ) : null}
                           <Link
                             href={`/agents/${agentId}/operations/intelligence${query}`}
                             className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
@@ -945,8 +947,6 @@ export default function OperationsClustersPage() {
               {collapsedLaneGroups.map((group) => {
                 const isFocused = focusedClusterId === group.clusterId
                 const isRecommended = recommendedClusterId === group.clusterId
-                const clusterQuery = `${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(group.clusterId)}`
-                const fullGroupHref = `/agents/${agentId}/operations/review${clusterQuery}`
                 return (
                   <div
                     key={group.clusterId}
@@ -987,12 +987,9 @@ export default function OperationsClustersPage() {
                             {formatCountLabel(group.messageCount)} messages
                           </p>
                         </div>
-                        <Link
-                          href={fullGroupHref}
-                          className="inline-flex items-center justify-center rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-white"
-                        >
-                          Open coverage lane
-                        </Link>
+                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs leading-5 text-slate-300">
+                          Informational context only. This lane has no review action.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1005,8 +1002,11 @@ export default function OperationsClustersPage() {
                     const isFocused = focusedClusterId === group.clusterId
                     const isRecommended = recommendedClusterId === group.clusterId
                     const hasSavedWork = startedClusterIdSet.has(group.clusterId)
-                    const clusterQuery = `${query}${query ? '&' : '?'}cluster_id=${encodeURIComponent(group.clusterId)}`
-                    const fullGroupHref = `/agents/${agentId}/operations/review${clusterQuery}`
+                    const renderableReviewUnits = buildRenderableReviewUnits(group.reviewUnits)
+                    const reviewUnitsReady = actionableReviewUnitsReady({
+                      parentSenderCount: group.senderCount,
+                      reviewUnits: renderableReviewUnits,
+                    })
                     return (
                       <article
                         key={group.clusterId}
@@ -1038,25 +1038,34 @@ export default function OperationsClustersPage() {
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Link
-                            href={fullGroupHref}
-                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-950 hover:bg-white"
-                          >
-                            Open group
-                          </Link>
-                          {group.reviewUnits.length > 0 && group.recommendedReviewUnit ? (
-                            <Link
-                              href={buildDerivedReviewUnitHref({
-                                agentId,
-                                query,
-                                clusterId: group.clusterId,
-                                unitId: group.recommendedReviewUnit.id,
-                              })}
-                              className="rounded-full border border-cyan-700/45 bg-cyan-950/10 px-3 py-1.5 text-xs text-cyan-100 hover:border-cyan-600/60 hover:text-white"
-                            >
-                              Review {group.recommendedReviewUnit.label}
-                            </Link>
+                        <div className="mt-4 grid gap-2">
+                          {renderableReviewUnits.map((unit) =>
+                            reviewUnitsReady && unit.targetState !== 'oversized' ? (
+                              <Link
+                                key={unit.id}
+                                href={buildDerivedReviewUnitHref({
+                                  agentId,
+                                  query,
+                                  clusterId: group.canonicalClusterId || group.clusterId,
+                                  unitId: unit.id,
+                                })}
+                                className="rounded-xl border border-cyan-700/45 bg-cyan-950/10 px-3 py-2 text-xs text-cyan-100 hover:border-cyan-600/60 hover:text-white"
+                              >
+                                {unit.label} · {unit.senderCount.toLocaleString()} senders
+                              </Link>
+                            ) : (
+                              <div
+                                key={unit.id}
+                                className="rounded-xl border border-amber-700/35 bg-amber-950/15 px-3 py-2 text-xs text-amber-100"
+                              >
+                                {unit.label} · {unit.senderCount.toLocaleString()} senders · paused
+                              </div>
+                            )
+                          )}
+                          {!reviewUnitsReady ? (
+                            <p className="text-xs leading-5 text-amber-100">
+                              Review is paused until published child membership reconciles exactly.
+                            </p>
                           ) : null}
                         </div>
                       </article>

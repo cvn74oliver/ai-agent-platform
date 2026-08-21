@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-21
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — ALL-PARENT CLEANUP CONSOLIDATION EXECUTION; PRE-REBUILD ONLY
+Status: ACTIVE — PRE-REBUILD DECISION GATE; AWAITING OLIVER
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: approved same-flow implementation of the all-parent child-only contract, lineage preservation, materialized review-unit membership, lifecycle correction, and linked chart integration through the explicit pre-rebuild gate
+- Execution phase: pre-rebuild implementation and correction proof complete in the isolated candidate; live migration and one candidate build await explicit approval
 - Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -19,14 +19,15 @@ Status: ACTIVE — ALL-PARENT CLEANUP CONSOLIDATION EXECUTION; PRE-REBUILD ONLY
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
-- [ ] Preserve/classify every dirty lineage; no secret or generated proof commit
-- [ ] Create clean main-derived integration candidate and pre-merge baseline
-- [ ] Fix unchanged-key Decision Mode return lifecycle
-- [ ] Add materialized exact review-unit membership and indexed bounded lookup; do not apply live
-- [ ] Render every actionable parent as a flat child chooser; Context informational only
-- [ ] Integrate Sender Distribution and Pressure Trend on shared child identity
-- [ ] Pass static/build and bounded Playwright correction proof
-- [ ] Stop at pre-rebuild approval gate; no candidate build/publication/main promotion yet
+- [x] Preserve/classify every dirty lineage; no secret or generated proof commit
+- [x] Create clean main-derived integration candidate and pre-merge baseline
+- [x] Fix unchanged-key Decision Mode return lifecycle
+- [x] Add materialized exact review-unit membership and indexed bounded lookup; migration not applied live
+- [x] Render every actionable parent through the generic flat child contract; Context informational only; old oversized parents pause safely
+- [x] Integrate Sender Distribution and Pressure Trend on shared child identity and real coverage bounds
+- [x] Pass fixtures, TypeScript, lint, diff check, production build, and bounded authenticated Playwright correction proof
+- [x] Stop at pre-rebuild approval gate; no candidate build/publication/main promotion occurred
+- [ ] Await Oliver decision on additive migration plus exactly one candidate artifact build; no Gmail reindex or Smart Sync
 
 ## Immediate Human Review return
 

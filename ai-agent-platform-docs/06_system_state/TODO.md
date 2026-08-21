@@ -1,18 +1,20 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-21 • all-parent consolidation plan approved • same-flow pre-rebuild execution active • no semantic rebuild authorized_
+_Last updated: 2026-08-21 • pre-rebuild candidate implemented and verified • awaiting explicit migration/build approval • no semantic rebuild authorized_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
 - [x] Oliver approved the decision-complete all-parent plan and immediate same-flow implementation through the pre-rebuild gate.
 - [x] Create authoritative runtime packet `docs/00_control_plane/runtime/ACE-048_ALL_PARENT_CLEANUP_TAXONOMY_CONSOLIDATION_PM_BRIEF.md`; supersede Marketing-only execution authority while preserving it as partial evidence.
-- [ ] Preserve and classify every dirty checkout/branch without committing auth state, secrets, or generated Playwright output.
-- [ ] Create a clean main-derived integration worktree and record the pre-integration runtime baseline.
-- [ ] Correct the unchanged-key Decision Mode close/overview workspace lifecycle without adding requests or polling.
-- [ ] Add materialized `review_unit_id` membership, indexed bounded lookup, exact-partition validator, and old-publication compatibility without applying the migration live.
-- [ ] Replace Marketing-only rendering with one generic flat child chooser for every actionable parent; keep Historical/Context informational only.
-- [ ] Integrate Sender Distribution and Pressure Trend seams on the shared selected review-unit universe.
-- [ ] Run static/build plus bounded Playwright correction proof and stop at the explicit pre-rebuild decision gate.
-- [ ] Do not run a semantic candidate build, publish an artifact, advance local main, push, deploy, or retire lineage without the later required gates.
+- [x] Preserve and classify every dirty checkout/branch without committing auth state, secrets, or generated Playwright output.
+- [x] Create a clean main-derived integration worktree and record the pre-integration runtime baseline.
+- [x] Correct the unchanged-key Decision Mode close/overview workspace lifecycle without adding requests or polling.
+- [x] Add materialized `review_unit_id` membership, indexed bounded lookup, exact-partition validator, and old-publication compatibility without applying the migration live.
+- [x] Replace Marketing-only rendering with one generic flat child chooser for every actionable parent; keep Historical/Context informational only. Old artifacts remain readable and safely pause oversized parents.
+- [x] Integrate Sender Distribution and Pressure Trend seams on the shared selected review-unit identity; full all-parent/live-date parity remains a post-build candidate proof gate.
+- [x] Run static/build plus bounded authenticated Playwright correction proof and stop at the explicit pre-rebuild decision gate.
+- [x] Preserve the gate: no semantic candidate build, publication, local-main advance, push, deployment, or lineage retirement occurred.
+- [ ] `Status: Awaiting Decision` — obtain Oliver approval before applying the additive migration and starting one candidate artifact build from the existing indexed mailbox; do not run Gmail reindex or Smart Sync.
+- [ ] After approval, validate candidate counts and every child route through the development-only artifact override, then hold Cleanup Groups Human Review checkpoint one before publication.
 
 ### Historical active heading retained below
 

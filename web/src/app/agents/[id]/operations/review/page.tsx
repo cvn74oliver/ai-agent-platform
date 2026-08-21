@@ -404,9 +404,20 @@ type SenderWorkflowPaginationModel = {
 }
 
 type SemanticFocusWorkspaceState =
-  | { status: 'idle' | 'loading'; data: GmailSenderWorkspaceData | null; error: null }
-  | { status: 'ready'; data: GmailSenderWorkspaceData; error: null }
-  | { status: 'error'; data: GmailSenderWorkspaceData | null; error: string }
+  | { status: 'idle'; data: null; error: null; requestKey: null }
+  | {
+      status: 'loading'
+      data: GmailSenderWorkspaceData | null
+      error: null
+      requestKey: string
+    }
+  | { status: 'ready'; data: GmailSenderWorkspaceData; error: null; requestKey: string }
+  | {
+      status: 'error'
+      data: GmailSenderWorkspaceData | null
+      error: string
+      requestKey: string
+    }
 
 type SenderDistributionWorkspaceState =
   | { status: 'idle'; data: GmailSenderDistributionData | null; error: null; requestKey: null }
@@ -4000,6 +4011,25 @@ export default function OperationsReviewPage() {
     selectableMarketingReviewUnits.length,
     subsetSource,
     subsetValue,
+  ])
+  useEffect(() => {
+    if (runtime.loading || !renderRuntimeData) return
+    if (
+      marketingReviewUnitEntryState !== 'missing_unit' &&
+      marketingReviewUnitEntryState !== 'invalid_unit'
+    ) {
+      return
+    }
+
+    router.replace(`/agents/${agentId}/operations/clusters${serializeOperationsQuery(sessionId, analysisScope)}`)
+  }, [
+    agentId,
+    analysisScope,
+    marketingReviewUnitEntryState,
+    renderRuntimeData,
+    router,
+    runtime.loading,
+    sessionId,
   ])
   const selectedWorkflowTarget = useMemo(
     () =>
@@ -8080,15 +8110,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     [overviewShellWorkspace?.analytics.semantic_rollup, selectedCluster]
   )
   const groupReviewUnits = useMemo(
-    () =>
-      isMarketingCleanupGroup
-        ? marketingReviewUnitEntryUnits
-        : selectedCluster
-        ? buildCleanupGroupPublishedReviewUnits(
-            selectedCluster.clusterId,
-            overviewShellWorkspace?.analytics.semantic_rollup || null
-          )
-        : [],
+    () => {
+      if (!selectedCluster) return []
+      const publishedReviewUnits = buildCleanupGroupPublishedReviewUnits(
+        selectedCluster.clusterId,
+        overviewShellWorkspace?.analytics.semantic_rollup || null
+      )
+      if (publishedReviewUnits.length > 0) return publishedReviewUnits
+      return isMarketingCleanupGroup ? marketingReviewUnitEntryUnits : []
+    },
     [
       isMarketingCleanupGroup,
       marketingReviewUnitEntryUnits,
@@ -8099,9 +8129,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const activeDerivedReviewUnit = useMemo(
     () =>
       subsetSource === 'review_unit'
-        ? isMarketingCleanupGroup
-          ? marketingReviewUnitEntryRequestedUnit
-          : findCleanupGroupPublishedReviewUnit(groupReviewUnits, subsetValue)
+        ? findCleanupGroupPublishedReviewUnit(groupReviewUnits, subsetValue) ||
+          (isMarketingCleanupGroup ? marketingReviewUnitEntryRequestedUnit : null)
         : null,
     [
       groupReviewUnits,
@@ -8150,6 +8179,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       status: 'idle',
       data: null,
       error: null,
+      requestKey: null,
     })
   const semanticFocusWorkspace = useMemo(
     () => normalizeWorkspaceDataContract(semanticFocusWorkspaceState.data),
@@ -8519,15 +8549,6 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
   useEffect(() => {
     if (mode !== 'overview') return
-    setSemanticFocusWorkspaceState({
-      status: 'idle',
-      data: null,
-      error: null,
-    })
-  }, [mode, selectedCluster?.clusterId])
-
-  useEffect(() => {
-    if (mode !== 'overview') return
     const storedContext = readDecisionWorkflowStorage<DecisionOverviewReturnContext>(
       overviewReturnContextStorageKey
     )
@@ -8755,7 +8776,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
   const semanticFocusWorkspaceRequestPlan = useMemo(() => {
     if (mode !== 'overview' && !isDerivedReviewUnitActive) return null
-    if (!selectedCluster || !activeSemanticSubtypeFocusRequest) return null
+    const reviewUnitId =
+      isDerivedReviewUnitActive && activeDerivedReviewUnit ? activeDerivedReviewUnit.id : null
+    if (!selectedCluster || (!activeSemanticSubtypeFocusRequest && !reviewUnitId)) return null
     return {
       selectedCluster,
       allClusters: runtimeClusters,
@@ -8766,10 +8789,12 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       sort: semanticFocusWorkspaceOrdering.sort,
       direction: semanticFocusWorkspaceOrdering.direction,
       semanticFocus: activeSemanticSubtypeFocusRequest,
+      reviewUnitId,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
     }
   }, [
     activeSemanticSubtypeFocusRequest,
+    activeDerivedReviewUnit,
     cacheVersion,
     effectiveWorkflowScope,
     isDerivedReviewUnitActive,
@@ -8794,12 +8819,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       plan.pageSize,
       plan.sort,
       plan.direction,
-      plan.semanticFocus.family,
-      plan.semanticFocus.subtypeKey || 'no-subtype',
-      plan.semanticFocus.kind,
+      plan.reviewUnitId || 'no-review-unit',
+      plan.semanticFocus?.family || 'no-semantic-family',
+      plan.semanticFocus?.subtypeKey || 'no-subtype',
+      plan.semanticFocus?.kind || 'no-semantic-focus',
+      subsetSource === 'review_unit' ? 'review_unit' : 'semantic_focus',
+      subsetSource === 'review_unit' ? renderedSubsetValue || 'missing-review-unit' : 'no-review-unit',
       plan.timeContextBucketLabel || 'no-time-context-bucket',
     ].join('::')
-  }, [agentId, semanticFocusWorkspaceRequestPlan])
+  }, [agentId, renderedSubsetValue, semanticFocusWorkspaceRequestPlan, subsetSource])
   const semanticFocusWorkspaceRequestPlanRef = useRef(semanticFocusWorkspaceRequestPlan)
 
   useEffect(() => {
@@ -8813,6 +8841,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         status: 'idle',
         data: null,
         error: null,
+        requestKey: null,
       })
       return
     }
@@ -8822,8 +8851,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
     setSemanticFocusWorkspaceState((current) => ({
       status: 'loading',
-      data: current.data,
+      data: current.requestKey === semanticFocusWorkspaceRequestKey ? current.data : null,
       error: null,
+      requestKey: semanticFocusWorkspaceRequestKey,
     }))
 
     void fetchGmailSenderWorkspace({
@@ -8837,6 +8867,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       sort: plan.sort,
       direction: plan.direction,
       semanticFocus: plan.semanticFocus,
+      reviewUnitId: plan.reviewUnitId,
       timeContextBucketLabel: plan.timeContextBucketLabel,
       requestContext: {
         source: 'operations_review_page',
@@ -8849,25 +8880,42 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }).then((result) => {
       if (cancelled || ('aborted' in result && result.aborted)) return
       if (!result.ok) {
-        setSemanticFocusWorkspaceState((current) => ({
-          status: 'error',
-          data: current.data,
-          error: result.error,
-        }))
+        if (
+          plan.reviewUnitId &&
+          result.error.toLowerCase().includes('selected cleanup child')
+        ) {
+          router.replace(`/agents/${agentId}/operations/clusters`)
+          return
+        }
+        setSemanticFocusWorkspaceState((current) =>
+          current.requestKey === semanticFocusWorkspaceRequestKey
+            ? {
+                status: 'error',
+                data: current.data,
+                error: result.error,
+                requestKey: semanticFocusWorkspaceRequestKey,
+              }
+            : current
+        )
         return
       }
-      setSemanticFocusWorkspaceState({
-        status: 'ready',
-        data: result.data,
-        error: null,
-      })
+      setSemanticFocusWorkspaceState((current) =>
+        current.requestKey === semanticFocusWorkspaceRequestKey
+          ? {
+              status: 'ready',
+              data: result.data,
+              error: null,
+              requestKey: semanticFocusWorkspaceRequestKey,
+            }
+          : current
+      )
     })
 
     return () => {
       cancelled = true
       controller.abort()
     }
-  }, [agentId, semanticFocusWorkspaceRequestKey])
+  }, [agentId, router, semanticFocusWorkspaceRequestKey])
   const activeOverviewSubset = useMemo(() => {
     if (!renderedSubsetSource || !renderedSubsetValue) return null
 
@@ -9554,8 +9602,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     workspaceSnapshot?.timeContextBucketLabel,
   ])
   const senderDistributionSemanticFocus = activeSemanticSubtypeFocusRequest
+  const senderDistributionReviewUnitId =
+    isDerivedReviewUnitActive && activeDerivedReviewUnit ? activeDerivedReviewUnit.id : null
   const senderDistributionDedicatedFetchCluster =
-    isDerivedReviewUnitActive && !senderDistributionSemanticFocus ? null : selectedCluster || null
+    subsetSource === 'review_unit' && !activeDerivedReviewUnit ? null : selectedCluster || null
   const senderDistributionExpectedSenderKeys = baseSharedWorkflowSubset.orderedSenderKeys
   const senderDistributionRequestKey = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
@@ -9567,6 +9617,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       analysisScope: effectiveWorkflowScope,
       cacheVersion: cacheVersion?.trim() || 'default',
       semanticFocus: senderDistributionSemanticFocus,
+      reviewUnitId: senderDistributionReviewUnitId,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
@@ -9582,6 +9633,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     runtimeClusters,
     senderDistributionDedicatedFetchCluster,
     senderDistributionSemanticFocus,
+    senderDistributionReviewUnitId,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -9602,6 +9654,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       analysisScope: effectiveWorkflowScope,
       cacheVersion,
       semanticFocus: senderDistributionSemanticFocus,
+      reviewUnitId: senderDistributionReviewUnitId,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
@@ -9617,6 +9670,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     effectiveWorkflowScope,
     runtimeClusters,
     senderDistributionSemanticFocus,
+    senderDistributionReviewUnitId,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -9657,6 +9711,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     analysisScope: effectiveWorkflowScope,
     cacheVersion,
     semanticFocus: senderDistributionSemanticFocus,
+    reviewUnitId: senderDistributionReviewUnitId,
     timeContextBucketLabel: requestedTimeContextBucketLabel,
     timeContextBucketStartAt: requestedTimeContextBucketStartAt,
     timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
@@ -9763,6 +9818,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         analysisScope: latestPlan.analysisScope,
         cacheVersion: latestPlan.cacheVersion,
         semanticFocus: latestPlan.semanticFocus,
+        reviewUnitId: latestPlan.reviewUnitId,
         timeContextBucketLabel: latestPlan.timeContextBucketLabel,
         timeContextBucketStartAt: latestPlan.timeContextBucketStartAt,
         timeContextBucketEndExclusiveAt: latestPlan.timeContextBucketEndExclusiveAt,
@@ -9791,6 +9847,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           analysisScope: initialRequestPlan.analysisScope,
           cacheVersion: initialRequestPlan.cacheVersion,
           semanticFocus: initialRequestPlan.semanticFocus,
+          reviewUnitId: initialRequestPlan.reviewUnitId,
           timeContextBucketLabel: initialRequestPlan.timeContextBucketLabel,
           timeContextBucketStartAt: initialRequestPlan.timeContextBucketStartAt,
           timeContextBucketEndExclusiveAt: initialRequestPlan.timeContextBucketEndExclusiveAt,

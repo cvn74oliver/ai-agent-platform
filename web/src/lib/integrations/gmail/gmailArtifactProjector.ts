@@ -203,6 +203,7 @@ export function buildGmailArtifactShadowBundle(
         semantic_family_key: null,
         semantic_subtype_key: null,
         semantic_pattern_key: null,
+        review_unit_id: null,
         last_activity_at: null,
         seed_payload: normalizeJsonObject(sender.payload),
       })

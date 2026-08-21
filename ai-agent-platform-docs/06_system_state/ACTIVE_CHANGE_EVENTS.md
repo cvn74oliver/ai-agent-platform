@@ -127,6 +127,15 @@ All-parent plan approval and execution activation — 2026-08-21:
 - Execution mode: `transitional_self_verification`; reasoning: HIGH; problem class locked as mixed artifact/publication, runtime behavior, UI rendering, and hot-file integration.
 - Checkpoint Status: continuity checkpoint created; approved plan captured and immediate pre-rebuild execution active.
 
+Pre-rebuild implementation and correction-proof checkpoint — 2026-08-21:
+- Every dirty checkout/branch lineage is preserved on a named recovery ref; duplicate, superseded, unique, and required integration seams are recorded in `docs/00_control_plane/runtime/ACE-048_WORKTREE_LINEAGE_LEDGER.md`. No branch or worktree was deleted.
+- A clean main-derived candidate implements the additive materialized review-unit membership contract, deterministic bounded partitioning and validators, generic actionable-parent child chooser, Context no-action behavior, exact child selection, stale-ID fail-safe, Decision Mode close/return retention, shared Sender Distribution child identity, and real Pressure Trend coverage bounds.
+- The live additive migration is not applied. The current published artifact and active pointer are unchanged. No semantic build, Gmail reindex, Smart Sync, Supabase-wide scan, publication, local-main promotion, push, deployment, or retirement occurred.
+- Correction proof PASS/HIGH: review-unit and Pressure Trend fixtures, non-incremental TypeScript, targeted lint, diff check, `63`-page production build, and authenticated post-settle Playwright on the canonical Deals child route. Deals reconciles `347` across hero, rows/pagination, and Sender Distribution; Decision Mode close preserves the exact unit and rows without a workspace refetch; stale IDs return safely to the chooser without broad-parent heavy requests.
+- Published-April compatibility remains readable but intentionally does not expose oversized non-Marketing parents for review. Final all-parent taxonomy and latest-date chart acceptance require one separately approved candidate build and candidate-version verification.
+- Status: Awaiting Decision. This flow is not closed. Oliver must explicitly approve or decline applying the additive migration and starting exactly one candidate artifact build from the existing indexed mailbox.
+- Checkpoint Status: continuity checkpoint created; pre-rebuild work is propagated and paused at the approved decision boundary.
+
 Decision:
 - Automata is now governed by the **Revival — Security and Rebaseline** program.
 - All application implementation is blocked until the first revival execution packet is approved from this rebaselined control plane.

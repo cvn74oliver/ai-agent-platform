@@ -142,6 +142,7 @@ export type GmailSenderWorkspaceSeedRow = {
   cluster_id: string
   sender_key: string
   artifact_version: string
+  review_unit_id: string | null
   default_rank: number
   sender: string
   sender_domain: string | null
@@ -367,6 +368,7 @@ export type GmailPublishedSenderWorkspaceFocusedArtifactRead = {
   preview_fetch_strategy?: 'message_id' | 'sender_key'
   focused_total_senders: number
   focused_capability_available: boolean
+  focused_request_valid?: boolean
 }
 
 export type GmailPublishedMailboxIntelligenceArtifactRead = {
@@ -404,6 +406,38 @@ const GMAIL_ARTIFACT_BUILD_JOB_GRACE_MS = Math.max(
 )
 const GMAIL_ARTIFACT_PUBLICATION_CACHE_TTL_MS = 1000 * 5
 const GMAIL_ARTIFACT_VERSIONED_READ_CACHE_TTL_MS = 1000 * 60 * 5
+const GMAIL_DEVELOPMENT_ARTIFACT_VERSION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
+
+function developmentGmailArtifactVersionOverride(): string | null {
+  if (process.env.NODE_ENV !== 'development') return null
+  const value = normalizeNullableText(process.env.GMAIL_ARTIFACT_VERSION_OVERRIDE)
+  if (!value) return null
+  if (!GMAIL_DEVELOPMENT_ARTIFACT_VERSION_PATTERN.test(value)) {
+    throw new Error('GMAIL_ARTIFACT_VERSION_OVERRIDE is malformed.')
+  }
+  return value
+}
+
+async function assertDevelopmentArtifactVersionExists(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  artifactVersion: string
+}): Promise<void> {
+  const { data, error } = await params.supabase
+    .from('gmail_sender_workspace_seed_headers')
+    .select('artifact_version')
+    .eq('tenant_id', params.tenantId)
+    .eq('analysis_scope', params.analysisScope)
+    .eq('artifact_version', params.artifactVersion)
+    .limit(1)
+  if (error) {
+    throw new Error(`Failed to validate development artifact override: ${error.message}`)
+  }
+  if (!Array.isArray(data) || data.length !== 1) {
+    throw new Error('Development artifact override does not exist for this tenant and scope.')
+  }
+}
 const GMAIL_ARTIFACT_PUBLICATION_SELECT =
   'tenant_id,analysis_scope,published_version,published_at,building_version,build_status,last_error,last_error_at,last_index_state_updated_at,last_indexed_message_count,freshness_state,freshness_reason,refresh_strategy,refresh_requested_at,refresh_started_at,refresh_completed_at,refresh_job_id,refresh_sync_run_id,created_at,updated_at'
 const GMAIL_ARTIFACT_REFRESH_HANDOFF_WAIT_MS = 4000
@@ -1015,6 +1049,31 @@ function artifactHeaderSupportsFocusedSemanticPage(
   const analytics = normalizeJsonObject(header?.analytics)
   const capabilities = normalizeJsonObject(analytics.artifact_capabilities)
   return capabilities.focused_semantic_page === true
+}
+
+function artifactHeaderSupportsFocusedReviewUnitPage(
+  header: GmailSenderWorkspaceSeedHeaderRow | null | undefined
+): boolean {
+  const analytics = normalizeJsonObject(header?.analytics)
+  const capabilities = normalizeJsonObject(analytics.artifact_capabilities)
+  return capabilities.focused_review_unit_page === true
+}
+
+function publishedReviewUnitManifestEntry(
+  header: GmailSenderWorkspaceSeedHeaderRow,
+  reviewUnitId: string
+): { senderCount: number } | null {
+  const analytics = normalizeJsonObject(header.analytics)
+  const rollup = normalizeJsonObject(analytics.semantic_rollup)
+  const plan = normalizeJsonObject(rollup.review_unit_plan)
+  const units = Array.isArray(plan.units) ? plan.units : []
+  for (const unit of units) {
+    const record = normalizeJsonObject(unit)
+    if (normalizeNullableText(record.unit_id) !== reviewUnitId) continue
+    const senderCount = normalizeInteger(record.sender_count)
+    return { senderCount: Math.max(0, senderCount) }
+  }
+  return null
 }
 
 function focusedSemanticSortColumn(
@@ -3509,6 +3568,145 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
   }
 }
 
+export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  selectedClusterId: string
+  page: number
+  pageSize: number
+  reviewUnitId: string
+  sort: GmailSenderWorkspaceSort
+  direction: GmailSenderWorkspaceSortDirection
+}): Promise<GmailPublishedSenderWorkspaceFocusedArtifactRead> {
+  const headerRead = await loadPublishedSenderWorkspaceArtifactHeaders(params)
+  if (!headerRead.publication || !headerRead.artifact_version || !headerRead.selected_header) {
+    return {
+      ...headerRead,
+      seed_rows: [],
+      preview_index_rows: [],
+      focused_total_senders: 0,
+      focused_capability_available: false,
+      focused_request_valid: false,
+    }
+  }
+  const capabilityAvailable = artifactHeaderSupportsFocusedReviewUnitPage(headerRead.selected_header)
+  if (!capabilityAvailable) {
+    return {
+      ...headerRead,
+      seed_rows: [],
+      preview_index_rows: [],
+      focused_total_senders: 0,
+      focused_capability_available: false,
+      focused_request_valid: false,
+    }
+  }
+  const reviewUnitId = normalizeText(params.reviewUnitId)
+  const requestIsWellFormed = /^[a-z0-9][a-z0-9:_-]{0,255}$/.test(reviewUnitId)
+  const manifestEntry = requestIsWellFormed
+    ? publishedReviewUnitManifestEntry(headerRead.selected_header, reviewUnitId)
+    : null
+  if (!manifestEntry) {
+    return {
+      ...headerRead,
+      seed_rows: [],
+      preview_index_rows: [],
+      focused_total_senders: 0,
+      focused_capability_available: true,
+      focused_request_valid: false,
+    }
+  }
+
+  const resolvedClusterId = normalizeText(
+    headerRead.resolved_cluster_id || params.selectedClusterId
+  )
+  const { count, error: countError } = await params.supabase
+    .from('gmail_sender_workspace_seed_rows')
+    .select('sender_key', { count: 'exact', head: true })
+    .eq('tenant_id', params.tenantId)
+    .eq('analysis_scope', params.analysisScope)
+    .eq('artifact_version', headerRead.artifact_version)
+    .eq('cluster_id', resolvedClusterId)
+    .eq('review_unit_id', reviewUnitId)
+  if (countError) {
+    throw new Error(`Failed to count materialized Gmail review-unit membership: ${countError.message}`)
+  }
+  const focusedTotalSenders = typeof count === 'number' ? Math.max(0, count) : 0
+  if (focusedTotalSenders !== manifestEntry.senderCount) {
+    throw new Error(
+      `Published review-unit manifest mismatch for ${reviewUnitId}: expected ${manifestEntry.senderCount}, found ${focusedTotalSenders}.`
+    )
+  }
+  const normalizedPageSize = Math.min(
+    GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT,
+    Math.max(1, normalizeInteger(params.pageSize))
+  )
+  const totalPages = Math.max(1, Math.ceil(focusedTotalSenders / normalizedPageSize))
+  const normalizedPage = Math.min(Math.max(1, normalizeInteger(params.page)), totalPages)
+  const rangeStart = (normalizedPage - 1) * normalizedPageSize
+  const rangeEnd = rangeStart + normalizedPageSize - 1
+  const primarySortColumn = focusedSemanticSortColumn(params.sort)
+  let seedRowsQuery = params.supabase
+    .from('gmail_sender_workspace_seed_rows')
+    .select('*')
+    .eq('tenant_id', params.tenantId)
+    .eq('analysis_scope', params.analysisScope)
+    .eq('artifact_version', headerRead.artifact_version)
+    .eq('cluster_id', resolvedClusterId)
+    .eq('review_unit_id', reviewUnitId)
+  seedRowsQuery =
+    params.sort === 'last_activity'
+      ? seedRowsQuery.order(primarySortColumn, {
+          ascending: params.direction === 'asc',
+          nullsFirst: params.direction === 'asc',
+        })
+      : seedRowsQuery.order(primarySortColumn, { ascending: params.direction === 'asc' })
+  if (primarySortColumn !== 'sender_key') {
+    seedRowsQuery = seedRowsQuery.order('sender_key', { ascending: true })
+  }
+  seedRowsQuery = seedRowsQuery.order('default_rank', { ascending: true }).range(rangeStart, rangeEnd)
+  const { data: seedRowData, error: seedRowError } = await seedRowsQuery
+  if (seedRowError) {
+    throw new Error(`Failed to load materialized Gmail review-unit page: ${seedRowError.message}`)
+  }
+  const seedRows = (seedRowData || []) as GmailSenderWorkspaceSeedRow[]
+  const previewRows = await loadPreviewIndexRowsBySenderKeys({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    analysisScope: params.analysisScope,
+    artifactVersion: headerRead.artifact_version,
+    selectedClusterId: resolvedClusterId,
+    senderKeys: seedRows.map((row) => row.sender_key),
+  })
+  const actualReturnedRowCount =
+    (headerRead.publication ? 1 : 0) +
+    headerRead.headers.length +
+    seedRows.length +
+    previewRows.length
+  if (actualReturnedRowCount >= GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET) {
+    throw new Error('Materialized review-unit page exceeded the runtime artifact row budget.')
+  }
+  console.info('[gmail-artifact-store] bounded materialized review-unit page read', {
+    tenant_id: params.tenantId,
+    analysis_scope: params.analysisScope,
+    artifact_version: headerRead.artifact_version,
+    review_unit_id: reviewUnitId,
+    seed_rows: seedRows.length,
+    preview_rows: previewRows.length,
+    actual_returned_rows: actualReturnedRowCount,
+    query_concurrency: 1,
+  })
+  return {
+    ...headerRead,
+    seed_rows: seedRows,
+    preview_index_rows: previewRows,
+    preview_fetch_strategy: 'sender_key',
+    focused_total_senders: focusedTotalSenders,
+    focused_capability_available: true,
+    focused_request_valid: true,
+  }
+}
+
 export async function loadPublishedGmailSenderWorkspaceArtifactSenderKeys(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -3808,21 +4006,14 @@ async function loadPublishedSenderWorkspaceArtifactHeaders(params: {
   headers: GmailSenderWorkspaceSeedHeaderRow[]
   selected_header: GmailSenderWorkspaceSeedHeaderRow | null
 }> {
-  let publication = await loadPublicationState({
+  const publication = await loadPublicationState({
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope: params.analysisScope,
   })
-  if (normalizeText(publication?.building_version)) {
-    const buildLiveness = await reconcileGmailArtifactBuildLiveness({
-      supabase: params.supabase,
-      tenantId: params.tenantId,
-      analysisScope: params.analysisScope,
-      publication,
-    })
-    publication = buildLiveness.publication ?? publication
-  }
-  const artifactVersion = normalizeNullableText(publication?.published_version)
+  const developmentOverride = developmentGmailArtifactVersionOverride()
+  const artifactVersion =
+    developmentOverride || normalizeNullableText(publication?.published_version)
   if (!publication || !artifactVersion) {
     return {
       publication,
@@ -3832,6 +4023,14 @@ async function loadPublishedSenderWorkspaceArtifactHeaders(params: {
       headers: [],
       selected_header: null,
     }
+  }
+  if (developmentOverride) {
+    await assertDevelopmentArtifactVersionExists({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      artifactVersion,
+    })
   }
 
   const headerCacheKey = versionedArtifactCacheKey([
@@ -4154,6 +4353,7 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
   awaitRefreshHandoff?: boolean
   refreshHandoffTimeoutMs?: number
 }): Promise<GmailPublishedMailboxIntelligenceArtifactRead> {
+  const developmentOverride = developmentGmailArtifactVersionOverride()
   let publication = await loadPublicationState({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -4162,7 +4362,7 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
   })
   let buildLiveness: GmailArtifactBuildLivenessResult | null = null
 
-  if (params.awaitRefreshHandoff) {
+  if (!developmentOverride && params.awaitRefreshHandoff) {
     publication = await awaitGmailArtifactRefreshHandoff({
       supabase: params.supabase,
       tenantId: params.tenantId,
@@ -4172,7 +4372,11 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
     })
   }
 
-  if (params.reconcileBuildLiveness && normalizeText(publication?.building_version)) {
+  if (
+    !developmentOverride &&
+    params.reconcileBuildLiveness &&
+    normalizeText(publication?.building_version)
+  ) {
     buildLiveness = await reconcileGmailArtifactBuildLiveness({
       supabase: params.supabase,
       tenantId: params.tenantId,
@@ -4183,7 +4387,8 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
     publication = buildLiveness.publication ?? publication
   }
 
-  const artifactVersion = normalizeNullableText(publication?.published_version)
+  const artifactVersion =
+    developmentOverride || normalizeNullableText(publication?.published_version)
   if (!publication || !artifactVersion) {
     return {
       publication,
@@ -4193,6 +4398,14 @@ export async function loadPublishedGmailMailboxIntelligenceArtifact(params: {
       buckets: [],
       build_liveness: buildLiveness,
     }
+  }
+  if (developmentOverride) {
+    await assertDevelopmentArtifactVersionExists({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      artifactVersion,
+    })
   }
 
   const includeSnapshot = params.includeSnapshot !== false

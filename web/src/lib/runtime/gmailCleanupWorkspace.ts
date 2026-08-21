@@ -284,10 +284,21 @@ export type GmailCleanupGroupReviewUnit = {
     | 'family_lane'
     | 'assignment_reason'
     | 'exclusion_reason'
+    | 'recency_band'
+    | 'volume_band'
+    | 'materialized_partition'
   source_key: string
   sender_count: number
   share_pct: number
-  unit_role: 'subtype' | 'dominant_remainder' | 'spillover' | 'family_lane' | 'reason'
+  unit_role:
+    | 'subtype'
+    | 'dominant_remainder'
+    | 'spillover'
+    | 'family_lane'
+    | 'reason'
+    | 'bounded_partition'
+  decomposition_path?: string[]
+  publication_status?: 'materialized' | 'legacy_derived'
 }
 
 export type GmailSemanticDecompositionMetadata = {
@@ -2278,6 +2289,7 @@ function senderWorkspaceCacheKey(params: {
   sort: GmailSenderWorkspaceSort
   direction: GmailSenderWorkspaceSortDirection
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  reviewUnitId?: string | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
@@ -2295,6 +2307,7 @@ function senderWorkspaceCacheKey(params: {
         params.semanticFocus.surfacedSubtypeKeys.slice().sort().join(',') || 'none',
       ].join(':')
     : 'none'
+  const reviewUnitId = params.reviewUnitId?.trim() || 'none'
   const timeContextTruthContract =
     params.timeContextBucketLabel == null &&
     params.senderOverviewWindow == null &&
@@ -2318,6 +2331,7 @@ function senderWorkspaceCacheKey(params: {
     params.filter,
     params.sort,
     params.direction,
+    reviewUnitId,
     semanticFocusSignature,
     params.previewEvidenceSenderKey || 'no-preview-evidence-sender',
     params.timeContextBucketLabel?.trim() || 'no-time-context-bucket',
@@ -2336,6 +2350,7 @@ export function buildGmailSenderDistributionCacheKey(params: {
   analysisScope: OperationsAnalysisScope
   cacheVersion: string
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  reviewUnitId?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
@@ -2358,6 +2373,7 @@ export function buildGmailSenderDistributionCacheKey(params: {
     params.cacheVersion,
     clusterCacheSignature(params.selectedCluster),
     ...sortedClusterCacheSignatures(params.allClusters),
+    params.reviewUnitId?.trim() || 'no-review-unit',
     semanticFocusSignature,
     params.timeContextBucketLabel || 'no-time-context-bucket',
     params.timeContextBucketStartAt || 'no-time-context-bucket-start',
@@ -2727,6 +2743,7 @@ export function readCachedGmailSenderDistribution(params: {
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  reviewUnitId?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
@@ -2754,6 +2771,7 @@ export function readCachedGmailSenderDistribution(params: {
     analysisScope,
     cacheVersion,
     semanticFocus: params.semanticFocus ?? null,
+    reviewUnitId: params.reviewUnitId ?? null,
     timeContextBucketLabel: params.timeContextBucketLabel ?? null,
     timeContextBucketStartAt:
       typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
@@ -2939,6 +2957,7 @@ export async function fetchGmailSenderWorkspace(params: {
   sort?: GmailSenderWorkspaceSort
   direction?: GmailSenderWorkspaceSortDirection
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  reviewUnitId?: string | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
@@ -2985,6 +3004,7 @@ export async function fetchGmailSenderWorkspace(params: {
       sort,
       direction,
       semanticFocus: params.semanticFocus ?? null,
+      reviewUnitId: params.reviewUnitId ?? null,
       previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
       timeContextBucketLabel: params.timeContextBucketLabel ?? null,
       timeContextBucketStartAt:
@@ -3071,6 +3091,7 @@ export async function fetchGmailSenderWorkspace(params: {
       filter,
       sort,
       direction,
+      review_unit_id: params.reviewUnitId?.trim() || null,
       preview_evidence_sender_key:
         typeof params.previewEvidenceSenderKey === 'string' && params.previewEvidenceSenderKey.trim()
           ? params.previewEvidenceSenderKey.trim()
@@ -3129,6 +3150,7 @@ export async function fetchGmailSenderDistribution(params: {
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  reviewUnitId?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
@@ -3161,6 +3183,7 @@ export async function fetchGmailSenderDistribution(params: {
       analysisScope,
       cacheVersion,
       semanticFocus: params.semanticFocus ?? null,
+      reviewUnitId: params.reviewUnitId ?? null,
       timeContextBucketLabel: params.timeContextBucketLabel ?? null,
       timeContextBucketStartAt:
         typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
@@ -3266,6 +3289,7 @@ export async function fetchGmailSenderDistribution(params: {
             surfaced_subtype_keys: params.semanticFocus.surfacedSubtypeKeys,
           }
         : null,
+      review_unit_id: params.reviewUnitId?.trim() || null,
       ...contextParams(params.requestContext),
     },
     errorMessage: 'Failed to load Sender Distribution.',

@@ -4097,16 +4097,30 @@ export function pressureTrendResolvedWindow(params: {
 }): { ok: true; data: PressureTrendResolvedWindow } | { ok: false; error: string } {
   const timeZone = safePressureTrendTimeZone(params.timeZone)
   const nowMs = typeof params.nowMs === 'number' && Number.isFinite(params.nowMs) ? params.nowMs : Date.now()
-  const coverageStartMs = (() => {
+  const publishedCoverageStartMs = (() => {
     const parsed = Date.parse(params.coverage.indexed_date_span_start || '')
-    if (Number.isFinite(parsed)) return parsed
-    return params.rowStartMs ?? null
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
   })()
-  const coverageEndInclusiveMs = (() => {
+  const publishedCoverageEndInclusiveMs = (() => {
     const parsed = Date.parse(params.coverage.indexed_date_span_end || '')
-    if (Number.isFinite(parsed)) return parsed
-    return params.rowEndMs ?? null
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
   })()
+  const observedRowStartMs =
+    typeof params.rowStartMs === 'number' && Number.isFinite(params.rowStartMs) && params.rowStartMs > 0
+      ? params.rowStartMs
+      : null
+  const observedRowEndMs =
+    typeof params.rowEndMs === 'number' && Number.isFinite(params.rowEndMs) && params.rowEndMs > 0
+      ? params.rowEndMs
+      : null
+  const coverageStartMs =
+    publishedCoverageStartMs != null && observedRowStartMs != null
+      ? Math.max(publishedCoverageStartMs, observedRowStartMs)
+      : publishedCoverageStartMs ?? observedRowStartMs
+  const coverageEndInclusiveMs =
+    publishedCoverageEndInclusiveMs != null && observedRowEndMs != null
+      ? Math.min(publishedCoverageEndInclusiveMs, observedRowEndMs)
+      : publishedCoverageEndInclusiveMs ?? observedRowEndMs
   const coverageEndExclusiveMs =
     coverageEndInclusiveMs != null ? coverageEndInclusiveMs + 1 : null
   const liveEndExclusiveMs = nowMs + 1
@@ -4290,7 +4304,9 @@ export function buildGmailPressureTrendData(params: {
 }): { ok: true; data: GmailPressureTrendData } | { ok: false; error: string } {
   const datedRows = params.rows.filter(
     (row): row is GmailMailboxIndexRow & { internal_date_ms: number } =>
-      typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+      typeof row.internal_date_ms === 'number' &&
+      Number.isFinite(row.internal_date_ms) &&
+      row.internal_date_ms > 0
   )
   let rowStartMs: number | null = null
   let rowEndMs: number | null = null
