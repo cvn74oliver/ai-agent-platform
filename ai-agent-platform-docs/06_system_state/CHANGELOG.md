@@ -1,3 +1,135 @@
+### August 15, 2026 — ACE-048 Main Contracts A/B Sender-Distribution Scope Truth Accepted
+
+Accepted invariant:
+- Sender Distribution lifecycle ownership is keyed by the semantic agent/scope request identity; mutable same-key workspace or expected-key inputs must not orphan loading or prevent a valid response from committing.
+- An exact matching active-scope workspace is authoritative even when its sender universe is empty. It must not fall through to All-indexed or normalized-scope keys merely because the set has length zero.
+- When exact scoped workspace and distribution truth are both ready and empty, workflow universe, Sender Distribution, sender rows, and Decision Mode queue resolve to the same zero-sender ready state with visible empty-state copy.
+- Load remains bounded to at most one workspace plus one distribution request per uncached semantic key; cached return emits no duplicate heavy request; accepted paths do not poll, retry, or emit guard `409` churn.
+
+Source layer fixed:
+- Main sender-distribution UI lifecycle, selected-scope authority, and artifact-read liveness contract
+
+Root cause:
+- Selected-cluster distribution was initially compared against a global All-indexed universe, manufacturing incomplete-scope failures.
+- Mutable same-key effect dependencies could cancel the sole request generation; replacement work treated orphan loading as proof of a live owner, preventing valid cached responses from committing.
+- The shared sender-key selector then treated an exact matching empty scoped workspace as absent, fell through to stale All-indexed keys, and misclassified valid authoritative-empty `30d` truth as incomplete.
+- Artifact build/freshness reads did not consistently reconcile stale lifecycle state before presenting it.
+
+Touched files:
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+
+Acceptance proof:
+- Independent verifier: ACCEPT; Verification Confidence: HIGH; `Missing Proof Type: none`.
+- Oliver explicitly authorized proceeding after Human Review on 2026-08-15, including: “I am good with you proceeding how you think you need to proceed next” and “you have my full approval to proceed as you see fit.”
+- Exact five-row State Transition Matrix passed with two stable ready samples and post-ready confirmation per row:
+  - Protected cold All: `1,844` authoritative bars with linked senders
+  - Protected `All -> 1M`: authoritative-empty ready with workflow universe, distribution, sender rows, and Decision Mode queue all `0`
+  - Protected `1M -> 1Y`: `366` bars with linked senders
+  - Protected `1Y -> All`: cached `1,844` bars with zero new workspace/distribution requests
+  - Marketing parent cold: exact parent route, no invented subset identity, `857` bars with linked senders
+- Request contract passed: maximum one workspace plus one distribution request per uncached semantic key; cached return `0/0`; `initial_paint=0`; `409=0`; no polling, retries, POST failures, console/page errors, duplicate-key warnings, or overlays.
+- Twenty-one aborted GET RSC/prefetch requests were proven harmless and non-interfering.
+- Contract B in-memory liveness/CAS proof remained PASS with unchanged hashes; cleanup baseline remained PASS.
+
+Acceptance boundary:
+- This Recovery Contract accepts only the scoped Main Contracts A/B sender-distribution correction.
+- It does not accept or complete the separate Dashboard baseline, Gmail OAuth/sync/index health, the overall main integration baseline, cleanup-lineage integration, Git-history credential remediation, database/schema work, deployment, merge, commit, or push.
+- Cleanup `cleanup-taxonomy-rebuild` remains the authoritative sender-distribution feature lineage for future semantic integration; this accepted main behavior must be reconciled with, and must not silently override, cleanup sender-distribution intent.
+
+Replay steps:
+1. Start fresh main production at `http://localhost:3000` and authenticate through the approved persisted-auth flow without surfacing credentials.
+2. Run the five accepted matrix rows above and require post-settle ready-state screenshots, DOM/state, and request traces.
+3. Confirm the `30d` row resolves all four linked sender surfaces to authoritative zero without loading, error, or `unavailable_scope`.
+4. Confirm one workspace plus one distribution request at most for each uncached key and zero new heavy requests on cached return to All.
+5. Confirm zero accepted-path `initial_paint`, `409`, polling, retry, console/page error, duplicate-key warning, and overlay behavior.
+6. Confirm Contract B files remain invariant or rerun the bounded in-memory liveness/CAS harness if those seams change.
+
+Rollback guidance:
+- Revert only the scoped Contracts A/B changes in the three touched files in a controlled branch/worktree.
+- Re-run the five-row matrix and Contract B invariant/harness check.
+- Expected rollback symptoms include global-versus-selected universe mismatch, orphan same-key loading, stale prior-scope bars, authoritative-empty `30d` misclassified as unavailable, or unreconciled stale lifecycle truth.
+
+---
+
+### August 15, 2026 — ACE-048 Current-Tree Auth-Artifact Remediation Accepted
+
+Accepted invariant:
+- Tracked Playwright/Supabase authentication state must not remain in the current working tree or be newly trackable through the known auth-state path and filename families.
+- Ordinary browser verification evidence must remain usable and unignored.
+- Current-tree containment must not be misrepresented as Git-history remediation.
+
+Source layer fixed:
+- Repository current-tree authentication artifact hygiene
+
+Root cause:
+- Four Playwright storage-state files containing reusable Supabase authentication material were tracked in the repository.
+- Root ignore rules did not comprehensively reject nested/root `.playwright-cli`, `playwright/.auth`, or common JSON auth/login/storage-state filename variants.
+
+Touched files:
+- `.gitignore`
+- Deleted current-tree artifacts:
+  - `output/playwright/ace046-auth-state.json`
+  - `output/playwright/ace047_env_login_state.json`
+  - `output/playwright/phase2_postsettle_final/auth_state.json`
+  - `web/.playwright-cli/ace046-auth-state.json`
+
+Acceptance proof:
+- Oliver issued post-implementation `ACCEPT` on 2026-08-15.
+- Independent verifier: PASS.
+- `Missing Proof Type: none`.
+- Root ignore rules reject the known directory and JSON auth/login/storage-state families.
+- Ordinary browser evidence remains unignored, including screenshots, traces, reports, DOM captures, and request traces.
+- Generic tracked-current scan found zero files containing the Supabase auth-cookie marker without printing secret contents.
+- `git diff --check`: PASS.
+- Main HEAD and index were unchanged; no commit or push occurred.
+- `cleanup-taxonomy-rebuild` remained clean and untouched.
+
+Historical and security boundary:
+- Git-history exposure remains OPEN.
+- All four blobs remain recoverable from current HEAD.
+- This accepted fix does not claim history rewrite, additional credential rotation, deployment, database, runtime, dependency, privileged-route, or cleanup-lineage changes.
+
+Replay steps:
+1. Confirm the four listed files are absent from the current working tree and tracked-current index view.
+2. Test root and nested `.playwright-cli`, `playwright/.auth`, and the covered JSON auth/login/storage-state filename variants against root ignore rules.
+3. Confirm representative screenshots, traces, reports, DOM captures, and request traces remain unignored.
+4. Scan tracked-current files for the Supabase auth-cookie marker without printing matching secret contents; expect zero files.
+5. Run `git diff --check`.
+6. Separately confirm that Git-history exposure is still reported OPEN until an explicitly authorized history-remediation pass succeeds.
+
+Rollback guidance:
+- Restore the four files and revert the root ignore additions only to reproduce the pre-fix current-tree condition in a controlled, non-published environment.
+- Never restore or print token contents in logs, documentation, or review output.
+- Expected rollback symptom: the known auth-state paths or filename variants become trackable again.
+
+---
+
+### August 15, 2026 — ACE-048 Automata Revival Control-Plane Baseline Accepted
+
+Accepted governance milestone:
+- Oliver recorded `ACCEPT` for the Automata Revival — Security and Rebaseline control-plane packet.
+- `ACE-048` is the sole governing revival event.
+- The accepted baseline establishes:
+  - security and rebaseline before product expansion
+  - exact containment of the three identified Supabase Auth sessions as verified operational truth
+  - repository auth-artifact removal, ignore protection, and Git-history remediation as still pending
+  - `main` as the provisional integration baseline
+  - `cleanup-taxonomy-rebuild` as valuable unintegrated development lineage that must be preserved
+  - evidence-led, seam-by-seam cleanup integration through bounded verified packets
+  - preservation of historical Recovery Contracts and continued closure of `ACE-011`
+
+Acceptance boundary:
+- This is acceptance of the control-plane baseline, not completion of the revival program.
+- It does not authorize runtime implementation, Git-history rewriting, full merge, blanket conflict resolution, branch deletion, worktree deletion, database mutation, or deployment mutation.
+- Security remediation, schema rebaseline, deployment adjudication, cleanup-lineage integration, Gmail completion, and later product stages remain open work.
+
+Recovery Contract:
+- Not applicable. This entry records an accepted governance baseline, not an accepted implementation fix.
+
+---
+
 ### April 16, 2026 — ACE-047 Runtime READY Unblock Accepted
 
 Accepted invariant:

@@ -16,6 +16,1081 @@ This file tracks active architectural, product, workflow, UI, and operating-mode
 
 ## Active Change Events
 
+### [ACE-048] Automata Revival — Security and Rebaseline
+
+Date: 2026-08-15
+Owner: Oliver / Project Manager
+Status: Active
+Propagation Owner: Control Plane Architect
+Problem Class: runtime behavior constrained by artifact/publication truth — locked for the active three-file lifecycle cache/terminal-clearing correction
+Execution Mode: `transitional_self_verification`
+Baseline Acceptance: `ACCEPT` — Oliver, 2026-08-15
+
+Decision:
+- Automata is now governed by the **Revival — Security and Rebaseline** program.
+- All application implementation is blocked until the first revival execution packet is approved from this rebaselined control plane.
+- The revival order is:
+  1. accepted current-tree auth-artifact remediation — complete with Recovery Contract
+  2. accepted Main Contracts A/B sender-distribution scope-truth correction — complete with Recovery Contract
+  3. Gmail OAuth plus sync/index recovery — PASS; semantic artifact recovery/publication remains open
+  4. load-safe semantic-artifact recovery/integration safety audit, controlled candidate-disposition plan, and approved PM Brief
+  5. separate Dashboard baseline diagnosis, PM Brief, correction, and verification loop
+  6. recompute the dual-worktree semantic manifest and author a staged integration PM Brief under cleanup sender-distribution feature authority
+  7. preservation-first manual semantic integration on a main-derived integration worktree
+  8. post-integration terminal-health and Playwright regression verification plus human acceptance before merge/commit/push
+  9. privileged-route caller-authentication and ownership hardening
+  10. upgrade Next.js from `16.0.10` to the approved patched security baseline
+  11. adjudicate the canonical Vercel project and deployment path
+  12. establish a reproducible local-to-live Supabase schema baseline
+  13. finish one Gmail closed loop
+  14. build the governed learning substrate
+  15. build the executable workspace compiler / visual builder
+  16. validate a second domain
+  17. add broader multi-agent company hierarchy
+- Sequence-change rationale: shared and hot files evolved in both refs; hardening them before cleanup integration would increase semantic conflict risk and could duplicate or overwrite security work.
+- `main` is the eventual integration destination and authority for later unrelated main-line evolution. `cleanup-taxonomy-rebuild` is the sender-distribution feature authority; its substantial cleanup/taxonomy lineage is not obsolete, disposable, or merged by default.
+- Gmail is the mature reference vertical. The generalized visual builder, governed model-training lifecycle, and multi-agent company hierarchy are not yet implemented.
+- Revival product stages are strategic sequence labels. Lane phases are bounded execution states within an ACE; the two must not be conflated.
+
+Newly governing audit truth:
+- Public Git history contains four tracked Playwright Supabase auth-state artifacts.
+- Three Supabase Auth sessions referenced by those artifacts have now been contained exactly; repository artifact and history exposure remain unresolved.
+- Multiple service-role API routes lack caller authentication and ownership checks.
+- Next.js `16.0.10` is below the current approved patched security baseline.
+- Two Vercel projects deploy the same `main` commit and require canonical-project adjudication.
+- Local Supabase migrations do not reproduce the live schema.
+- The prior control plane is stale and contradictory: active/completed classification has drifted, TODO contains historical accumulation, and the required execution dashboard was absent.
+
+Cleanup lineage preservation and integration posture:
+- Freeze and preserve both `main` and `cleanup-taxonomy-rebuild` refs before integration analysis or mutation.
+- First inventory all cleanup-only and materially differing work from the merge base.
+- Behaviorally classify each seam using code, tests, runtime intent, and relevant documentation rather than file age, branch name, or blanket source preference.
+- Blind full merge, blanket conflict resolution, broad overwrite, branch deletion, and cleanup-worktree deletion are prohibited.
+- Integration must proceed through bounded packets, each with:
+  - an explicit seam and behavior objective
+  - compared source evidence from both refs
+  - a declared target file set
+  - regression boundaries
+  - targeted verification before the next packet
+- Individual cleanup items may later be classified superseded only after explicit comparison proves the newer governing behavior and preserves any still-valuable work.
+- No sender-distribution supersession, omission, or deletion may be inferred merely because `main` is the integration destination.
+
+Staged cleanup-lineage integration program — PLAN MODE only:
+- Existing comparison findings are historical and stale after verified cleanup corrections:
+  - `37` non-identical cleanup-lineage paths
+  - `17` textual conflicts
+  - shared hot files require dedicated semantic integration
+- The integration sequence is mandatory:
+  1. start and verify `main` before integration using terminal health plus Playwright CLI on approved exact runtime targets and routes
+  2. start and verify `cleanup-taxonomy-rebuild` before integration using terminal health plus Playwright CLI on approved exact runtime targets and routes
+  3. integrate preservation-first, seam-by-seam through bounded packets and semantic conflict resolution
+  4. start and verify the integrated app using terminal health plus Playwright CLI, proving accepted surfaces remain functional
+- Shared-file conflicts are semantic integrations. Blanket `ours` / `theirs` resolution is prohibited.
+- The program must remain in PLAN MODE until PM approves a complete brief containing:
+  - locked file/seam manifest
+  - exact runtime targets and canonical routes for both pre-integration baselines and post-integration proof
+  - rollback and ref-preservation posture
+  - accepted proof surfaces and regression contract
+  - packet order and stop conditions
+- No merge or conflict resolution is authorized during discovery and target-lock planning.
+- Privileged-route hardening must not run concurrently with cleanup integration.
+- Git-history remediation remains a separate security action and must not be mixed into feature integration.
+
+Pre-integration baseline gate — decisive FAIL, merge execution BLOCKED:
+- Problem decomposition is now locked:
+  - Cleanup: source / compiler
+  - Main: runtime lifecycle / UI truth plus artifact / publication truth
+  - Dashboard: separate client transport / error-state behavior
+- Main baseline:
+  - runtime target: `/Users/olivercarlin/Dev/ai-agent-platform/web` at `http://localhost:3000`
+  - `npm run lint`: FAIL from broad pre-existing lint debt
+  - fresh `npm run build`: PASS (`63/63` pages)
+  - production start: PASS; exact server stopped cleanly and port closed
+  - env-backed UI authentication: PASS using a newly created ignored current-session auth context; revoked historical states were not reused
+  - dashboard authenticated but metrics remained loading with repeated `loadUserData failed: TypeError: Failed to fetch`
+  - agents, intelligence, and clusters mounted
+  - protected and Marketing review routes reached the technical rail-ready marker, but settled UI showed `Could not load sender distribution for this scope`
+  - protected Time Context was usable; most scope/tab rows failed because Sender Distribution remained loading or unavailable
+  - runtime artifact truth: `artifact_freshness_state=refresh_failed`, `artifact_build_status=failed`
+  - observed request totals: playground `3`, mailbox-index `2` overall and `0` on protected cold open, inbox-analysis `9`, Gmail memory `2`, guarded `409 initial_paint_live_fetch_disabled` `2`
+  - no mailbox-index polling on scope switch; idle `>=12s` produced zero repeated polling; no mutating control used
+  - verdict: FAIL; confidence HIGH
+- Cleanup initial baseline (superseded by the independently verified post-correction PASS recorded below):
+  - runtime target: `/Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/web` at `http://localhost:3001`
+  - lint: FAIL (`267` problems: `226` errors, `41` warnings)
+  - fresh build: FAIL at `web/src/app/agents/[id]/operations/review/page.tsx:934` because an async function declares a bare union return type instead of a Promise union
+  - production start: BLOCKED because fresh build failed; stale build artifact was not accepted
+  - bounded current-source dev diagnostic authenticated using the new same-host session
+  - dashboard remained loading; agents and intelligence mounted; clusters did not expose the expected heading within `45s`; later routes were not fabricated
+  - verdict: FAIL; remaining route proof BLOCKED by build failure plus bounded clusters timeout
+  - cleanup worktree remained source-clean
+- Proof artifacts:
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/main-pre/` — CREATED; authoritative non-secret main pre-integration visual/runtime baseline
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/cleanup-pre/` — CREATED; authoritative non-secret cleanup pre-integration visual/runtime baseline
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/main-pre/.playwright-cli/main-auth-state.json` — CREATED; ignored sensitive auth context for this active integration flow only
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/cleanup-pre/.playwright-cli/cleanup-auth-state.json` — CREATED; ignored sensitive auth context for this active integration flow only
+  - auth contexts must never be committed and must be deleted when the flow closes
+- Playwright CLI wrapper dropped twice during credential fill; skill-authorized real-browser fallback used installed `playwright-core`. Tool instability is not classified as product failure.
+- No source, database, deployment, merge, stage, commit, push, or cleanup-lineage mutation occurred.
+
+Semantic archaeology — approved discovery truth, not implementation authorization:
+- `84` cleanup paths total
+- `47` byte-identical paths
+- `37` disposition paths:
+  - `8` cleanup-unopposed
+  - `7` cleanup-only
+  - `22` both-changed
+- `17` textual conflicts
+- `5` auto-merges requiring semantic review
+- Classification: `hot_file_integration_required`.
+- Full merge, cherry-pick, and blanket `ours` / `theirs` resolution remain prohibited.
+- Accepted behavior missing from `main` includes:
+  - `secondary.account_updates` / retail redirect retirement
+  - candidate-only artifact builds plus CAS publish/rollback
+  - shadow rediscovery
+  - artifact-backed review-unit mechanics
+  - Marketing unit-only UI
+- Approved staged semantic-union order:
+  1. safety / baseline
+  2. identity / contracts
+  3. candidate / publication mechanics
+  4. artifact-backed reads
+  5. tooling
+  6. UI
+  7. final verification / propagation
+
+Root-cause diagnosis and PM execution translation — correction implementation not yet authorized:
+- Cleanup mechanism — HIGH confidence:
+  - complete read-only TypeScript pass found `8` errors, all in two cleanup-lineage files
+  - `review/page.tsx`:
+    - `collectWorkspaceSendersForSemanticFocus` is async but declares a bare union instead of `Promise<union>`
+    - Promise wrapping alone is insufficient because two callers combine cancellation with an abort discriminant, preventing narrowing and masking six property errors
+    - exact correction contract: define a named result union, return `Promise<Result>`, then split caller checks into `if (cancelled) return`, `if ('aborted' in result) return`, then discriminate `result.ok`
+    - preserve pagination, deduplication, ordering, and cancellation behavior
+  - `inboxAnalysis.ts`:
+    - exhaustive `GmailCleanupExclusionReason` branches make the fallback reason type `never`
+    - replace fallback logic with an exhaustive typed label map satisfying `Record<GmailCleanupExclusionReason, string>`
+    - do not widen or suppress the type
+  - targeted ESLint across all `23` branch-differing code/script paths found two cleanup-owned errors in `gmailArtifactStore.ts` at `applyPublicationExpectationClause`
+    - replace explicit `any` annotations with a generic query constraint that preserves `eq` / `is` return types and downstream `select` / `maybeSingle`
+  - the other `224` broad lint errors are pre-existing non-lineage debt and are outside this bounded correction
+  - clusters timeout remains an unresolved runtime symptom, not compile latency and not yet a code-correction basis; retry fresh production proof after compile correction and diagnose only if it recurs
+  - magic-link-only cleanup login is intentional history, not a defect; saved-state authentication works; preserve main password login during later integration
+  - apply the bounded compiler correction to cleanup first, then rebuild/run cleanup before integration
+  - recompute the `37` / `17` manifest after correction; original cleanup head `382c9d6` remains the immutable comparison reference
+- Main mechanism — precise multi-part failure:
+  1. HIGH runtime lifecycle:
+     - review page sends `sender_distribution` with phase `initial_paint` even though the API intentionally returns `409 initial_paint_live_fetch_disabled`
+     - client discards status/reason/retry metadata and string-matches unrelated transient messages, converting an intentional safety guard into a terminal visible error
+  2. HIGH UI truth:
+     - `data-sender-overview-rail-state` derives from Time Context even when Sender Distribution is selected
+     - DOM reports ready while the visible active rail has failed
+     - distribution/workflow ordered universes may derive from different artifact/live sources; parity detects missing keys but the page renders a terminal chart failure
+  3. HIGH artifact integrity:
+     - reader accepts any `published_version` despite `refresh_failed` / `build_status=failed` and may return partial seed rows as `ok`
+     - publisher records row-count errors but can still publish
+     - exact current data mismatch remains unknown pending bounded metadata inspection
+  4. Separate HIGH dashboard defect:
+     - dashboard queries Supabase directly in the browser across `agents`, `fine_tune_examples`, and `agent_sessions`
+     - transport failures had no HTTP response; outstanding queries continue after navigation and log errors unconditionally
+     - do not connect existing admin/global `/api/dashboard/metrics` without authenticating and tenant-scoping it first
+- PM Root Cause Execution Translation:
+  - preserve inbox-analysis status, reason, and retry metadata as a machine-readable result; prohibit human-string classification
+  - cold paint uses artifact-only truth or one bounded deferred request after shell/runtime readiness; never send a request known to be rejected
+  - disabled initial paint preserves seed/continuity and is non-terminal
+  - active rail readiness derives from selected tab and current request key; Sender Distribution is ready only with a parity-complete current universe or explicit genuine-empty state
+  - artifact distribution loader compares header `sender_count` with unique loaded seed rows and returns structured `artifact_incomplete`, never partial `ok`
+  - define one bounded fallback; prohibit silent mixed universes
+  - pre-publication integrity gate requires successful counts, header/seed parity, and required snapshot/header; preserve prior immutable publication on failure
+  - load contract:
+    - cold: maximum one workspace read plus one serialized/deferred distribution read; zero guard `409`
+    - scope switch: maximum one of each per new cache key
+    - no duplicate heavy key and no mailbox polling
+  - dashboard correction remains separate: abortable queries, no cancelled-request logging, independent profile/metric error states; server consolidation only after auth/tenant scoping
+- Primary correction files:
+  - main `web/src/app/agents/[id]/operations/review/page.tsx`
+  - main runtime `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - inbox-analysis route
+  - integration `gmailCleanupWorkspace.ts`
+  - `gmailArtifactStore.ts`
+  - `gmailArtifactBuildRunner.ts`
+  - `web/src/app/dashboard/page.tsx`
+- Before any main artifact/publication implementation, run one bounded read-only Supabase metadata inspection using the authoritative Supabase skill:
+  - inspect current publication/job state
+  - inspect last error and liveness
+  - compare header versus seed counts
+  - no data write, build, publish, or rollback
+- Reasoning: EXTRA-HIGH for main artifact/runtime correction; HIGH for cleanup compiler correction.
+- Lint gate:
+  - changed cleanup/main lineage files must have zero lint errors
+  - repository-wide historical lint debt remains reported but outside scope unless Oliver authorizes a separate lint program
+  - fresh production build/start plus browser console and visible behavior must still run without errors
+
+Read-only Supabase seam lock — complete, no database mutation:
+- Target: Supabase project `cjpjekhlvzwjwtszqpmy`, canonical agent `d256b48e-5acf-4b3d-af22-003d52e7e582`.
+- Tenant resolution truth:
+  - runtime correctly resolves `profiles.tenant_id` by joining `profiles.id = agents.user_id`
+  - tenant identity is not `agents.user_id`
+  - the first user-id-derived zero-row query was a diagnostic false assumption and is not a product defect
+- Correct target counts:
+  - publications: `6`
+  - jobs: `341`
+  - seed headers: `2,291`
+  - seed rows: `581,774`
+  - snapshots: `302`
+  - cluster summaries: `2,291`
+- Every active published artifact is internally consistent:
+  - zero header-versus-row sender mismatches
+  - zero message-count mismatches
+  - zero headers without rows
+  - cluster-summary parity
+  - one snapshot per active publication
+- `all_indexed` publication `full-mailbox-20260415024237593`:
+  - `13` headers and summaries
+  - `9,846` seed rows
+  - exactly `4,923` distinct global senders
+  - doubled row volume is overlapping structural plus semantic projection, not corruption
+- Accepted selected-cluster universes are valid and non-overlapping:
+  - `structural.protected_trust`: `1,844` distinct senders
+  - `semantic.marketing_subscriptions`: `857` distinct senders
+  - overlap: `0`
+- Main visible failure mechanism is now locked:
+  - UI compares selected-cluster distribution keys against the `4,923`-key global authoritative list
+  - this manufactures `Sender distribution is incomplete for the current authoritative scope` despite valid selected-cluster data
+  - root class: UI/runtime universe-identity mismatch, not publication corruption
+- `all_indexed` later-refresh metadata remains failed:
+  - `build_status=failed`
+  - `freshness_state=refresh_failed`
+  - a later full rebuild was reclaimed as stale on April 16
+  - the earlier published version remains internally consistent and usable
+- Separate lifecycle defect:
+  - `7d` retains `building_version=full-mailbox-20260412003307051`
+  - `build_status=building`, `freshness_state=refresh_in_progress`
+  - corresponding job remains `running`, phase `projecting_sender_scope`, with no heartbeat since 2026-04-12 and zero processed counts
+  - this build is definitively orphaned
+  - sender-workspace header/page reads call `loadPublicationState` directly and do not invoke existing liveness reconciliation
+  - a distribution-only `7d` read can therefore preserve stale running/building truth indefinitely
+- No database values changed; no sensitive IDs, keys, or content were surfaced.
+
+Locked main correction contract A — selected-universe and UI truth:
+- Validate and order selected-cluster Sender Distribution against that selected cluster's authoritative sender keys or an explicitly filtered subset, never the `4,923` global universe.
+- Check global/shared workflow parity only on surfaces that actually represent the global universe.
+- Derive readiness and error markers from the selected active Sender Distribution tab and current request key, not the Time Context rail.
+- Preserve valid published data when a later refresh failed; expose stale/refresh-failed metadata separately from data-integrity status.
+- Preserve zero known-rejected initial-paint POSTs and the bounded request ceilings already defined.
+
+Locked main correction contract B — lifecycle:
+- Every read path that presents build/freshness truth, including sender-workspace header/page/focused/execution reads, reconciles liveness through one bounded single-flight seam before trusting `building` / `running`.
+- Stale/dead build locks are reclaimable with CAS semantics; healthy/live work must not be mutated.
+- Verification must prove transition behavior for the orphaned `7d` shape and final steady state.
+- Do not manually write production data during diagnosis.
+- No production database cleanup is authorized in this correction packet; correct code first, then request separate operational recovery authority only if still required.
+
+Cleanup source/compiler correction — implemented and independently verified:
+- Worktree: `/Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild`.
+- Reasoning: HIGH.
+- Exactly `3` files changed with `30` insertions / `18` deletions:
+  1. `web/src/app/agents/[id]/operations/review/page.tsx`
+  2. `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+  3. `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+- Implemented corrections:
+  - named async result union plus separated cancellation / abort narrowing
+  - exhaustive typed exclusion-label map
+  - generic same-query-type CAS clause typing
+- No behavior, database, auth, taxonomy, request, polling, publication, or CAS semantics were intentionally changed.
+- Static and build proof:
+  - `tsc --noEmit --incremental false`: PASS
+  - targeted ESLint on the exact three changed files: PASS with `0` errors and `10` pre-existing warnings
+  - fresh `npm run build`: PASS (`62` pages)
+  - `git diff --check`: PASS
+- Independent runtime verification:
+  - verdict PASS; confidence HIGH; verifier decision ACCEPT for cleanup baseline repair only
+  - exact production origin `http://localhost:3001`; ready in `221ms`; server stopped and port closed
+  - saved auth persisted in a fresh context
+  - all seven exact routes settled: login redirect/dashboard, agents, intelligence, clusters, protected review, Marketing review
+  - prior clusters timeout did not recur; visible `Choose the next cleanup group`
+  - Protected Review rendered protected trust, Sender Distribution, and sender list
+  - Marketing rendered the intentional unit-only parent gate and `5` real published-unit links; no subset identity was invented or followed
+  - no console, page, overlay, or duplicate-key errors; no `409` guard churn; no polling or overlapping heavy family
+  - route-driven requests returned `200` / `ok`
+  - no mutating control, build, publish, sync, rollback, mailbox cleanup, or manual database operation
+  - Playwright CLI wrapper remained unstable after bounded retry; skill-authorized installed direct Playwright fallback completed equivalent browser proof
+  - State Transition Matrix: N/A, navigation only
+  - operator assist: none
+- Proof bundle — ignored/local, not authoritative runtime context:
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/cleanup-post-correction/`
+  - key files: `verifier-report.md`, `verification-summary.json`, `production-server.log`, `clusters-post-settle.png`, `review-protected-post-settle.png`, `review-marketing-post-settle.png`, `cleanup-post-correction-trace.zip`
+  - auth remained ignored, unread, and never printed
+- Broad historical repository lint debt remains separate and non-blocking under the differential no-new-error policy; repository-wide lint is not claimed clean.
+- Original cleanup head `382c9d6` remains the immutable archaeological reference.
+- Current cleanup worktree state contains the three uncommitted correction paths above.
+- Classification: cleanup baseline correction implemented and independently verified; not a new Accepted Fix and no Recovery Contract.
+
+Main Contracts A/B correction — implemented, independently verified, and REJECTED:
+- Reasoning: HIGH.
+- Problem class: runtime behavior, narrowed to one scope-transition commit/readiness seam.
+- Exactly three authorized runtime files are changed atop the prior `82` paths:
+  1. `web/src/app/agents/[id]/operations/review/page.tsx`
+  2. `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+  3. `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+- Static proof: TypeScript PASS; targeted ESLint PASS with `0` errors and `13` old warnings; fresh build PASS; diff check PASS.
+- Independent verifier decision: REJECT; confidence HIGH.
+- Contract B: PASS.
+  - direct current-source in-memory FakeSupabase harness only; no network or database use
+  - `8` concurrent readers produced one liveness select
+  - stale, missing, and terminal shapes produced one CAS plus upsert; live produced zero mutation; CAS loss produced no duplicate
+- Contract A passing partial proof:
+  - Protected cold All indexed: PASS; Sender Distribution ready from `sender_distribution`, `1,844` bars, Review senders, no visible error
+  - Marketing cold All indexed: PASS on the exact parent route; no invented `subset_value`; ready with `857` bars and Review senders
+  - Protected `1M -> 1Y`: PASS; `365d`, ready, `366` bars
+  - Protected `1Y -> All`: PASS; ready, `1,844` bars
+  - structured metadata fixture: PASS
+  - incomplete cached sender-universe rejection and refetch: PASS
+- Remaining accepted defect surface — Contract A FAIL:
+  - Protected `All -> 1M` reached active URL/scope `30d` / `1M`
+  - `sender_workspace` and `sender_distribution` both returned `200`
+  - after approximately `120s` and `117` samples, the rail remained loading while visibly retaining the stale `1,844` All-indexed bars
+  - ready-state was never satisfied
+  - locked defect: the successful `30d` distribution response is not being committed or recognized for the active request key; stale prior-scope success remains visible under loading
+- Accepted-flow load proof: four `sender_distribution` plus four `sender_workspace` POSTs, all `200`; cold phase deferred, later requests interactive; zero `initial_paint`, zero `409`, no polling or guard churn, and zero console/page/overlay errors.
+- Auth persistence PASS. Playwright wrapper remained unstable after one bounded retry; installed direct Playwright fallback completed equivalent proof.
+- Server stopped and port `3000` closed. Verifier made no source, database, control-plane, or Git mutation.
+- Proof bundle — untracked/local and non-authoritative; do not commit:
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/main-contracts-post-correction/`
+  - primary files: `ui-verification-summary.json`, `protected-transition-all-to-1m-after.png`, `request-phase-probe.json`, `contract-b-harness-results.json`
+  - auth contents remained unread
+- Classification: partial proof only; no Accepted Fix and no Recovery Contract.
+
+Contract A `All -> 1M` root cause — proven; Root Cause Execution Translation locked:
+- Diagnosis confidence: HIGH.
+- Request evidence: exactly one `sender_workspace` and one `sender_distribution` request started; both returned `200`. The authoritative `30d` distribution was empty in `1.811s`; the workspace returned an empty complete-key universe in `2.896s`. The UI retained stale `1,844` All-indexed bars under loading for `117` approximately one-second samples with no `409`, retry, polling, console, or page error.
+- Proven mechanism:
+  1. The distribution effect sets the `30d` request key to loading while retaining prior All-indexed data as a continuity seed.
+  2. Concurrent workspace lifecycle resolution changes admitted workspace authority and derived expected-key/cache inputs by object identity while the semantic `senderDistributionRequestKey` remains unchanged.
+  3. Those mutable same-key effect dependencies trigger React cleanup, cancelling the only generation.
+  4. The replacement effect sees the same key plus loading and exits, incorrectly treating loading state as proof that a live owner exists.
+  5. The valid `30d` response reaches the per-key client cache but the cancelled caller cannot commit it visibly.
+  6. Later same-key renders continue returning from orphan loading; `1Y` succeeds because its distinct semantic key creates a generation that survives to commit.
+- Primary invalidator: expected-key/workspace identity. Semantically stable cluster/runtime object identity is the only narrow additional possibility; the generalized ownership contract covers both.
+- Proven-good seams that must be preserved: cache completeness, machine-readable metadata, per-key inflight deduplication, and Contract B store liveness.
+- Root Cause Execution Translation — exact correction boundary:
+  - only `web/src/app/agents/[id]/operations/review/page.tsx`
+  - no correction edit to `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+  - no correction edit to `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+- Required replacement logic:
+  - semantic lifecycle identity is `agentId + senderDistributionRequestKey`
+  - latest request plan, expected keys, cluster arrays, and cache inputs live in refs; mutable same-key rerenders do not own cancellation
+  - active ownership is tracked by lifecycle key plus monotonically increasing generation
+  - same-key loading suppresses work only while a live same-key owner exists
+  - orphan same-key loading reattaches or calls through existing `fetchGmailSenderDistribution` per-cache-key inflight deduplication; it must not create a duplicate network request
+  - completion commits only when active lifecycle key and generation still match; a superseded scope may populate cache but cannot overwrite visible state
+  - cleanup invalidates only its owned generation
+  - prior-scope data may seed loading continuity but cannot classify the new scope ready
+  - no interval, retry, polling, expected-key request hashing, or broad dependency deletion without ownership
+- Load invariants:
+  - settled: `0` workspace / `0` distribution heavy requests
+  - uncached cold or new scope/filter/window key: at most `1` workspace plus `1` distribution
+  - cached revisit: `0` / `0`
+  - same-key replay: one underlying request with attachment through existing deduplication
+  - rapid `30d -> 365d`: no visible `30d` overwrite
+  - accepted paths: zero `409` and zero polling
+- Correction proof contract:
+  - add no source test file; an optional deterministic temporary fixture may model expected-key/cache same-key churn and generation ownership, proving one network call, committed empty `30d`, and no orphan loading
+  - focused runtime re-verification: exact Protected `All -> 1M`, then `1M -> 1Y`, `1Y -> All`, cold Protected, and cold Marketing only as cost-appropriate
+  - capture post-settle artifacts, State Transition Matrix, and request traces
+  - Contract B receives diff/invariant review only; do not rerun its full harness if store/runtime files are unchanged
+  - do not repeat full diagnosis or Supabase inspection
+
+Contract A ownership correction — partial improvement; second verification REJECTED:
+- Verifier verdict: REJECT; confidence HIGH; execution mode `transitional_self_verification`; problem class runtime behavior.
+- The first one-file ownership/generation correction resolved the prior stale/orphan-loading symptom: Protected `All -> 1M` no longer retained stale `1,844` bars and no longer remained stuck loading.
+- It is partial improvement only, not an Accepted Fix and not a Recovery Contract trigger.
+- Fresh main production runtime: `http://localhost:3000`; Playwright skill loaded; repo-env authentication refreshed and persisted only in ignored proof state.
+- Protected cold All: PASS, settled ready with `1,844` authoritative bars.
+- Protected `All -> 1M`: FAIL.
+  - rail settled as `unavailable_scope` with zero bars and a visible incomplete-authority error instead of authoritative-empty ready state
+  - `30d` `sender_workspace`: exactly one `200`, zero senders, `returned_sender_keys_complete=true`, phase `deferred`
+  - `30d` `sender_distribution`: exactly one `200`, zero senders, phase `interactive`
+  - `initial_paint=0`; `409=0`; no polling or retries; zero console/page/overlay/duplicate-key errors
+- `1M -> 1Y`, `1Y -> All`, and Marketing cold were BLOCKED by the bounded stop after decisive failure; no result is fabricated.
+- Contract B is unchanged and remains prior PASS; its full harness was correctly not rerun.
+- Cleanup baseline remains PASS. Dashboard remains separate and blocked. Main and integration remain blocked.
+- No database, data, schema, `7d` / `1W`, merge, rebase, cherry-pick, or history action occurred.
+- Main HEAD remained `cce016b`; visible status path count was exactly `120`.
+- Server stopped and port `3000` closed.
+- Proof root — ignored/local, non-authoritative, and must not be committed:
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/main-contracts-return-verification/.playwright-cli/return-proof/`
+  - `verifier-report.md`, `verifier-diagnosis.json`, `verification-summary.json`, `protected-all-to-1m-before.png`, `protected-all-to-1m-after.png`, `protected-request-trace.json`
+  - auth contents remain unread and must not be surfaced
+
+Second Contract A root cause — authoritative-empty selector collapse; execution translation locked:
+- Shared authoritative sender-key selection in `review/page.tsx:9129-9147` chooses only the first non-empty candidate, so an exact matching empty active-scope workspace is treated as absent and selection falls through to non-empty All-indexed shell/fallback keys.
+- `review/page.tsx:9696-9713` correctly recognizes the empty distribution but computes missing ordered keys against those stale fallback keys.
+- `review/page.tsx:10214-10220` maps the manufactured missing keys to incomplete-authority error; `review/page.tsx:10249-10258` maps that error to `unavailable_scope`.
+- Root Cause Execution Translation — exact correction boundary remains only `web/src/app/agents/[id]/operations/review/page.tsx`:
+  1. Preserve an exact matching active-scope workspace as authoritative even when its sender-key set is empty; never fall through merely because length is zero.
+  2. Prior All-indexed data is loading continuity only while the `30d` workspace/distribution pair is in flight and must never become `30d` comparison authority.
+  3. When exact `30d` workspace and distribution are both ready and empty, shared workflow universe, Sender Distribution, sender rows, and Decision Mode queue resolve to the same zero-sender universe; the rail is ready with visible empty-state copy.
+  4. Preserve one workspace plus one distribution per uncached semantic key, no polling/retry/`409`, and cached return to All with no new distribution request.
+  5. Do not edit runtime workspace/store, dashboard, database, cleanup worktree, or integration seams; do not exercise `7d` / `1W`.
+  6. Re-verify the exact accepted matrix with post-settle screenshots, DOM captures, request traces, and State Transition Matrix.
+- Classification: proven mechanism and exact bounded translation; no source change in diagnosis, no Accepted Fix, and no Recovery Contract.
+
+Main Contracts A/B verifier candidate packet — historical gate state; accepted below:
+- The ownership/generation correction and authoritative-empty selector correction together form the current candidate implementation.
+- Verifier verdict: ACCEPT; confidence HIGH; `Missing Proof Type: none`.
+- At this verifier gate, classification was candidate-only and Human Review remained the residual. The later acceptance closeout below supersedes that waiting state.
+- Playwright skill carry-forward was followed against a fresh main production server at exact `http://localhost:3000`; fresh persisted authentication context remained ignored and its contents were not surfaced. Server stopped and port `3000` closed.
+- Exact five-row State Transition Matrix: PASS.
+  1. Protected cold All: ready, `1,844` authoritative bars, linked Review senders.
+  2. Protected `All -> 1M` / `30d`: ready authoritative empty; zero bars; no error, loading, or `unavailable_scope`; workflow universe `0`, distribution `0`, sender rows `0`, Decision Mode queue `0`.
+  3. Protected `1M -> 1Y` / `365d`: ready, `366` bars, linked senders.
+  4. Protected `1Y -> All`: ready, `1,844` bars; cached return emitted zero new workspace/distribution requests.
+  5. Marketing parent cold: exact parent route, no invented `subset_value`, ready, `857` bars, linked Review senders.
+- Every row produced two stable ready samples plus a post-ready confirmation with no visible contradiction.
+- Request/load proof:
+  - cold All: one deferred workspace `200` plus one deferred distribution `200`
+  - `30d`: one deferred workspace `200` plus one interactive distribution `200`
+  - `365d`: one deferred workspace `200` plus one interactive distribution `200`
+  - return All: zero workspace and zero distribution requests
+  - Marketing cold: one deferred workspace `200` plus one deferred distribution `200`
+  - `initial_paint=0`; `409=0`; polling false; maximum one request per uncached semantic key; no API POST failure, retry, console/page error, duplicate-key warning, or overlay
+  - `21` aborted GET RSC/prefetch requests were harmless and did not interfere with an accepted surface
+- Contract B hashes are unchanged and Contract B remains PASS; its full harness was correctly not rerun. Cleanup baseline remains PASS.
+- Verifier required no operator assist and made no database, data, schema, auth-content, source, control-plane, or Git mutation.
+- Main HEAD remained `cce016b`; visible status path count remained exactly `120`; proof is ignored.
+- Proof root — ignored/local, non-authoritative, and must not be committed:
+  - `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/main-contracts-return-verification/selector-correction/.playwright-cli/return-proof/`
+  - `VERIFIER-REPORT.md`, `verification-summary.json`, `protected-all-to-1m-after.png`, `protected-1m-linked-parity-diagnosis.png`, `protected-request-trace.json`, `protected-trace.zip`, `marketing-cold-all-post-settle.png`
+- Main overall integration baseline is not clear: the separate Dashboard baseline failure remains pending. Integration remains blocked. `7d` / `1W` and database action remain prohibited.
+- Historical decision-gate status: Awaiting Decision; later resolved as `ACCEPT` below.
+- Options presented at that gate:
+  - `ACCEPT` — record Oliver's acceptance, create the required Recovery Contract, and propagate accepted-fix status through ACE-048
+  - `REJECT` — return to diagnosis and bounded execution
+  - `BLOCKED` — obtain additional proof or narrow operator assist
+  - `RETURN_TO_PM` — rescope through Project Manager authority
+
+Human acceptance closeout — Main Contracts A/B:
+- Oliver explicitly accepted/authorized proceeding on 2026-08-15 through: “I am good with you proceeding how you think you need to proceed next” and “you have my full approval to proceed as you see fit.”
+- Classification: Accepted Fix — scoped Contracts A/B sender-distribution correction only.
+- Recovery Contract: `CHANGELOG.md` -> `August 15, 2026 — ACE-048 Main Contracts A/B Sender-Distribution Scope Truth Accepted`
+- The five-row verifier matrix, bounded request contract, Contract B PASS, and cleanup PASS are accepted proof.
+- This acceptance did not clear the separate Dashboard baseline, Gmail mailbox sync/index health, the overall main integration baseline, or integration itself. Gmail authentication and sync/index were subsequently recovered by the audit and authorized run below; artifact recovery remains open.
+
+Newly governing sender-distribution source authority:
+- `/Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild` on branch `cleanup-taxonomy-rebuild` is authoritative for the sender-distribution feature family and its months of cleanup/taxonomy intent.
+- Its immutable committed reference is `382c9d63d1812ca7489bd493856d00fc40096bf4` (`382c9d6`) plus exactly three independently verified local baseline correction paths:
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+  - `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+- `/Users/olivercarlin/Dev/ai-agent-platform` at `cce016b` remains the eventual integration destination and authority for later unrelated main-line evolution, subject to semantic union.
+- Cleanup authority is feature-bounded: it does not make cleanup globally authoritative outside sender distribution.
+- Main must not silently override cleanup sender-distribution semantics. Integration must preserve cleanup intent and manually reconcile later main changes around it.
+- Both worktrees' authoritative control-plane files are required historical evidence for sender-distribution inventory and PM Brief authoring. The current root control plane remains the sole governing execution authority after this propagation; cleanup control-plane history is mandatory feature-intent input, not current global authority.
+- Blind merge, cherry-pick, blanket conflict resolution, broad overwrite, or branch/worktree deletion remains prohibited.
+- The prior `84` total / `47` identical / `37` disposition-path / `17` textual-conflict archaeology is now stale because the cleanup worktree contains verified local corrections. Recompute it before any integration packet or branch action.
+- Before integration, preserve complete repository, Git-history, and Markdown understanding across both worktrees; verify Gmail integration authentication plus live sync/index health; then revise the manifest and PM Brief under this authority rule.
+
+Pre-Smart-Sync Gmail health checkpoint — historical Partial Proof, 2026-08-15:
+- Before operator action, `integration_connections` contained a Gmail connection with non-empty tokens and the required scopes, but access expiry was `2026-04-16`. Mailbox index truth was frozen at `237,628` total rows / `210,472` inbox rows, newest indexed message `2026-04-12`, `incremental_sync_auth_failed`, `invalid_grant` / `auth_failed`, no active run, and `requires_reconnect=true`. The completed 24-month historical backfill from `2026-03-19` remains intact.
+- Oliver manually reconnected/resynced while the headed app was open. Reconnect persisted at `2026-08-15 07:49:43.103+00` with fresh access expiry `08:49:42.103+00`, non-empty access and refresh tokens, and all required Gmail scopes. No token value is recorded.
+- A minimal direct read-only Gmail `users/me/profile` request using the saved connection returned HTTP `200`: `gmail_authorized=true`, `messages_total=614,856`, `threads_total=569,764`, and a present history ID. OAuth and Gmail API access are restored.
+- Mailbox indexing did not restart: status, counts, timestamps, and April failure state remained unchanged; `active_run=null`; no row growth occurred. `GET /api/integrations/gmail/mailbox-index` still reports `requires_reconnect=true` because it derives from stale index-failure state.
+- Source tracing confirms the separation: the OAuth callback only upserts the connection and redirects to `/settings?gmail=connected`; it does not start indexing. `OperationsRuntimeContext` exposes Smart Sync as a distinct `POST` with trigger `smart_sync`, and passive loads intentionally do not auto-start it. Settings reports Connected from row existence, which is insufficient health truth and contradicted the stale index before reconnect.
+- Artifact state remains separate and stale: `all_indexed` is `refresh_failed`; `7d` is stale `refresh_in_progress`; older `30d` / `90d` / `180d` / `365d` publications are unchanged.
+- Classification: **Gmail AUTH RECOVERED / MAILBOX SYNC NOT YET RESTORED**. Proof is partial; this is not an Accepted Fix or milestone closeout. No Recovery Contract is created.
+- Local proof root: `/Users/olivercarlin/Dev/ai-agent-platform/output/playwright/ace048-cleanup-integration/gmail-health-audit/`. Key post-action screenshot `.playwright-cli/page-2026-08-15T07-51-43-583Z.png` and endpoint snapshot `.playwright-cli/page-2026-08-15T07-51-43-111Z.yml` are ignored/local, non-authoritative, and must not be committed. No auth content is recorded here.
+
+Authorized Smart Sync recovery and Supabase-load safety intervention — 2026-08-15:
+- Oliver clicked Smart Sync at `2026-08-15 08:03:39Z`. The requested incremental run became effectively full because the prior newest-message state was falsely healthy; this was deliberate fresh-head recovery.
+- The bounded `45`-day sync completed at `08:15:26Z`: `14` pages x `500`, `7,000` inserted/upserted, zero existing/updated/deleted, index rows `237,628 -> 244,628`, newest seen `2026-08-15 07:49:35Z`, oldest boundary `2026-07-01 08:30:56Z`, terminal reason `recent_window_reached`, `active_run=null`, and no sync error/failure.
+- Classification: **Gmail OAuth + mailbox sync/index recovery PASS**. Semantic artifact recovery/publication is not complete; no Accepted Fix, milestone, or Recovery Contract is claimed.
+- Avoiding Supabase crashes is a hard architectural constraint. Prior repeated direct pulls over the large mailbox dataset crashed servers. The intended architecture is bounded final/index pull -> semantic artifact candidate/publication -> runtime reads compact published artifacts, not repeated raw mailbox scans. Semantic artifact correctness remains a central unfinished workstream.
+- Load discovery:
+  - initial Operations review load directly requested and returned `100,000` indexed rows with page size `1,000`, query concurrency `8`, in `15.4s`
+  - while a sync is active, `OperationsRuntimeContext` polls `GET /api/integrations/gmail/mailbox-index` every `5s`; each GET performs exact total/inbox counts plus other index/recent/artifact reads
+  - PM closed the Operations tab to stop the `5s` polling
+  - completed full-effective sync planned six sequential full artifact rebuilds: `all_indexed`, `7d`, `30d`, `90d`, `180d`, `365d`
+  - a historical `all_indexed` build processed `4,923` senders / `237,628` messages over about `32` minutes; six passes imply roughly `1.5M` streamed row reads plus writes/retries
+- Candidate-only `all_indexed` build began. PM terminated exact local Next PID `58033` at a safe boundary after sync completion and before fanout; port `3000` is closed. This prevented an unattended six-scope workload without mutating database state during propagation.
+- Published `all_indexed` artifact `full-mailbox-20260415024237593` remains public. Candidate `full-mailbox-20260815081528697` remains unpublished/building; its job was last observed running in `projecting_sender_scope` at `675` senders / `28,588` messages. No public swap occurred. It is expected to become liveness-reclaimable, but no reclaim or mutation is authorized here.
+- The April-stale `7d` build was reclaimed failed before the new `all_indexed` candidate; prior scope publications otherwise remain in place.
+- Supabase activity showed no PostgREST backlog; the local Next process was low CPU/memory before termination. These observations do not waive the hard load-safety constraint.
+- Oliver authorizes PM and verification agents to use app controls as needed during declared testing. This does not authorize unbounded or heavy actions outside an explicit safety contract.
+- A user-visible **Supabase & Artifact Safety Architect** task has been created to audit both worktrees read-only and produce a PM-Brief-ready safety plan.
+- Proof is local/non-authoritative: the temporary operator screenshot at `/var/folders/1m/j6fk9rg15y388h2w15km4csm0000gn/T/TemporaryItems/NSIRD_screencaptureui_bHabGU/Screenshot 2026-08-15 at 3.03.47 PM.png` and the ignored Gmail audit root above. No authoritative runtime artifact was created.
+
+Supabase & Artifact Safety Architect result — HIGH confidence; decision resolved as `ACCEPT` below:
+- Architecture contract: bounded Gmail ingestion/index -> single-flight asynchronous semantic projector -> versioned candidate artifacts -> semantic/count/identity validation -> CAS publication pointer -> Operations reads compact immutable published artifacts. Request-time/runtime raw `gmail_messages` fallback is forbidden.
+- Load amplification is confirmed: effective-full Smart Sync performs one full `244,628`-row stream for sender-stat recomputation before artifact refresh; six-scope automatic fanout can add `6 x 244,628` rows. Total raw-row reads are at least `1,712,396` before writes/retries. Separate request-time seams can reconstruct `100,000` raw rows, and `5s` mailbox-health polling performs expensive exact/recent queries.
+- Orphan disposition contract:
+  - keep public `full-mailbox-20260415024237593` unchanged
+  - do not resume or publish partial `full-mailbox-20260815081528697`
+  - only in a later separately approved database-mutation pass: prove no live worker, CAS-reclaim the matching stale lock, retain rows/checkpoints for forensics, mark version/job abandoned or failed, and leave the public pointer unchanged
+  - resume is unsafe because the checkpoint lacks source, semantic, index, and configuration fingerprints and could mix old/new semantics in one version
+- Required recovery order:
+  1. isolate runtime reads from `gmail_messages` and split O(1) lifecycle status from expensive diagnostics
+  2. install durable single-flight ownership/fingerprints; remove six-scope fanout and redundant sender-stat scan
+  3. manually integrate cleanup semantic/candidate/CAS/rollback mechanics while preserving later-main lifecycle, UI, and request-ownership truth
+  4. reclaim/abandon the orphan through a separately approved mutation pass
+  5. build one new `all_indexed` candidate against the locked `244,628`-row index revision
+  6. validate, CAS publish, and prove pointer-only rollback
+  7. handle recent scopes later, one at a time or derived from one bounded pass
+- Initial hard budgets:
+  - Operations request-time raw `gmail_messages` rows `=0`; polling/status raw rows `=0`
+  - artifact page default `12-50`, hard max `200`; first-paint artifact rows `<=1,000`; runtime artifact query concurrency `<2` per request family
+  - raw build page size `<=1,000`, sequential; artifact writes `<=500`, sequential
+  - one full build per tenant; global full-build concurrency `1` initially
+  - one authorized full raw scan per index revision; sender stats produced within that stream
+  - sync polling `10s +/-20%` jitter; artifact polling `15s` jitter against O(1) status; no idle/hidden polling
+  - exact counts only at sync boundary, candidate validation, or explicit diagnostic; concurrency `1`; proposed statement timeout `5s`
+  - maximum one automatic full candidate per sync; no six-scope loop
+  - page operation: initial attempt plus two retries; job: one checkpointed resume; CAS publish: no blind retry
+  - heartbeat `<30s` per checkpoint; reclaim after three missed heartbeats plus independent worker-liveness failure, target about `2m`
+- Mandatory stop conditions: any runtime raw read; concurrent full build; second scope before terminal completion; page latency `>5s` or p95 `>3s` across three pages; retry exhaustion; count timeout; cursor/counter regression; stale lease; index-revision drift; semantic/hash/identity/protection/preview validation failure; CAS drift; or partial candidate exposure.
+- No-truth-lie contract: index freshness and semantic-artifact freshness are separate. The index is current to August 15 at `244,628` rows while the public semantic artifact is from April 16; semantic analysis must not be called current. A building candidate is never visible as ready.
+- Integration authority remains bounded: cleanup `382c9d6` plus exactly three verified local corrections governs sender-distribution/semantic intent, including candidate-only default, checkpoints, semantic schema/hash congruence, canonical identity, CAS publication, and pointer rollback. Preserve main's bounded sync recovery, liveness/CAS reclaim, current UI scope truth, focused paging, request ownership, and inflight deduplication. Wholesale hot-file merge remains prohibited.
+- Result classification: PM-Brief-ready safety recovery plan; PLAN MODE only. No implementation approval, Accepted Fix, milestone, Recovery Contract, database mutation, runtime change, or authoritative runtime artifact.
+
+Human decision and execution activation — 2026-08-15:
+- Oliver explicitly decided `ACCEPT` on the PM-Brief-ready load-safe artifact recovery plan and instructed the flow to proceed.
+- The prior `Status: Awaiting Decision` gate is closed. This is acceptance of the plan, not an Accepted Fix, milestone, or Recovery Contract trigger.
+- Execution commitment: immediate execution in the same governed `ACE-048` flow.
+- Active PLAN MODE slice: **Runtime Read Isolation + O(1) Lifecycle Status**.
+- Slice problem class: runtime behavior, constrained by artifact/publication truth.
+- Objective: accepted Operations surfaces perform zero request-time and poll-time reads from `gmail_messages`; lifecycle polling reads bounded O(1) state/publication/job records; missing artifacts fail closed or present explicit unavailable/stale truth without raw fallback.
+- Load contract:
+  - runtime raw rows `0`; poll raw rows `0`
+  - artifact page default `12-50`, hard max `200`; first-paint artifact rows `<=1,000`
+  - runtime artifact query concurrency `<2` per request family
+  - sync poll `10s +/-20%` jitter and terminal; artifact poll `15s` jitter against O(1) status
+  - hidden/idle polling off; exact counts never recurring
+- Read-only preflight proved the original four candidate seams insufficient and locked this exact implementation set:
+  - `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+  - `web/src/lib/runtime/runtimeStateService.ts`
+  - `web/src/app/api/integrations/gmail/mailbox-index/route.ts`
+  - `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  - `web/src/app/api/integrations/gmail/inbox-analysis/route.ts`
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/lib/integrations/gmail/gmailWorkspaceContracts.ts`
+- Preflight basis: the server integration workspace contains request-time `gmail_messages` fallback seams; the inbox-analysis route dispatches the accepted Operations requests into them; the shared page contract currently permits `1,000`, above the accepted `200` maximum.
+- Read-only validation dependencies only unless new proof returns to PM target-lock refinement:
+  - `web/src/lib/integrations/gmail/inboxAnalysis.ts`
+  - `web/src/lib/integrations/gmail/gmailMailboxIndexer.ts`
+  - accepted Operations page files and artifact-store readers
+- Semantic taxonomy, resolver/group logic, candidate/CAS mechanics, cleanup authority (`382c9d6` plus three corrections), the April public pointer, and the partial August candidate are protected from change in this slice.
+- Task-scoped authoritative runtime artifact: `docs/00_control_plane/runtime/ACE-048_RUNTIME_READ_ISOLATION_PM_BRIEF.md` — UPDATED as the active correction packet for this slice.
+
+First independent transfer-only verifier rejection and correction activation — 2026-08-15:
+- Verifier task `01a00480-e47b-75b1-9509-00e3b751fe15`: `REJECT`, confidence HIGH. The candidate must not transfer to original main.
+- Original main remains outside the candidate diff and its fresh production build passes on Next `16.0.10` with all `63` routes. Candidate work remains isolated at `/Users/olivercarlin/.codex/worktrees/9ae2/ai-agent-platform`.
+- Source-proven candidate defects:
+  1. accepted sender-workspace request time calls the whole-artifact sender-scope-rollup loader, which pages `1,000` rows until exhaustion and violates the aggregate first-paint budget
+  2. compatibility semantic fallback loads all selected-cluster seed rows and per-sender stats, while its later gate counts clusters rather than actual rows queried
+  3. Time Context identity is inconsistent: workspace can silently return all-indexed success while overview and distribution reject windowed shapes
+  4. inbox-analysis hard-codes ready/fresh/published success metadata, and runtime readiness relies on count/timestamp movement instead of explicit publication freshness/build truth
+- Required correction:
+  - remove whole-artifact sender-scope enumeration; optional enrichment may query only the already-bounded current page's sender keys, hard-capped at `200` and included in the `<1,000` aggregate budget
+  - remove runtime semantic recomputation; consume persisted published `semantic_rollup` truth or return machine-readable `artifact_unavailable` / `semantic_truth_unavailable`
+  - use one truthful Time Context contract across workspace, distribution, and overview: bounded published projections with normalized identity, or the same honest unavailable result; never substitute all-indexed truth
+  - derive route metadata from the actual publication, including status/reason/retry/freshness/build/published/building versions
+  - readiness must treat missing/building/refresh-pending/refresh-in-progress as transitional; stale/failed/refresh-failed/full-rebuild-required as terminal unavailable; published fresh/refresh-skipped as usable. Counts/timestamps may supplement but never override explicit state
+- Preserved verifier PASS boundaries: named artifact-only dispatches cannot reach `gmail_messages`; recurring mailbox status is bounded O(1); page clamps are `12/50/200`; polling remains `10s/15s` jittered, visibility-aware, single-flight, terminal, and without recurring exact counts; semantic taxonomy and publication/CAS/orphan state remain unchanged.
+- At the first-rejection checkpoint, the seven-file target lock remained unchanged and `gmailArtifactStore.ts` stayed read-only pending PM adjudication. The second-verifier result below supersedes that target-lock boundary.
+- Candidate diff remains isolated (`+947/-462` versus HEAD; `+864/-444` versus current main). The isolated `node:crypto` build blocker is not candidate-caused; original-main fresh-build PASS proves build proof remains obtainable after an accepted transfer.
+- Classification: correction packet ACTIVE; no Accepted Fix, milestone, Recovery Contract, runtime transfer, database/artifact mutation, or Human Review gate.
+
+Second independent source re-verifier rejection and final bounded correction activation — 2026-08-15:
+- Verifier task `01a00480-e47b-75b1-9509-00e3b751fe15`: second `REJECT`, confidence HIGH. Candidate transfer remains prohibited.
+- Previously corrected mechanisms remain PASS: whole sender-scope loader removed; persisted `semantic_rollup` only; route success metadata publication-derived; normal polling jittered/single-flight; recurring status bounded O(1).
+- New source-proven blockers:
+  1. `build_pending_poll` accepted hydration can still enter selected-cluster bootstrap in `runtimeStateService.ts` and call raw cleanup discovery, reaching up to `100,000` `gmail_messages` rows through `1,000`-row pages at concurrency `8`
+  2. both readiness classifiers check missing `published_version` before explicit terminal freshness/build states, allowing stale/failed truth to be misclassified as transitional
+  3. the `historical_out_of_inbox` recent-scope overview branch returns a bare `409` before the shared Time Context unavailable helper and loses normalized identity plus publication metadata
+  4. actual read budgets cannot be enforced without bounded changes inside `gmailArtifactStore.ts`: selected-cluster rail queries run concurrently, header reads lack hard limits, and previews can load roughly `1,000` rows before later rejection
+- PM target-lock refinement: expand from seven to exactly eight implementation files by adding `web/src/lib/integrations/gmail/gmailArtifactStore.ts`.
+- `gmailArtifactStore.ts` authority is limited to read budgeting and concurrency: sequential rail-family reads; hard-limited rail/header queries (recommended `<=100` each); workspace headers `<=100`; previews `<3` per sender so a `200`-sender page remains `<600`; actual-returned-row accounting; fail closed before follow-on budget breach; exact filters and existing cache/inflight semantics preserved.
+- Required correction:
+  - propagate artifact-only accepted hydration through selected-cluster bootstrap so `build_pending_poll` and accepted snapshot/poll transitions return pending/unavailable lifecycle truth instead of invoking cleanup discovery; explicit manual diagnostics remain unchanged
+  - classify terminal explicit states first, transitional build/refresh states second, and missing publication only after those checks; usable requires a published version with fresh or `refresh_skipped` truth
+  - route the historical overview edge through the same `time_context_projection_unavailable` helper and publication-derived metadata as workspace/distribution
+  - enforce actual artifact row budgets inside the now-authorized store seam without changing schema, indexes, data, publication, build, CAS, reclaim, or orphan mechanics
+- Exact load invariants remain: request/poll `gmail_messages=0`; concurrency `1`; defaults `12/50`, max `200`; aggregate actual rows `<1,000`; recurring status O(1); polls `10s/15s` jittered, visibility-aware, single-flight, and terminal.
+- Candidate remains isolated at `/Users/olivercarlin/.codex/worktrees/9ae2/ai-agent-platform`; original-main source remains untouched and its baseline build PASS remains governing proof.
+- Classification: final bounded correction packet ACTIVE; no Accepted Fix, milestone, Recovery Contract, transfer, runtime/Playwright verification, or data/artifact mutation.
+
+Third independent source-verifier rejection and final micro-correction activation — 2026-08-15:
+- Third verifier decision: `REJECT`, confidence HIGH. Candidate transfer remains prohibited.
+- All previously rejected functional mechanisms now PASS: accepted request/poll raw `gmail_messages=0`; raw fallback severed; explicit state precedence corrected; Time Context parity corrected; store queries capped and sequential; semantic reconstruction removed; publication-derived metadata; recurring O(1) status; poll/page caps preserved.
+- Remaining source-proven defects are telemetry/concurrency truth only:
+  1. `loadLatestCleanupDiscoverySnapshotsForScopes` uses `Promise.all` across as many as seven missing scopes. Each miss may perform an exact `agent_events` query plus a bounded `40`-row fallback, so cold bootstrap can reach concurrency `7`. The full accepted chain remains below the row ceiling (maximum `30` queries / `501` returned rows), but violates concurrency-one and reports incomplete aggregate telemetry.
+  2. Execution-preview telemetry deduplicates sender-key and message-ID arrays before computing `actualReturnedRowCount`, undercounting rows actually returned by Supabase. The pre-query maximum remains safe at `901`, but the post-query guard and telemetry are not truthful.
+- Final micro-correction touches exactly two files within the unchanged eight-file lock:
+  - `web/src/lib/runtime/runtimeStateService.ts`
+  - `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+- `runtimeStateService.ts`: replace missing-scope `Promise.all` with deterministic sequential awaits; preserve cache and exact-then-`40` fallback resolution; accumulate actual query/returned-row counts without new queries; propagate telemetry through `resolveSelectedClusterRailBootstrapSnapshots` into `cleanupPlanDetailMs` and structured logs; full-chain artifact concurrency must report and remain `1`.
+- `gmailArtifactStore.ts`: compute actual returned rows from the base read plus raw sender-preview and raw message-preview result lengths before deduplication; keep output-deduplicated counts separate; use pre-dedup actual count for telemetry and the post-query guard; preserve the `901` pre-query maximum, sequential reads, output dedupe, filters, cache, and publication/write mechanics.
+- Any other implementation file is forbidden; the eight-file program lock remains unchanged and a ninth file still requires PM return.
+- Classification: final micro-correction ACTIVE; no Accepted Fix, Recovery Contract, transfer, build, runtime/Playwright verification, or external mutation.
+
+Independent Supabase & Artifact Safety transfer-only source gate — ACCEPT/HIGH, 2026-08-15:
+- Verdict: `ACCEPT`; confidence HIGH. The exact eight-file candidate has cleared the source-only transfer gate.
+- This is not an Accepted Fix and does not establish runtime acceptance. Artifact, database, and Gmail state were unchanged and unqueried during this gate.
+- Proven load ceilings and telemetry truth:
+  - cold bootstrap maximum `30` queries / `501` raw compact artifact rows
+  - execution-preview maximum `901` raw rows
+  - artifact query concurrency `1`
+  - accepted request and polling families read zero `gmail_messages`
+  - telemetry counts raw rows before deduplication and propagates query count, raw returned rows, cache hits, and cache misses
+  - `runtime_artifact_query_concurrency=1` truthfully represents the full accepted chain
+- All prior A-E source boundaries PASS: artifact-only runtime; persisted `semantic_rollup` required; terminal publication precedence; honest `time_context_projection_unavailable` parity; recurring O(1) status; `12/50/200` page limits; `10s/15s +/-20%` visibility-aware single-flight terminal polling; no mutation path.
+- Transfer authorization is strictly semantic and hunk-preserving across exactly eight files. Whole-file overwrite is prohibited, especially for `web/src/lib/runtime/gmailCleanupWorkspace.ts` and `web/src/lib/integrations/gmail/gmailArtifactStore.ts`, because original main contains overlapping later edits that must survive.
+- Required sequence: propagate this gate -> semantic hunk-preserving eight-file transfer into original main -> targeted static checks and fresh production build -> independent Playwright/runtime verification.
+- No `7d` / `1W`, artifact build/publish/reclaim, database, Gmail, deployment, history, merge, commit, or push action is authorized by source acceptance.
+- Classification: source gate ACCEPTED; transfer packet ACTIVE; runtime acceptance and Accepted Fix remain NO.
+
+Semantic eight-file transfer and static/build correction proof — 2026-08-15:
+- The exact eight locked files were transferred into current original main through semantic, hunk-preserving patches.
+- No ninth file, whole-file overwrite, merge, cherry-pick, stage, commit, push, or history action occurred.
+- All eight final hashes match the independently source-accepted candidate.
+- Overlapping later-main work was preserved:
+  - runtime `gmailCleanupWorkspace.ts`: prior main `+83/-18`; transfer added `+41/-2`
+  - `gmailArtifactStore.ts`: prior main `+45/-2`; transfer added `+243/-77`
+  - six runtime-loader overlaps were resolved additively, preserving main request/snapshot logic while adding accepted publication freshness/build/version metadata
+  - artifact store preserved main cache, liveness, publication, CAS, and write behavior
+- Resulting transfer total: `+1439/-1223`.
+- Static/correction proof PASS:
+  - non-incremental TypeScript
+  - targeted ESLint with zero errors and the same six inherited warnings
+  - deterministic full source guard
+  - sequential-bootstrap and pre-dedup fixture guard
+  - `git diff --check`
+  - no staged or unmerged entries
+- Fresh original-main production build PASS on Next `16.0.10`: compile, TypeScript, and static generation `63/63`; build artifact newer than source inputs.
+- Preserved source contract: request/poll `gmail_messages=0`; bootstrap `<=30` queries / `501` rows; preview `<=901` rows; concurrency `1`; raw pre-dedup telemetry; `12/50/200`; `10s/15s` jittered visibility-aware single-flight terminal polling; O(1) status; fail closed; persisted `semantic_rollup`.
+- No database, Gmail, artifact lifecycle/publication, CAS, reclaim, orphan, `7d` / `1W`, deployment, history, commit, or push action occurred.
+- Classification: implementation transferred and static/build proof PASS; Accepted Fix NO; runtime acceptance NO; independent Playwright/runtime verification REQUIRED.
+
+Independent post-transfer runtime verifier — REJECT/HIGH, 2026-08-15:
+- Decisive surface: exact Protected cold All-indexed canonical route. Saved ignored authentication state PASS.
+- Ready state was not reached after `120` samples / approximately `90s`.
+- Final visible state: `unavailable_scope`, placeholder totals, zero sender rows, and Sender Distribution error while the UI simultaneously claimed refreshed publication truth was active. Linked-surface lifecycle truth is visibly contradictory.
+- Initial inbox-analysis requests:
+  - both heavy families started concurrently, while per-family concurrency remained `1`
+  - each returned exactly one `409 artifact_building`
+  - metadata was honest: `refresh_in_progress`, `building`, and both published/building versions
+  - these were lifecycle responses, not `already_running` or cooldown churn
+  - the corresponding two console errors map directly to those `409` responses
+- Polling: mailbox-index intervals observed at approximately `14.2-19.6s`; two intervals exceeded the `15s +/-20%` ceiling.
+- Runtime safety positives remain PASS: `request_time_gmail_messages_rows=0`; `runtime_artifact_query_concurrency=1`; no raw Gmail endpoint, `100,000`-row read, `5xx`, page error, overlay, or duplicate-key warning.
+- Source-only ceilings `30/501`, `901`, and page `50/200` were not live-proven in this stopped runtime pass; page `12` was observed.
+- Remaining matrix rows—scope switches, Marketing, fresh-context authentication, and exploratory discovery—were correctly stopped after the decisive failure.
+- Proof root: `/Users/olivercarlin/.codex/worktrees/ad0d/ai-agent-platform/output/playwright/ace048-post-transfer-runtime-verification/.playwright-cli/runtime-proof/`.
+- Server stopped; port `3000` closed; source/status/hashes remained invariant. Artifact, DB, and Gmail state were not mutated.
+- Classification: runtime verifier `REJECT`, confidence HIGH; Accepted Fix NO; no Recovery Contract.
+
+PM-accepted diagnosis, ninth-file rescope, and correction activation — 2026-08-15:
+- Problem class locked: runtime behavior constrained by artifact/publication truth.
+- Root mechanism proven at HIGH confidence:
+  1. integration `gmailCleanupWorkspace.ts` rejects `refresh_in_progress` / `building` before reading an existing valid published version
+  2. `review/page.tsx` coerces `build_pending` to ready when no continuity workspace snapshot is mounted
+  3. workspace and distribution effects launch independently and concurrently
+  4. the UI therefore combines refreshed/ready copy with unavailable totals, rows, and distribution
+- Governing policy: during non-terminal refresh with a valid published version, read and display only the last published artifact, preserve stable totals/rows/distribution, and visibly label lifecycle `Processing`/building with both published and building identities. Never read/display the candidate and never call lifecycle ready. Terminal states and missing publication still fail closed.
+- PM explicitly authorizes the diagnosis-proven ninth-file rescope. Exact correction target lock is two files:
+  - `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  - `web/src/app/agents/[id]/operations/review/page.tsx`
+- No correction is justified in API routes, Operations context, runtime client, artifact store, or polling source. Any other file requires PM rescope.
+- Loader correction: add a narrow stable-published-during-refresh allowance only for read-only workspace/distribution preflight and post-read checks; retain terminal precedence, persisted `semantic_rollup`, and all mutation/confirmation/execution/build/publication boundaries.
+- Page correction: `runtimeContinuity.phase` is authoritative; no building-to-ready coercion. Sequence the exact request identity workspace then distribution. A cached matching workspace may permit distribution; workspace terminal/unavailable yields zero distribution requests and one shared lifecycle reason. Preserve owner/generation guards; add no retries, polling, general queue, or new request family.
+- Expected cold heavy load: at most one workspace followed by one distribution; overall heavy concurrency `1`; recurring heavy requests `0`; `gmail_messages=0`; existing `30/501` and `12/50/200` bounds remain.
+- Polling code is not in scope. The observed start intervals do not prove a defect because the timer is scheduled after completion. Correction proof must use fake timers/controlled jitter/request duration and live response-end-to-next-start timing; expected source contract is `12-18s` after completion, concurrency `1`, hidden cancel, terminal stop.
+- Required deterministic fixtures: lifecycle table; published+building success metadata; terminal/missing fail closed; page `build_pending` remains building; deferred request orchestration; stale route ignored; poll timing.
+- Required post-correction matrix: Protected cold All; Protected `All -> 30d -> All` with no `7d` / `1W`; Marketing cold All; fresh authentication; hidden/terminal poll after decisive pass; bounded rapid scope/cluster switch. Capture post-settle screenshot/DOM/trace per row. Natural building must show stable published data plus Processing; if it finishes naturally, deterministic fixtures prove the building edge.
+- Historical activation result: the authorized two-file correction was implemented only in the isolated candidate. Runtime acceptance remains REJECT/HIGH; Accepted Fix NO; no Recovery Contract. The independent proof gate below now governs.
+
+Independent transfer-only source gate — REJECT/HIGH for mis-targeted and incomplete proof, 2026-08-15:
+- The exact two-file candidate remains materially aligned with the PM-approved correction contract. No source implementation failure or additional correction is currently proven.
+- Source review PASS boundaries:
+  - default, terminal, missing, and unknown publication states fail closed with terminal precedence
+  - exactly four read-only stable-published-during-refresh opt-ins
+  - candidate/stale identity guard and persisted `semantic_rollup` remain enforced
+  - no mutation, build, raw-read, publication, or lifecycle safety weakening
+  - `review/page.tsx` no longer coerces `build_pending` to ready
+  - terminal state clears all linked stale data
+  - normal cold source flow orders workspace before distribution
+  - no new retry, poller, queue, or request family
+- Transfer verdict is `REJECT`, confidence HIGH, because the Executor fixtures overclaimed actual-effect proof:
+  1. polling proof string-matched source, simulated timing arithmetic, and hard-coded hidden/terminal results instead of executing the real `OperationsRuntimeContext` effect
+  2. orchestration proof mapped a pure gate to request counts and hard-coded stale commits instead of executing the real distribution effect, deferred requests, dependencies, ownership/cache, and stale-response guards
+- Rapid switching remains a bounded runtime risk: deferred overview workspace requests are not effect-aborted and single-flight ownership is cache-key scoped. The live peak across heavy request families and stale visible-install behavior must be measured.
+- `Missing Proof Type: Obtainable`. This is proof mis-targeting/incompleteness, not evidence authorizing a source correction.
+- Original main remains unchanged by this candidate correction. Candidate remains isolated at `/Users/olivercarlin/.codex/worktrees/33ad/ai-agent-platform` with exactly two new patch surfaces:
+  - integration `gmailCleanupWorkspace.ts`: `+59/-6`, recorded patch identity prefix `c9252699`
+  - `review/page.tsx`: `+255/-29`, recorded patch identity prefix `32fa8f5d`
+- Historical planned gate: independent candidate-runtime correction proof against the isolated candidate. That gate has now run and returned the `REJECT/HIGH` recorded below; its prior PASS branch no longer authorizes transfer.
+- Accepted Fix remains NO; runtime acceptance remains REJECT/HIGH; no Recovery Contract.
+
+Independent candidate actual-effect verifier — REJECT/HIGH; read-triggered reclaim safety defect, 2026-08-15:
+- Exact candidate: `/Users/olivercarlin/.codex/worktrees/33ad/ai-agent-platform`. Decisive surface: authenticated Protected cold All-indexed canonical route after settle.
+- A normal ostensibly read-only `sender_workspace` request triggered hidden stale-build reclamation inside the application read path. Captured server telemetry recorded the proof-time transition:
+  - `event=reclaimed_stale_build`
+  - `building_version_after=null`
+  - `freshness_state_after=refresh_failed`
+  - `job_status_after=failed`
+- These values describe the captured transition only. They do not assert current database state after the proof window.
+- No write control was invoked and the verifier made no direct Supabase query or manual database change. The application read path itself mutated live publication/job state unexpectedly during a verifier-authorized read-only UI flow.
+- The workspace family issued exactly one request and returned `503 artifact_unavailable`; distribution was correctly suppressed at zero requests.
+- Linked UI defect: the page retained stale pre-reclaim `Processing` copy and obsolete published/building identities while totals were placeholders, sender rows were zero, and Sender Distribution failed.
+- Runtime safety positives remain valuable and PASS for the observed Gate 1 window: workspace `1`; distribution `0`; accepted-heavy peak `1`; workspace page size `12`; artifact rows `50`; request-time `gmail_messages` rows `0`; artifact query concurrency `1`; no raw Gmail or `100,000`-row path; no `409` churn; one console error corresponding to the `503`; no page error, overlay, or duplicate-key warning.
+- One mailbox-index request completed. Poll cadence/hidden/terminal behavior, cached path, scope loop, Marketing, and exploration were not run after the decisive Gate 1 failure.
+- Proof root: `/Users/olivercarlin/.codex/worktrees/ad0d/ai-agent-platform/output/playwright/ace048-candidate-actual-effects/.playwright-cli/runtime-proof/`.
+  - `protected-cold-all-after-full.png`
+  - `protected-cold-all-after-rail.png`
+  - `protected-cold-all.dom-state.json`
+  - `protected-cold-all.request-trace.json`
+  - `server.log`
+  - `verifier-closeout.json`
+  - `postflight-invariance.txt`
+- Candidate and original-main tracked source/build/status/HEAD invariance passed. Server stopped and port `3000` closed.
+- Classification: runtime verifier `REJECT`, confidence HIGH. Newly governing defects are unexpected read-triggered live publication/job mutation and stale linked lifecycle installation. This does not invalidate the two-file candidate wholesale; preserve it isolated and unaccepted. Transfer remains blocked.
+- Historical post-verifier requirement, now completed below: PLAN MODE bounded read-only source diagnosis plus PM Root Cause Execution Translation. Required diagnosis was:
+  1. trace the exact read function and call chain that performs liveness reconciliation/reclaim/mutation
+  2. determine whether request-time status must be pure observation and reclaim moved behind an explicit governed maintenance/build command
+  3. lock terminal precedence and the UI's post-response lifecycle refresh/install behavior after a read returns a transition
+  4. return the exact source file and route lock before any correction
+- No direct database inspection or mutation, repair/reclaim/build/publish/CAS, Gmail/Smart Sync, `7d` / `1W`, browser rerun, integration/transfer, merge, history, or deployment action is authorized.
+- Accepted Fix remains NO; no Recovery Contract.
+
+Source diagnosis and Root Cause Execution Translation — COMPLETE/HIGH; seven-file correction target locked, 2026-08-15:
+- Exact hidden mutation chain:
+  `sender_workspace` -> integration workspace loader -> bounded published artifact page loader -> `loadPublishedSenderWorkspaceArtifactHeaders` -> automatic `reconcileGmailArtifactBuildLiveness` when `building_version` exists -> reclaim CAS publication `UPDATE` + failure `UPSERT` to `gmail_artifact_jobs` + cache/telemetry update.
+- Ordinary published reads can therefore write. The inherited read surface includes sender distribution, confirmation preflight, and whole/page/focused/key/execution artifact loaders.
+- Separate mailbox-intelligence loading has opt-in `reconcileBuildLiveness`; request callers do not pass true and `runtimeStateService` explicitly passes false. Mailbox-index GET is observational. Explicit maintenance reconciliation already exists in post-Smart-Sync planning and `gmailArtifactIncrementalUpdater`, so published reads can be made pure without removing governed recovery.
+- Hard policy:
+  - request-time and poll-time readers are strictly observational with zero database writes
+  - stale/dead build reclaim is reachable only behind explicit governed sync/refresh/recovery maintenance authority
+  - a failed replacement candidate does not invalidate a separately usable published version
+- Publication truth contract:
+  - published + candidate building -> HTTP `200 building`; display only published artifact; retry/poll `15s`
+  - published + failed/`refresh_failed` candidate, no building identity -> HTTP `200 degraded`; display matching published artifact; terminal/no retry; copy `Refresh failed — showing last published results.`
+  - published + stale/`full_rebuild_required` -> `503 unavailable`; publication validity untrusted
+  - missing published + building -> `409 artifact_building`; no data
+  - missing published + terminal failure -> `503 unavailable`
+  - published fresh/`refresh_skipped` -> `200 ready`
+  - artifact identity mismatch against `published_version` -> `503 published_artifact_version_mismatch`
+  - candidate/building rows never display; degraded is not ready; every envelope carries exact publication/lifecycle/version metadata
+- Stale UI mechanism:
+  - runtime rehydrate installed `build_pending` identities
+  - terminal polling set local terminal state and returned without clearing/replacing `runtimeContinuity`
+  - public client preserved lifecycle metadata only on failure and discarded it on success/cache paths
+  - page mapped failure to unavailable but did not install returned lifecycle metadata
+  - banner continued reading stale context
+- Exact correction scope is locked to seven files:
+  1. `web/src/lib/integrations/gmail/gmailArtifactStore.ts`
+  2. `web/src/lib/integrations/gmail/gmailCleanupWorkspace.ts`
+  3. `web/src/app/api/integrations/gmail/inbox-analysis/route.ts`
+  4. `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+  5. `web/src/lib/runtime/runtimeStateService.ts`
+  6. `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  7. `web/src/app/agents/[id]/operations/review/page.tsx`
+- Preserve and amend the existing isolated two-file candidate; do not transfer it unchanged or overwrite its accepted hot-file behavior.
+- Explicitly out of scope: mailbox-index route, `gmailArtifactIncrementalUpdater.ts`, schema, taxonomy/resolver, CAS publication, builders, database/data cleanup, and any eighth production file.
+- Replacement logic:
+  - remove liveness reconciliation from every published read loader while preserving the reclaim implementation and explicit maintenance callers
+  - integration classification makes valid published + failed replacement candidate degraded usable only after identity validation; invalid/missing/mismatch truth remains fail closed
+  - route emits exact `ready | building | degraded | unavailable` envelopes based on the publication actually used
+  - public runtime client preserves lifecycle metadata on success and cache hits; data-only legacy cache must be version-bumped or rejected
+  - runtime readiness adds `degraded_usable` based solely on a valid published artifact
+  - Operations context clears persisted/in-memory `build_pending` on terminal poll without heavy refresh
+  - page preserves workspace-first/distribution-second and installs lifecycle metadata only for the current `{requestKey, lifecycle identity, generation}`; degraded publication remains coherent across linked surfaces; invalid/missing/mismatch terminal truth clears linked data
+- Load contract: before, a workspace read could add a hidden liveness read and up to two writes; after, request/poll writes `0`, raw Gmail `0`, workspace `1` then distribution `1`, heavy concurrency `1`, limits `12/50/200`, cold `<=30` queries / `<=501` rows, O(1) visible single-flight terminal polling, and no new request/retry/build/reclaim/publication family.
+- Static correction proof must execute current modules: published page loader with a fluent fake asserting no update/upsert/delete/RPC; integration truth table/envelopes; public client fetch/cache lifecycle retention; runtime readiness and terminal context transition; page lifecycle reducer/owner guard; source callsite guard proving liveness reconciliation is reachable only from explicit maintenance modules.
+- The callsite guard may be a verifier fixture/proof script only. If a committed test or an eighth production/source file is needed, implementation must stop and return to PM.
+- Future actual-effect proof follows static correction proof: Protected cold All only for the natural state plus deterministic actual-function fixtures for published+building, published+failed, missing, invalid, building-to-failed terminal transition, and in-flight route change. Prove sequencing, linked parity, honest copy/identities, zero request writes, raw rows `0`, concurrency `1`, and terminal poll stop. Never mutate the database to manufacture lifecycle; no `7d` / `1W`.
+- Classification: source-supported diagnosis/RCT COMPLETE at HIGH confidence. Problem class remains runtime behavior constrained by artifact/publication truth. Mode advances from PLAN to bounded correction execution only after byte-exact control-plane propagation. Accepted Fix NO; no Recovery Contract; transfer remains blocked.
+
+Seven-file candidate implementation — LANDED; Executor static/correction proof PASS, 2026-08-15:
+- Candidate: `/Users/olivercarlin/.codex/worktrees/33ad/ai-agent-platform`, detached HEAD `cce016b`.
+- RETURN/stale-diff boundary:
+  - pre-existing integration `gmailCleanupWorkspace.ts` baseline `+59/-6` and `review/page.tsx` baseline `+255/-29` belonged to the prior rejected attempt
+  - Executor preflight treated those diffs as suspect and not as proof
+  - the current pass preserved and amended them rather than transferring or overwriting them
+- Exact current-pass seven-file implementation:
+  1. `gmailArtifactStore.ts` `+1/-10`; SHA-256 `93ca4df4dae8191830a12c30199807c16bb3a690dbb96cfa04970144d0296375`
+  2. integration `gmailCleanupWorkspace.ts` `+288/-85`; SHA-256 `4a81deee7eef7c7c3c5f5778ced2e15aa0e6bf3a2f0b0a38f80adff783ae8c52`
+  3. `inbox-analysis/route.ts` `+34/-36`; SHA-256 `47caea42dc90dcb9206bfd2169dc27c586cd87d5e8e2d1bc8b857605e561b6ec`
+  4. runtime `gmailCleanupWorkspace.ts` `+294/-63`; SHA-256 `88bd5329bd0ade01841b4c8a707cdc186a8335660b41b70ab16166f8d39a44bc`
+  5. `runtimeStateService.ts` `+46/-20`; SHA-256 `ea5cfb0b1565d37f3a1301f56ebb3671b9349fe58dcfcfa69427619da77196ed`
+  6. `OperationsRuntimeContext.tsx` `+116/-29`; SHA-256 `1ee095f3a5fc80be153f0ad405d14022bcba0d94b2de1045921a7d6ae76ab9f0`
+  7. `review/page.tsx` `+354/-108`; SHA-256 `a8467bfbb3382a2c24a029664d17c6d50674f0fb5a9b55bbbfc1f3871853bc65`
+- Current-pass total: `+1133/-351`. Candidate-versus-original total: `+1335/-274`. No eighth source or test file changed.
+- Implemented behavior:
+  - published reads are observational and do not automatically reconcile liveness
+  - lifecycle contracts are `ready`, `building`, `degraded`, and fail-closed `unavailable`
+  - building/degraded states serve only the matching published artifact
+  - cache v2 preserves lifecycle/version metadata
+  - runtime readiness supports `degraded_usable`
+  - terminal polling clears persisted and in-memory `build_pending`
+  - page ownership is keyed by `{requestKey, lifecycle identity, generation}`
+  - a shared gate enforces workspace first, then distribution
+  - exact degraded copy is `Refresh failed — showing last published results.`
+- Preserved load contract: request/poll writes `0`; raw Gmail rows `0`; cold workspace `1` then distribution `1`; cached workspace `0` / distribution `1`; unavailable distribution `0`; heavy concurrency `1`; recurring heavy inbox-analysis `0`; bounds `12/50/200`; completion-aware visible single-flight terminal polling `12-18s`; no new request/retry/build/reclaim/publication family.
+- Executor correction proof PASS:
+  - actual-module fixture covered seven lifecycle cases; workspace/distribution building and degraded; published loader writes zero with maximum query concurrency one; public client network-then-cache fetch count one; four orchestration cases; stale-route ignore; polling hidden/terminal/inflight-one; reconciliation reachability opt-in/maintenance only
+  - non-incremental TypeScript PASS
+  - exact seven-file ESLint: zero errors, `19` warnings
+  - `git diff --check` PASS
+  - one fresh Next production build PASS with `63` pages
+- Local/non-authoritative proof scripts:
+  - `/tmp/ace048-seven-file.J9yiND/ace048-static-fixture.cjs`; SHA-256 `783aafb6cc5922aa9bd1c1b4a0d05f8595c549545ac23f33333ce5d28054bca4`
+  - `/tmp/ace048-seven-file.J9yiND/register-typescript.cjs`; SHA-256 `7ddd9510cbd6d8dc1d5ddcd26ec83e2557d5ff5d7ea33c286d793ae3ae576032`
+- No runtime server, browser, Playwright, Supabase, Gmail, database, or artifact action occurred.
+- Candidate index and unmerged state are empty; candidate fingerprint `c63ee0b...`. Main locked source hashes and HEAD remain unchanged. Cleanup remains at `382c9d6` with fingerprint `dcffb597...`.
+- Broader original/candidate status fingerprint changed externally from `06a9af0c...` to `c63ee0b...` only through unrelated control-plane/Playwright artifacts. Executor did not touch those surfaces. Independent verifier must re-preflight current status and all seven target hashes.
+- Classification: material implementation landed and Executor static/correction proof PASS. This is not independent acceptance, runtime acceptance, or an Accepted Fix. Transfer remains blocked; no Recovery Contract.
+- Active gate: independent source/correction verifier first, using HIGH reasoning, `verifier_native`, read-only actual-module/diff proof. Runtime/Playwright verification remains blocked until source verifier ACCEPT.
+
+Independent source/correction verifier — REJECT/HIGH; three-file lifecycle ownership correction locked, 2026-08-15:
+- Verifier verdict: `REJECT`, confidence HIGH. Playwright and transfer remain prohibited.
+- Independently accepted source boundaries remain PASS and must not be reopened:
+  - request/poll database writes `0`; raw Gmail rows `0`
+  - cold workspace `1` then distribution `1`; cached workspace `0` then distribution `1`; unavailable workspace suppresses distribution
+  - peak heavy concurrency `1`; bounds `12/50/200`; no new request/retry/build/reclaim/publication families
+  - published loader writes zero; reconciliation reachable only from explicit maintenance authority
+  - publication truth tables, taxonomy invariance, non-incremental TypeScript zero diagnostics, exact seven-file lint zero errors/`19` warnings, and diff check PASS
+- Production build identity proof is missing because Executor cleaned `.next`; one verifier attempt was environment-blocked before compile because the candidate lacked a local dependency root. This is blocked proof only and is not causal to rejection. Do not repeat the build until the correction changes source and a known working dependency setup is available.
+- P1 defect 1 — terminal unavailable linked-state clearing:
+  - `OperationsRuntimeContext.tsx` `resolveTerminalOperationsRuntimeContinuity` maps stale, `full_rebuild_required`, missing, and other terminal unavailable truth to ambiguous `null`
+  - polling then persists prior runtime data with null continuity and leaves `status.data` intact
+  - because null also represents ordinary no-continuity, stale totals, rows, distribution, and Decision Mode may remain visible
+  - source anchors are near candidate lines `888` and `1767`
+- P1 defect 2 — lifecycle-stamped cache invalidation and ownership:
+  - runtime `gmailCleanupWorkspace.ts` caches inbox-analysis envelopes for ten minutes under semantic request key without lifecycle identity and does not revalidate cache hits against current runtime publication/build identity
+  - independent reproduction: network returned building; server truth changed to degraded; identical request reused cached building; changing cache version fetched degraded; total fetch count `2`
+  - page distribution ready reuse checks request key + ready but omits lifecycle identity near line `9932`; effect dependencies omit lifecycle identity near `10111`
+  - banner prioritizes cached workspace building over newer runtime degraded truth near `12086`
+  - `{requestKey, lifecycle identity, generation}` therefore does not govern every reused or installed linked state
+- Exact seven target hashes remained unchanged; main and cleanup remained unchanged; verifier modified no tracked/source file. Failed build left only ignored partial `web/.next` diagnostics and no `BUILD_ID`.
+- PM Root Cause Execution Translation locks a micro-correction to exactly three files within the existing seven-file authority:
+  1. `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+  2. `web/src/components/runtime/OperationsRuntimeContext.tsx`
+  3. `web/src/app/agents/[id]/operations/review/page.tsx`
+- Preserve the remaining four candidate files byte-identically. No other production or test file is authorized.
+- Runtime client replacement:
+  - admit/reuse cached lifecycle envelopes only when lifecycle identity exactly matches the caller's current runtime publication/build identity
+  - thread lifecycle identity into the existing cache version/request identity; do not create a parallel cache
+  - same semantic key building -> degraded/unavailable must miss or evict stale building and fetch/re-evaluate
+  - preserve data and metadata together; continue rejecting legacy/data-only entries
+- Operations context replacement:
+  - represent terminal unavailable explicitly, never as ambiguous null
+  - atomically clear persisted runtime data, `status.data`, and in-memory linked data/continuity for invalid, missing, stale, `full_rebuild_required`, and mismatch terminal truth
+  - valid published + failed replacement remains `degraded_usable` and preserves published data
+  - issue no heavy refresh, retry, or request; polling stops
+- Page replacement:
+  - include lifecycle identity in distribution ready reuse, owner identity, and effect dependencies
+  - clear workspace, distribution, totals, rows, semantic focus, and Decision Mode when runtime terminal unavailable identity arrives
+  - prevent cached workspace building metadata from overriding newer runtime degraded/unavailable truth
+  - banner precedence favors newest runtime terminal/degraded truth over older cached workspace lifecycle
+  - preserve workspace-first/distribution-second and add no request family
+- Required correction proof: actual-module transitions for building -> degraded/stale/`full_rebuild_required`, same-key lifecycle changes, valid degraded preservation, atomic terminal clearing, stale cache miss/eviction, distribution dependency/reuse identity, banner precedence, and linked clearing; preserve prior truth/load fixtures; TypeScript, exact three-file lint plus seven-file regression lint, diff check, then one fresh build through a known working dependency setup. No start/browser.
+- Classification: source/correction gate REJECT/HIGH. Read-purity/load root cause remains corrected. Exact three-file correction execution becomes active only after byte-exact propagation. Accepted Fix NO; runtime acceptance remains REJECT; transfer blocked; no Recovery Contract.
+
+Three-file lifecycle cache/terminal-clearing correction — implemented; static/correction proof PASS; production build proof BLOCKED, 2026-08-21:
+- Candidate: `/Users/olivercarlin/.codex/worktrees/33ad/ai-agent-platform`, detached `cce016b`; candidate fingerprint `e9fc350d28b88335b17bbcb36ff1f7fd74793cee9d262a76f6768fee566ca61d`.
+- Exact current-pass source changes:
+  1. runtime `gmailCleanupWorkspace.ts`: `88bd5329...` -> `0bab929d63144e95bc11c00c74a69e130d4b144a4607adec1cf4ec5c2c2196a5`
+  2. `OperationsRuntimeContext.tsx`: `1ee095f3...` -> `1edac4904e43c661645dba6dd7f1e87af57c25aea1e5a40f734cde82cea514b8`
+  3. `review/page.tsx`: `a8467bfb...` -> `99862dedec6bb8e5c0324101858c6651f51657da8c7c924c23624a65cdab5bf1`
+- Locked-byte parity holds for artifact store `93ca4df4...`, integration workspace `4a81deee...`, inbox-analysis route `47caea42...`, and runtime state `ea5cfb0b...`. No other source/test file is authorized or reported changed.
+- Implemented contract: lifecycle expectation identity governs cache admission and inflight ownership; changed identity evicts stale cache; explicit terminal unavailable clears memory/session/status/loaded identity; valid matching failed replacement remains degraded with published data; page lifecycle identity governs cache/effect/owner and terminal linked UI/Decision Mode clearing; newer degraded/unavailable truth outranks older cached building truth.
+- Correction proof PASS: actual-module transitions/orchestration; unchanged hit, building -> degraded eviction/refetch once, terminal clearing, degraded preservation, stale-route ignore; request counts unresolved `0/0`, success `1/1`, cached `0/1`, terminal `0/0`; polling `12-18s`, inflight one, hidden cancel, terminal stop; raw Gmail zero, request writes zero, artifact query concurrency one, bounds `12/50/200`; non-incremental TypeScript zero; three-file lint zero errors/`13` existing warnings; seven-file lint zero errors/`19` existing warnings; diff check PASS.
+- Local proof artifact: `/tmp/ace048-return.rrBRmq/ace048-return-fixture.cjs` — non-authoritative correction proof only.
+- Production build proof: one and only one build attempt produced no output beyond `Creating an optimized production build` for six minutes, was terminated for cost control, exited `130`, and produced no `BUILD_ID`. Log `/tmp/ace048-return.rrBRmq/next-build.log` has SHA-256 prefix `e2c13e35`; partial `.next` is ignored/non-authoritative. No retry or managed build remains.
+- Classification: **Partial Proof / Blocked Build Proof**. The build block is not source acceptance or rejection evidence. Source verifier remains REJECT pending an independent recheck; runtime acceptance remains REJECT; Playwright and transfer remain blocked. Original main and cleanup were untouched; Supabase was not accessed.
+- Historical checkpoint next action: independent source verification and build-proof classification. It is superseded by the recorded source `ACCEPT/HIGH`; the active step is the separately scoped read-only/new-signal build-environment diagnosis. Do not start Playwright or transfer.
+
+Independent source re-verification — REJECT/HIGH; response-lifecycle race locks two-file correction, 2026-08-21:
+- The independent source/correction verifier rejected the candidate at HIGH confidence. Do not start Playwright or transfer.
+- Proven P1 mechanism: the runtime client compares cached lifecycle envelopes with `expectedLifecycle`, but its successful network path normalizes, caches, and returns a response without comparing the response lifecycle with that expected lifecycle. Its linked-state reducer validates owner-to-owner identity but not result lifecycle against the request owner's expected lifecycle.
+- Actual-module falsification: `resultOk=true`; returned lifecycle `building`; expected identity `degraded::pub-v1::no-building::refresh_failed::failed`; reduced status `building`; reduced installed data `true`; cached admission for that expected identity `false`. A degraded-owned request can therefore visibly install an older building response before the later cache read rejects it.
+- Exact correction lock — no third file: `web/src/lib/runtime/gmailCleanupWorkspace.ts` (cache read around `2012`, network cache/return around `2113` and `2142-2147`, reducer around `1471`) and `web/src/app/agents/[id]/operations/review/page.tsx` (independent response-lifecycle versus request-owner validation at installation).
+- Root Cause Execution Translation: compare every successful network response lifecycle with `expectedLifecycle` before cache write or return; fail closed with machine-readable expected/actual lifecycle on mismatch; independently validate page installation against request-owner lifecycle; add actual-module degraded-owner/building-response and terminal-owner/usable-response cases; reverify unchanged hits, one bounded transition refetch, and workspace-before-distribution/load counts.
+- Preserved PASS boundaries: terminal-unavailable clearing, valid degraded preservation, polling, `12/50/200` bounds, read purity, matching-response load guards, seven-file boundary, and retained fixture. No new cache, request, polling, write, Gmail, or build path is authorized.
+- Production build proof remains BLOCKED/HIGH and non-causal; no build retry is justified in this correction or its source recheck. A separately scoped new-signal build-environment diagnosis is the only later retry path.
+- Classification: source/correction gate REJECT/HIGH; Accepted Fix NO; runtime acceptance REJECT; transfer blocked. After byte-exact propagation, execute only the two-file correction in the isolated candidate, then run static/correction proof and an independent source re-verifier before any runtime verification.
+
+Two-file response-lifecycle correction — implemented; no-build static/correction proof PASS, 2026-08-21:
+- Candidate remains isolated at `/Users/olivercarlin/.codex/worktrees/33ad/ai-agent-platform`, detached `cce016b`; index and unmerged entries are empty and path-status fingerprint remains `e9fc350d...`.
+- Exact current-pass changes: runtime `gmailCleanupWorkspace.ts` `0bab...` -> `c78215364d399e28ddacbc88041659dae7ccd117a98053dcf93bebca90c4e7f6`; review `page.tsx` `99862...` -> `988922673dcd746f742ed1c9fb1ed218b0652576549216e7b22e9a4453ffc898`.
+- The other five governed files, including `OperationsRuntimeContext.tsx`, remain byte-identical. No source test or third file changed.
+- Implemented behavior: every network success is lifecycle-validated before cache/return; mismatch returns machine-readable `response_lifecycle_mismatch` with structured expected/actual lifecycle; request owner retains expected lifecycle; reducer rejects mismatch; page revalidates workspace, semantic focus, and distribution before install so a mismatched stale success cannot repopulate linked state.
+- Static/correction proof PASS: degraded-owner/building-success and terminal-owner/usable-success both fail before cache/install; no mismatched cache; correct lifecycle performs exactly one refetch; unchanged matching cache hit passes; counts `0/0`, `1/1`, `0/1`, `0/0`; stale route ignored; writes/Gmail rows `0`; concurrency `1`; bounds `12/50/200`; lifecycle/polling preserved; TypeScript zero; two-file lint zero errors/`13` old warnings; seven-file lint zero errors/`19` old warnings; diff check PASS.
+- No build was run. The prior blocked build remains separate, no `BUILD_ID` exists, and no retry is authorized. No DB, browser, server, Gmail, Supabase, transfer, stage, commit, or publication action occurred.
+- Classification: Partial Proof. Accepted Fix NO; source/runtime acceptance remain REJECT pending independent read-only source recheck. Playwright and transfer remain blocked.
+- Next deterministic action: independent read-only source/correction verifier re-preflights this exact candidate and two changed hashes, validates the actual-module lifecycle mismatch proof and preserved safety/load boundaries, and does not retry a build by default.
+
+Independent source/correction recheck — ACCEPT/HIGH; build diagnosis is next, 2026-08-21:
+- The independent verifier accepted the exact two-file response-lifecycle correction at HIGH confidence. No source findings remain and the verifier wrote no source changes.
+- Verified contract: network lifecycle validation before cache/return emits structured `409 response_lifecycle_mismatch`; owner/reducer and separate page workspace, semantic-focus, and distribution guards prevent mismatched responses from installing linked state.
+- Actual-module proof accepted: degraded-owner/building and terminal-owner/ready responses reject before cache/install; no mismatch cache; correct lifecycle refetches once; next matching hit passes. Terminal clear/degraded preservation, counts `0/0`, `1/1`, `0/1`, `0/0`, writes/Gmail `0`, concurrency `1`, bounds, polling, and scope behavior remain PASS.
+- Candidate hashes remain runtime `c78215364d399e28ddacbc88041659dae7ccd117a98053dcf93bebca90c4e7f6` and review `988922673dcd746f742ed1c9fb1ed218b0652576549216e7b22e9a4453ffc898`; the five other governed files remain exact.
+- Build proof remains `BLOCKED/HIGH` and non-causal. No retry is authorized. Accepted Fix NO; runtime acceptance remains REJECT/HIGH; Playwright and transfer remain blocked.
+- Next governed stage: separately scoped, read-only/new-signal build-environment diagnosis. Inspect environment, process/toolchain state, partial `.next`, the blocked log, dependency-clone differences, and known successful main-build conditions. Only a specific causal new-signal hypothesis can later authorize one bounded recovery build through new propagation. No source edits in diagnosis.
+
+Build-environment diagnosis — ENVIRONMENT MECHANISM FOUND/HIGH; one bounded recovery build active, 2026-08-21:
+- The independent read-only diagnosis established that the candidate stall was environmental: Codex/macOS sandbox repeatedly denied Node PID `12779` local ephemeral IPC bind (`network-bind local:*:0`) throughout compile, while Next `16.0.10` worker-utils uses `server.listen(0)`.
+- No source, compiler, TypeScript, OOM, or crash mechanism was found. The blocked build is stale for acceptance because it predates the source-accepted runtime `c78215364d399e28ddacbc88041659dae7ccd117a98053dcf93bebca90c4e7f6` and review `988922673dcd746f742ed1c9fb1ed218b0652576549216e7b22e9a4453ffc898` hashes.
+- Diagnosis changed no files. Source correction remains ACCEPT/HIGH; Accepted Fix NO; runtime acceptance remains REJECT/HIGH.
+- After byte-exact propagation, authorize one and only one recovery build outside the restrictive sandbox: frozen current hashes; clean candidate-local dependencies; verify six native binaries byte-identical to original main and record persistent provenance as non-causal metadata; preserve stale `.next` under `/tmp`; exact command `/opt/homebrew/bin/npm run build`; hard `180s` limit; abort at `60s` with no progress; no retry.
+- Success requires exit `0`, non-empty fresh `BUILD_ID`, fresh manifests newer than governed inputs, and retained sanitized evidence. Abort/no retry on bind denial, source error, or no progress.
+- Playwright, transfer, stage, commit, merge, push, deployment, DB/Gmail/Supabase/artifact mutation remain blocked until the recovery-build result is propagated. No source edit is authorized by this recovery-build packet.
+
+Recovery-build precheck abort — environment preparation correction active, 2026-08-21:
+- No build ran; attempt count remains `0`. No `.next`, dependency, or environment mutation occurred during precheck.
+- Packet/head/seven source hashes/package manifests/index/unmerged/process/lock checks passed. The supplied `48e3e70e` fingerprint was wrong provenance. Canonical candidate default-porcelain fingerprint remains `e9fc350d28b88335b17bbcb36ff1f7fd74793cee9d262a76f6768fee566ca61d`; all-untracked and NUL forms are different algorithms and must not block this flow.
+- Candidate `web/.env.local` is absent. Original-main ignored `web/.env.local` is the approved existing environment source.
+- The recovery packet now authorizes a temporary byte-for-byte copy from original-main to candidate before the one bounded build, with names/presence-only validation, no reading/logging of values, no inclusion in evidence, and removal after sanitized evidence capture. Verify source existence and ignored status before the copy.
+- The one-shot recovery build remains pending/authorized and unconsumed. All external-sandbox IPC, `180s`, `60s`, no-retry, and success/abort gates remain unchanged.
+
+Recovery-build precheck abort #2 — non-causal provenance gate removed, 2026-08-21:
+- Build attempt remains `0`; no build, `BUILD_ID`, build log, environment copy, `.next` move, source/docs/Git, or external mutation occurred. Evidence root: `/tmp/ace048-build-recovery.hr73F1`.
+- Packet/head/status canonical `e9fc...` fingerprint, seven hashes, index/unmerged, package manifests, all `880` dependencies, dependency locality, process/lock, and original-main ignored environment presence passed. Six candidate native modules are byte-identical to original main.
+- `com.apple.provenance` persists on candidate native modules: `xattr -d` reported success but the attribute remained; a byte-identical `cp -X` temporary probe also retained it.
+- Provenance/security scan remains known secondary, non-causal metadata: it completed early, while the sustained stall was sandbox local-IPC denial. Do not mutate xattrs again.
+- Replace the impossible native-module provenance gate with byte-identity verification of the six native binaries against original main and recorded non-causal provenance presence. All other recovery-build gates remain unchanged; one build remains pending and unconsumed.
+
+Recovery build — PASS; bounded candidate runtime verification active, 2026-08-21:
+- One attempt and zero retries: `/opt/homebrew/bin/npm run build` outside the restrictive sandbox exited `0` in `21.724s` with `BUILD_ID` `N3LRSG7T4OiDVM8b8_QNf`. Compile, TypeScript, page-data collection, and `63` static pages passed; required manifests are nonempty and newer than governed inputs.
+- Evidence root: `/tmp/ace048-build-recovery.hr73F1`; build-log SHA-256 `efc8b2d043a84304ce7a85c796b058cf85f991e12daa53f083a0e8940a0aafe1`.
+- Frozen seven hashes remain unchanged; candidate HEAD `cce016b`, status fingerprint `e9fc350d...`, index/unmerged empty. Stale `.next` was preserved, fresh `.next` retained, temporary environment removed, no secret values logged, and no process remains.
+- Build proof PASS. This is not runtime acceptance, Accepted Fix, or transfer authorization. Source/correction remains ACCEPT/HIGH; runtime acceptance remains REJECT/HIGH.
+- Next stage: independent bounded candidate runtime/Playwright verification before any transfer. Use the governed Protected canonical route `http://localhost:3000/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=structural.protected_trust` and the governed Marketing parent route recoverable from accepted packet/artifacts; do not guess IDs. No `7d`/`1W`, mutation, DB/Gmail/Supabase/artifact action, or transfer.
+
+Candidate runtime verification — BLOCKED/HIGH; runtime safety adjudication required, 2026-08-21:
+- Independent runtime verifier established saved ignored authentication and started/stopped the fresh-BUILD_ID production server cleanly, but did not open the accepted route. Protected cold All remains pending; no State Transition Matrix row ran, ready state is NO, and post-settle artifacts are NO.
+- Navigation was blocked because historical reads on this surface caused stale-build reclaim and persistent publication-state mutation, conflicting with the no-mutation boundary and Supabase safety constraint. No workaround was attempted.
+- No workspace, distribution, poll, raw Gmail, mutation, guard, or Supabase-inspection request was exercised. Source/build/worktree invariants remain unchanged; port is closed and environment absent.
+- Evidence: `/Users/olivercarlin/.codex/worktrees/ad0d/ai-agent-platform/output/playwright/ace048-independent-candidate-runtime/.playwright-cli/runtime-proof/BLOCKED.md`, with `preflight-snapshot.txt` and `server.log` in the same root.
+- Classification: Missing Proof Blocked; no product-runtime verdict. Source ACCEPT/HIGH and build PASS remain valid; runtime acceptance REJECT; Accepted Fix NO; transfer blocked.
+- Continuation requires explicit operator authorization accepting persistent-mutation risk or a safely isolated runtime where reads cannot mutate publication/lifecycle state. Do not request that authority implicitly.
+- Active next step shifts to Claude transition/stabilization handoff planning and Git/worktree reconciliation while preserving this runtime blocker. `ACE-049` remains queued/inactive until an ACE-048 stabilization/handoff checkpoint.
+
+Explicit non-claims:
+- Current-tree remediation does not claim Git-history remediation, broader credential rotation, route hardening, framework upgrade, Vercel adjudication, schema reconciliation, cleanup-lineage integration, or product implementation.
+- Prior accepted Recovery Contracts remain historical accepted-fix truth and are not reopened.
+- `ACE-011` remains completed historical context and must not be reopened.
+
+Verified containment delta — 2026-08-15:
+- The three exposed Supabase Auth sessions referenced by the tracked Playwright storage-state files were confirmed present.
+- Each exact session was refreshed only as required to revoke that same session locally.
+- A follow-up `auth.sessions` query returned no rows for all three exact session IDs.
+- No unrelated sessions were touched.
+- No token, cookie, credential, or session value is recorded in this control-plane event.
+- Classification: exact-session containment verified complete; broader repository security containment remains open.
+
+Accepted current-tree auth-artifact remediation — 2026-08-15:
+- Implementation and independent verification are complete for the bounded current-tree remediation.
+- Root `.gitignore` now rejects:
+  - nested or root `.playwright-cli` directories
+  - `playwright/.auth` directories
+  - JSON auth-state, `auth_state`, login-state, `login_state`, storage-state, and `storage_state` filenames
+- Exactly these four tracked auth-state files were deleted from the current working tree:
+  - `output/playwright/ace046-auth-state.json`
+  - `output/playwright/ace047_env_login_state.json`
+  - `output/playwright/phase2_postsettle_final/auth_state.json`
+  - `web/.playwright-cli/ace046-auth-state.json`
+- Ordinary browser evidence remains unignored, including screenshots, traces, reports, DOM captures, and request traces.
+- A generic tracked-current scan found zero files containing the Supabase auth-cookie marker; no secret or token contents were printed.
+- Verification result:
+  - independent verifier: PASS
+  - `Missing Proof Type: none`
+  - `git diff --check`: PASS
+- Main HEAD and index were not changed; no commit or push occurred.
+- `cleanup-taxonomy-rebuild` remains clean and untouched.
+- Git-history exposure remains OPEN because all four blobs remain recoverable from current HEAD.
+- Oliver issued post-implementation `ACCEPT` on 2026-08-15.
+- Classification: Accepted Fix — current-tree remediation only.
+- Recovery Contract: `CHANGELOG.md` -> `August 15, 2026 — ACE-048 Current-Tree Auth-Artifact Remediation Accepted`
+
+Next deterministic action:
+- After byte-exact propagation, run exactly one external-sandbox recovery build defined in `docs/00_control_plane/runtime/ACE-048_RUNTIME_READ_ISOLATION_PM_BRIEF.md`.
+- Freeze hashes; preserve stale `.next` to `/tmp`; use clean candidate-local dependencies; verify six native binaries byte-identical to original main and record persistent provenance as non-causal metadata; run `/opt/homebrew/bin/npm run build` with hard `180s` and no-progress `60s` abort. Do not start the server or browser or access the database.
+- Accept only exit `0`, fresh non-empty `BUILD_ID`, fresh manifests, and sanitized evidence; abort/no retry otherwise. Accepted Fix and runtime acceptance remain NO; Playwright and transfer remain blocked.
+- Dashboard repair follows this safety gate, not before it.
+- Recompute the exact dual-worktree integration manifest against the corrected cleanup working tree, loading repository/history/Markdown evidence from both worktrees and applying cleanup sender-distribution feature authority.
+- Author and approve a staged semantic-integration PM Brief before creating/using a main-derived integration worktree for manual reconciliation.
+- Integration remains blocked until the load-safe semantic-artifact plan and controlled candidate disposition, Dashboard/main baseline gate, and revised manifest/PM Brief gates resolve.
+- Do not reopen the completed read-only Supabase seam lock or authorize production database cleanup or `7d` / `1W` action.
+- No integration branch, safety commit, merge, cherry-pick, conflict resolution, or cleanup-lineage mutation may begin until both baselines satisfy the approved gate or Oliver explicitly changes it.
+- Git-history remediation remains open as a separately planned security decision.
+- Privileged-route hardening remains queued and must not run concurrently with integration.
+- No application implementation may start from the pre-revival TODO or prior lane labels.
+
+Affected authoritative documents:
+- `06_system_state/ACTIVE_CHANGE_EVENTS.md`
+- `06_system_state/CURRENT_STATE.md`
+- `06_system_state/TODO.md`
+- `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
+- `07_reference/SYSTEM_MEMORY_MAP.md`
+- `11_product_strategy/PRODUCT_ROADMAP.md`
+- `docs/00_control_plane/EXECUTION_DASHBOARD.md`
+
+Propagation status:
+- Revival baseline documents aligned and accepted by Oliver on 2026-08-15.
+- Current-tree auth-artifact remediation is accepted and linked to its Recovery Contract.
+- Main Contracts A/B is an Accepted Fix with its Recovery Contract linked; the earlier auth-remediation Recovery Contract remains separate and unchanged.
+- Active phase: Runtime Read Isolation + O(1) Lifecycle Status — source/correction recheck ACCEPT/HIGH; environment mechanism found/HIGH; one bounded external-sandbox recovery build pending byte-exact propagation; Playwright and transfer blocked.
+- Human plan decision: ACCEPT. This is not an Accepted Fix or Recovery Contract. Gmail OAuth plus sync/index recovery remains PASS; semantic artifact recovery/publication remains incomplete. Dashboard, revised manifest/PM Brief, integration, database/orphan mutation, build/publication, history, deployment, app restart, and `7d` / `1W` remain blocked.
+- `SYSTEM_MEMORY_MAP.md` now routes sender-distribution work through cleanup's authoritative control-plane history as mandatory feature-intent input while preserving the current root control plane as governing.
+- `ACE-048` remains Active because the revival program and its queued execution lanes remain open.
+
+### [ACE-049] Agent-Neutral Successor Environment Transition — Claude Code
+
+Date: 2026-08-21
+Owner: Oliver / Project Manager
+Status: Planned / queued — **not active**
+Propagation Owner: Control Plane Architect
+Problem Class: architecture / operating-model transition
+Execution Mode: logged deferred execution
+Reasoning Level: MEDIUM
+
+Decision:
+
+- Claude Code is approved to become Automata's primary implementation environment only **after** the current ACE-048 cleanup, reconciliation, and stabilization cycle reaches its explicitly declared acceptance/cutover gate.
+- `ACE-048` remains the sole ACTIVE revival/recovery authority. This event is subordinate planning only; it cannot interrupt, replace, or broaden the current three-file lifecycle cache/terminal-clearing correction in candidate `33ad`.
+- No new product-development lane may begin after stabilization. Successor preparation is the next priority, and activation requires a separate explicit cutover decision.
+- The durable operating model is agent-neutral: `Oliver -> Automata Control Plane -> Codex / Claude / future agents -> isolated worktrees or branches -> Git -> verification -> authoritative state`.
+- A future root `CLAUDE.md` must import or reference root `AGENTS.md` and add only Claude-specific entry/efficiency guidance. It must not create a parallel control plane, duplicate authority, or weaken root rules.
+- Codex and Claude must never modify the same working directory concurrently. Claude defaults to one capable session; a targeted subagent or limited parallelism is allowed only for genuinely independent work.
+- After cutover, Claude must autonomously implement, test, verify, commit, merge, push, and propagate control-plane truth. Codex is not a required reviewer or dependency after handoff.
+- Claude's first post-cutover assignment is read-only institutional onboarding/reconciliation with no repository, runtime, database, Gmail, artifact, deployment, or Git mutation.
+
+Cutover gate and successor-readiness contract:
+
+- The current ACE-048 cleanup/reconciliation/stabilization slice must be accepted against its declared gates; this does not require claiming every future revival/product stage complete.
+- The authoritative repository must be clean or its intended dirt explicitly classified; intended work must be pushed; ambiguous worktrees/branches must be eliminated or explicitly documented; and recorded tests/builds, control-plane reconciliation, unresolved issues, and live-state verification requirements must be available to the successor.
+- A formal handoff, authored only after that gate, must cover product, architecture, repository, control plane, decisions, implementation, debt, assignments, worktree lifecycle, tests/deploy/environment, prohibitions/approvals, lessons/failure modes, paused work, next assignment, and live-state verification requirements.
+- “Perfectly stable” means verified against declared gates. Residual risk must be quarantined and documented, never hidden.
+
+Current constraints:
+
+- Do not create `CLAUDE.md`, a formal handoff, or a parallel Claude control plane during this deferred planning pass.
+- Do not modify the ACE-048 runtime packet or its candidate hashes.
+- No Accepted Fix, Recovery Contract, source/runtime/database/Gmail/artifact/Git/deployment change, or cutover occurs through this event.
+
+Next deterministic action:
+
+- Complete the current ACE-048 three-file correction and its required verifier gates. Once the stabilization cutover gate is explicitly accepted, activate the successor-readiness checklist and create the formal handoff artifacts in a separately approved bounded pass.
+
+Propagation status: planned successor direction captured; ACE-049 remains queued/inactive and creates no competing active authority.
+
+---
+
+## Pre-Revival Ledger — Preserved Historical and Adjudication Context
+
+The entries below are preserved without deleting historical decisions or Recovery Contract references. Their original `Status` fields are legacy source text and **do not grant current execution authority**. `ACE-048` is the sole governing revival event. Any prior item that remains relevant must be re-adjudicated into an explicit `ACE-048` execution packet before work resumes.
+
 
 
 ### [ACE-046] Analysis Rail Remaining Stability + Time Truth Cleanup

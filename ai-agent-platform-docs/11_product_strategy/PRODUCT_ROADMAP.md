@@ -34,7 +34,27 @@ This loop must work:
 
 ---
 
-## 🔹 PHASE 1 — GMAIL SYSTEM COMPLETION (CURRENT)
+## AUTOMATA REVIVAL CHARTER — ACTIVE BASELINE (2026-08-15)
+
+The renewed product sequence is:
+
+1. **Secure and rebaseline** — contain exposed sessions/credentials, harden privileged routes, move to a patched framework baseline, adjudicate deployment ownership, reconcile schema truth, and establish a safe code baseline.
+2. **Finish one Gmail closed loop** — make the mature reference vertical complete from data through action and feedback.
+3. **Build the governed learning substrate** — introduce an auditable model-training and feedback lifecycle only after the reference loop is trustworthy.
+4. **Build the executable workspace compiler / visual builder** — generalize proven system contracts into configurable executable workspaces.
+5. **Validate a second domain** — prove portability beyond Gmail before broader scaling.
+6. **Add broader multi-agent company hierarchy** — introduce organizational agent hierarchy only after the substrate and second-domain proof exist.
+
+Current product reality:
+- Gmail is the mature reference vertical, not proof that the full generalized platform exists.
+- The generalized visual builder is not yet implemented.
+- The governed model-training lifecycle is not yet implemented.
+- The broader multi-agent company hierarchy is not yet implemented.
+- The pre-revival phase descriptions below are retained as historical product design detail. Where sequencing conflicts, this revival charter governs.
+
+---
+
+## 🔹 PHASE 1 — GMAIL SYSTEM COMPLETION (PRE-REVIVAL PRODUCT DESIGN)
 
 ### Goal
 
@@ -377,20 +397,21 @@ Never:
 
 # CURRENT STATUS
 
-You are here:
+Revival status:
 
 ```text
-Phase 1A → Artifact Completion (final stages)
-Phase 1B → UI Completion (next)
+Revival Stage 1 → Security and Rebaseline (ACTIVE)
+Next → Approved Security Containment execution packet
 ```
 
-Next step:
+Product work resumes in this order:
 
 ```text
-Finalize artifacts → Complete UI → Then move to Phase 2
+Secure/rebaseline → Gmail closed loop → governed learning → executable builder → second domain → broader hierarchy
 ```
 
 Note:
+- The legacy Phase 1A / Phase 1B status is pre-revival historical context and is not current execution authority.
 - Richer artifact surfaces are intentionally deferred until after UI completion and end-to-end workflow validation.
 - This prevents rework and ensures artifact exposure is driven by real usage rather than speculation.
 

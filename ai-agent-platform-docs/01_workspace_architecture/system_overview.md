@@ -1,5 +1,5 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: April 1, 2026_
+_Last Updated: August 21, 2026_
 
 ---
 
@@ -11,12 +11,12 @@ It summarizes the active execution model, documentation layers, and current plat
 
 ## 🧱 Core Operating Model
 
-The project now runs on a **Codex Operating System**.
+The project now runs on an **Automata Control Plane operating system**. Codex is the current implementation environment; Claude Code is an approved but deferred successor environment after the current ACE-048 cleanup/reconciliation/stabilization cycle.
 
 Active execution chain:
 - Oliver defines intent and approves direction
 - Project Manager defines scope, routing, impact, and review standard
-- Codex executes implementation, validation, and documentation propagation
+- the current execution agent executes implementation, validation, and documentation propagation
 
 The operating model is split into four layers:
 
@@ -38,6 +38,20 @@ The operating model is split into four layers:
    - `.agents/skills/`
 
 Control-plane files always win when there is conflict.
+
+### Future Agent-Neutral Successor Model (`ACE-049`, queued)
+
+The durable execution chain is:
+
+`Oliver -> Automata Control Plane -> Codex / Claude / future agents -> isolated worktrees or branches -> Git -> verification -> authoritative state`
+
+Claude Code may become the primary implementation environment only after an explicit ACE-048 stabilization cutover gate. The transition does not interrupt current stabilization work or authorize new product development.
+
+- A future root `CLAUDE.md` must reference/import root `AGENTS.md` and add only Claude-specific entry/efficiency guidance; it cannot become a parallel control plane.
+- Codex and Claude must never write the same working directory concurrently. Use one capable Claude session by default; parallel work requires genuinely independent scope and separate worktrees/branches.
+- After cutover, Claude autonomously implements, tests, verifies, commits, merges, pushes, and propagates authoritative state; Codex is not a mandatory reviewer.
+- The first successor assignment is read-only onboarding/reconciliation. Formal handoff follows only once repository/worktree state, tests/builds, unresolved issues, approvals/prohibitions, and live-state verification requirements are coherent and recorded.
+- Stability means passing declared gates. Open risk is quarantined/documented, never hidden.
 
 ### 🧭 Execution Rules
 

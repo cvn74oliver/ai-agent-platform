@@ -62,6 +62,7 @@ These files must always be loaded first:
 - `00_core_context/07_PROJECT_MANAGER_CONTEXT.md`
   - canonical PM operating-model file only; not the destination for lane-specific execution truth
 - `06_system_state/ACTIVE_CHANGE_EVENTS.md`
+- `docs/00_control_plane/EXECUTION_DASHBOARD.md`
 
 ## Why this layer matters
 These files define:
@@ -76,6 +77,59 @@ These files define:
 - No task should begin without them.
 - No system state should be assumed outside them.
 - Lane-specific truth must be recovered from CURRENT_STATE.md and ACTIVE_CHANGE_EVENTS.md, not inferred from PROJECT_MANAGER_CONTEXT.md.
+- The execution dashboard is a lightweight progress index; it does not replace the other control-plane sources.
+
+## Revival routing overlay (`ACE-048`)
+
+While the Automata Revival is active, route work in this order:
+
+1. Load the Control Plane and confirm `ACE-048` stage/phase authority.
+2. Load only the audit evidence and code surfaces required for the current bounded revival lane.
+3. Treat `main` as the eventual integration destination and authority for later unrelated main-line evolution. For sender-distribution work only, treat `cleanup-taxonomy-rebuild` as the authoritative feature lineage and preserve its semantics through manual union.
+4. For security containment, never route reusable secrets or session contents into documentation.
+5. For deployment adjudication, load both Vercel project identities and deployment evidence before selecting a canonical project.
+6. For schema rebaseline, compare live schema truth with local migrations before proposing changes.
+7. Do not route pre-revival TODO items into execution unless the PM explicitly re-adjudicates them under `ACE-048`.
+
+Cleanup-lineage integration routing:
+- freeze and preserve both refs before analysis or mutation
+- route first to merge-base inventory and behavioral classification of cleanup-only and materially differing seams
+- load both sides of each candidate seam plus repository/history/Markdown evidence and the minimum governing spec/test context
+- route each approved seam into a bounded integration packet with targeted verification
+- never route to blind full merge, blanket conflict resolution, broad overwrite, branch deletion, or worktree deletion
+- route any proposed supersession through explicit behavioral comparison; branch age or provisional-baseline status is not proof
+- preserve the prior `84` total / `47` identical / `37` disposition paths / `17` textual conflicts as historical discovery only; verified cleanup corrections make it stale, so recompute before any integration packet
+- require PLAN MODE and a complete PM Brief before any merge or conflict resolution
+- required verification routing order:
+  1. `main` pre-integration baseline — exact runtime target/routes, terminal health, Playwright CLI
+  2. cleanup pre-integration baseline — exact runtime target/routes, terminal health, Playwright CLI
+  3. bounded semantic integration packets — shared hot files isolated into dedicated seams
+  4. integrated-app regression baseline — terminal health plus Playwright CLI on accepted surfaces
+- keep Git-history remediation on a separate security route; do not load it into feature integration packets
+- route privileged-route hardening only after post-integration regression verification and human acceptance
+- after privileged-route hardening, route in order to framework security upgrade, Vercel canonical-project adjudication, then schema/migration reconciliation
+- do not route privileged-route hardening concurrently with or ahead of cleanup integration; shared/hot-file overlap makes premature hardening a semantic conflict and duplicate-work risk
+
+Sender-distribution authority routing:
+- the current root Control Plane remains the sole governing execution authority
+- before sender-distribution planning, integration, conflict resolution, or supersession decisions, also load the authoritative cleanup-worktree intent history from:
+  - `/Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/ai-agent-platform-docs/06_system_state/ACTIVE_CHANGE_EVENTS.md`
+  - `/Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/ai-agent-platform-docs/06_system_state/CURRENT_STATE.md`
+  - `/Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/ai-agent-platform-docs/06_system_state/TODO.md`
+  - `/Users/olivercarlin/Dev/ai-agent-platform-cleanup-taxonomy-rebuild/ai-agent-platform-docs/06_system_state/CHANGELOG.md` when accepted behavior/recovery comparison requires it
+- use cleanup committed head `382c9d6` plus its exactly three verified local baseline correction paths as the current sender-distribution feature-intent baseline
+- use main `cce016b` as integration destination and source of later unrelated main-line evolution; reconcile it around cleanup sender-distribution intent through semantic union
+- do not infer that cleanup is globally authoritative outside sender distribution
+- do not route to integration until Gmail OAuth/sync/index health, the separate Dashboard baseline, and the recomputed manifest/PM Brief gates are resolved
+
+Revival stage names describe strategic order. ACE phases describe execution progress inside the current bounded lane.
+
+Successor-environment routing (`ACE-049`, queued/inactive):
+- Do not route implementation work to Claude Code before the ACE-048 cleanup/reconciliation/stabilization cutover gate is explicitly accepted.
+- Until cutover, `ACE-048` remains the sole active authority and its current runtime packet/target lock govern execution.
+- After cutover, route the first Claude assignment as read-only institutional onboarding/reconciliation through: current Control Plane, `system_overview.md`, `PM_ONBOARDING_BRIEF.md`, the formal handoff artifact once created, current repository/worktree/branch state, and recorded test/build/live-state verification evidence.
+- A future root `CLAUDE.md`, created only after cutover approval, must route back to root `AGENTS.md`; it is Claude-specific entry guidance, not a control-plane source.
+- Do not route Claude and Codex to mutate the same working directory concurrently. Route independent work through separate worktrees/branches only.
 
 ---
 

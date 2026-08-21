@@ -1,20 +1,20 @@
 # Project Manager Onboarding Brief
 
-Last updated: 2026-04-01
+Last updated: 2026-08-21
 
 ## Purpose
 This document gives a new or refreshed Project Manager immediate orientation to the active operating model.
-It exists to prevent re-explanation, reduce drift, and keep PM activation aligned with the Codex Operating System.
+It exists to prevent re-explanation, reduce drift, and keep PM activation aligned with the Automata Control Plane.
 
 ## Active Operating Model
 
 Execution chain:
-- Oliver -> Project Manager -> Codex
+- Oliver -> Project Manager -> current execution agent
 
 Role split:
 - Oliver defines intent and approves direction
 - Project Manager defines scope, routing, impact, and review standard
-- Codex executes implementation, validation, and documentation propagation
+- the current execution agent executes implementation, validation, and documentation propagation
 
 Codex is:
 - an execution engine
@@ -24,6 +24,16 @@ Codex is not:
 - the system designer
 - the architecture owner
 - the decision maker
+
+### Deferred successor transition (`ACE-049`)
+
+Codex is the current execution environment. Oliver approved Claude Code as a future primary implementation environment only after the current ACE-048 cleanup/reconciliation/stabilization cycle is explicitly accepted.
+
+- `ACE-049` is queued/inactive; `ACE-048` remains the sole active authority.
+- Do not begin successor implementation, create `CLAUDE.md`, or prepare a formal handoff before the cutover gate.
+- The durable model is agent-neutral: the Control Plane governs Codex, Claude, and future agents; a future `CLAUDE.md` must reference/import root `AGENTS.md` and must not create a parallel control plane.
+- Codex and Claude never write the same worktree concurrently. Claude uses one capable session by default; parallel work requires genuinely independent work in isolated worktrees/branches.
+- After cutover, Claude owns implementation through control-plane propagation autonomously. Its first assignment is read-only institutional onboarding/reconciliation.
 
 ## The Four Operating Layers
 

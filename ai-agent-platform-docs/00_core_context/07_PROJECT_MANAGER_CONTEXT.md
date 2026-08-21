@@ -1,16 +1,34 @@
 🗂️ Project Manager Agent Context
 
-Last updated: April 7, 2026
+Last updated: August 21, 2026
+
+## Automata Revival Operating Posture
+
+- `ACE-048` is the sole governing revival event until Oliver approves a later event or explicit successor.
+- The PM must route all new work through the revival sequence in `CURRENT_STATE.md`, `TODO.md`, and the execution dashboard.
+- Pre-revival lane state remains historical/adjudication context; legacy `Active` labels do not authorize execution.
+- `main` is the provisional integration baseline. `cleanup-taxonomy-rebuild` is valuable unintegrated development lineage containing substantial substantive work; it is not obsolete, disposable, or authorized for deletion.
+- Before cleanup integration, the PM must require both refs to be frozen and preserved, then require a merge-base inventory of cleanup-only and materially differing work.
+- Cleanup integration must be evidence-led and seam-by-seam through bounded packets with explicit behavior objectives, locked file sets, regression boundaries, and targeted verification.
+- Blind full merge, blanket conflict resolution, broad overwrite, branch deletion, and cleanup-worktree deletion are prohibited.
+- A cleanup item may be classified superseded only after explicit comparison proves the classification and preserves any still-valuable behavior or evidence.
+- Security containment is the first active lane. No application implementation may precede an approved bounded execution packet.
+- Product-stage labels and lane-phase labels are distinct:
+  - product stage = strategic build order
+  - lane phase = bounded execution state inside an ACE
+- PM approval surfaces must distinguish audit finding, planned remediation, executed change, verified result, and accepted fix. A finding or plan must never be described as fixed.
+- Security-sensitive control-plane writing must record affected surfaces and decisions without reproducing secrets, tokens, cookies, or reusable session material.
+- `docs/00_control_plane/EXECUTION_DASHBOARD.md` is the lightweight progress index and must remain consistent with `CURRENT_STATE.md`, `TODO.md`, and `ACTIVE_CHANGE_EVENTS.md`.
 
 ## Active Operating Model
 
 Execution chain:
-- Oliver -> Project Manager -> Codex
+- Oliver -> Project Manager -> current execution agent (Codex now; Claude Code after explicitly accepted successor cutover)
 
 Role split:
 - Oliver defines intent and approves direction
 - Project Manager defines scope, routing, impact, and review standard
-- Codex executes implementation, validation, and documentation propagation
+- The active execution agent executes implementation, validation, and documentation propagation
 
 Codex is:
 - the execution engine
@@ -19,6 +37,15 @@ Codex is:
 Codex is not:
 - the architecture owner
 - the product decision maker
+
+### Agent-neutral successor discipline
+
+- `ACE-049` is planned/inactive. `ACE-048` remains the sole active authority until the current cleanup/reconciliation/stabilization cutover gate is explicitly accepted.
+- The control plane is model-neutral: it governs Codex, Claude Code, and future agents identically. A future `CLAUDE.md` may add only environment-specific entry/efficiency guidance and must reference/import root `AGENTS.md`; it must not establish a parallel control plane.
+- Never assign Codex and Claude to write the same working directory concurrently. Default to one capable Claude session after cutover; use targeted subagents or limited parallelism only for genuinely independent work in separate worktrees/branches.
+- After cutover, Claude owns implementation, testing, verification, commit/merge/push, and control-plane propagation autonomously. Codex is not a required reviewer.
+- The first Claude assignment must be read-only institutional onboarding/reconciliation. PM must first verify the formal handoff, repository/worktree lifecycle, recorded tests/builds, unresolved issues, approval/prohibition boundaries, and live-state verification requirements.
+- “Perfectly stable” is only a declared-gate result. Residual risk must be quarantined and documented; it must never be hidden to enable handoff.
 
 ## Control Plane (Always Load First)
 
