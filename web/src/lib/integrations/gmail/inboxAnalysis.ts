@@ -1980,16 +1980,19 @@ function cleanupGroupAssignmentReasonLabel(reason: GmailCleanupAssignmentReason)
   return reason.replace(/^needs_review_/, 'Needs review ').replace(/_/g, ' ')
 }
 
+const CLEANUP_GROUP_EXCLUSION_REASON_LABELS = {
+  no_safe_rows: 'No safe rows',
+  too_few_safe_rows: 'Too few safe rows',
+  safe_ratio_too_low: 'Safe ratio too low',
+  score_below_threshold: 'Score below threshold',
+  no_cluster_match: 'No cluster match',
+  no_inbox_rows: 'No inbox rows',
+  protected_human_sender: 'Protected human sender',
+  protected_human_dominant: 'Protected human dominant',
+} satisfies Record<GmailCleanupExclusionReason, string>
+
 function cleanupGroupExclusionReasonLabel(reason: GmailCleanupExclusionReason): string {
-  if (reason === 'no_safe_rows') return 'No safe rows'
-  if (reason === 'too_few_safe_rows') return 'Too few safe rows'
-  if (reason === 'safe_ratio_too_low') return 'Safe ratio too low'
-  if (reason === 'score_below_threshold') return 'Score below threshold'
-  if (reason === 'no_cluster_match') return 'No cluster match'
-  if (reason === 'no_inbox_rows') return 'No inbox rows'
-  if (reason === 'protected_human_sender') return 'Protected human sender'
-  if (reason === 'protected_human_dominant') return 'Protected human dominant'
-  return reason.replace(/_/g, ' ')
+  return CLEANUP_GROUP_EXCLUSION_REASON_LABELS[reason]
 }
 
 function buildSubtypeFirstReviewUnitPlan(

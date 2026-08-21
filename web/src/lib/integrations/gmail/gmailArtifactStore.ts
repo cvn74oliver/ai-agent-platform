@@ -1325,11 +1325,16 @@ async function writePublicationState(params: {
   return result
 }
 
-function applyPublicationExpectationClause(
-  query: any,
+function applyPublicationExpectationClause<
+  TQuery extends {
+    eq(column: string, value: unknown): TQuery
+    is(column: string, value: null): TQuery
+  },
+>(
+  query: TQuery,
   column: keyof GmailArtifactPublicationCompareAndSetExpectation,
   value: unknown
-): any {
+): TQuery {
   if (value === undefined) {
     return query
   }

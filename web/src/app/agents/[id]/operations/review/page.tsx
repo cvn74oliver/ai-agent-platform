@@ -918,6 +918,11 @@ function buildPublishedReviewUnitWorkspaceFromSenders(params: {
   }
 }
 
+type CollectWorkspaceSendersForSemanticFocusResult =
+  | { ok: true; senders: WorkspaceSender[] }
+  | { ok: false; error: string }
+  | { aborted: true }
+
 async function collectWorkspaceSendersForSemanticFocus(params: {
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
@@ -930,10 +935,7 @@ async function collectWorkspaceSendersForSemanticFocus(params: {
   }
   agentId: string
   requestReason: string
-}):
-  | { ok: true; senders: WorkspaceSender[] }
-  | { ok: false; error: string }
-  | { aborted: true } {
+}): Promise<CollectWorkspaceSendersForSemanticFocusResult> {
   const sendersByKey = new Map<string, WorkspaceSender>()
   let page = DEFAULT_OVERVIEW_WORKSPACE_PAGE
   let totalPages = DEFAULT_OVERVIEW_WORKSPACE_PAGE
@@ -6765,7 +6767,8 @@ export default function OperationsReviewPage() {
           requestReason: 'sender_overview_marketing_review_unit_truth',
         })
 
-        if (cancelled || ('aborted' in result && result.aborted)) return
+        if (cancelled) return
+        if ('aborted' in result) return
         if (!result.ok) {
           setMarketingReviewUnitTruthState({
             status: 'error',
@@ -6799,7 +6802,8 @@ export default function OperationsReviewPage() {
             requestReason: 'sender_overview_marketing_review_unit_truth_spillover_family',
           })
 
-          if (cancelled || ('aborted' in result && result.aborted)) return
+          if (cancelled) return
+          if ('aborted' in result) return
           if (!result.ok) {
             setMarketingReviewUnitTruthState({
               status: 'error',
