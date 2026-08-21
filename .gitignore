@@ -11,3 +11,16 @@ node_modules/
 
 # mac
 .DS_Store
+
+# security: never track browser authentication or storage state
+**/.playwright-cli/
+**/playwright/.auth/
+**/*auth-state*.json
+**/*auth_state*.json
+**/*login-state*.json
+**/*login_state*.json
+**/*storage-state*.json
+**/*storage_state*.json
+
+# local generated Playwright proof artifacts
+output/playwright/
