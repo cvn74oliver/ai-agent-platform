@@ -2246,40 +2246,59 @@ function runtimeCleanupArtifactAdvancedSincePublication(params: {
   )
 }
 
-type RuntimeArtifactPublicationReadiness = {
-  state: 'transitional' | 'terminal_unavailable' | 'usable'
+export type RuntimeArtifactPublicationReadiness = {
+  state: 'ready' | 'building' | 'degraded_usable' | 'unavailable'
+  usable: boolean
   reason: string
 }
 
-function runtimeArtifactPublicationReadiness(
-  publication: GmailArtifactPublicationRow | null
+export function runtimeArtifactPublicationReadiness(
+  publication: GmailArtifactPublicationRow | null,
+  artifactVersion?: string | null
 ): RuntimeArtifactPublicationReadiness {
+  if (!publication) {
+    return { state: 'unavailable', usable: false, reason: 'missing_artifact' }
+  }
+  const publishedVersion = runtimeArtifactText(publication?.published_version)
+  const buildingVersion = runtimeArtifactText(publication?.building_version)
+  const loadedArtifactVersion = runtimeArtifactText(artifactVersion)
   if (
-    publication?.build_status === 'failed' ||
     publication?.freshness_state === 'stale' ||
-    publication?.freshness_state === 'refresh_failed' ||
     publication?.freshness_state === 'full_rebuild_required'
   ) {
-    return { state: 'terminal_unavailable', reason: 'artifact_unavailable' }
+    return { state: 'unavailable', usable: false, reason: 'artifact_unavailable' }
   }
-  if (
+  if (publishedVersion && loadedArtifactVersion !== publishedVersion) {
+    return { state: 'unavailable', usable: false, reason: 'published_artifact_version_mismatch' }
+  }
+  const transitional =
     publication?.build_status === 'building' ||
     publication?.freshness_state === 'refresh_pending' ||
     publication?.freshness_state === 'refresh_in_progress'
-  ) {
-    return { state: 'transitional', reason: 'artifact_building' }
+  if (!publishedVersion) {
+    return transitional
+      ? { state: 'building', usable: false, reason: 'artifact_building' }
+      : { state: 'unavailable', usable: false, reason: 'missing_artifact' }
   }
-  if (!publication?.published_version) {
-    return { state: 'transitional', reason: 'missing_artifact' }
+  if (transitional) {
+    return { state: 'building', usable: true, reason: 'artifact_building' }
+  }
+  if (
+    publication?.build_status === 'failed' ||
+    publication?.freshness_state === 'refresh_failed'
+  ) {
+    return buildingVersion
+      ? { state: 'unavailable', usable: false, reason: 'artifact_unavailable' }
+      : { state: 'degraded_usable', usable: true, reason: 'refresh_failed' }
   }
   if (
     (publication.freshness_state === 'fresh' ||
       publication.freshness_state === 'refresh_skipped') &&
     (publication.build_status === 'published' || publication.build_status === 'idle')
   ) {
-    return { state: 'usable', reason: publication.freshness_state }
+    return { state: 'ready', usable: true, reason: publication.freshness_state }
   }
-  return { state: 'terminal_unavailable', reason: 'artifact_unavailable' }
+  return { state: 'unavailable', usable: false, reason: 'artifact_unavailable' }
 }
 
 function enqueueCleanupDiscoveryRefreshInBackground(params: {
@@ -2702,14 +2721,17 @@ export async function loadPlaygroundRuntimeState(params: {
         const summaries = artifactRead.cluster_summaries
         const clusterInputs = buildRuntimeCleanupArtifactClusterInputs(summaries)
         const artifactIsPublished = Boolean(publication?.published_version)
-        const publicationReadiness = runtimeArtifactPublicationReadiness(publication)
+        const publicationReadiness = runtimeArtifactPublicationReadiness(
+          publication,
+          artifactRead.artifact_version
+        )
         const artifactIndexAdvanced = runtimeCleanupArtifactAdvancedSincePublication({
           publication,
           indexState,
           indexCoverage,
         })
-        const artifactIsUsable = publicationReadiness.state === 'usable'
-        const failedArtifactNeedsRecovery = publicationReadiness.state === 'terminal_unavailable'
+        const artifactIsUsable = publicationReadiness.usable
+        const failedArtifactNeedsRecovery = publicationReadiness.state === 'unavailable'
         const indexHasData = cleanupIndexStateIndexedCount > 0
         const zeroClusterArtifactNeedsRefresh = Boolean(
           artifactIsPublished && indexHasData && clusterInputs.length === 0
@@ -2726,7 +2748,7 @@ export async function loadPlaygroundRuntimeState(params: {
           params.requestMode === 'rehydrate_only' &&
           analysisScope === 'all_indexed' &&
           artifactIsPublished &&
-          publicationReadiness.state === 'transitional' &&
+          publicationReadiness.state === 'building' &&
           publicationBuildActive
 
         snapshotScope = artifactIsUsable || buildPendingWhileServingStableSnapshot ? analysisScope : null
@@ -2814,6 +2836,7 @@ export async function loadPlaygroundRuntimeState(params: {
         const shouldAttemptBackgroundRefresh =
           params.requestMode !== 'rehydrate_only' &&
           !buildPendingWhileServingStableSnapshot &&
+          publicationReadiness.state !== 'degraded_usable' &&
           (forceRefresh ||
             artifactIndexAdvanced ||
             failedArtifactNeedsRecovery ||
@@ -3187,8 +3210,11 @@ export async function loadPlaygroundRuntimeState(params: {
             const summaries = artifactRead.cluster_summaries
             const clusterInputs = buildRuntimeCleanupArtifactClusterInputs(summaries)
             const artifactIsPublished = Boolean(publication?.published_version)
-            const publicationReadiness = runtimeArtifactPublicationReadiness(publication)
-            const artifactIsUsable = publicationReadiness.state === 'usable'
+            const publicationReadiness = runtimeArtifactPublicationReadiness(
+              publication,
+              artifactRead.artifact_version
+            )
+            const artifactIsUsable = publicationReadiness.usable
 
             snapshotScope = artifactIsUsable ? analysisScope : null
             snapshotVersionAfter = artifactRead.artifact_version

@@ -9,7 +9,10 @@ import {
   SharedAnalysisRailTabStrip,
   SenderTimeContextAnalysisRail,
 } from '@/components/runtime/GmailCleanupComponents'
-import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
+import {
+  useOperationsRuntime,
+  type OperationsRuntimeContinuity,
+} from '@/components/runtime/OperationsRuntimeContext'
 import {
   buildGmailSenderDistributionCacheKey,
   buildGmailCleanupWorkflowClusterPayload,
@@ -17,13 +20,25 @@ import {
   fetchGmailSenderDistribution,
   fetchGmailSenderOverviewWindow,
   fetchGmailSenderWorkspace,
+  gmailInboxAnalysisLifecycleExpectationIdentity,
+  gmailInboxAnalysisLifecycleIdentity,
+  gmailInboxAnalysisLifecycleMatchesExpectation,
+  gmailInboxAnalysisRequestOwnerMatches,
   normalizeGmailCleanupWorkflowTarget,
-  readCachedGmailSenderDistribution,
+  readCachedGmailSenderDistributionResult,
   readCachedGmailSenderOverviewWindow,
   readCachedGmailSenderWorkspace,
+  readCachedGmailSenderWorkspaceResult,
+  reduceGmailLinkedArtifactLifecycle,
+  resolveGmailSenderDistributionWorkspaceGate,
+  validateGmailInboxAnalysisResultLifecycle,
   type GmailCleanupClusterRef,
   type GmailDestinationExecutionState,
   type GmailDestinationState,
+  type GmailInboxAnalysisLifecycle,
+  type GmailInboxAnalysisLifecycleExpectation,
+  type GmailInboxAnalysisRequestOwner,
+  type GmailLinkedArtifactLifecycleState,
   type GmailSenderOverviewWindowData,
   type GmailSenderDistributionData,
   type GmailSenderDestinationTrustSignals,
@@ -292,9 +307,26 @@ type WorkspaceSnapshot = {
 }
 
 type WorkspaceState =
-  | { status: 'idle' | 'loading'; snapshot: WorkspaceSnapshot | null; error: null }
-  | { status: 'ready'; snapshot: WorkspaceSnapshot; error: null }
-  | { status: 'error'; snapshot: WorkspaceSnapshot | null; error: string }
+  | {
+      status: 'idle' | 'loading'
+      snapshot: WorkspaceSnapshot | null
+      error: null
+      lifecycle?: GmailInboxAnalysisLifecycle | null
+    }
+  | {
+      status: 'ready'
+      snapshot: WorkspaceSnapshot
+      error: null
+      lifecycle?: GmailInboxAnalysisLifecycle | null
+    }
+  | {
+      status: 'error'
+      snapshot: WorkspaceSnapshot | null
+      error: string
+      lifecycleUnavailable?: boolean
+      requestKey?: string | null
+      lifecycle?: GmailInboxAnalysisLifecycle | null
+    }
 
 type WorkspaceStateTransition =
   | WorkspaceState
@@ -318,6 +350,8 @@ const senderOverviewRailMemoryStore = new Map<string, SenderOverviewRailFastPack
 
 type WorkspaceFetchPlan = {
   requestKey: string
+  lifecycleIdentity: string
+  expectedLifecycle: GmailInboxAnalysisLifecycleExpectation | null
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
   analysisScope: OperationsAnalysisScope
@@ -395,29 +429,53 @@ type SenderWorkflowPaginationModel = {
 }
 
 type SemanticFocusWorkspaceState =
-  | { status: 'idle' | 'loading'; data: GmailSenderWorkspaceData | null; error: null }
-  | { status: 'ready'; data: GmailSenderWorkspaceData; error: null }
-  | { status: 'error'; data: GmailSenderWorkspaceData | null; error: string }
+  | {
+      status: 'idle' | 'loading'
+      data: GmailSenderWorkspaceData | null
+      error: null
+      lifecycle?: GmailInboxAnalysisLifecycle | null
+    }
+  | {
+      status: 'ready'
+      data: GmailSenderWorkspaceData
+      error: null
+      lifecycle?: GmailInboxAnalysisLifecycle | null
+    }
+  | {
+      status: 'error'
+      data: GmailSenderWorkspaceData | null
+      error: string
+      lifecycle?: GmailInboxAnalysisLifecycle | null
+    }
 
 type SenderDistributionWorkspaceState =
-  | { status: 'idle'; data: GmailSenderDistributionData | null; error: null; requestKey: null }
+  | {
+      status: 'idle'
+      data: GmailSenderDistributionData | null
+      error: null
+      requestKey: null
+      lifecycle?: GmailInboxAnalysisLifecycle | null
+    }
   | {
       status: 'loading'
       data: GmailSenderDistributionData | null
       error: null
       requestKey: string
+      lifecycle?: GmailInboxAnalysisLifecycle | null
     }
   | {
       status: 'ready'
       data: GmailSenderDistributionData
       error: null
       requestKey: string
+      lifecycle?: GmailInboxAnalysisLifecycle | null
     }
   | {
       status: 'error'
       data: GmailSenderDistributionData | null
       error: string
       requestKey: string
+      lifecycle?: GmailInboxAnalysisLifecycle | null
     }
 
 type SenderOverviewWindowState =
@@ -1083,6 +1141,104 @@ function isTransientInboxAnalysisGuardError(failure: {
     (/already running/i.test(failure.error) ||
       /just requested/i.test(failure.error) ||
       /wait briefly/i.test(failure.error))
+  )
+}
+
+function artifactLifecycleUnavailableReason(failure: {
+  status?: number | null
+  reason?: string | null
+  error?: string | null
+  freshnessState?: string | null
+  buildStatus?: string | null
+  publishedVersion?: string | null
+  buildingVersion?: string | null
+}): string | null {
+  const terminal =
+    failure.buildStatus === 'failed' ||
+    failure.freshnessState === 'stale' ||
+    failure.freshnessState === 'refresh_failed' ||
+    failure.freshnessState === 'full_rebuild_required'
+  const missingPublishedVersion =
+    !failure.publishedVersion &&
+    (failure.reason === 'missing_published_artifact' ||
+      failure.reason === 'artifact_building')
+  const unavailable =
+    terminal ||
+    missingPublishedVersion ||
+    failure.reason === 'artifact_unavailable' ||
+    failure.reason === 'artifact_status_unavailable' ||
+    failure.reason === 'published_artifact_version_mismatch'
+
+  if (!unavailable) return null
+  if (missingPublishedVersion) {
+    return 'Published Gmail runtime data is still being prepared. Workflow totals, sender rows, Sender Distribution, and Decision Mode remain unavailable until a published version exists.'
+  }
+  return failure.error?.trim()
+    ? `Published Gmail runtime data is unavailable. ${failure.error.trim()}`
+    : 'Published Gmail runtime data is unavailable for workflow totals, sender rows, Sender Distribution, and Decision Mode.'
+}
+
+function resolveRuntimeContinuityPhase(
+  phase: OperationsRuntimeContinuity['phase'] | null | undefined
+): OperationsRuntimeContinuity['phase'] | null {
+  return phase || null
+}
+
+function reviewRuntimeLifecycleExpectation(
+  continuity: OperationsRuntimeContinuity | null | undefined,
+  artifact?: {
+    freshness_state: string | null
+    build_status: string | null
+    published_version: string | null
+    building_version: string | null
+  } | null
+): GmailInboxAnalysisLifecycleExpectation | null {
+  if (continuity) {
+    return {
+      status:
+        continuity.phase === 'build_pending'
+          ? 'building'
+          : continuity.phase,
+      freshnessState: continuity.freshnessState,
+      buildStatus: continuity.buildStatus,
+      publishedVersion: continuity.publishedVersion,
+      buildingVersion: continuity.buildingVersion,
+    }
+  }
+  if (!artifact) return null
+  const publishedVersion = artifact.published_version?.trim() || null
+  const buildingVersion = artifact.building_version?.trim() || null
+  const ready =
+    (artifact.freshness_state === 'fresh' ||
+      artifact.freshness_state === 'refresh_skipped') &&
+    (artifact.build_status === 'published' || artifact.build_status === 'idle') &&
+    Boolean(publishedVersion) &&
+    !buildingVersion
+  const building =
+    (artifact.build_status === 'building' ||
+      artifact.freshness_state === 'refresh_pending' ||
+      artifact.freshness_state === 'refresh_in_progress') &&
+    Boolean(publishedVersion)
+  const degraded =
+    (artifact.build_status === 'failed' || artifact.freshness_state === 'refresh_failed') &&
+    artifact.freshness_state !== 'stale' &&
+    artifact.freshness_state !== 'full_rebuild_required' &&
+    Boolean(publishedVersion) &&
+    !buildingVersion
+  return {
+    status: ready ? 'ready' : building ? 'building' : degraded ? 'degraded' : 'unavailable',
+    freshnessState: artifact.freshness_state,
+    buildStatus: artifact.build_status,
+    publishedVersion,
+    buildingVersion,
+  }
+}
+
+function reviewRuntimeContinuityRequestIdentity(
+  continuity: OperationsRuntimeContinuity | null | undefined
+): string {
+  return gmailInboxAnalysisLifecycleExpectationIdentity(
+    reviewRuntimeLifecycleExpectation(continuity)
   )
 }
 
@@ -2351,6 +2507,11 @@ function workspaceStatesEqual(left: WorkspaceState, right: WorkspaceState): bool
   return (
     left.status === right.status &&
     left.error === right.error &&
+    gmailInboxAnalysisLifecycleIdentity(left.lifecycle) ===
+      gmailInboxAnalysisLifecycleIdentity(right.lifecycle) &&
+    (left.status !== 'error' || right.status !== 'error' ||
+      (left.lifecycleUnavailable === right.lifecycleUnavailable &&
+        left.requestKey === right.requestKey)) &&
     workspaceSnapshotsMateriallyEqual(left.snapshot, right.snapshot)
   )
 }
@@ -3724,6 +3885,15 @@ export default function OperationsReviewPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const runtime = useOperationsRuntime()
+  const runtimeLifecycleExpectation = useMemo(
+    () =>
+      reviewRuntimeLifecycleExpectation(
+        runtime.runtimeContinuity,
+        runtime.mailboxIndexHealth?.artifact_refresh || null
+      ),
+    [runtime.mailboxIndexHealth?.artifact_refresh, runtime.runtimeContinuity]
+  )
+  const runtimeTerminalUnavailable = runtimeLifecycleExpectation?.status === 'unavailable'
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const requestedSessionId = searchParams.get('playground_session_id')
   const sessionId = runtime.sessionId || requestedSessionId
@@ -3761,10 +3931,16 @@ export default function OperationsReviewPage() {
   const legacyStage = searchParams.get('stage')
   const lastRenderableRuntimeDataRef = useRef(runtime.data ?? null)
   useEffect(() => {
+    if (runtimeTerminalUnavailable) {
+      lastRenderableRuntimeDataRef.current = null
+      return
+    }
     if (!runtime.data) return
     lastRenderableRuntimeDataRef.current = runtime.data
-  }, [runtime.data])
-  const renderRuntimeData = runtime.data || lastRenderableRuntimeDataRef.current
+  }, [runtime.data, runtimeTerminalUnavailable])
+  const renderRuntimeData = runtimeTerminalUnavailable
+    ? null
+    : runtime.data || lastRenderableRuntimeDataRef.current
   const cacheVersion = renderRuntimeData?.runtime_cleanup_plan?.generated_at || null
   const runtimeClusters = useMemo<GmailCleanupClusterRef[]>(
     () =>
@@ -4260,9 +4436,9 @@ export default function OperationsReviewPage() {
             requestKey: null,
           }
   )
-  const cachedWorkspace = useMemo(() => {
+  const cachedWorkspaceResult = useMemo(() => {
     if (!selectedCluster) return null
-    return readCachedGmailSenderWorkspace({
+    return readCachedGmailSenderWorkspaceResult({
       selectedCluster,
       allClusters: runtimeClusters,
       analysisScope,
@@ -4281,6 +4457,7 @@ export default function OperationsReviewPage() {
       senderOverviewStart: null,
       senderOverviewEnd: null,
       timeZone: browserTimeZone,
+      expectedLifecycle: runtimeLifecycleExpectation,
     })
   }, [
     analysisScope,
@@ -4293,11 +4470,13 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    runtimeLifecycleExpectation,
     senderOverviewWindowSelection?.end,
     senderOverviewWindowSelection?.start,
     senderOverviewWindowSelection?.window,
     selectedCluster,
   ])
+  const cachedWorkspace = cachedWorkspaceResult?.data || null
   useEffect(() => {
     if (!selectedCluster || !senderOverviewWindowSelection || !senderOverviewWindowRequestKey) {
       setSenderOverviewWindowState({
@@ -4427,6 +4606,7 @@ export default function OperationsReviewPage() {
       senderOverviewStart: senderOverviewWindowSelection?.start || null,
       senderOverviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
+      expectedLifecycle: runtimeLifecycleExpectation,
     })
   }, [
     analysisScope,
@@ -4437,6 +4617,7 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    runtimeLifecycleExpectation,
     senderOverviewWindowSelection?.end,
     senderOverviewWindowSelection?.start,
     senderOverviewWindowSelection?.window,
@@ -4489,6 +4670,7 @@ export default function OperationsReviewPage() {
       senderOverviewStart: null,
       senderOverviewEnd: null,
       timeZone: browserTimeZone,
+      expectedLifecycle: runtimeLifecycleExpectation,
     })
   }, [
     browserTimeZone,
@@ -4501,6 +4683,7 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    runtimeLifecycleExpectation,
     senderOverviewWindowSelection,
     selectedCluster,
   ])
@@ -4550,6 +4733,7 @@ export default function OperationsReviewPage() {
       senderOverviewStart: senderOverviewWindowSelection?.start || null,
       senderOverviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
+      expectedLifecycle: runtimeLifecycleExpectation,
     })
   }, [
     browserTimeZone,
@@ -4560,6 +4744,7 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    runtimeLifecycleExpectation,
     senderOverviewWindowSelection?.end,
     senderOverviewWindowSelection?.start,
     senderOverviewWindowSelection?.window,
@@ -4742,15 +4927,47 @@ export default function OperationsReviewPage() {
           status: 'ready',
           snapshot: initialPassiveReadyWorkspaceSnapshot,
           error: null,
+          lifecycle: cachedWorkspaceResult?.lifecycle || null,
         }
       : initialPassiveSeedWorkspaceSnapshot
         ? {
             status: 'loading',
             snapshot: initialPassiveSeedWorkspaceSnapshot,
             error: null,
-        }
-      : { status: 'idle', snapshot: null, error: null }
+            lifecycle: cachedWorkspaceResult?.lifecycle || null,
+          }
+       : { status: 'idle', snapshot: null, error: null }
   )
+  const workspaceStateRef = useRef(workspaceState)
+  const workspaceRequestGenerationRef = useRef(0)
+  const workspaceActiveRequestOwnerRef = useRef<GmailInboxAnalysisRequestOwner | null>(null)
+  useEffect(() => {
+    workspaceStateRef.current = workspaceState
+  }, [workspaceState])
+  const runtimeLifecycleUnavailableReason = runtimeTerminalUnavailable
+    ? artifactLifecycleUnavailableReason({
+        freshnessState: runtime.runtimeContinuity?.freshnessState || null,
+        buildStatus: runtime.runtimeContinuity?.buildStatus || null,
+        publishedVersion: runtime.runtimeContinuity?.publishedVersion || null,
+        buildingVersion: runtime.runtimeContinuity?.buildingVersion || null,
+        reason: 'artifact_unavailable',
+      })
+    : null
+  const workspaceLifecycleUnavailable =
+    runtimeTerminalUnavailable ||
+    (workspaceState.status === 'error' && workspaceState.lifecycleUnavailable === true)
+  const workspaceLifecycleUnavailableRequestKey =
+    workspaceState.status === 'error' && workspaceState.lifecycleUnavailable === true
+      ? workspaceState.requestKey || null
+      : null
+  const workspaceLifecycleUnavailableReason =
+    runtimeLifecycleUnavailableReason ||
+    (workspaceState.status === 'error' && workspaceState.lifecycleUnavailable === true
+      ? workspaceState.error
+      : null)
+  const workspaceArtifactLifecycle = workspaceState.lifecycle || null
+  const workspaceLifecycleDegraded = workspaceArtifactLifecycle?.status === 'degraded'
+  const workspaceLifecycleBuilding = workspaceArtifactLifecycle?.status === 'building'
   const [persistedOverviewWorkspaceSnapshot, setPersistedOverviewWorkspaceSnapshot] =
     useState<WorkspaceSnapshot | null>(() => initialOverviewWorkspaceSnapshot)
   const [defaultOverviewRuntimeGate, setDefaultOverviewRuntimeGate] =
@@ -4816,9 +5033,39 @@ export default function OperationsReviewPage() {
   const setWorkspaceStateIfChanged = useCallback((next: WorkspaceStateTransition) => {
     setWorkspaceState((current) => {
       const candidate = typeof next === 'function' ? next(current) : next
-      return workspaceStatesEqual(current, candidate) ? current : candidate
+      const resolved = workspaceStatesEqual(current, candidate) ? current : candidate
+      workspaceStateRef.current = resolved
+      return resolved
     })
   }, [])
+  useEffect(() => {
+    if (!runtimeTerminalUnavailable) return
+    workspaceRequestGenerationRef.current += 1
+    workspaceActiveRequestOwnerRef.current = null
+    setWorkspaceStateIfChanged({
+      status: 'error',
+      snapshot: null,
+      error:
+        runtimeLifecycleUnavailableReason ||
+        'Published Gmail runtime data is unavailable.',
+      lifecycleUnavailable: true,
+      requestKey: null,
+      lifecycle: null,
+    })
+    setPersistedOverviewWorkspaceSnapshot(null)
+    setActiveSemanticSubtypeFocus(null)
+    setDecisionInspectEntryContext(null)
+    setExpandedSenderKey(null)
+    setMessagePreviewState({ selection: null, status: 'idle', data: null, error: null })
+    if (reviewScopeTransitionSnapshotKey) {
+      reviewScopeTransitionSnapshots.delete(reviewScopeTransitionSnapshotKey)
+    }
+  }, [
+    reviewScopeTransitionSnapshotKey,
+    runtimeLifecycleUnavailableReason,
+    runtimeTerminalUnavailable,
+    setWorkspaceStateIfChanged,
+  ])
   const navigateScopedReviewState = useCallback(
     (params: {
       workflowScope?: OperationsAnalysisScope | null
@@ -4955,7 +5202,7 @@ export default function OperationsReviewPage() {
     requestedDecisionSenderKey,
   ])
   const currentMatchingWorkspaceSnapshot = useMemo(() => {
-    if (!selectedCluster) return null
+    if (!selectedCluster || workspaceLifecycleUnavailable) return null
     return workspaceSnapshotMatchesRequest({
       snapshot: workspaceState.snapshot,
       clusterId: selectedCluster.clusterId,
@@ -4976,10 +5223,11 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketLabel,
     senderOverviewWindowSelection,
     selectedCluster,
+    workspaceLifecycleUnavailable,
     workspaceState.snapshot,
   ])
   const currentReadyWorkspaceSnapshot = useMemo(() => {
-    if (!selectedCluster) return null
+    if (!selectedCluster || workspaceLifecycleUnavailable) return null
     return workspaceSnapshotSatisfiesCurrentMode({
       snapshot: workspaceState.snapshot,
       clusterId: selectedCluster.clusterId,
@@ -5002,6 +5250,7 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketLabel,
     senderOverviewWindowSelection,
     selectedCluster,
+    workspaceLifecycleUnavailable,
     workspaceState.snapshot,
   ])
   useEffect(() => {
@@ -5038,7 +5287,7 @@ export default function OperationsReviewPage() {
     workspaceState.snapshot,
   ])
   const continuityOverviewWorkspaceSnapshot = useMemo(() => {
-    if (!requestedClusterId) return null
+    if (!requestedClusterId || workspaceLifecycleUnavailable) return null
     const candidateSnapshots = [
       workspaceState.snapshot?.mode === 'overview' &&
       workspaceState.snapshot.analysisScope === normalizedAnalysisScope
@@ -5094,11 +5343,12 @@ export default function OperationsReviewPage() {
     runtime.refreshing,
     runtime.runtimeContinuity?.phase,
     senderOverviewWindowSelection,
+    workspaceLifecycleUnavailable,
     workspaceState.status,
     workspaceState.snapshot,
   ])
   const scopedOverviewShellWorkspaceSnapshot = useMemo(() => {
-    if (!selectedCluster) return null
+    if (!selectedCluster || workspaceLifecycleUnavailable) return null
     const candidateSnapshots = [
       workspaceState.snapshot?.mode === 'overview' &&
       workspaceState.snapshot.analysisScope === normalizedAnalysisScope
@@ -5132,6 +5382,7 @@ export default function OperationsReviewPage() {
     selectedCluster,
     trustedRuntimeOverviewStructureSnapshot,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workspaceState.snapshot,
   ])
   const continuityShellEligibleForCurrentRoute =
@@ -5140,7 +5391,13 @@ export default function OperationsReviewPage() {
     effectiveWorkflowScope === normalizedAnalysisScope
   const buildPendingContinuityActive = runtime.runtimeContinuity?.phase === 'build_pending'
   const continuityLiveReplacementSnapshot = useMemo(() => {
-    if (!selectedCluster || !continuityShellEligibleForCurrentRoute) return null
+    if (
+      !selectedCluster ||
+      !continuityShellEligibleForCurrentRoute ||
+      workspaceLifecycleUnavailable
+    ) {
+      return null
+    }
     const candidateSnapshots = [
       currentReadyWorkspaceSnapshot,
       currentMatchingWorkspaceSnapshot,
@@ -5178,6 +5435,7 @@ export default function OperationsReviewPage() {
     senderOverviewWindowSelection,
     trustedRuntimeOverviewStructureSnapshot,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workflowCachedReadyWorkspaceSnapshot,
     workflowCachedWorkspaceSnapshot,
   ])
@@ -5198,11 +5456,12 @@ export default function OperationsReviewPage() {
     continuityOverviewWorkspaceSnapshot || scopedOverviewShellWorkspaceSnapshot
   )
   const effectiveRuntimeContinuityPhase =
-    runtime.runtimeContinuity?.phase === 'build_pending' && !shouldHoldContinuityShell
-      ? 'ready'
-      : runtime.runtimeContinuity?.phase || null
+    resolveRuntimeContinuityPhase(runtime.runtimeContinuity?.phase) ||
+    (runtimeLifecycleExpectation?.status === 'building'
+      ? 'build_pending'
+      : runtimeLifecycleExpectation?.status || null)
   const passiveReadyWorkspaceSnapshot = useMemo(() => {
-    if (!selectedCluster) return null
+    if (!selectedCluster || workspaceLifecycleUnavailable) return null
     return mode === 'decision'
       ? currentReadyWorkspaceSnapshot || workflowCachedReadyWorkspaceSnapshot || null
       : currentReadyWorkspaceSnapshot ||
@@ -5219,10 +5478,11 @@ export default function OperationsReviewPage() {
     selectedCluster,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workflowCachedReadyWorkspaceSnapshot,
   ])
   const passiveWorkspaceSeedSnapshot = useMemo(() => {
-    if (mode !== 'overview') return null
+    if (mode !== 'overview' || workspaceLifecycleUnavailable) return null
     return (
       currentMatchingWorkspaceSnapshot ||
       workflowCachedWorkspaceSnapshot ||
@@ -5238,6 +5498,7 @@ export default function OperationsReviewPage() {
     normalizedAnalysisScope,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workflowCachedWorkspaceSnapshot,
   ])
   const workspaceRequestKey = useMemo(() => {
@@ -5571,7 +5832,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     passiveReadyWorkspaceSnapshot,
     selectedCluster,
   ])
+  const workspaceRequestLifecycleIdentity = reviewRuntimeContinuityRequestIdentity(
+    runtime.runtimeContinuity
+  )
   const workspaceFetchPlan = useMemo<WorkspaceFetchPlan | null>(() => {
+    if (runtimeTerminalUnavailable) return null
     if (!workspaceRequestKey || !selectedCluster) return null
     if (mode === 'overview') {
       if (!shouldFetchOverviewCoverageBackfill && passiveReadyWorkspaceSnapshot) return null
@@ -5580,6 +5845,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }
     return {
       requestKey: workspaceRequestKey,
+      lifecycleIdentity: workspaceRequestLifecycleIdentity,
+      expectedLifecycle: runtimeLifecycleExpectation,
       selectedCluster,
       allClusters: runtimeClusters,
       analysisScope: effectiveWorkflowScope,
@@ -5622,16 +5889,20 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
     runtimeClusters,
+    runtimeLifecycleExpectation,
+    runtimeTerminalUnavailable,
     senderOverviewWindowSelection,
     selectedCluster,
     shouldHoldContinuityShell,
     workflowCachedReadyWorkspaceSnapshot,
     workspaceRequestKey,
+    workspaceRequestLifecycleIdentity,
   ])
   const workspaceFetchPlanToken = useMemo(() => {
     if (!workspaceFetchPlan?.requestKey) return null
     return [
       workspaceFetchPlan.requestKey,
+      workspaceFetchPlan.lifecycleIdentity,
       workspaceFetchPlan.requestPhase,
       workspaceFetchPlan.page,
       workspaceFetchPlan.seedSnapshot?.source || 'no-seed',
@@ -5946,6 +6217,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
     if (
       plan?.requestKey &&
+      workspaceLifecycleUnavailable &&
+      workspaceLifecycleUnavailableRequestKey === plan.requestKey
+    ) {
+      return
+    }
+
+    if (
+      plan?.requestKey &&
       mode === 'overview' &&
       workspaceState.status === 'ready' &&
       currentReadyWorkspaceSnapshot &&
@@ -6015,16 +6294,25 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
     let cancelled = false
     const controller = new AbortController()
+    const owner: GmailInboxAnalysisRequestOwner = {
+      requestKey: plan.requestKey,
+      lifecycleIdentity: plan.lifecycleIdentity,
+      generation: workspaceRequestGenerationRef.current + 1,
+      expectedLifecycle: plan.expectedLifecycle,
+    }
+    workspaceRequestGenerationRef.current = owner.generation
+    workspaceActiveRequestOwnerRef.current = owner
 
     setWorkspaceStateIfChanged((current) => ({
       status: 'loading',
       snapshot: current.snapshot || plan.seedSnapshot || null,
       error: null,
+      lifecycle: current.lifecycle || null,
     }))
 
     void (async () => {
       const readLatestWorkspaceCacheSnapshot = () => {
-        const cachedData = readCachedGmailSenderWorkspace({
+        const cachedResult = readCachedGmailSenderWorkspaceResult({
           selectedCluster: plan.selectedCluster,
           allClusters: plan.allClusters,
           analysisScope: plan.analysisScope,
@@ -6038,10 +6326,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           senderOverviewStart: plan.senderOverviewWindowSelection?.start || null,
           senderOverviewEnd: plan.senderOverviewWindowSelection?.end || null,
           timeZone: plan.senderOverviewWindowTimeZone,
+          expectedLifecycle: plan.expectedLifecycle,
         })
-        if (!cachedData) return null
+        if (!cachedResult) return null
         const snapshot = buildWorkspaceSnapshot({
-          data: cachedData,
+          data: cachedResult.data,
           clusterId: plan.selectedCluster.clusterId,
           analysisScope: plan.normalizedAnalysisScope,
           mode: plan.mode,
@@ -6067,11 +6356,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           senderOverviewWindowSelection: plan.senderOverviewWindowSelection,
           senderOverviewWindowTimeZone: plan.senderOverviewWindowTimeZone,
         })
-          ? snapshot
+          ? { snapshot, lifecycle: cachedResult.lifecycle }
           : null
       }
 
-      const result = await fetchGmailSenderWorkspace({
+      const response = await fetchGmailSenderWorkspace({
         selectedCluster: plan.selectedCluster,
         allClusters: plan.allClusters,
         analysisScope: plan.analysisScope,
@@ -6095,20 +6384,40 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           agentId,
         },
         signal: plan.requestPhase === 'interactive' ? controller.signal : undefined,
+        expectedLifecycle: plan.expectedLifecycle,
+      })
+      const result = validateGmailInboxAnalysisResultLifecycle({
+        result: response,
+        expectedLifecycle: owner.expectedLifecycle,
       })
       if (cancelled || ('aborted' in result && result.aborted)) {
         return
       }
-        if (!result.ok) {
-          if (isTransientInboxAnalysisGuardError(result)) {
+      if (
+        !gmailInboxAnalysisRequestOwnerMatches({
+          activeOwner: workspaceActiveRequestOwnerRef.current,
+          responseOwner: owner,
+        })
+      ) {
+        return
+      }
+      if (!result.ok) {
+        if (isTransientInboxAnalysisGuardError(result)) {
           const attachDeadlineMs = Date.now() + WORKSPACE_GUARD_ATTACH_WAIT_MS
           while (!cancelled && Date.now() < attachDeadlineMs) {
-            const attachedSnapshot = readLatestWorkspaceCacheSnapshot()
-            if (attachedSnapshot) {
+            const attached = readLatestWorkspaceCacheSnapshot()
+            if (
+              attached &&
+              gmailInboxAnalysisRequestOwnerMatches({
+                activeOwner: workspaceActiveRequestOwnerRef.current,
+                responseOwner: owner,
+              })
+            ) {
               setWorkspaceStateIfChanged({
                 status: 'ready',
-                snapshot: attachedSnapshot,
+                snapshot: attached.snapshot,
                 error: null,
+                lifecycle: attached.lifecycle,
               })
               return
             }
@@ -6156,6 +6465,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                 status: 'error',
                 snapshot: null,
                 error: result.error,
+                lifecycleUnavailable: false,
+                requestKey: plan.requestKey,
               }
             }
             return {
@@ -6166,11 +6477,58 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           })
           return
         }
+
+        const lifecycleUnavailableReason = artifactLifecycleUnavailableReason(result)
+        if (lifecycleUnavailableReason) {
+          const currentLinkedState: GmailLinkedArtifactLifecycleState<GmailSenderWorkspaceData> = {
+            status: workspaceStateRef.current.lifecycle?.status || 'unavailable',
+            data: workspaceStateRef.current.snapshot?.data || null,
+            lifecycle: workspaceStateRef.current.lifecycle || null,
+            error: workspaceStateRef.current.error,
+          }
+          const reducedLifecycleState = reduceGmailLinkedArtifactLifecycle({
+            current: currentLinkedState,
+            activeOwner: workspaceActiveRequestOwnerRef.current,
+            responseOwner: owner,
+            result,
+          })
+          setWorkspaceStateIfChanged({
+            status: 'error',
+            snapshot: null,
+            error: reducedLifecycleState.error || lifecycleUnavailableReason,
+            lifecycleUnavailable: true,
+            requestKey: plan.requestKey,
+            lifecycle: null,
+          })
+          return
+        }
+        setWorkspaceStateIfChanged({
+          status: 'error',
+          snapshot: plan.seedSnapshot,
+          error: result.error,
+          lifecycleUnavailable: false,
+          requestKey: plan.requestKey,
+          lifecycle: workspaceStateRef.current.lifecycle || null,
+        })
         return
       }
 
+      const currentLinkedState: GmailLinkedArtifactLifecycleState<GmailSenderWorkspaceData> = {
+        status: workspaceStateRef.current.lifecycle?.status || 'unavailable',
+        data: workspaceStateRef.current.snapshot?.data || null,
+        lifecycle: workspaceStateRef.current.lifecycle || null,
+        error: workspaceStateRef.current.error,
+      }
+      const reducedLifecycleState = reduceGmailLinkedArtifactLifecycle({
+        current: currentLinkedState,
+        activeOwner: workspaceActiveRequestOwnerRef.current,
+        responseOwner: owner,
+        result,
+      })
+      if (!reducedLifecycleState.data || !reducedLifecycleState.lifecycle) return
+
       const nextSnapshot = buildWorkspaceSnapshot({
-        data: result.data,
+        data: reducedLifecycleState.data,
         clusterId: plan.selectedCluster.clusterId,
         analysisScope: plan.normalizedAnalysisScope,
         mode: plan.mode,
@@ -6213,6 +6571,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         status: 'ready',
         snapshot: nextSnapshot,
         error: null,
+        lifecycle: reducedLifecycleState.lifecycle,
       })
       return
     })()
@@ -6220,6 +6579,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     return () => {
       cancelled = true
       controller.abort()
+      if (
+        gmailInboxAnalysisRequestOwnerMatches({
+          activeOwner: workspaceActiveRequestOwnerRef.current,
+          responseOwner: owner,
+        })
+      ) {
+        workspaceActiveRequestOwnerRef.current = null
+      }
     }
   }, [
     agentId,
@@ -6236,6 +6603,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     shouldHoldContinuityShell,
     buildPendingContinuityActive,
     workspaceFetchPlanToken,
+    workspaceLifecycleUnavailable,
+    workspaceLifecycleUnavailableRequestKey,
     workspaceState.status,
   ])
 
@@ -6344,6 +6713,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   }, [messagePreviewState.selection])
 
   const workspaceSnapshot = useMemo(() => {
+    if (workspaceLifecycleUnavailable) return null
     if (shouldHoldContinuityShell) return continuityOverviewWorkspaceSnapshot
     if (!selectedCluster) {
       return mode === 'decision'
@@ -6381,6 +6751,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     shouldHoldContinuityShell,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workspaceState.snapshot,
     workspaceState.status,
     workflowCachedReadyWorkspaceSnapshot,
@@ -6391,6 +6762,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     [workspaceSnapshot?.data]
   )
   const overviewWorkspaceSnapshot = useMemo(() => {
+    if (workspaceLifecycleUnavailable) return null
     if (shouldHoldContinuityShell) return continuityOverviewWorkspaceSnapshot
     if (!selectedCluster) return null
     const candidateSnapshots = [
@@ -6428,17 +6800,21 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     selectedCluster,
     shouldHoldContinuityShell,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workspaceState.snapshot,
   ])
   const overviewShellWorkspaceSnapshot = useMemo(() => {
+    if (workspaceLifecycleUnavailable) return null
     if (shouldHoldContinuityShell) return continuityOverviewWorkspaceSnapshot
     return scopedOverviewShellWorkspaceSnapshot
   }, [
     continuityOverviewWorkspaceSnapshot,
     scopedOverviewShellWorkspaceSnapshot,
     shouldHoldContinuityShell,
+    workspaceLifecycleUnavailable,
   ])
   const overviewHeaderWorkspaceSnapshot = useMemo(() => {
+    if (workspaceLifecycleUnavailable) return null
     if (shouldHoldContinuityShell) return continuityOverviewWorkspaceSnapshot
     if (!selectedCluster) return null
     if (
@@ -6493,9 +6869,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     selectedCluster,
     shouldHoldContinuityShell,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workspaceState.snapshot,
   ])
   const overviewCoverageWorkspaceSnapshot = useMemo(() => {
+    if (workspaceLifecycleUnavailable) return null
     if (shouldHoldContinuityShell) return continuityOverviewWorkspaceSnapshot
     if (!selectedCluster) return null
     if (
@@ -6595,10 +6973,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     trustedRuntimeOverviewStructureSnapshot,
     shouldHoldContinuityShell,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workspaceState.snapshot,
   ])
   const workflowCoverageWorkspaceSnapshot = useMemo(() => {
-    if (!selectedCluster) return null
+    if (!selectedCluster || workspaceLifecycleUnavailable) return null
     const candidateSnapshots = [
       workspaceSnapshotMatchesClusterCoverageContext({
         snapshot: workspaceState.snapshot,
@@ -6690,6 +7069,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     senderOverviewWorkflowWindowActive,
     timeContextBucketRequestActive,
     trustedRuntimeOverviewWorkspaceSnapshot,
+    workspaceLifecycleUnavailable,
     workflowCachedDecisionWorkspaceSnapshot,
     workflowCachedWorkspaceSnapshot,
     workspaceState.snapshot,
@@ -8034,9 +8414,18 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       data: null,
       error: null,
     })
+  const semanticFocusWorkspaceStateRef = useRef(semanticFocusWorkspaceState)
+  const semanticFocusRequestGenerationRef = useRef(0)
+  const semanticFocusActiveRequestOwnerRef = useRef<GmailInboxAnalysisRequestOwner | null>(null)
+  useEffect(() => {
+    semanticFocusWorkspaceStateRef.current = semanticFocusWorkspaceState
+  }, [semanticFocusWorkspaceState])
   const semanticFocusWorkspace = useMemo(
-    () => normalizeWorkspaceDataContract(semanticFocusWorkspaceState.data),
-    [semanticFocusWorkspaceState.data]
+    () =>
+      normalizeWorkspaceDataContract(
+        workspaceLifecycleUnavailable ? null : semanticFocusWorkspaceState.data
+      ),
+    [semanticFocusWorkspaceState.data, workspaceLifecycleUnavailable]
   )
   const overviewBridgeCopy = useMemo(() => {
     const roleLabel = selectedCluster
@@ -8624,25 +9013,71 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const semanticFocusPageSize = isDerivedReviewUnitActive
     ? MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE
     : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE
+  const semanticFocusLifecycleIdentity = [
+    gmailInboxAnalysisLifecycleIdentity(workspaceArtifactLifecycle),
+    reviewRuntimeContinuityRequestIdentity(runtime.runtimeContinuity),
+  ].join('::')
+  const semanticFocusRequestKey = selectedCluster && activeSemanticSubtypeFocusRequest
+    ? [
+        selectedCluster.clusterId,
+        effectiveWorkflowScope,
+        cacheVersion || 'default',
+        requestedSenderPage,
+        semanticFocusPageSize,
+        semanticFocusWorkspaceOrdering.sort,
+        semanticFocusWorkspaceOrdering.direction,
+        requestedTimeContextBucketLabel || 'no-time-context-bucket',
+        JSON.stringify(activeSemanticSubtypeFocusRequest),
+      ].join('::')
+    : null
 
   useEffect(() => {
     if (mode !== 'overview' && !isDerivedReviewUnitActive) return
+    if (workspaceLifecycleUnavailable) {
+      setSemanticFocusWorkspaceState({
+        status: 'error',
+        data: null,
+        error:
+          workspaceLifecycleUnavailableReason ||
+          'Published Gmail runtime data is unavailable.',
+        lifecycle: null,
+      })
+      semanticFocusActiveRequestOwnerRef.current = null
+      return
+    }
     if (!selectedCluster || !activeSemanticSubtypeFocusRequest) {
       setSemanticFocusWorkspaceState({
         status: 'idle',
         data: null,
         error: null,
+        lifecycle: null,
       })
+      semanticFocusActiveRequestOwnerRef.current = null
       return
     }
 
     let cancelled = false
     const controller = new AbortController()
+    const owner: GmailInboxAnalysisRequestOwner = {
+      requestKey: semanticFocusRequestKey || 'missing-semantic-focus-request',
+      lifecycleIdentity: semanticFocusLifecycleIdentity,
+      generation: semanticFocusRequestGenerationRef.current + 1,
+      expectedLifecycle: runtimeLifecycleExpectation,
+    }
+    semanticFocusRequestGenerationRef.current = owner.generation
+    semanticFocusActiveRequestOwnerRef.current = owner
+    const ownsCurrentSemanticFocus = () =>
+      !cancelled &&
+      gmailInboxAnalysisRequestOwnerMatches({
+        activeOwner: semanticFocusActiveRequestOwnerRef.current,
+        responseOwner: owner,
+      })
 
     setSemanticFocusWorkspaceState((current) => ({
       status: 'loading',
       data: current.data,
       error: null,
+      lifecycle: current.lifecycle || null,
     }))
 
     void fetchGmailSenderWorkspace({
@@ -8657,6 +9092,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       direction: semanticFocusWorkspaceOrdering.direction,
       semanticFocus: activeSemanticSubtypeFocusRequest,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
+      expectedLifecycle: runtimeLifecycleExpectation,
       requestContext: {
         source: 'operations_review_page',
         component: 'sender_overview',
@@ -8665,26 +9101,59 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         agentId,
       },
       signal: controller.signal,
-    }).then((result) => {
-      if (cancelled || ('aborted' in result && result.aborted)) return
-      if (!result.ok) {
-        setSemanticFocusWorkspaceState((current) => ({
-          status: 'error',
-          data: current.data,
-          error: result.error,
-        }))
-        return
-      }
-      setSemanticFocusWorkspaceState({
-        status: 'ready',
-        data: result.data,
-        error: null,
-      })
     })
+      .then((response) => {
+        const result = validateGmailInboxAnalysisResultLifecycle({
+          result: response,
+          expectedLifecycle: owner.expectedLifecycle,
+        })
+        if (!ownsCurrentSemanticFocus() || ('aborted' in result && result.aborted)) return
+        if (!result.ok) {
+          const lifecycleUnavailableReason = artifactLifecycleUnavailableReason(result)
+          setSemanticFocusWorkspaceState((current) => ({
+            status: 'error',
+            data: lifecycleUnavailableReason ? null : current.data,
+            error: lifecycleUnavailableReason || result.error,
+            lifecycle: lifecycleUnavailableReason ? null : current.lifecycle || null,
+          }))
+          return
+        }
+        const reducedLifecycleState = reduceGmailLinkedArtifactLifecycle({
+          current: {
+            status: semanticFocusWorkspaceStateRef.current.lifecycle?.status || 'unavailable',
+            data: semanticFocusWorkspaceStateRef.current.data,
+            lifecycle: semanticFocusWorkspaceStateRef.current.lifecycle || null,
+            error: semanticFocusWorkspaceStateRef.current.error,
+          },
+          activeOwner: semanticFocusActiveRequestOwnerRef.current,
+          responseOwner: owner,
+          result,
+        })
+        if (!reducedLifecycleState.data || !reducedLifecycleState.lifecycle) return
+        setSemanticFocusWorkspaceState({
+          status: 'ready',
+          data: reducedLifecycleState.data,
+          error: null,
+          lifecycle: reducedLifecycleState.lifecycle,
+        })
+      })
+      .finally(() => {
+        if (ownsCurrentSemanticFocus()) {
+          semanticFocusActiveRequestOwnerRef.current = null
+        }
+      })
 
     return () => {
       cancelled = true
       controller.abort()
+      if (
+        gmailInboxAnalysisRequestOwnerMatches({
+          activeOwner: semanticFocusActiveRequestOwnerRef.current,
+          responseOwner: owner,
+        })
+      ) {
+        semanticFocusActiveRequestOwnerRef.current = null
+      }
     }
   }, [
     activeSemanticSubtypeFocusRequest,
@@ -8696,10 +9165,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     requestedSenderPage,
     requestedTimeContextBucketLabel,
     runtimeClusters,
+    runtimeLifecycleExpectation,
     selectedCluster,
     semanticFocusPageSize,
+    semanticFocusLifecycleIdentity,
+    semanticFocusRequestKey,
     semanticFocusWorkspaceOrdering.direction,
     semanticFocusWorkspaceOrdering.sort,
+    workspaceLifecycleUnavailable,
+    workspaceLifecycleUnavailableReason,
   ])
   const activeOverviewSubset = useMemo(() => {
     if (!renderedSubsetSource || !renderedSubsetValue) return null
@@ -9413,11 +9887,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const senderDistributionLifecycleKey = senderDistributionRequestKey
     ? `${agentId}::${senderDistributionRequestKey}`
     : null
-  const senderDistributionCachedData = useMemo(() => {
+  const senderDistributionCachedResult = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
       return null
     }
-    return readCachedGmailSenderDistribution({
+    return readCachedGmailSenderDistributionResult({
       selectedCluster: senderDistributionDedicatedFetchCluster,
       allClusters: runtimeClusters,
       analysisScope: effectiveWorkflowScope,
@@ -9431,12 +9905,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       senderOverviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
       expectedSenderKeys: senderDistributionExpectedSenderKeys,
+      expectedLifecycle: runtimeLifecycleExpectation,
     })
   }, [
     browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
     runtimeClusters,
+    runtimeLifecycleExpectation,
     senderDistributionSemanticFocus,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
@@ -9447,14 +9923,43 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     senderDistributionDedicatedFetchCluster,
     senderDistributionExpectedSenderKeys,
   ])
+  const senderDistributionCachedData = senderDistributionCachedResult?.data || null
+  const senderDistributionWorkspaceFailure = workspaceLifecycleUnavailable
+    ? workspaceLifecycleUnavailableReason || 'Published Gmail runtime data is unavailable.'
+    : senderDistributionSemanticFocus && semanticFocusWorkspaceState.status === 'error'
+      ? semanticFocusWorkspaceState.error
+      : workspaceState.status === 'error'
+        ? workspaceState.error
+        : null
+  const senderDistributionWorkspaceGate = resolveGmailSenderDistributionWorkspaceGate({
+    unavailableReason: senderDistributionWorkspaceFailure,
+    workspaceFetchPending: workspaceFetchPlan != null,
+    workspaceSnapshotAvailable: Boolean(workflowCoverageWorkspaceSnapshot || workspaceSnapshot),
+    semanticFocusRequested: senderDistributionSemanticFocus != null,
+    semanticWorkspaceReady: Boolean(
+      semanticFocusWorkspaceState.status === 'ready' && semanticFocusWorkspace
+    ),
+  })
+  const senderDistributionWorkspaceUnavailableReason =
+    senderDistributionWorkspaceGate.status === 'unavailable'
+      ? senderDistributionWorkspaceGate.reason
+      : null
+  const senderDistributionWorkspaceReady = senderDistributionWorkspaceGate.status === 'ready'
+  const senderDistributionRequestLifecycleIdentity = [
+    gmailInboxAnalysisLifecycleIdentity(workspaceArtifactLifecycle),
+    reviewRuntimeContinuityRequestIdentity(runtime.runtimeContinuity),
+  ].join('::')
   const [senderDistributionWorkspaceState, setSenderDistributionWorkspaceState] =
     useState<SenderDistributionWorkspaceState>(() =>
-      senderDistributionRequestKey && senderDistributionCachedData
+      senderDistributionRequestKey &&
+      senderDistributionCachedData &&
+      senderDistributionWorkspaceReady
         ? {
             status: 'ready',
             data: senderDistributionCachedData,
             error: null,
             requestKey: senderDistributionRequestKey,
+            lifecycle: senderDistributionCachedResult?.lifecycle || null,
           }
         : {
             status: 'idle',
@@ -9466,12 +9971,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const senderDistributionWorkspaceStateRef = useRef(senderDistributionWorkspaceState)
   const senderDistributionInitialFetchIssuedRef = useRef(false)
   const senderDistributionRequestGenerationRef = useRef(0)
-  const senderDistributionActiveRequestOwnerRef = useRef<{
-    lifecycleKey: string
-    generation: number
-  } | null>(null)
+  const senderDistributionActiveRequestOwnerRef =
+    useRef<GmailInboxAnalysisRequestOwner | null>(null)
   const senderDistributionRequestPlan = {
     lifecycleKey: senderDistributionLifecycleKey,
+    lifecycleIdentity: senderDistributionRequestLifecycleIdentity,
     requestKey: senderDistributionRequestKey,
     selectedCluster: senderDistributionDedicatedFetchCluster,
     allClusters: runtimeClusters,
@@ -9486,8 +9990,12 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     senderOverviewEnd: senderOverviewWindowSelection?.end || null,
     timeZone: browserTimeZone,
     expectedSenderKeys: senderDistributionExpectedSenderKeys,
+    expectedLifecycle: runtimeLifecycleExpectation,
     cachedData: senderDistributionCachedData,
+    cachedLifecycle: senderDistributionCachedResult?.lifecycle || null,
     shouldHoldContinuityShell,
+    workspaceReady: senderDistributionWorkspaceReady,
+    workspaceUnavailableReason: senderDistributionWorkspaceUnavailableReason,
     agentId,
   }
   const senderDistributionRequestPlanRef = useRef(senderDistributionRequestPlan)
@@ -9501,6 +10009,19 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     const lifecycleKey = senderDistributionLifecycleKey
     const initialRequestPlan = senderDistributionRequestPlanRef.current
     const initialSelectedCluster = initialRequestPlan.selectedCluster
+    if (initialRequestPlan.workspaceUnavailableReason) {
+      senderDistributionActiveRequestOwnerRef.current = null
+      const errorState: SenderDistributionWorkspaceState = {
+        status: 'error',
+        data: null,
+        error: initialRequestPlan.workspaceUnavailableReason,
+        requestKey: initialRequestPlan.requestKey || lifecycleKey || 'runtime-unavailable',
+        lifecycle: null,
+      }
+      senderDistributionWorkspaceStateRef.current = errorState
+      setSenderDistributionWorkspaceState(errorState)
+      return
+    }
     if (
       !lifecycleKey ||
       initialRequestPlan.lifecycleKey !== lifecycleKey ||
@@ -9519,8 +10040,29 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }
 
     const requestKey = initialRequestPlan.requestKey
+    if (!initialRequestPlan.workspaceReady) {
+      senderDistributionActiveRequestOwnerRef.current = null
+      const waitingState: SenderDistributionWorkspaceState = {
+        status: 'loading',
+        data: null,
+        error: null,
+        requestKey,
+        lifecycle: null,
+      }
+      senderDistributionWorkspaceStateRef.current = waitingState
+      setSenderDistributionWorkspaceState(waitingState)
+      return
+    }
+
     const currentState = senderDistributionWorkspaceStateRef.current
-    if (currentState.requestKey === requestKey && currentState.status === 'ready') {
+    if (
+      currentState.requestKey === requestKey &&
+      currentState.status === 'ready' &&
+      gmailInboxAnalysisLifecycleMatchesExpectation(
+        currentState.lifecycle,
+        initialRequestPlan.expectedLifecycle
+      )
+    ) {
       return
     }
 
@@ -9528,7 +10070,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     if (
       currentState.requestKey === requestKey &&
       currentState.status === 'loading' &&
-      activeOwner?.lifecycleKey === lifecycleKey &&
+      activeOwner?.requestKey === requestKey &&
+      activeOwner.lifecycleIdentity === initialRequestPlan.lifecycleIdentity &&
       activeOwner.generation === senderDistributionRequestGenerationRef.current
     ) {
       return
@@ -9547,6 +10090,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               data: cachedData,
               error: null,
               requestKey,
+              lifecycle: initialRequestPlan.cachedLifecycle,
             }
       )
       return
@@ -9558,18 +10102,25 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       : 'deferred'
     senderDistributionInitialFetchIssuedRef.current = true
     const owner = {
-      lifecycleKey,
+      requestKey,
+      lifecycleIdentity: initialRequestPlan.lifecycleIdentity,
       generation: senderDistributionRequestGenerationRef.current + 1,
+      expectedLifecycle: initialRequestPlan.expectedLifecycle,
     }
     senderDistributionRequestGenerationRef.current = owner.generation
     senderDistributionActiveRequestOwnerRef.current = owner
 
     const ownsCurrentVisibleState = () => {
       const currentOwner = senderDistributionActiveRequestOwnerRef.current
+      const latestPlan = senderDistributionRequestPlanRef.current
       return (
-        currentOwner?.lifecycleKey === owner.lifecycleKey &&
-        currentOwner.generation === owner.generation &&
-        senderDistributionRequestPlanRef.current.lifecycleKey === owner.lifecycleKey &&
+        gmailInboxAnalysisRequestOwnerMatches({
+          activeOwner: currentOwner,
+          responseOwner: owner,
+        }) &&
+        latestPlan.lifecycleKey === lifecycleKey &&
+        latestPlan.requestKey === requestKey &&
+        latestPlan.lifecycleIdentity === owner.lifecycleIdentity &&
         senderDistributionWorkspaceStateRef.current.requestKey === requestKey
       )
     }
@@ -9578,7 +10129,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       const latestPlan = senderDistributionRequestPlanRef.current
       const latestSelectedCluster = latestPlan.selectedCluster
       if (latestPlan.lifecycleKey !== lifecycleKey || !latestSelectedCluster) return null
-      return readCachedGmailSenderDistribution({
+      return readCachedGmailSenderDistributionResult({
         selectedCluster: latestSelectedCluster,
         allClusters: latestPlan.allClusters,
         analysisScope: latestPlan.analysisScope,
@@ -9592,6 +10143,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         senderOverviewEnd: latestPlan.senderOverviewEnd,
         timeZone: latestPlan.timeZone,
         expectedSenderKeys: latestPlan.expectedSenderKeys,
+        expectedLifecycle: latestPlan.expectedLifecycle,
       })
     }
 
@@ -9600,13 +10152,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       data: seedData,
       error: null,
       requestKey,
+      lifecycle: currentState.lifecycle || initialRequestPlan.cachedLifecycle,
     }
     senderDistributionWorkspaceStateRef.current = loadingState
     setSenderDistributionWorkspaceState(loadingState)
 
     void (async () => {
       try {
-        const result = await fetchGmailSenderDistribution({
+        const response = await fetchGmailSenderDistribution({
           selectedCluster: initialSelectedCluster,
           allClusters: initialRequestPlan.allClusters,
           analysisScope: initialRequestPlan.analysisScope,
@@ -9620,6 +10173,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           senderOverviewEnd: initialRequestPlan.senderOverviewEnd,
           timeZone: initialRequestPlan.timeZone,
           expectedSenderKeys: initialRequestPlan.expectedSenderKeys,
+          expectedLifecycle: initialRequestPlan.expectedLifecycle,
           requestContext: {
             source: 'operations_review_page',
             component: 'sender_distribution',
@@ -9627,6 +10181,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
             phase: senderDistributionRequestPhase,
             agentId: initialRequestPlan.agentId,
           },
+        })
+        const result = validateGmailInboxAnalysisResultLifecycle({
+          result: response,
+          expectedLifecycle: owner.expectedLifecycle,
         })
         if (!ownsCurrentVisibleState() || ('aborted' in result && result.aborted)) return
         if (!result.ok) {
@@ -9637,9 +10195,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               if (attachedData && ownsCurrentVisibleState()) {
                 const readyState: SenderDistributionWorkspaceState = {
                   status: 'ready',
-                  data: attachedData,
+                  data: attachedData.data,
                   error: null,
                   requestKey,
+                  lifecycle: attachedData.lifecycle,
                 }
                 senderDistributionWorkspaceStateRef.current = readyState
                 setSenderDistributionWorkspaceState(readyState)
@@ -9655,6 +10214,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
             data: null,
             error: result.error,
             requestKey,
+            lifecycle: null,
           }
           senderDistributionWorkspaceStateRef.current = errorState
           setSenderDistributionWorkspaceState(errorState)
@@ -9666,6 +10226,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           data: result.data,
           error: null,
           requestKey,
+          lifecycle: result.lifecycle,
         }
         senderDistributionWorkspaceStateRef.current = readyState
         setSenderDistributionWorkspaceState(readyState)
@@ -9679,14 +10240,22 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     return () => {
       const activeRequestOwner = senderDistributionActiveRequestOwnerRef.current
       if (
-        activeRequestOwner?.lifecycleKey === owner.lifecycleKey &&
+        activeRequestOwner?.requestKey === owner.requestKey &&
+        activeRequestOwner.lifecycleIdentity === owner.lifecycleIdentity &&
         activeRequestOwner.generation === owner.generation
       ) {
         senderDistributionActiveRequestOwnerRef.current = null
       }
     }
-  }, [senderDistributionLifecycleKey])
-  const senderDistributionData = senderDistributionWorkspaceState.data
+  }, [
+    senderDistributionLifecycleKey,
+    senderDistributionRequestLifecycleIdentity,
+    senderDistributionWorkspaceReady,
+    senderDistributionWorkspaceUnavailableReason,
+  ])
+  const senderDistributionData = senderDistributionWorkspaceUnavailableReason
+    ? null
+    : senderDistributionWorkspaceState.data
   const senderDistributionSenderLookup = useMemo(() => {
     const lookup = new Map<string, GmailSenderDistributionData['senders'][number]>()
     for (const sender of senderDistributionData?.senders || []) {
@@ -10251,7 +10820,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     senderDistributionWorkspaceState.status === 'loading'
   const senderDistributionErrorMessage =
     senderDistributionItems.length === 0
-      ? senderDistributionOrderingErrorMessage ||
+      ? senderDistributionWorkspaceUnavailableReason ||
+        senderDistributionOrderingErrorMessage ||
         (senderDistributionWorkspaceState.status === 'error'
           ? senderDistributionWorkspaceState.error
           : null)
@@ -11653,33 +12223,81 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const workflowWindowActive = senderOverviewWindowSelection != null
   const chartOnlyWorkflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
   const chartOnlyRangeLabel = timeContextActiveRangeLabel || 'Showing last 24 hours'
+  const runtimeContinuityOverridesCachedLifecycle =
+    effectiveRuntimeContinuityPhase === 'degraded' ||
+    effectiveRuntimeContinuityPhase === 'unavailable'
+  const visibleRuntimeContinuityPhase = runtimeContinuityOverridesCachedLifecycle
+    ? effectiveRuntimeContinuityPhase
+    : workspaceLifecycleDegraded
+      ? 'degraded'
+      : workspaceLifecycleBuilding
+        ? 'build_pending'
+        : effectiveRuntimeContinuityPhase
   const runtimeContinuityLabel =
-    effectiveRuntimeContinuityPhase === 'build_pending'
+    visibleRuntimeContinuityPhase === 'build_pending'
       ? 'Fresh results are still building'
-      : effectiveRuntimeContinuityPhase === 'ready'
+      : visibleRuntimeContinuityPhase === 'degraded'
+        ? 'Refresh failed — showing last published results.'
+      : visibleRuntimeContinuityPhase === 'unavailable'
+        ? 'Published results are unavailable'
+      : visibleRuntimeContinuityPhase === 'ready'
         ? 'Updated results are ready'
         : null
   const stableRuntimeContinuitySnapshotVersion =
     runtime.runtimeContinuity?.stableSnapshotVersion || null
+  const publishedRuntimeContinuityVersion = runtimeContinuityOverridesCachedLifecycle
+    ? runtime.runtimeContinuity?.publishedVersion || stableRuntimeContinuitySnapshotVersion
+    : workspaceArtifactLifecycle?.publishedVersion ||
+      runtime.runtimeContinuity?.publishedVersion ||
+      stableRuntimeContinuitySnapshotVersion
+  const buildingRuntimeContinuityVersion = runtimeContinuityOverridesCachedLifecycle
+    ? runtime.runtimeContinuity?.buildingVersion || runtime.runtimeContinuity?.latestVersion || null
+    : workspaceArtifactLifecycle?.buildingVersion ||
+      runtime.runtimeContinuity?.buildingVersion ||
+      runtime.runtimeContinuity?.latestVersion ||
+      null
+  const runtimeContinuityVersionDetail =
+    visibleRuntimeContinuityPhase === 'build_pending'
+      ? publishedRuntimeContinuityVersion
+        ? `Published version: ${publishedRuntimeContinuityVersion}. Building version: ${buildingRuntimeContinuityVersion || 'not reported'}.`
+        : `Published version: unavailable. Building version: ${buildingRuntimeContinuityVersion || 'not reported'}.`
+      : publishedRuntimeContinuityVersion
+        ? `Published version: ${publishedRuntimeContinuityVersion}.`
+        : null
   const runtimeContinuityDetail =
-    effectiveRuntimeContinuityPhase === 'build_pending'
-      ? `Smart Sync has already finished indexing, but published runtime results are still building. This page is intentionally keeping the last stable snapshot visible${stableRuntimeContinuitySnapshotVersion ? ` from ${new Date(stableRuntimeContinuitySnapshotVersion).toLocaleString()}` : ''} until the new published truth is ready.`
-      : effectiveRuntimeContinuityPhase === 'ready'
-        ? 'The refreshed published runtime truth has loaded, and linked workflow surfaces are now re-reading from the new cache version.'
+    visibleRuntimeContinuityPhase === 'build_pending'
+      ? publishedRuntimeContinuityVersion
+        ? `Smart Sync has already finished indexing, but published runtime results are still building. This page is intentionally keeping the current published snapshot visible until the replacement is published. ${runtimeContinuityVersionDetail}`
+        : `Smart Sync has already finished indexing, but no published runtime snapshot is available yet. Linked review surfaces remain unavailable while the candidate builds. ${runtimeContinuityVersionDetail}`
+      : visibleRuntimeContinuityPhase === 'degraded'
+        ? `The replacement build failed, so linked review surfaces are using only the last valid published artifact. No candidate data is shown.${runtimeContinuityVersionDetail ? ` ${runtimeContinuityVersionDetail}` : ''}`
+      : visibleRuntimeContinuityPhase === 'unavailable'
+        ? workspaceLifecycleUnavailableReason ||
+          'Published Gmail runtime data is unavailable for linked review surfaces.'
+      : visibleRuntimeContinuityPhase === 'ready'
+        ? `The refreshed published runtime truth has loaded, and linked workflow surfaces are now re-reading from the published cache version.${runtimeContinuityVersionDetail ? ` ${runtimeContinuityVersionDetail}` : ''}`
         : null
   const mailboxSyncTruthLabel = runtime.smartMailboxSyncStarting
     ? 'Smart Sync starting'
-    : effectiveRuntimeContinuityPhase === 'build_pending'
+    : visibleRuntimeContinuityPhase === 'build_pending'
       ? 'Smart Sync finished · published results still building'
-      : effectiveRuntimeContinuityPhase === 'ready'
+      : visibleRuntimeContinuityPhase === 'degraded'
+        ? 'Refresh failed · last published results remain active'
+      : visibleRuntimeContinuityPhase === 'unavailable'
+        ? 'Published results unavailable'
+      : visibleRuntimeContinuityPhase === 'ready'
         ? 'Smart Sync refreshed · new runtime truth loaded'
         : runtime.mailboxIndexHealth?.execution_state
           ? `Mailbox index ${runtime.mailboxIndexHealth.execution_state.replace(/_/g, ' ')}`
           : 'Mailbox index status unavailable'
   const mailboxSyncTruthDetail = runtime.mailboxIndexHealth
-    ? effectiveRuntimeContinuityPhase === 'build_pending'
+    ? visibleRuntimeContinuityPhase === 'build_pending'
       ? `Mailbox index coverage already reflects ${formatCountOrPlaceholder(runtime.mailboxIndexHealth.indexed_message_count)} indexed rows. Published runtime truth is still processing, so the current review state stays on the last stable snapshot until artifact build completes.`
-      : effectiveRuntimeContinuityPhase === 'ready'
+      : visibleRuntimeContinuityPhase === 'degraded'
+        ? `Mailbox index coverage currently tracks ${formatCountOrPlaceholder(runtime.mailboxIndexHealth.indexed_message_count)} indexed rows. The replacement artifact failed, so the page remains on the last valid published results.`
+      : visibleRuntimeContinuityPhase === 'unavailable'
+        ? 'Mailbox indexing may be complete, but no valid matching published artifact is available for linked review surfaces.'
+      : visibleRuntimeContinuityPhase === 'ready'
         ? `Mailbox index coverage currently tracks ${formatCountOrPlaceholder(runtime.mailboxIndexHealth.indexed_message_count)} indexed rows, and the refreshed published runtime truth is now active on this page.`
         : `Mailbox index coverage currently tracks ${formatCountOrPlaceholder(runtime.mailboxIndexHealth.indexed_message_count)} indexed rows. Smart Sync and backfill update this mailbox coverage truth.`
     : 'Mailbox coverage truth will appear here once the mailbox index health check is ready.'
@@ -11689,20 +12307,30 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     renderRuntimeData?.runtime_mailbox_profile?.generated_at ||
     null
   const artifactFreshnessLabel =
-    effectiveRuntimeContinuityPhase === 'build_pending'
+    visibleRuntimeContinuityPhase === 'build_pending'
       ? 'Artifact refresh in progress · showing last stable snapshot'
-      : effectiveRuntimeContinuityPhase === 'ready'
+      : visibleRuntimeContinuityPhase === 'degraded'
+        ? 'Artifact refresh failed · showing last published results'
+      : visibleRuntimeContinuityPhase === 'unavailable'
+        ? 'Published artifact unavailable'
+      : visibleRuntimeContinuityPhase === 'ready'
         ? 'Artifact refreshed · new runtime truth loaded'
         : artifactFreshnessStatus
           ? `Artifact ${artifactFreshnessStatus}`
           : 'Artifact freshness unavailable'
   const artifactFreshnessDetail = artifactFreshnessGeneratedAt
-    ? effectiveRuntimeContinuityPhase === 'build_pending'
+    ? visibleRuntimeContinuityPhase === 'build_pending'
       ? `Published runtime truth last generated ${new Date(artifactFreshnessGeneratedAt).toLocaleString()}. A newer build is still in progress, so workflow totals and rails stay on this stable publication until the refreshed version is ready.`
-      : effectiveRuntimeContinuityPhase === 'ready'
+      : visibleRuntimeContinuityPhase === 'degraded'
+        ? `Published runtime truth last generated ${new Date(artifactFreshnessGeneratedAt).toLocaleString()}. The replacement failed, so workflow totals and rails remain on this valid publication.`
+      : visibleRuntimeContinuityPhase === 'unavailable'
+        ? 'The prior publication is not valid for the current lifecycle identity, so linked workflow totals and rails are cleared.'
+      : visibleRuntimeContinuityPhase === 'ready'
         ? `Published runtime truth refreshed at ${new Date(artifactFreshnessGeneratedAt).toLocaleString()}. Workflow totals and rails are now reading from the updated publication layer.`
         : `Published runtime truth last generated ${new Date(artifactFreshnessGeneratedAt).toLocaleString()}. Workflow totals and rails read this publication layer separately from live sync progress.`
-    : 'Workflow totals and rails read published runtime state separately from live mailbox sync progress.'
+    : visibleRuntimeContinuityPhase === 'unavailable'
+      ? 'No valid matching published artifact is available, so linked workflow totals and rails remain cleared.'
+      : 'Workflow totals and rails read published runtime state separately from live mailbox sync progress.'
   const workflowTruthLabel = `${chartOnlyWorkflowScopeLabel} workflow truth`
   const workflowTruthDetail = workflowWindowActive
     ? `${workflowScopeSummary.detail} ${chartOnlyRangeLabel} is the active workflow window and currently narrows the live sender universe to ${sharedWorkflowSubset.resolvedSenderCount.toLocaleString()} sender${
@@ -12073,7 +12701,12 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     )
   }
 
-  if (runtime.error && !renderRuntimeData && !continuityOverviewWorkspaceSnapshot) {
+  if (
+    runtime.error &&
+    !runtimeTerminalUnavailable &&
+    !renderRuntimeData &&
+    !continuityOverviewWorkspaceSnapshot
+  ) {
     return (
       <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-4 text-sm text-rose-100">
         {runtime.error}
@@ -12081,7 +12714,21 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     )
   }
 
-  if (!selectedCluster && !missingScopedCluster && !requestedClusterId && !continuityOverviewWorkspaceSnapshot) {
+  if (runtimeTerminalUnavailable && !requestedClusterId) {
+    return (
+      <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-4 text-sm text-rose-100">
+        {workspaceLifecycleUnavailableReason ||
+          'Published Gmail runtime data is unavailable for linked review surfaces.'}
+      </section>
+    )
+  }
+
+  if (
+    !selectedCluster &&
+    !missingScopedCluster &&
+    !requestedClusterId &&
+    !continuityOverviewWorkspaceSnapshot
+  ) {
     return (
       <section className={`${primarySurfaceClass} p-4 text-sm text-slate-200`}>
         No cleanup group is selected yet. Open Cleanup Groups first, then continue into Sender Overview.
@@ -12368,12 +13015,22 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                 <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-slate-950/70 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100">
                   <span
                     className={`h-2 w-2 rounded-full ${
-                      effectiveRuntimeContinuityPhase === 'ready'
+                      visibleRuntimeContinuityPhase === 'ready'
                         ? 'bg-emerald-300'
+                        : visibleRuntimeContinuityPhase === 'degraded'
+                          ? 'bg-amber-300'
+                        : visibleRuntimeContinuityPhase === 'unavailable'
+                          ? 'bg-rose-300'
                         : 'bg-cyan-300'
                     }`}
                   />
-                  {effectiveRuntimeContinuityPhase === 'ready' ? 'Updated' : 'Processing'}
+                  {visibleRuntimeContinuityPhase === 'ready'
+                    ? 'Updated'
+                    : visibleRuntimeContinuityPhase === 'degraded'
+                      ? 'Degraded'
+                    : visibleRuntimeContinuityPhase === 'unavailable'
+                      ? 'Unavailable'
+                      : 'Processing'}
                 </span>
               </div>
             ) : null}

@@ -1362,6 +1362,32 @@ type CachedInboxAnalysisEntry<T> = {
   data: T
 }
 
+export type GmailInboxAnalysisLifecycle = {
+  status: 'ready' | 'building' | 'degraded'
+  reason: string | null
+  retryAfterMs: number | null
+  freshnessState: string | null
+  buildStatus: string | null
+  publishedVersion: string
+  buildingVersion: string | null
+  artifactVersion: string
+}
+
+export type GmailInboxAnalysisLifecycleExpectation = {
+  status: GmailInboxAnalysisLifecycle['status'] | 'unavailable'
+  freshnessState: string | null
+  buildStatus: string | null
+  publishedVersion: string | null
+  buildingVersion: string | null
+}
+
+type CachedInboxAnalysisLifecycleEntry<T> = {
+  schemaVersion: 2
+  expiresAtMs: number
+  data: T
+  lifecycle: GmailInboxAnalysisLifecycle
+}
+
 export type GmailInboxAnalysisFailure = {
   ok: false
   error: string
@@ -1372,18 +1398,152 @@ export type GmailInboxAnalysisFailure = {
   buildStatus: string | null
   publishedVersion: string | null
   buildingVersion: string | null
+  artifactVersion: string | null
   aborted: boolean
+  expectedLifecycle?: GmailInboxAnalysisLifecycleExpectation | null
+  actualLifecycle?: GmailInboxAnalysisLifecycle | null
 }
 
-export type GmailInboxAnalysisResult<T> = { ok: true; data: T } | GmailInboxAnalysisFailure
+export type GmailInboxAnalysisSuccess<T> = {
+  ok: true
+  data: T
+  lifecycle: GmailInboxAnalysisLifecycle
+}
+
+export type GmailInboxAnalysisResult<T> = GmailInboxAnalysisSuccess<T> | GmailInboxAnalysisFailure
+
+export type GmailInboxAnalysisRequestOwner = {
+  requestKey: string
+  lifecycleIdentity: string
+  generation: number
+  expectedLifecycle: GmailInboxAnalysisLifecycleExpectation | null
+}
+
+export type GmailLinkedArtifactLifecycleState<T> = {
+  status: 'ready' | 'building' | 'degraded' | 'unavailable'
+  data: T | null
+  lifecycle: GmailInboxAnalysisLifecycle | null
+  error: string | null
+}
+
+export function gmailInboxAnalysisLifecycleIdentity(
+  lifecycle: GmailInboxAnalysisLifecycle | null | undefined
+): string {
+  if (!lifecycle) return 'none'
+  return [
+    lifecycle.status,
+    lifecycle.publishedVersion,
+    lifecycle.buildingVersion || 'no-building',
+    lifecycle.freshnessState || 'no-freshness',
+    lifecycle.buildStatus || 'no-build-status',
+    lifecycle.artifactVersion,
+  ].join('::')
+}
+
+export function gmailInboxAnalysisRequestOwnerMatches(params: {
+  activeOwner: GmailInboxAnalysisRequestOwner | null
+  responseOwner: GmailInboxAnalysisRequestOwner
+}): boolean {
+  return (
+    params.activeOwner?.requestKey === params.responseOwner.requestKey &&
+    params.activeOwner.lifecycleIdentity === params.responseOwner.lifecycleIdentity &&
+    params.activeOwner.generation === params.responseOwner.generation &&
+    gmailInboxAnalysisLifecycleExpectationIdentity(params.activeOwner.expectedLifecycle) ===
+      gmailInboxAnalysisLifecycleExpectationIdentity(params.responseOwner.expectedLifecycle)
+  )
+}
+
+export function validateGmailInboxAnalysisResultLifecycle<T>(params: {
+  result: GmailInboxAnalysisResult<T>
+  expectedLifecycle: GmailInboxAnalysisLifecycleExpectation | null | undefined
+}): GmailInboxAnalysisResult<T> {
+  if (
+    !params.result.ok ||
+    gmailInboxAnalysisLifecycleMatchesExpectation(
+      params.result.lifecycle,
+      params.expectedLifecycle
+    )
+  ) {
+    return params.result
+  }
+  return {
+    ok: false,
+    error: 'Inbox analysis response lifecycle does not match the current request lifecycle.',
+    status: 409,
+    reason: 'response_lifecycle_mismatch',
+    retryAfterMs: null,
+    freshnessState: params.result.lifecycle.freshnessState,
+    buildStatus: params.result.lifecycle.buildStatus,
+    publishedVersion: params.result.lifecycle.publishedVersion,
+    buildingVersion: params.result.lifecycle.buildingVersion,
+    artifactVersion: params.result.lifecycle.artifactVersion,
+    aborted: false,
+    expectedLifecycle: params.expectedLifecycle || null,
+    actualLifecycle: params.result.lifecycle,
+  }
+}
+
+export function resolveGmailSenderDistributionWorkspaceGate(params: {
+  unavailableReason: string | null
+  workspaceFetchPending: boolean
+  workspaceSnapshotAvailable: boolean
+  semanticFocusRequested: boolean
+  semanticWorkspaceReady: boolean
+}): { status: 'ready' | 'waiting' } | { status: 'unavailable'; reason: string } {
+  if (params.unavailableReason) {
+    return { status: 'unavailable', reason: params.unavailableReason }
+  }
+  if (
+    params.workspaceFetchPending ||
+    !params.workspaceSnapshotAvailable ||
+    (params.semanticFocusRequested && !params.semanticWorkspaceReady)
+  ) {
+    return { status: 'waiting' }
+  }
+  return { status: 'ready' }
+}
+
+export function reduceGmailLinkedArtifactLifecycle<T>(params: {
+  current: GmailLinkedArtifactLifecycleState<T>
+  activeOwner: GmailInboxAnalysisRequestOwner | null
+  responseOwner: GmailInboxAnalysisRequestOwner
+  result: GmailInboxAnalysisResult<T>
+}): GmailLinkedArtifactLifecycleState<T> {
+  if (
+    !gmailInboxAnalysisRequestOwnerMatches({
+      activeOwner: params.activeOwner,
+      responseOwner: params.responseOwner,
+    })
+  ) {
+    return params.current
+  }
+  const lifecycleValidatedResult = validateGmailInboxAnalysisResultLifecycle({
+    result: params.result,
+    expectedLifecycle: params.responseOwner.expectedLifecycle,
+  })
+  if (lifecycleValidatedResult.ok) {
+    return {
+      status: lifecycleValidatedResult.lifecycle.status,
+      data: lifecycleValidatedResult.data,
+      lifecycle: lifecycleValidatedResult.lifecycle,
+      error: null,
+    }
+  }
+  return {
+    status: 'unavailable',
+    data: null,
+    lifecycle: null,
+    error: lifecycleValidatedResult.error,
+  }
+}
 
 const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_TTL_MS = 1000 * 60 * 10
-const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_STORAGE_PREFIX = 'gmail.inbox.analysis.v1'
+const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_STORAGE_PREFIX = 'gmail.inbox.analysis.v2'
 const GMAIL_RUNTIME_SUMMARY_CLIENT_CACHE_TTL_MS = 15 * 1000
 const GMAIL_RUNTIME_SUMMARY_STORAGE_PREFIX = 'gmail.runtime.summary.v1'
 
 const gmailCleanupRuntimeGlobal = globalThis as typeof globalThis & {
-  __gmailInboxAnalysisClientCache?: Map<string, CachedInboxAnalysisEntry<unknown>>
+  __gmailInboxAnalysisClientCache?: Map<string, CachedInboxAnalysisLifecycleEntry<unknown>>
   __gmailInboxAnalysisClientInflight?: Map<string, Promise<unknown>>
   __gmailRuntimeSummaryClientCache?: Map<string, CachedInboxAnalysisEntry<unknown>>
   __gmailRuntimeSummaryClientInflight?: Map<string, Promise<unknown>>
@@ -1391,7 +1551,7 @@ const gmailCleanupRuntimeGlobal = globalThis as typeof globalThis & {
 
 const gmailInboxAnalysisClientCache =
   gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientCache ||
-  new Map<string, CachedInboxAnalysisEntry<unknown>>()
+  new Map<string, CachedInboxAnalysisLifecycleEntry<unknown>>()
 if (!gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientCache) {
   gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientCache = gmailInboxAnalysisClientCache
 }
@@ -1649,32 +1809,125 @@ function clientRuntimeSummaryStorageKey(cacheKey: string): string {
   return `${GMAIL_RUNTIME_SUMMARY_STORAGE_PREFIX}:${cacheKey}`
 }
 
-function readPersistedClientInboxAnalysisCache<T>(cacheKey: string): T | null {
+function normalizeInboxAnalysisLifecycle(value: unknown): GmailInboxAnalysisLifecycle | null {
+  if (!value || typeof value !== 'object') return null
+  const lifecycle = value as Partial<GmailInboxAnalysisLifecycle>
+  if (
+    lifecycle.status !== 'ready' &&
+    lifecycle.status !== 'building' &&
+    lifecycle.status !== 'degraded'
+  ) {
+    return null
+  }
+  const publishedVersion = normalizeWorkflowString(lifecycle.publishedVersion)
+  const artifactVersion = normalizeWorkflowString(lifecycle.artifactVersion)
+  if (!publishedVersion || !artifactVersion || publishedVersion !== artifactVersion) return null
+  return {
+    status: lifecycle.status,
+    reason: normalizeWorkflowString(lifecycle.reason) || null,
+    retryAfterMs:
+      typeof lifecycle.retryAfterMs === 'number' && Number.isFinite(lifecycle.retryAfterMs)
+        ? Math.max(0, Math.round(lifecycle.retryAfterMs))
+        : null,
+    freshnessState: normalizeWorkflowString(lifecycle.freshnessState) || null,
+    buildStatus: normalizeWorkflowString(lifecycle.buildStatus) || null,
+    publishedVersion,
+    buildingVersion: normalizeWorkflowString(lifecycle.buildingVersion) || null,
+    artifactVersion,
+  }
+}
+
+function normalizeLifecycleExpectationValue(value: string | null | undefined): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+export function gmailInboxAnalysisLifecycleExpectationIdentity(
+  expectation: GmailInboxAnalysisLifecycleExpectation | null | undefined
+): string {
+  if (!expectation) return 'none'
+  return [
+    expectation.status,
+    normalizeLifecycleExpectationValue(expectation.publishedVersion) || 'no-published',
+    normalizeLifecycleExpectationValue(expectation.buildingVersion) || 'no-building',
+    normalizeLifecycleExpectationValue(expectation.freshnessState) || 'no-freshness',
+    normalizeLifecycleExpectationValue(expectation.buildStatus) || 'no-build-status',
+  ].join('::')
+}
+
+export function gmailInboxAnalysisLifecycleMatchesExpectation(
+  lifecycle: GmailInboxAnalysisLifecycle | null | undefined,
+  expectation: GmailInboxAnalysisLifecycleExpectation | null | undefined
+): boolean {
+  if (!expectation) return true
+  if (!lifecycle || expectation.status === 'unavailable') return false
+  return (
+    lifecycle.status === expectation.status &&
+    lifecycle.publishedVersion ===
+      normalizeLifecycleExpectationValue(expectation.publishedVersion) &&
+    lifecycle.buildingVersion ===
+      normalizeLifecycleExpectationValue(expectation.buildingVersion) &&
+    lifecycle.freshnessState ===
+      normalizeLifecycleExpectationValue(expectation.freshnessState) &&
+    lifecycle.buildStatus === normalizeLifecycleExpectationValue(expectation.buildStatus)
+  )
+}
+
+function readPersistedClientInboxAnalysisCache<T>(
+  cacheKey: string
+): CachedInboxAnalysisLifecycleEntry<T> | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = window.sessionStorage.getItem(clientInboxAnalysisStorageKey(cacheKey))
     if (!raw) return null
-    const parsed = JSON.parse(raw) as CachedInboxAnalysisEntry<T> | null
-    if (!parsed || typeof parsed !== 'object' || typeof parsed.expiresAtMs !== 'number') return null
+    const parsed = JSON.parse(raw) as Partial<CachedInboxAnalysisLifecycleEntry<T>> | null
+    const lifecycle = normalizeInboxAnalysisLifecycle(parsed?.lifecycle)
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      parsed.schemaVersion !== 2 ||
+      typeof parsed.expiresAtMs !== 'number' ||
+      !('data' in parsed) ||
+      !lifecycle
+    ) {
+      window.sessionStorage.removeItem(clientInboxAnalysisStorageKey(cacheKey))
+      return null
+    }
     if (parsed.expiresAtMs <= Date.now()) {
       window.sessionStorage.removeItem(clientInboxAnalysisStorageKey(cacheKey))
       return null
     }
-    gmailInboxAnalysisClientCache.set(cacheKey, parsed as CachedInboxAnalysisEntry<unknown>)
-    return parsed.data
+    const entry: CachedInboxAnalysisLifecycleEntry<T> = {
+      schemaVersion: 2,
+      expiresAtMs: parsed.expiresAtMs,
+      data: parsed.data as T,
+      lifecycle,
+    }
+    gmailInboxAnalysisClientCache.set(
+      cacheKey,
+      entry as CachedInboxAnalysisLifecycleEntry<unknown>
+    )
+    return entry
   } catch {
     return null
   }
 }
 
-function readClientInboxAnalysisCache<T>(cacheKey: string): T | null {
+function readClientInboxAnalysisCache<T>(
+  cacheKey: string
+): CachedInboxAnalysisLifecycleEntry<T> | null {
   const cached = gmailInboxAnalysisClientCache.get(cacheKey)
   if (!cached) return null
-  if (cached.expiresAtMs <= Date.now()) {
+  const lifecycle = normalizeInboxAnalysisLifecycle(cached.lifecycle)
+  if (cached.schemaVersion !== 2 || cached.expiresAtMs <= Date.now() || !lifecycle) {
     gmailInboxAnalysisClientCache.delete(cacheKey)
     return null
   }
-  return cached.data as T
+  return {
+    schemaVersion: 2,
+    expiresAtMs: cached.expiresAtMs,
+    data: cached.data as T,
+    lifecycle,
+  }
 }
 
 function clearClientInboxAnalysisCache(cacheKey: string): void {
@@ -1687,20 +1940,32 @@ function clearClientInboxAnalysisCache(cacheKey: string): void {
   }
 }
 
-function writeClientInboxAnalysisCache<T>(cacheKey: string, data: T): T {
-  const entry = {
+function writeClientInboxAnalysisCache<T>(params: {
+  cacheKey: string
+  data: T
+  lifecycle: GmailInboxAnalysisLifecycle
+}): CachedInboxAnalysisLifecycleEntry<T> {
+  const entry: CachedInboxAnalysisLifecycleEntry<T> = {
+    schemaVersion: 2,
     expiresAtMs: Date.now() + GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_TTL_MS,
-    data,
+    data: params.data,
+    lifecycle: params.lifecycle,
   }
-  gmailInboxAnalysisClientCache.set(cacheKey, entry)
+  gmailInboxAnalysisClientCache.set(
+    params.cacheKey,
+    entry as CachedInboxAnalysisLifecycleEntry<unknown>
+  )
   if (typeof window !== 'undefined') {
     try {
-      window.sessionStorage.setItem(clientInboxAnalysisStorageKey(cacheKey), JSON.stringify(entry))
+      window.sessionStorage.setItem(
+        clientInboxAnalysisStorageKey(params.cacheKey),
+        JSON.stringify(entry)
+      )
     } catch {
       // Ignore storage quota failures; the in-memory cache remains the primary fast path.
     }
   }
-  return data
+  return entry
 }
 
 function readClientRuntimeSummaryCache<T>(cacheKey: string): T | null {
@@ -1757,6 +2022,7 @@ async function requestCachedInboxAnalysis<T>(params: {
   errorMessage: string
   signal?: AbortSignal
   acceptCachedData?: (data: T) => boolean
+  expectedLifecycle?: GmailInboxAnalysisLifecycleExpectation | null
 }): Promise<GmailInboxAnalysisResult<T>> {
   const action = typeof params.action === 'string' && params.action.trim() ? params.action.trim() : ''
   if (!action) {
@@ -1777,27 +2043,52 @@ async function requestCachedInboxAnalysis<T>(params: {
       buildStatus: null,
       publishedVersion: null,
       buildingVersion: null,
+      artifactVersion: null,
       aborted: false,
     }
   }
 
   const inMemoryCached = readClientInboxAnalysisCache<T>(params.cacheKey)
   if (inMemoryCached) {
-    if (!params.acceptCachedData || params.acceptCachedData(inMemoryCached)) {
-      return { ok: true, data: inMemoryCached }
+    if (
+      gmailInboxAnalysisLifecycleMatchesExpectation(
+        inMemoryCached.lifecycle,
+        params.expectedLifecycle
+      ) &&
+      (!params.acceptCachedData || params.acceptCachedData(inMemoryCached.data))
+    ) {
+      return {
+        ok: true,
+        data: inMemoryCached.data,
+        lifecycle: inMemoryCached.lifecycle,
+      }
     }
     clearClientInboxAnalysisCache(params.cacheKey)
   }
 
   const persistedCached = readPersistedClientInboxAnalysisCache<T>(params.cacheKey)
   if (persistedCached) {
-    if (!params.acceptCachedData || params.acceptCachedData(persistedCached)) {
-      return { ok: true, data: persistedCached }
+    if (
+      gmailInboxAnalysisLifecycleMatchesExpectation(
+        persistedCached.lifecycle,
+        params.expectedLifecycle
+      ) &&
+      (!params.acceptCachedData || params.acceptCachedData(persistedCached.data))
+    ) {
+      return {
+        ok: true,
+        data: persistedCached.data,
+        lifecycle: persistedCached.lifecycle,
+      }
     }
     clearClientInboxAnalysisCache(params.cacheKey)
   }
 
-  const inflight = gmailInboxAnalysisClientInflight.get(params.cacheKey)
+  const inflightKey = [
+    params.cacheKey,
+    gmailInboxAnalysisLifecycleExpectationIdentity(params.expectedLifecycle),
+  ].join('|||lifecycle|||')
+  const inflight = gmailInboxAnalysisClientInflight.get(inflightKey)
   if (inflight) {
     return (await inflight) as GmailInboxAnalysisResult<T>
   }
@@ -1826,6 +2117,8 @@ async function requestCachedInboxAnalysis<T>(params: {
             build_status?: string | null
             published_version?: string | null
             building_version?: string | null
+            artifact_version?: string | null
+            status?: string | null
           }
         | null
 
@@ -1850,11 +2143,52 @@ async function requestCachedInboxAnalysis<T>(params: {
             typeof payload?.published_version === 'string' ? payload.published_version : null,
           buildingVersion:
             typeof payload?.building_version === 'string' ? payload.building_version : null,
+          artifactVersion:
+            typeof payload?.artifact_version === 'string' ? payload.artifact_version : null,
           aborted: false,
         }
       }
 
-      return { ok: true, data: writeClientInboxAnalysisCache(params.cacheKey, payload.data) }
+      const lifecycle = normalizeInboxAnalysisLifecycle({
+        status: payload.status,
+        reason: payload.reason,
+        retryAfterMs: payload.retry_after_ms,
+        freshnessState: payload.freshness_state,
+        buildStatus: payload.build_status,
+        publishedVersion: payload.published_version,
+        buildingVersion: payload.building_version,
+        artifactVersion: payload.artifact_version,
+      })
+      if (!lifecycle) {
+        return {
+          ok: false,
+          error: 'Published Gmail runtime lifecycle identity is unavailable.',
+          status: 503,
+          reason: 'published_artifact_lifecycle_invalid',
+          retryAfterMs: null,
+          freshnessState:
+            typeof payload.freshness_state === 'string' ? payload.freshness_state : null,
+          buildStatus: typeof payload.build_status === 'string' ? payload.build_status : null,
+          publishedVersion:
+            typeof payload.published_version === 'string' ? payload.published_version : null,
+          buildingVersion:
+            typeof payload.building_version === 'string' ? payload.building_version : null,
+          artifactVersion:
+            typeof payload.artifact_version === 'string' ? payload.artifact_version : null,
+          aborted: false,
+        }
+      }
+      const lifecycleValidatedResult = validateGmailInboxAnalysisResultLifecycle({
+        result: { ok: true, data: payload.data, lifecycle },
+        expectedLifecycle: params.expectedLifecycle,
+      })
+      if (!lifecycleValidatedResult.ok) return lifecycleValidatedResult
+      const cached = writeClientInboxAnalysisCache({
+        cacheKey: params.cacheKey,
+        data: lifecycleValidatedResult.data,
+        lifecycle: lifecycleValidatedResult.lifecycle,
+      })
+      return { ok: true, data: cached.data, lifecycle: cached.lifecycle }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return {
@@ -1867,6 +2201,7 @@ async function requestCachedInboxAnalysis<T>(params: {
           buildStatus: null,
           publishedVersion: null,
           buildingVersion: null,
+          artifactVersion: null,
           aborted: true,
         }
       }
@@ -1880,16 +2215,17 @@ async function requestCachedInboxAnalysis<T>(params: {
         buildStatus: null,
         publishedVersion: null,
         buildingVersion: null,
+        artifactVersion: null,
         aborted: false,
       }
     }
   })()
 
-  gmailInboxAnalysisClientInflight.set(params.cacheKey, request as Promise<unknown>)
+  gmailInboxAnalysisClientInflight.set(inflightKey, request as Promise<unknown>)
   try {
     return await request
   } finally {
-    gmailInboxAnalysisClientInflight.delete(params.cacheKey)
+    gmailInboxAnalysisClientInflight.delete(inflightKey)
   }
 }
 
@@ -2409,7 +2745,7 @@ export function readCachedGmailMailboxIntelligence(params: {
 }): GmailMailboxIntelligenceData | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
-  return (
+  const cached =
     readClientInboxAnalysisCache<GmailMailboxIntelligenceData>(
       mailboxIntelligenceCacheKey({
         clusters: params.clusters,
@@ -2424,7 +2760,7 @@ export function readCachedGmailMailboxIntelligence(params: {
         cacheVersion,
       })
     )
-  )
+  return cached?.data || null
 }
 
 export function readCachedGmailPressureTrend(params: {
@@ -2454,10 +2790,10 @@ export function readCachedGmailPressureTrend(params: {
     pressureEnd,
     timeZone,
   })
-  return (
+  const cached =
     readClientInboxAnalysisCache<GmailPressureTrendData>(cacheKey) ||
     readPersistedClientInboxAnalysisCache<GmailPressureTrendData>(cacheKey)
-  )
+  return cached?.data || null
 }
 
 export function primeCachedGmailPressureTrend(params: {
@@ -2469,29 +2805,8 @@ export function primeCachedGmailPressureTrend(params: {
   timeZone?: string | null
   data: GmailPressureTrendData
 }): GmailPressureTrendData {
-  const cacheVersion = params.cacheVersion?.trim() || 'default'
-  const pressureStart =
-    typeof params.pressureStart === 'string' && params.pressureStart.trim()
-      ? params.pressureStart.trim()
-      : null
-  const pressureEnd =
-    typeof params.pressureEnd === 'string' && params.pressureEnd.trim()
-      ? params.pressureEnd.trim()
-      : null
-  const timeZone =
-    typeof params.timeZone === 'string' && params.timeZone.trim() ? params.timeZone.trim() : 'UTC'
-
-  return writeClientInboxAnalysisCache(
-    pressureTrendCacheKey({
-      clusters: params.clusters,
-      cacheVersion,
-      pressureWindow: params.pressureWindow,
-      pressureStart,
-      pressureEnd,
-      timeZone,
-    }),
-    params.data
-  )
+  // Data-only priming cannot prove publication identity and is intentionally not cached.
+  return params.data
 }
 
 export function readLatestCachedGmailMailboxIntelligence(params: {
@@ -2499,7 +2814,7 @@ export function readLatestCachedGmailMailboxIntelligence(params: {
   analysisScope?: OperationsAnalysisScope
 }): GmailMailboxIntelligenceData | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
-  let latestEntry: CachedInboxAnalysisEntry<GmailMailboxIntelligenceData> | null = null
+  let latestEntry: CachedInboxAnalysisLifecycleEntry<GmailMailboxIntelligenceData> | null = null
 
   for (const [cacheKey, entry] of gmailInboxAnalysisClientCache.entries()) {
     if (entry.expiresAtMs <= Date.now()) continue
@@ -2513,7 +2828,7 @@ export function readLatestCachedGmailMailboxIntelligence(params: {
       continue
     }
     if (!latestEntry || entry.expiresAtMs > latestEntry.expiresAtMs) {
-      latestEntry = entry as CachedInboxAnalysisEntry<GmailMailboxIntelligenceData>
+      latestEntry = entry as CachedInboxAnalysisLifecycleEntry<GmailMailboxIntelligenceData>
     }
   }
 
@@ -2539,7 +2854,7 @@ export function readLatestCachedGmailMailboxIntelligence(params: {
     const persistedEntry = gmailInboxAnalysisClientCache.get(rawCacheKey)
     if (!persistedEntry || persistedEntry.expiresAtMs <= Date.now()) continue
     if (!latestEntry || persistedEntry.expiresAtMs > latestEntry.expiresAtMs) {
-      latestEntry = persistedEntry as CachedInboxAnalysisEntry<GmailMailboxIntelligenceData>
+      latestEntry = persistedEntry as CachedInboxAnalysisLifecycleEntry<GmailMailboxIntelligenceData>
     }
   }
 
@@ -2622,7 +2937,7 @@ export function senderWorkspaceHasCanonicalTimeContextTimeline(params: {
   return true
 }
 
-export function readCachedGmailSenderWorkspace(params: {
+export type ReadCachedGmailSenderWorkspaceParams = {
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
@@ -2643,7 +2958,12 @@ export function readCachedGmailSenderWorkspace(params: {
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
-}): GmailSenderWorkspaceData | null {
+  expectedLifecycle?: GmailInboxAnalysisLifecycleExpectation | null
+}
+
+export function readCachedGmailSenderWorkspaceResult(
+  params: ReadCachedGmailSenderWorkspaceParams
+): GmailInboxAnalysisSuccess<GmailSenderWorkspaceData> | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const page = params.page ?? 1
@@ -2696,6 +3016,10 @@ export function readCachedGmailSenderWorkspace(params: {
     readClientInboxAnalysisCache<GmailSenderWorkspaceData>(cacheKey) ||
     readPersistedClientInboxAnalysisCache<GmailSenderWorkspaceData>(cacheKey)
   if (!cached) return null
+  if (!gmailInboxAnalysisLifecycleMatchesExpectation(cached.lifecycle, params.expectedLifecycle)) {
+    clearClientInboxAnalysisCache(cacheKey)
+    return null
+  }
     if (
       senderWorkspaceRequiresCanonicalTimeContextTimeline({
         analysisScope,
@@ -2704,16 +3028,22 @@ export function readCachedGmailSenderWorkspace(params: {
       }) &&
     !senderWorkspaceHasCanonicalTimeContextTimeline({
       analysisScope,
-      workspace: cached,
+      workspace: cached.data,
     })
   ) {
     clearClientInboxAnalysisCache(cacheKey)
     return null
   }
-  return cached
+  return { ok: true, data: cached.data, lifecycle: cached.lifecycle }
 }
 
-export function readCachedGmailSenderDistribution(params: {
+export function readCachedGmailSenderWorkspace(
+  params: ReadCachedGmailSenderWorkspaceParams
+): GmailSenderWorkspaceData | null {
+  return readCachedGmailSenderWorkspaceResult(params)?.data || null
+}
+
+export type ReadCachedGmailSenderDistributionParams = {
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
@@ -2727,7 +3057,12 @@ export function readCachedGmailSenderDistribution(params: {
   senderOverviewEnd?: string | null
   timeZone?: string | null
   expectedSenderKeys?: string[]
-}): GmailSenderDistributionData | null {
+  expectedLifecycle?: GmailInboxAnalysisLifecycleExpectation | null
+}
+
+export function readCachedGmailSenderDistributionResult(
+  params: ReadCachedGmailSenderDistributionParams
+): GmailInboxAnalysisSuccess<GmailSenderDistributionData> | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const senderOverviewStart =
@@ -2765,14 +3100,24 @@ export function readCachedGmailSenderDistribution(params: {
     readClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey) ||
     readPersistedClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey)
   if (!cached) return null
+  if (!gmailInboxAnalysisLifecycleMatchesExpectation(cached.lifecycle, params.expectedLifecycle)) {
+    clearClientInboxAnalysisCache(cacheKey)
+    return null
+  }
   if (params.expectedSenderKeys && params.expectedSenderKeys.length > 0) {
-    const cachedSenderKeys = new Set(cached.senders.map((sender) => sender.sender_key))
+    const cachedSenderKeys = new Set(cached.data.senders.map((sender) => sender.sender_key))
     if (params.expectedSenderKeys.some((senderKey) => !cachedSenderKeys.has(senderKey))) {
       clearClientInboxAnalysisCache(cacheKey)
       return null
     }
   }
-  return cached
+  return { ok: true, data: cached.data, lifecycle: cached.lifecycle }
+}
+
+export function readCachedGmailSenderDistribution(
+  params: ReadCachedGmailSenderDistributionParams
+): GmailSenderDistributionData | null {
+  return readCachedGmailSenderDistributionResult(params)?.data || null
 }
 
 export function readCachedGmailSenderOverviewWindow(params: {
@@ -2805,10 +3150,10 @@ export function readCachedGmailSenderOverviewWindow(params: {
     pressureEnd,
     timeZone,
   })
-  return (
+  const cached =
     readClientInboxAnalysisCache<GmailSenderOverviewWindowData>(cacheKey) ||
     readPersistedClientInboxAnalysisCache<GmailSenderOverviewWindowData>(cacheKey)
-  )
+  return cached?.data || null
 }
 
 export async function fetchGmailMailboxIntelligence(params: {
@@ -2941,6 +3286,7 @@ export async function fetchGmailSenderWorkspace(params: {
   timeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
+  expectedLifecycle?: GmailInboxAnalysisLifecycleExpectation | null
 }): Promise<GmailInboxAnalysisResult<GmailSenderWorkspaceData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const page = params.page ?? 1
@@ -3097,6 +3443,7 @@ export async function fetchGmailSenderWorkspace(params: {
     },
     errorMessage: 'Failed to load sender workspace.',
     signal: params.signal,
+    expectedLifecycle: params.expectedLifecycle,
     acceptCachedData: (data) => {
       if (
         !senderWorkspaceRequiresCanonicalTimeContextTimeline({
@@ -3131,6 +3478,7 @@ export async function fetchGmailSenderDistribution(params: {
   expectedSenderKeys?: string[]
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
+  expectedLifecycle?: GmailInboxAnalysisLifecycleExpectation | null
 }): Promise<GmailInboxAnalysisResult<GmailSenderDistributionData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
@@ -3262,6 +3610,7 @@ export async function fetchGmailSenderDistribution(params: {
     },
     errorMessage: 'Failed to load Sender Distribution.',
     signal: params.signal,
+    expectedLifecycle: params.expectedLifecycle,
     acceptCachedData: (data) => {
       if (!params.expectedSenderKeys || params.expectedSenderKeys.length === 0) return true
       const senderKeys = new Set(data.senders.map((sender) => sender.sender_key))

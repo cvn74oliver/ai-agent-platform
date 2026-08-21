@@ -163,12 +163,33 @@ type ConfirmationResolution = {
   archiveMessageIds: string[]
   archiveMessageIdsBySender: Record<string, string[]>
   publication: GmailArtifactPublicationRow
+  artifactVersion: string
 }
 
 type GmailArtifactSuccess<T> = {
   ok: true
   data: T
   publication: GmailArtifactPublicationRow
+  artifactVersion: string
+}
+
+export type GmailArtifactLifecycleStatus = 'ready' | 'building' | 'degraded' | 'unavailable'
+
+export type GmailArtifactLifecycleMetadata = {
+  status: GmailArtifactLifecycleStatus
+  reason: string | null
+  retryAfterMs: number | null
+  freshnessState: string | null
+  buildStatus: string | null
+  publishedVersion: string | null
+  buildingVersion: string | null
+  artifactVersion: string | null
+}
+
+export type GmailArtifactLifecycleDecision = GmailArtifactLifecycleMetadata & {
+  usable: boolean
+  httpStatus: 200 | 409 | 503
+  error: string | null
 }
 
 type GmailSenderWorkspaceArtifactStatsRow = {
@@ -368,6 +389,7 @@ type GmailWorkspaceFailureMetadata = {
   buildStatus?: string | null
   publishedVersion?: string | null
   buildingVersion?: string | null
+  artifactVersion?: string | null
 }
 
 function fail(status: number, error: string, metadata?: GmailWorkspaceFailureMetadata) {
@@ -381,60 +403,236 @@ function fail(status: number, error: string, metadata?: GmailWorkspaceFailureMet
     buildStatus: metadata?.buildStatus ?? null,
     publishedVersion: metadata?.publishedVersion ?? null,
     buildingVersion: metadata?.buildingVersion ?? null,
+    artifactVersion: metadata?.artifactVersion ?? null,
+  }
+}
+
+export function classifyPublishedArtifactLifecycle(
+  publication: GmailArtifactPublicationRow | null,
+  artifactVersion?: string | null,
+  requireArtifactIdentity = false
+): GmailArtifactLifecycleDecision {
+  const publishedVersion = publication?.published_version?.trim() || null
+  const buildingVersion = publication?.building_version?.trim() || null
+  const loadedArtifactVersion = artifactVersion?.trim() || null
+  const metadata = {
+    freshnessState: publication?.freshness_state ?? null,
+    buildStatus: publication?.build_status ?? null,
+    publishedVersion,
+    buildingVersion,
+    artifactVersion: loadedArtifactVersion,
+  }
+
+  if (
+    publication?.freshness_state === 'stale' ||
+    publication?.freshness_state === 'full_rebuild_required'
+  ) {
+    return {
+      ...metadata,
+      status: 'unavailable',
+      usable: false,
+      httpStatus: 503,
+      reason: 'artifact_unavailable',
+      retryAfterMs: null,
+      error: 'Published Gmail runtime artifacts are unavailable.',
+    }
+  }
+
+  if (
+    requireArtifactIdentity &&
+    publishedVersion &&
+    loadedArtifactVersion !== publishedVersion
+  ) {
+    return {
+      ...metadata,
+      status: 'unavailable',
+      usable: false,
+      httpStatus: 503,
+      reason: 'published_artifact_version_mismatch',
+      retryAfterMs: null,
+      error: 'Published Gmail runtime artifact identity is inconsistent.',
+    }
+  }
+
+  const transitional =
+    publication?.build_status === 'building' ||
+    publication?.freshness_state === 'refresh_pending' ||
+    publication?.freshness_state === 'refresh_in_progress'
+
+  if (!publishedVersion) {
+    if (transitional) {
+      return {
+        ...metadata,
+        status: 'building',
+        usable: false,
+        httpStatus: 409,
+        reason: 'artifact_building',
+        retryAfterMs: 15_000,
+        error: 'Published Gmail runtime artifacts are not ready.',
+      }
+    }
+    return {
+      ...metadata,
+      status: 'unavailable',
+      usable: false,
+      httpStatus: 503,
+      reason: 'missing_published_artifact',
+      retryAfterMs: null,
+      error: 'Published Gmail runtime artifacts are unavailable.',
+    }
+  }
+
+  if (transitional) {
+    return {
+      ...metadata,
+      status: 'building',
+      usable: true,
+      httpStatus: 200,
+      reason: publication?.freshness_reason ?? 'artifact_building',
+      retryAfterMs: 15_000,
+      error: null,
+    }
+  }
+
+  const replacementFailed =
+    publication?.build_status === 'failed' || publication?.freshness_state === 'refresh_failed'
+  if (replacementFailed) {
+    if (buildingVersion) {
+      return {
+        ...metadata,
+        status: 'unavailable',
+        usable: false,
+        httpStatus: 503,
+        reason: 'artifact_unavailable',
+        retryAfterMs: null,
+        error: 'Published Gmail runtime artifact state is contradictory.',
+      }
+    }
+    return {
+      ...metadata,
+      status: 'degraded',
+      usable: true,
+      httpStatus: 200,
+      reason: publication?.freshness_reason ?? 'refresh_failed',
+      retryAfterMs: null,
+      error: null,
+    }
+  }
+
+  if (
+    (publication?.freshness_state === 'fresh' ||
+      publication?.freshness_state === 'refresh_skipped') &&
+    (publication?.build_status === 'published' || publication?.build_status === 'idle')
+  ) {
+    return {
+      ...metadata,
+      status: 'ready',
+      usable: true,
+      httpStatus: 200,
+      reason: publication.freshness_reason ?? publication.freshness_state,
+      retryAfterMs: null,
+      error: null,
+    }
+  }
+
+  return {
+    ...metadata,
+    status: 'unavailable',
+    usable: false,
+    httpStatus: 503,
+    reason: 'artifact_unavailable',
+    retryAfterMs: null,
+    error: 'Published Gmail runtime artifacts are unavailable.',
   }
 }
 
 function publishedArtifactAvailabilityFailure(
-  publication: GmailArtifactPublicationRow | null
+  publication: GmailArtifactPublicationRow | null,
+  artifactVersion?: string | null,
+  requireArtifactIdentity = false
 ): ReturnType<typeof fail> | null {
-  const metadata = {
-    freshnessState: publication?.freshness_state ?? null,
-    buildStatus: publication?.build_status ?? null,
-    publishedVersion: publication?.published_version ?? null,
-    buildingVersion: publication?.building_version ?? null,
-  }
-  if (
-    publication?.build_status === 'failed' ||
-    publication?.freshness_state === 'stale' ||
-    publication?.freshness_state === 'refresh_failed' ||
-    publication?.freshness_state === 'full_rebuild_required'
-  ) {
-    return fail(503, 'Published Gmail runtime artifacts are unavailable.', {
-      ...metadata,
-      reason: 'artifact_unavailable',
-      retryAfterMs: null,
-    })
-  }
-  if (
-    publication?.build_status === 'building' ||
-    publication?.freshness_state === 'refresh_pending' ||
-    publication?.freshness_state === 'refresh_in_progress'
-  ) {
-    return fail(409, 'Published Gmail runtime artifacts are not ready.', {
-      ...metadata,
-      reason: 'artifact_building',
-      retryAfterMs: 15_000,
-    })
-  }
-  if (!publication?.published_version) {
-    return fail(409, 'Published Gmail runtime artifacts are still being prepared.', {
-      ...metadata,
-      reason: 'missing_published_artifact',
-      retryAfterMs: 15_000,
-    })
-  }
-  if (
-    (publication.freshness_state === 'fresh' ||
-      publication.freshness_state === 'refresh_skipped') &&
-    (publication.build_status === 'published' || publication.build_status === 'idle')
-  ) {
-    return null
-  }
-  return fail(503, 'Published Gmail runtime artifacts are unavailable.', {
-    ...metadata,
-    reason: 'artifact_unavailable',
-    retryAfterMs: null,
+  const decision = classifyPublishedArtifactLifecycle(
+    publication,
+    artifactVersion,
+    requireArtifactIdentity
+  )
+  if (decision.usable) return null
+  return fail(decision.httpStatus, decision.error || 'Published Gmail runtime artifacts are unavailable.', {
+    reason: decision.reason,
+    retryAfterMs: decision.retryAfterMs,
+    freshnessState: decision.freshnessState,
+    buildStatus: decision.buildStatus,
+    publishedVersion: decision.publishedVersion,
+    buildingVersion: decision.buildingVersion,
+    artifactVersion: decision.artifactVersion,
   })
+}
+
+export function buildGmailArtifactRouteEnvelope<T>(params: {
+  publication: GmailArtifactPublicationRow | null
+  artifactVersion: string | null
+  data: T
+}): {
+  httpStatus: 200 | 409 | 503
+  body:
+    | ({ ok: true; data: T } & {
+        status: Exclude<GmailArtifactLifecycleStatus, 'unavailable'>
+        reason: string | null
+        retry_after_ms: number | null
+        freshness_state: string | null
+        build_status: string | null
+        published_version: string | null
+        building_version: string | null
+        artifact_version: string | null
+      })
+    | {
+        ok: false
+        status: 'unavailable'
+        error: string
+        reason: string | null
+        retry_after_ms: number | null
+        freshness_state: string | null
+        build_status: string | null
+        published_version: string | null
+        building_version: string | null
+        artifact_version: string | null
+      }
+} {
+  const lifecycle = classifyPublishedArtifactLifecycle(
+    params.publication,
+    params.artifactVersion,
+    true
+  )
+  const metadata = {
+    status: lifecycle.status,
+    reason: lifecycle.reason,
+    retry_after_ms: lifecycle.retryAfterMs,
+    freshness_state: lifecycle.freshnessState,
+    build_status: lifecycle.buildStatus,
+    published_version: lifecycle.publishedVersion,
+    building_version: lifecycle.buildingVersion,
+    artifact_version: lifecycle.artifactVersion,
+  }
+  if (!lifecycle.usable || lifecycle.status === 'unavailable') {
+    return {
+      httpStatus: lifecycle.httpStatus,
+      body: {
+        ok: false,
+        ...metadata,
+        status: 'unavailable',
+        error: lifecycle.error || 'Published Gmail runtime artifacts are unavailable.',
+      },
+    }
+  }
+  return {
+    httpStatus: 200,
+    body: {
+      ok: true,
+      ...metadata,
+      status: lifecycle.status,
+      data: params.data,
+    },
+  }
 }
 
 function firstPaintArtifactBudgetFailure(rowCount: number): ReturnType<typeof fail> | null {
@@ -2352,7 +2550,11 @@ async function loadSenderDistributionFromArtifact(params: {
     pageSize: 1,
   })
 
-  const publicationFailure = publishedArtifactAvailabilityFailure(headerRead.publication)
+  const publicationFailure = publishedArtifactAvailabilityFailure(
+    headerRead.publication,
+    headerRead.artifact_version,
+    true
+  )
   if (publicationFailure) return publicationFailure
   if (!headerRead.publication) {
     return fail(409, 'Published Gmail runtime artifacts are still being prepared.', {
@@ -2437,6 +2639,7 @@ async function loadSenderDistributionFromArtifact(params: {
   return {
     ok: true,
     publication: headerRead.publication,
+    artifactVersion: artifactVersion as string,
     data: {
       analysis_scope: normalizeMailboxProfileScope(params.analysisScope),
       selected_cluster: {
@@ -4857,7 +5060,11 @@ async function loadSenderWorkspaceFromArtifact(params: {
           })
     const artifactReadMs = Math.max(0, Date.now() - artifactReadStartedAt)
 
-    const publicationFailure = publishedArtifactAvailabilityFailure(artifactRead.publication)
+    const publicationFailure = publishedArtifactAvailabilityFailure(
+      artifactRead.publication,
+      artifactRead.artifact_version,
+      true
+    )
     if (publicationFailure) return publicationFailure
     if (!artifactRead.publication) {
       return fail(503, 'Published Gmail runtime artifacts are unavailable.', {
@@ -5103,6 +5310,7 @@ async function loadSenderWorkspaceFromArtifact(params: {
     return {
       ok: true,
       publication: artifactRead.publication,
+      artifactVersion: artifactRead.artifact_version as string,
       data: {
         analysis_scope: params.analysisScope,
         scope_ladder: buildScopeLadderCounts({
@@ -6570,7 +6778,11 @@ async function loadMailboxIntelligenceFromArtifact(params: {
       includeClusterSummaries: false,
       includeBuckets: false,
     })
-    const publicationFailure = publishedArtifactAvailabilityFailure(snapshotRead.publication)
+    const publicationFailure = publishedArtifactAvailabilityFailure(
+      snapshotRead.publication,
+      snapshotRead.artifact_version,
+      true
+    )
     if (publicationFailure) return publicationFailure
     if (!snapshotRead.publication) {
       return fail(409, 'Published Gmail runtime artifacts are still being prepared.', {
@@ -6595,7 +6807,9 @@ async function loadMailboxIntelligenceFromArtifact(params: {
       includeBuckets: false,
     })
     const summariesPublicationFailure = publishedArtifactAvailabilityFailure(
-      summariesRead.publication
+      summariesRead.publication,
+      summariesRead.artifact_version,
+      true
     )
     if (summariesPublicationFailure) return summariesPublicationFailure
     const bucketsRead =
@@ -6614,7 +6828,11 @@ async function loadMailboxIntelligenceFromArtifact(params: {
             includeBuckets: true,
           })
         : snapshotRead
-    const bucketsPublicationFailure = publishedArtifactAvailabilityFailure(bucketsRead.publication)
+    const bucketsPublicationFailure = publishedArtifactAvailabilityFailure(
+      bucketsRead.publication,
+      bucketsRead.artifact_version,
+      true
+    )
     if (bucketsPublicationFailure) return bucketsPublicationFailure
     const artifactRead: GmailPublishedMailboxIntelligenceArtifactRead = {
       ...snapshotRead,
@@ -6674,6 +6892,7 @@ async function loadMailboxIntelligenceFromArtifact(params: {
     return {
       ok: true,
       publication: snapshotRead.publication,
+      artifactVersion: snapshotRead.artifact_version as string,
       data,
     }
   } catch (error) {
@@ -7176,7 +7395,11 @@ export async function loadGmailPressureTrendForTenant(params: {
       includeClusterSummaries: false,
       includeBuckets: false,
     })
-    const publicationFailure = publishedArtifactAvailabilityFailure(snapshotRead.publication)
+    const publicationFailure = publishedArtifactAvailabilityFailure(
+      snapshotRead.publication,
+      snapshotRead.artifact_version,
+      true
+    )
     if (publicationFailure) return publicationFailure
     if (!snapshotRead.publication) {
       return fail(409, 'Published Gmail runtime artifacts are still being prepared.', {
@@ -7193,7 +7416,11 @@ export async function loadGmailPressureTrendForTenant(params: {
       includeClusterSummaries: false,
       includeBuckets: true,
     })
-    const bucketPublicationFailure = publishedArtifactAvailabilityFailure(bucketRead.publication)
+    const bucketPublicationFailure = publishedArtifactAvailabilityFailure(
+      bucketRead.publication,
+      bucketRead.artifact_version,
+      true
+    )
     if (bucketPublicationFailure) return bucketPublicationFailure
     const artifactRead: GmailPublishedMailboxIntelligenceArtifactRead = {
       ...snapshotRead,
@@ -7247,7 +7474,12 @@ export async function loadGmailPressureTrendForTenant(params: {
       })}`
     )
 
-    return { ok: true, data, publication: snapshotRead.publication }
+    return {
+      ok: true,
+      data,
+      publication: snapshotRead.publication,
+      artifactVersion: snapshotRead.artifact_version as string,
+    }
   } catch (error) {
     console.warn(`${GMAIL_PRESSURE_TREND_ARTIFACT_LOG_PREFIX} read failed closed:`, error)
     return fail(503, 'Published pressure-trend artifacts could not be loaded.', {
@@ -8181,6 +8413,7 @@ export async function loadGmailSenderDistributionForTenant(params: {
 function buildConfirmationPreviewFromArtifact(params: {
   analysisScope: GmailAnalysisScope
   publication: GmailArtifactPublicationRow
+  artifactVersion: string
   headers: GmailSenderWorkspaceSeedHeaderRow[]
   selectedCluster: ClusterInput
   selectedHeader: GmailSenderWorkspaceSeedHeaderRow
@@ -8222,6 +8455,7 @@ function buildConfirmationPreviewFromArtifact(params: {
 
   return {
     publication: params.publication,
+    artifactVersion: params.artifactVersion,
     preview: {
       analysis_scope: params.analysisScope,
       scope_ladder: buildScopeLadderCounts({
@@ -8274,7 +8508,11 @@ async function loadConfirmationResolutionFromArtifact(params: {
       page: 1,
       pageSize: 1,
     })
-    const publicationFailure = publishedArtifactAvailabilityFailure(preflightRead.publication)
+    const publicationFailure = publishedArtifactAvailabilityFailure(
+      preflightRead.publication,
+      preflightRead.artifact_version,
+      true
+    )
     if (publicationFailure) return publicationFailure
     if (!preflightRead.selected_header) {
       return fail(404, 'The selected cleanup group is unavailable in the published artifact.', {
@@ -8298,7 +8536,11 @@ async function loadConfirmationResolutionFromArtifact(params: {
       previewMessageIds: [],
     })
 
-    const artifactPublicationFailure = publishedArtifactAvailabilityFailure(artifactRead.publication)
+    const artifactPublicationFailure = publishedArtifactAvailabilityFailure(
+      artifactRead.publication,
+      artifactRead.artifact_version,
+      true
+    )
     if (artifactPublicationFailure) return artifactPublicationFailure
     if (!artifactRead.publication) {
       return fail(503, 'Published Gmail runtime artifacts are unavailable.', {
@@ -8343,6 +8585,18 @@ async function loadConfirmationResolutionFromArtifact(params: {
             previewMessageIds: overrideMessageIds,
           })
         : artifactRead
+    const senderPreviewPublicationFailure = publishedArtifactAvailabilityFailure(
+      senderPreviewRead.publication,
+      senderPreviewRead.artifact_version,
+      true
+    )
+    if (senderPreviewPublicationFailure) return senderPreviewPublicationFailure
+    const messagePreviewPublicationFailure = publishedArtifactAvailabilityFailure(
+      messagePreviewRead.publication,
+      messagePreviewRead.artifact_version,
+      true
+    )
+    if (messagePreviewPublicationFailure) return messagePreviewPublicationFailure
     const executionPreviewRows = Array.from(
       new Map(
         [...senderPreviewRead.preview_index_rows, ...messagePreviewRead.preview_index_rows].map(
@@ -8389,6 +8643,7 @@ async function loadConfirmationResolutionFromArtifact(params: {
     const resolution = buildConfirmationPreviewFromArtifact({
       analysisScope: params.analysisScope,
       publication: artifactRead.publication,
+      artifactVersion: artifactRead.artifact_version as string,
       headers: artifactRead.headers,
       selectedCluster: params.selectedCluster,
       selectedHeader: artifactRead.selected_header,
@@ -8467,6 +8722,7 @@ export async function loadGmailConfirmationPreviewForTenant(params: {
     ok: true,
     data: resolution.preview,
     publication: resolution.publication,
+    artifactVersion: resolution.artifactVersion,
   }
 }
 

@@ -17,6 +17,7 @@ import {
   reviewGmailSenderClusterForTenant,
 } from '@/lib/integrations/gmail/inboxAnalysis'
 import {
+  buildGmailArtifactRouteEnvelope,
   loadGmailConfirmationPreviewForTenant,
   loadGmailMailboxIntelligenceForTenant,
   loadGmailPressureTrendForTenant,
@@ -243,10 +244,19 @@ function artifactFailurePayload(result: {
   buildStatus?: string | null
   publishedVersion?: string | null
   buildingVersion?: string | null
+  artifactVersion?: string | null
 }) {
+  const lifecycleStatus =
+    result.reason === 'artifact_building' ||
+    (!result.publishedVersion &&
+      (result.buildStatus === 'building' ||
+        result.freshnessState === 'refresh_pending' ||
+        result.freshnessState === 'refresh_in_progress'))
+      ? 'building'
+      : 'unavailable'
   return {
     ok: false,
-    status: 'unavailable',
+    status: lifecycleStatus,
     error: result.error,
     reason: result.reason ?? 'artifact_unavailable',
     retry_after_ms: result.retryAfterMs ?? null,
@@ -254,35 +264,17 @@ function artifactFailurePayload(result: {
     build_status: result.buildStatus ?? null,
     published_version: result.publishedVersion ?? null,
     building_version: result.buildingVersion ?? null,
+    artifact_version: result.artifactVersion ?? null,
   }
 }
 
-function artifactSuccessPayload<T>(params: {
+function artifactSuccessResponse<T>(params: {
   publication: GmailArtifactPublicationRow | null
+  artifactVersion: string | null
   data: T
 }) {
-  const publication = params.publication
-  const transitional =
-    !publication?.published_version ||
-    publication.build_status === 'building' ||
-    publication.freshness_state === 'refresh_pending' ||
-    publication.freshness_state === 'refresh_in_progress'
-  const terminalUnavailable =
-    publication?.build_status === 'failed' ||
-    publication?.freshness_state === 'stale' ||
-    publication?.freshness_state === 'refresh_failed' ||
-    publication?.freshness_state === 'full_rebuild_required'
-  return {
-    ok: true,
-    status: terminalUnavailable ? 'unavailable' : transitional ? 'building' : 'ready',
-    reason: publication?.freshness_reason ?? (!publication ? 'missing_published_artifact' : null),
-    retry_after_ms: transitional ? 15_000 : null,
-    freshness_state: publication?.freshness_state ?? null,
-    build_status: publication?.build_status ?? null,
-    published_version: publication?.published_version ?? null,
-    building_version: publication?.building_version ?? null,
-    data: params.data,
-  }
+  const envelope = buildGmailArtifactRouteEnvelope(params)
+  return NextResponse.json(envelope.body, { status: envelope.httpStatus })
 }
 
 async function resolveAuthContext(): Promise<AuthContext> {
@@ -788,10 +780,11 @@ export async function POST(req: Request) {
         cluster_count: rawClusters.length,
         cleanup_candidate_messages: intelligence.data.cleanup_candidate_universe.message_count,
       })
-      return NextResponse.json(await artifactSuccessPayload({
+      return artifactSuccessResponse({
         publication: intelligence.publication,
+        artifactVersion: intelligence.artifactVersion,
         data: intelligence.data,
-      }))
+      })
     }
 
     if (action === 'mailbox_pressure_trend') {
@@ -864,10 +857,11 @@ export async function POST(req: Request) {
         pressure_window: pressureWindow,
         series_count: trend.data.series.length,
       })
-      return NextResponse.json(await artifactSuccessPayload({
+      return artifactSuccessResponse({
         publication: trend.publication,
+        artifactVersion: trend.artifactVersion,
         data: trend.data,
-      }))
+      })
     }
 
     if (action === 'sender_workspace') {
@@ -1119,10 +1113,11 @@ export async function POST(req: Request) {
         time_context_bucket_end_exclusive_at: timeContextBucketEndExclusiveAt,
         semantic_focus_active: semanticFocus != null,
       })
-      return NextResponse.json(await artifactSuccessPayload({
+      return artifactSuccessResponse({
         publication: 'publication' in workspace ? workspace.publication : null,
+        artifactVersion: 'artifactVersion' in workspace ? workspace.artifactVersion : null,
         data: workspace.data,
-      }))
+      })
     }
 
     if (action === 'sender_overview_window') {
@@ -1301,10 +1296,11 @@ export async function POST(req: Request) {
         series_count: windowData.data.series.length,
         grouping: windowData.data.grouping.key,
       })
-      return NextResponse.json(await artifactSuccessPayload({
+      return artifactSuccessResponse({
         publication: null,
+        artifactVersion: null,
         data: windowData.data,
-      }))
+      })
     }
 
     if (action === 'sender_distribution') {
@@ -1515,10 +1511,11 @@ export async function POST(req: Request) {
         time_context_bucket_start_at: timeContextBucketStartAt,
         time_context_bucket_end_exclusive_at: timeContextBucketEndExclusiveAt,
       })
-      return NextResponse.json(await artifactSuccessPayload({
+      return artifactSuccessResponse({
         publication: 'publication' in distribution ? distribution.publication : null,
+        artifactVersion: 'artifactVersion' in distribution ? distribution.artifactVersion : null,
         data: distribution.data,
-      }))
+      })
     }
 
     if (action === 'confirmation_preview') {
@@ -1601,10 +1598,11 @@ export async function POST(req: Request) {
         cluster_id: selectedCluster.cluster_id,
         archive_message_count: preview.data.exact_archive_impact.message_count,
       })
-      return NextResponse.json(await artifactSuccessPayload({
+      return artifactSuccessResponse({
         publication: preview.publication,
+        artifactVersion: preview.artifactVersion,
         data: preview.data,
-      }))
+      })
     }
 
     if (action === 'review_sender_cluster') {

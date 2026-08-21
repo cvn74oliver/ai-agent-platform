@@ -25,24 +25,24 @@ import {
   type GmailOperatorBackfillWindowMonths,
 } from '@/lib/integrations/gmail/gmailMailboxIndexConfig'
 
+export type OperationsRuntimeContinuity = {
+  phase: 'build_pending' | 'ready' | 'degraded' | 'unavailable'
+  stableSnapshotVersion: string | null
+  latestVersion: string | null
+  freshnessState: string | null
+  buildStatus: string | null
+  publishedVersion: string | null
+  buildingVersion: string | null
+  updatedAt: number
+}
+
 type SnapshotStatus = {
   loading: boolean
   refreshing: boolean
   error: string | null
   data: OperationsRuntimeData | null
   loadedAt: number | null
-  runtimeContinuity:
-    | {
-        phase: 'build_pending' | 'ready'
-        stableSnapshotVersion: string | null
-        latestVersion: string | null
-        freshnessState: string | null
-        buildStatus: string | null
-        publishedVersion: string | null
-        buildingVersion: string | null
-        updatedAt: number
-      }
-    | null
+  runtimeContinuity: OperationsRuntimeContinuity | null
   mailboxIndexHealth: MailboxIndexHealth | null
   manualMailboxReindexStarting: boolean
   smartMailboxSyncStarting: boolean
@@ -116,18 +116,7 @@ type ContextValue = SnapshotStatus & {
 type PersistedSnapshot = {
   loadedAt: number
   data: OperationsRuntimeData
-  runtimeContinuity:
-    | {
-        phase: 'build_pending' | 'ready'
-        stableSnapshotVersion: string | null
-        latestVersion: string | null
-        freshnessState: string | null
-        buildStatus: string | null
-        publishedVersion: string | null
-        buildingVersion: string | null
-        updatedAt: number
-      }
-    | null
+  runtimeContinuity: OperationsRuntimeContinuity | null
 }
 
 type RuntimeRehydrateDiagnostics = {
@@ -852,6 +841,106 @@ function jitteredRuntimePollDelay(baseMs: number): number {
   return Math.max(1000, baseMs - jitterWindow + Math.round(Math.random() * jitterWindow * 2))
 }
 
+type RuntimeArtifactPollTruth = {
+  freshness_state?: string | null
+  build_status?: string | null
+  published_version?: string | null
+  building_version?: string | null
+}
+
+export function operationsRuntimeContinuityIdentity(
+  continuity: OperationsRuntimeContinuity | null
+): string {
+  if (!continuity) return 'none'
+  return [
+    continuity.phase,
+    continuity.publishedVersion || 'no-published',
+    continuity.buildingVersion || 'no-building',
+    continuity.freshnessState || 'no-freshness',
+    continuity.buildStatus || 'no-build-status',
+  ].join('::')
+}
+
+export function resolveTerminalOperationsRuntimeContinuity(params: {
+  current: OperationsRuntimeContinuity | null
+  expectedIdentity: string
+  artifact: RuntimeArtifactPollTruth | null
+  nowMs?: number
+}): OperationsRuntimeContinuity | null {
+  if (
+    params.current?.phase !== 'build_pending' ||
+    operationsRuntimeContinuityIdentity(params.current) !== params.expectedIdentity
+  ) {
+    return params.current
+  }
+  const artifact = params.artifact
+  const publishedVersion = artifact?.published_version?.trim() || null
+  const buildingVersion = artifact?.building_version?.trim() || null
+  const publishedVersionMatchesStableSnapshot = Boolean(
+    publishedVersion &&
+      (publishedVersion === params.current.publishedVersion ||
+        (!params.current.publishedVersion &&
+          publishedVersion === params.current.stableSnapshotVersion))
+  )
+  const degradedUsable = Boolean(
+    artifact &&
+      publishedVersion &&
+      publishedVersionMatchesStableSnapshot &&
+      !buildingVersion &&
+      (artifact.build_status === 'failed' || artifact.freshness_state === 'refresh_failed') &&
+      artifact.freshness_state !== 'stale' &&
+      artifact.freshness_state !== 'full_rebuild_required'
+  )
+  if (!degradedUsable) {
+    return {
+      ...params.current,
+      phase: 'unavailable',
+      latestVersion: publishedVersion,
+      freshnessState: artifact?.freshness_state || null,
+      buildStatus: artifact?.build_status || null,
+      publishedVersion,
+      buildingVersion,
+      updatedAt: params.nowMs ?? Date.now(),
+    }
+  }
+  return {
+    ...params.current,
+    phase: 'degraded',
+    latestVersion: publishedVersion,
+    freshnessState: artifact?.freshness_state || null,
+    buildStatus: artifact?.build_status || null,
+    publishedVersion,
+    buildingVersion: null,
+    updatedAt: params.nowMs ?? Date.now(),
+  }
+}
+
+export function reduceTerminalOperationsRuntimeSnapshot<T>(params: {
+  data: T | null
+  loadedAt: number | null
+  continuity: OperationsRuntimeContinuity | null
+}): {
+  data: T | null
+  loadedAt: number | null
+  continuity: OperationsRuntimeContinuity | null
+  clearPersisted: boolean
+} {
+  if (params.continuity?.phase === 'unavailable') {
+    return {
+      data: null,
+      loadedAt: null,
+      continuity: params.continuity,
+      clearPersisted: true,
+    }
+  }
+  return {
+    data: params.data,
+    loadedAt: params.loadedAt,
+    continuity: params.continuity,
+    clearPersisted: false,
+  }
+}
+
 const MEMORY_CACHE = new Map<string, PersistedSnapshot>()
 let mailboxIndexHealthCache: CachedMailboxIndexHealthEntry | null = null
 let mailboxIndexHealthInflight: Promise<MailboxIndexHealth | null> | null = null
@@ -887,7 +976,8 @@ function parsePersisted(value: string | null): PersistedSnapshot | null {
         parsed.runtimeContinuity &&
         typeof parsed.runtimeContinuity === 'object' &&
         (parsed.runtimeContinuity.phase === 'build_pending' ||
-          parsed.runtimeContinuity.phase === 'ready')
+          parsed.runtimeContinuity.phase === 'ready' ||
+          parsed.runtimeContinuity.phase === 'degraded')
           ? {
               phase: parsed.runtimeContinuity.phase,
               stableSnapshotVersion:
@@ -948,12 +1038,32 @@ function isTerminalUnavailableArtifactRehydrateState(
   const continuityState = regenerationDiagnostics.continuityState || 'standard'
   const freshnessState = regenerationDiagnostics.publicationFreshnessState || null
   const buildStatus = regenerationDiagnostics.publicationBuildStatus || null
+  const publishedVersion = regenerationDiagnostics.publishedVersion || null
+  const buildingVersion = regenerationDiagnostics.buildingVersion || null
+  const degradedUsable = Boolean(
+    publishedVersion &&
+      !buildingVersion &&
+      (buildStatus === 'failed' || freshnessState === 'refresh_failed') &&
+      freshnessState !== 'stale' &&
+      freshnessState !== 'full_rebuild_required'
+  )
   return (
     continuityState === 'standard' &&
+    !degradedUsable &&
     (buildStatus === 'failed' ||
       freshnessState === 'stale' ||
       freshnessState === 'refresh_failed' ||
       freshnessState === 'full_rebuild_required')
+  )
+}
+
+function isTerminalRuntimeSnapshotFailureReason(reason: string | null | undefined): boolean {
+  return (
+    reason === 'artifact_unavailable' ||
+    reason === 'artifact_status_unavailable' ||
+    reason === 'missing_published_artifact' ||
+    reason === 'published_artifact_version_mismatch' ||
+    reason === 'published_artifact_lifecycle_invalid'
   )
 }
 
@@ -1318,6 +1428,16 @@ export function OperationsRuntimeProvider(props: {
     [storageKey]
   )
 
+  const clearPersistedSnapshot = useCallback(() => {
+    MEMORY_CACHE.delete(storageKey)
+    if (typeof window === 'undefined') return
+    try {
+      window.sessionStorage.removeItem(storageKey)
+    } catch {
+      // Ignore storage failures; in-memory runtime truth is still cleared below.
+    }
+  }, [storageKey])
+
   const refreshRuntimeSnapshot = useCallback(
     async (options?: SnapshotRefreshOptions): Promise<SnapshotRefreshResult> => {
       if (!props.agentId.trim()) {
@@ -1366,6 +1486,38 @@ export function OperationsRuntimeProvider(props: {
             return { ok: true }
           }
           if (!payload.ok || !payload.data) {
+            if (isTerminalRuntimeSnapshotFailureReason(payload.reason)) {
+              const nowMs = Date.now()
+              clearPersistedSnapshot()
+              setStatus((prev) => {
+                const nextContinuity: OperationsRuntimeContinuity = {
+                  phase: 'unavailable',
+                  stableSnapshotVersion: prev.runtimeContinuity?.stableSnapshotVersion || null,
+                  latestVersion: null,
+                  freshnessState: prev.runtimeContinuity?.freshnessState || null,
+                  buildStatus: prev.runtimeContinuity?.buildStatus || null,
+                  publishedVersion: prev.runtimeContinuity?.publishedVersion || null,
+                  buildingVersion: prev.runtimeContinuity?.buildingVersion || null,
+                  updatedAt: nowMs,
+                }
+                latestRuntimeContinuityRef.current = nextContinuity
+                return {
+                  ...prev,
+                  loading: false,
+                  refreshing: false,
+                  error: payload.error || 'Published Gmail runtime data is unavailable.',
+                  data: null,
+                  loadedAt: null,
+                  runtimeContinuity: nextContinuity,
+                  mailboxIndexHealth: mailboxIndexHealth ?? prev.mailboxIndexHealth,
+                }
+              })
+              return {
+                ok: false,
+                error: payload.error || 'Published Gmail runtime data is unavailable.',
+                reason: payload.reason || null,
+              }
+            }
             setStatus((prev) => {
               const nextStatus: SnapshotStatus = {
                 ...prev,
@@ -1389,6 +1541,43 @@ export function OperationsRuntimeProvider(props: {
           const rehydrateDiagnostics = readRuntimeRehydrateDiagnostics(runtimeData)
           const regenerationDiagnostics =
             rehydrateDiagnostics?.manual_cleanup_regeneration_diagnostics || null
+          const degradedUsable = Boolean(
+            regenerationDiagnostics?.publishedVersion &&
+              !regenerationDiagnostics.buildingVersion &&
+              (regenerationDiagnostics.publicationBuildStatus === 'failed' ||
+                regenerationDiagnostics.publicationFreshnessState === 'refresh_failed') &&
+              regenerationDiagnostics.publicationFreshnessState !== 'stale' &&
+              regenerationDiagnostics.publicationFreshnessState !== 'full_rebuild_required'
+          )
+          if (isTerminalUnavailableArtifactRehydrateState(runtimeData)) {
+            const nextContinuity: OperationsRuntimeContinuity = {
+              phase: 'unavailable',
+              stableSnapshotVersion: null,
+              latestVersion: null,
+              freshnessState: regenerationDiagnostics?.publicationFreshnessState || null,
+              buildStatus: regenerationDiagnostics?.publicationBuildStatus || null,
+              publishedVersion: regenerationDiagnostics?.publishedVersion || null,
+              buildingVersion: regenerationDiagnostics?.buildingVersion || null,
+              updatedAt: loadedAt,
+            }
+            clearPersistedSnapshot()
+            latestRuntimeContinuityRef.current = nextContinuity
+            setStatus((prev) => ({
+              ...prev,
+              loading: false,
+              refreshing: false,
+              error: 'Published Gmail runtime data is unavailable.',
+              data: null,
+              loadedAt: null,
+              runtimeContinuity: nextContinuity,
+              mailboxIndexHealth: mailboxIndexHealth ?? prev.mailboxIndexHealth,
+            }))
+            return {
+              ok: false,
+              error: 'Published Gmail runtime data is unavailable.',
+              reason: 'artifact_unavailable',
+            }
+          }
           const buildPending =
             regenerationDiagnostics?.continuityState === 'build_pending_showing_stable_snapshot' ||
             regenerationDiagnostics?.buildPending === true
@@ -1420,6 +1609,19 @@ export function OperationsRuntimeProvider(props: {
                 buildStatus: regenerationDiagnostics?.publicationBuildStatus || null,
                 publishedVersion: regenerationDiagnostics?.publishedVersion || null,
                 buildingVersion: regenerationDiagnostics?.buildingVersion || null,
+                updatedAt: Date.now(),
+              }
+            } else if (degradedUsable) {
+              nextRuntimeContinuity = {
+                phase: 'degraded',
+                stableSnapshotVersion:
+                  regenerationDiagnostics?.publishedVersion || nextDerivedVersion || null,
+                latestVersion:
+                  regenerationDiagnostics?.publishedVersion || nextDerivedVersion || null,
+                freshnessState: regenerationDiagnostics?.publicationFreshnessState || null,
+                buildStatus: regenerationDiagnostics?.publicationBuildStatus || null,
+                publishedVersion: regenerationDiagnostics?.publishedVersion || null,
+                buildingVersion: null,
                 updatedAt: Date.now(),
               }
             } else if (
@@ -1509,6 +1711,7 @@ export function OperationsRuntimeProvider(props: {
       }
     },
     [
+      clearPersistedSnapshot,
       analysisScope,
       maybeBootstrapMailboxIndex,
       maybeRecoverDegradedIndexSync,
@@ -1656,6 +1859,9 @@ export function OperationsRuntimeProvider(props: {
   useEffect(() => {
     if (status.runtimeContinuity?.phase !== 'build_pending') return
 
+    const expectedContinuityIdentity = operationsRuntimeContinuityIdentity(
+      status.runtimeContinuity
+    )
     let cancelled = false
     let pollTimeoutId: number | null = null
     let pollInFlight = false
@@ -1680,11 +1886,15 @@ export function OperationsRuntimeProvider(props: {
               Boolean(artifact.published_version) &&
               !artifact.building_version
             const artifactTerminalFailure = Boolean(
-              artifact &&
-                (artifact.build_status === 'failed' ||
+              !artifact ||
+                artifact.build_status === 'failed' ||
                   artifact.freshness_state === 'refresh_failed' ||
                   artifact.freshness_state === 'stale' ||
-                  artifact.freshness_state === 'full_rebuild_required')
+                  artifact.freshness_state === 'full_rebuild_required' ||
+                (!artifact.published_version &&
+                  artifact.build_status !== 'building' &&
+                  artifact.freshness_state !== 'refresh_pending' &&
+                  artifact.freshness_state !== 'refresh_in_progress')
             )
 
             if (artifactReady) {
@@ -1698,6 +1908,52 @@ export function OperationsRuntimeProvider(props: {
             }
             if (artifactTerminalFailure) {
               terminal = true
+              const currentContinuity = latestRuntimeContinuityRef.current
+              if (
+                operationsRuntimeContinuityIdentity(currentContinuity) !==
+                expectedContinuityIdentity
+              ) {
+                return
+              }
+              const nextContinuity = resolveTerminalOperationsRuntimeContinuity({
+                current: currentContinuity,
+                expectedIdentity: expectedContinuityIdentity,
+                artifact,
+              })
+              latestRuntimeContinuityRef.current = nextContinuity
+              const cachedSnapshot = MEMORY_CACHE.get(storageKey) || null
+              const persistedData = cachedSnapshot?.data || status.data
+              const persistedLoadedAt = cachedSnapshot?.loadedAt || status.loadedAt || Date.now()
+              const terminalSnapshot = reduceTerminalOperationsRuntimeSnapshot({
+                data: persistedData,
+                loadedAt: persistedLoadedAt,
+                continuity: nextContinuity,
+              })
+              if (terminalSnapshot.clearPersisted) {
+                clearPersistedSnapshot()
+              } else if (terminalSnapshot.data) {
+                persistSnapshot(
+                  terminalSnapshot.loadedAt ?? Date.now(),
+                  terminalSnapshot.data,
+                  terminalSnapshot.continuity
+                )
+              }
+              setStatus((prev) =>
+                operationsRuntimeContinuityIdentity(prev.runtimeContinuity) ===
+                expectedContinuityIdentity
+                  ? terminalSnapshot.clearPersisted
+                    ? {
+                        ...prev,
+                        loading: false,
+                        refreshing: false,
+                        error: 'Published Gmail runtime data is unavailable.',
+                        data: null,
+                        loadedAt: null,
+                        runtimeContinuity: terminalSnapshot.continuity,
+                      }
+                    : { ...prev, runtimeContinuity: terminalSnapshot.continuity }
+                  : prev
+              )
               return
             }
           } finally {
@@ -1729,7 +1985,16 @@ export function OperationsRuntimeProvider(props: {
         window.clearTimeout(pollTimeoutId)
       }
     }
-  }, [refreshMailboxIndexHealth, refreshRuntimeSnapshot, status.runtimeContinuity?.phase])
+  }, [
+    clearPersistedSnapshot,
+    persistSnapshot,
+    refreshMailboxIndexHealth,
+    refreshRuntimeSnapshot,
+    status.data,
+    status.loadedAt,
+    status.runtimeContinuity,
+    storageKey,
+  ])
 
   useEffect(() => {
     if (status.runtimeContinuity?.phase !== 'ready') return
@@ -1842,9 +2107,11 @@ export function OperationsRuntimeProvider(props: {
   useEffect(() => {
     const hasActiveMailboxIndexRun = status.mailboxIndexHealth?.execution_state === 'running'
     const buildPendingContinuityActive = status.runtimeContinuity?.phase === 'build_pending'
+    const terminalUnavailableContinuityActive = status.runtimeContinuity?.phase === 'unavailable'
     if (
       failedArtifactRehydrateHoldActive ||
       buildPendingContinuityActive ||
+      terminalUnavailableContinuityActive ||
       !hasActiveMailboxIndexRun &&
       !status.manualMailboxReindexStarting &&
       !status.smartMailboxSyncStarting &&
