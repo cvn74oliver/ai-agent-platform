@@ -1071,10 +1071,18 @@ function buildSenderOverviewWindowRequestKey(params: {
   ].join('::')
 }
 
-function isTransientInboxAnalysisGuardError(value: string | null | undefined): boolean {
+function isTransientInboxAnalysisGuardError(failure: {
+  reason?: string | null
+  error?: string | null
+}): boolean {
+  if (failure.reason === 'already_running' || failure.reason === 'cooldown_active') {
+    return true
+  }
   return (
-    typeof value === 'string' &&
-    (/already running/i.test(value) || /just requested/i.test(value) || /wait briefly/i.test(value))
+    typeof failure.error === 'string' &&
+    (/already running/i.test(failure.error) ||
+      /just requested/i.test(failure.error) ||
+      /wait briefly/i.test(failure.error))
   )
 }
 
@@ -4335,7 +4343,7 @@ export default function OperationsReviewPage() {
         })
         if (cancelled || ('aborted' in result && result.aborted)) return
         if (!result.ok) {
-          if (attempt < 5 && isTransientInboxAnalysisGuardError(result.error)) {
+          if (attempt < 5 && isTransientInboxAnalysisGuardError(result)) {
             attempt += 1
             await delayMs(1200)
             continue
@@ -6092,7 +6100,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         return
       }
         if (!result.ok) {
-          if (isTransientInboxAnalysisGuardError(result.error)) {
+          if (isTransientInboxAnalysisGuardError(result)) {
           const attachDeadlineMs = Date.now() + WORKSPACE_GUARD_ATTACH_WAIT_MS
           while (!cancelled && Date.now() < attachDeadlineMs) {
             const attachedSnapshot = readLatestWorkspaceCacheSnapshot()
@@ -9119,6 +9127,16 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     )
   }, [displayOverviewWorkspace, managedBySender, reviewPopulation])
   const fullAuthoritativeWorkflowSenderKeys = useMemo(() => {
+    if (workspaceHasUsableClusterGlobalSenderKeys(workflowCoverageWorkspace)) {
+      return workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace)
+    }
+    if (
+      senderOverviewWindowSelection &&
+      workspaceHasUsableClusterGlobalSenderKeys(workflowOverviewWorkspace)
+    ) {
+      return workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace)
+    }
+
     const candidateCollections = senderOverviewWindowSelection
       ? [
           workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
@@ -9144,33 +9162,6 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     displayOverviewWorkspace,
     overviewShellWorkspace,
     reviewPopulation,
-    workflowCoverageWorkspace,
-    workflowOverviewWorkspace,
-    workspace,
-  ])
-  const senderDistributionFullScopeAuthoritativeSenderKeys = useMemo(() => {
-    const candidateCollections = senderOverviewWindowSelection
-      ? [
-          workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
-          workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace || null),
-        ]
-      : [
-          workspaceClusterGlobalSenderKeys(authoritativeBucketWorkflowWorkspace || null),
-          workspaceClusterGlobalSenderKeys(workflowCoverageWorkspace || null),
-          workspaceClusterGlobalSenderKeys(workflowOverviewWorkspace || null),
-          workspaceClusterGlobalSenderKeys(displayOverviewWorkspace || null),
-          workspaceClusterGlobalSenderKeys(overviewShellWorkspace || null),
-          workspaceClusterGlobalSenderKeys(workspace || null),
-        ]
-    for (const senderKeys of candidateCollections) {
-      if (senderKeys.length > 0) return senderKeys
-    }
-    return []
-  }, [
-    authoritativeBucketWorkflowWorkspace,
-    senderOverviewWindowSelection,
-    displayOverviewWorkspace,
-    overviewShellWorkspace,
     workflowCoverageWorkspace,
     workflowOverviewWorkspace,
     workspace,
@@ -9386,6 +9377,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   ])
   const senderDistributionSemanticFocus = activeSemanticSubtypeFocusRequest
   const senderDistributionDedicatedFetchCluster = selectedCluster || null
+  const senderDistributionExpectedSenderKeys = baseSharedWorkflowSubset.orderedSenderKeys
   const senderDistributionRequestKey = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
       return null
@@ -9418,6 +9410,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     senderOverviewWindowSelection?.start,
     senderOverviewWindowSelection?.window,
   ])
+  const senderDistributionLifecycleKey = senderDistributionRequestKey
+    ? `${agentId}::${senderDistributionRequestKey}`
+    : null
   const senderDistributionCachedData = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
       return null
@@ -9435,6 +9430,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       senderOverviewStart: senderOverviewWindowSelection?.start || null,
       senderOverviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
+      expectedSenderKeys: senderDistributionExpectedSenderKeys,
     })
   }, [
     browserTimeZone,
@@ -9449,6 +9445,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     senderOverviewWindowSelection?.start,
     senderOverviewWindowSelection?.window,
     senderDistributionDedicatedFetchCluster,
+    senderDistributionExpectedSenderKeys,
   ])
   const [senderDistributionWorkspaceState, setSenderDistributionWorkspaceState] =
     useState<SenderDistributionWorkspaceState>(() =>
@@ -9468,13 +9465,48 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     )
   const senderDistributionWorkspaceStateRef = useRef(senderDistributionWorkspaceState)
   const senderDistributionInitialFetchIssuedRef = useRef(false)
+  const senderDistributionRequestGenerationRef = useRef(0)
+  const senderDistributionActiveRequestOwnerRef = useRef<{
+    lifecycleKey: string
+    generation: number
+  } | null>(null)
+  const senderDistributionRequestPlan = {
+    lifecycleKey: senderDistributionLifecycleKey,
+    requestKey: senderDistributionRequestKey,
+    selectedCluster: senderDistributionDedicatedFetchCluster,
+    allClusters: runtimeClusters,
+    analysisScope: effectiveWorkflowScope,
+    cacheVersion,
+    semanticFocus: senderDistributionSemanticFocus,
+    timeContextBucketLabel: requestedTimeContextBucketLabel,
+    timeContextBucketStartAt: requestedTimeContextBucketStartAt,
+    timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
+    senderOverviewWindow: senderOverviewWindowSelection?.window || null,
+    senderOverviewStart: senderOverviewWindowSelection?.start || null,
+    senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+    timeZone: browserTimeZone,
+    expectedSenderKeys: senderDistributionExpectedSenderKeys,
+    cachedData: senderDistributionCachedData,
+    shouldHoldContinuityShell,
+    agentId,
+  }
+  const senderDistributionRequestPlanRef = useRef(senderDistributionRequestPlan)
+  senderDistributionRequestPlanRef.current = senderDistributionRequestPlan
 
   useEffect(() => {
     senderDistributionWorkspaceStateRef.current = senderDistributionWorkspaceState
   }, [senderDistributionWorkspaceState])
 
   useEffect(() => {
-    if (!senderDistributionDedicatedFetchCluster || !senderDistributionRequestKey) {
+    const lifecycleKey = senderDistributionLifecycleKey
+    const initialRequestPlan = senderDistributionRequestPlanRef.current
+    const initialSelectedCluster = initialRequestPlan.selectedCluster
+    if (
+      !lifecycleKey ||
+      initialRequestPlan.lifecycleKey !== lifecycleKey ||
+      !initialRequestPlan.requestKey ||
+      !initialSelectedCluster
+    ) {
       setSenderDistributionWorkspaceState((current) =>
         current.status === 'idle' &&
         current.data == null &&
@@ -9486,153 +9518,174 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       return
     }
 
+    const requestKey = initialRequestPlan.requestKey
     const currentState = senderDistributionWorkspaceStateRef.current
-    const continuityHeldSenderDistributionData =
-      currentState.requestKey === senderDistributionRequestKey
-        ? currentState.data || senderDistributionCachedData
-        : senderDistributionCachedData
-    if (shouldHoldContinuityShell && continuityHeldSenderDistributionData) {
-      setSenderDistributionWorkspaceState((current) =>
-        current.status === 'ready' &&
-        current.data === continuityHeldSenderDistributionData &&
-        current.error == null &&
-        current.requestKey === senderDistributionRequestKey
-          ? current
-          : {
-              status: 'ready',
-              data: continuityHeldSenderDistributionData,
-              error: null,
-              requestKey: senderDistributionRequestKey,
-            }
-      )
+    if (currentState.requestKey === requestKey && currentState.status === 'ready') {
       return
     }
+
+    const activeOwner = senderDistributionActiveRequestOwnerRef.current
     if (
-      currentState.requestKey === senderDistributionRequestKey &&
-      (currentState.status === 'loading' || currentState.status === 'ready')
+      currentState.requestKey === requestKey &&
+      currentState.status === 'loading' &&
+      activeOwner?.lifecycleKey === lifecycleKey &&
+      activeOwner.generation === senderDistributionRequestGenerationRef.current
     ) {
       return
     }
 
-    let cancelled = false
-    const seedData =
-      currentState.requestKey === senderDistributionRequestKey
-        ? currentState.data || senderDistributionCachedData
-        : currentState.data || senderDistributionCachedData
+    if (initialRequestPlan.shouldHoldContinuityShell && initialRequestPlan.cachedData) {
+      const cachedData = initialRequestPlan.cachedData
+      setSenderDistributionWorkspaceState((current) =>
+        current.status === 'ready' &&
+        current.data === cachedData &&
+        current.error == null &&
+        current.requestKey === requestKey
+          ? current
+          : {
+              status: 'ready',
+              data: cachedData,
+              error: null,
+              requestKey,
+            }
+      )
+      return
+    }
+
+    const seedData = currentState.data || initialRequestPlan.cachedData
     const senderDistributionRequestPhase = senderDistributionInitialFetchIssuedRef.current
       ? 'interactive'
-      : 'initial_paint'
+      : 'deferred'
     senderDistributionInitialFetchIssuedRef.current = true
+    const owner = {
+      lifecycleKey,
+      generation: senderDistributionRequestGenerationRef.current + 1,
+    }
+    senderDistributionRequestGenerationRef.current = owner.generation
+    senderDistributionActiveRequestOwnerRef.current = owner
 
-    const readLatestSenderDistributionCache = () =>
-      readCachedGmailSenderDistribution({
-        selectedCluster: senderDistributionDedicatedFetchCluster,
-        allClusters: runtimeClusters,
-        analysisScope: effectiveWorkflowScope,
-        cacheVersion,
-        semanticFocus: senderDistributionSemanticFocus,
-        timeContextBucketLabel: requestedTimeContextBucketLabel,
-        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
-        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-        senderOverviewWindow: senderOverviewWindowSelection?.window || null,
-        senderOverviewStart: senderOverviewWindowSelection?.start || null,
-        senderOverviewEnd: senderOverviewWindowSelection?.end || null,
-        timeZone: browserTimeZone,
+    const ownsCurrentVisibleState = () => {
+      const currentOwner = senderDistributionActiveRequestOwnerRef.current
+      return (
+        currentOwner?.lifecycleKey === owner.lifecycleKey &&
+        currentOwner.generation === owner.generation &&
+        senderDistributionRequestPlanRef.current.lifecycleKey === owner.lifecycleKey &&
+        senderDistributionWorkspaceStateRef.current.requestKey === requestKey
+      )
+    }
+
+    const readLatestSenderDistributionCache = () => {
+      const latestPlan = senderDistributionRequestPlanRef.current
+      const latestSelectedCluster = latestPlan.selectedCluster
+      if (latestPlan.lifecycleKey !== lifecycleKey || !latestSelectedCluster) return null
+      return readCachedGmailSenderDistribution({
+        selectedCluster: latestSelectedCluster,
+        allClusters: latestPlan.allClusters,
+        analysisScope: latestPlan.analysisScope,
+        cacheVersion: latestPlan.cacheVersion,
+        semanticFocus: latestPlan.semanticFocus,
+        timeContextBucketLabel: latestPlan.timeContextBucketLabel,
+        timeContextBucketStartAt: latestPlan.timeContextBucketStartAt,
+        timeContextBucketEndExclusiveAt: latestPlan.timeContextBucketEndExclusiveAt,
+        senderOverviewWindow: latestPlan.senderOverviewWindow,
+        senderOverviewStart: latestPlan.senderOverviewStart,
+        senderOverviewEnd: latestPlan.senderOverviewEnd,
+        timeZone: latestPlan.timeZone,
+        expectedSenderKeys: latestPlan.expectedSenderKeys,
       })
+    }
 
-    setSenderDistributionWorkspaceState({
+    const loadingState: SenderDistributionWorkspaceState = {
       status: 'loading',
       data: seedData,
       error: null,
-      requestKey: senderDistributionRequestKey,
-    })
+      requestKey,
+    }
+    senderDistributionWorkspaceStateRef.current = loadingState
+    setSenderDistributionWorkspaceState(loadingState)
 
     void (async () => {
-      const result = await fetchGmailSenderDistribution({
-        selectedCluster: senderDistributionDedicatedFetchCluster,
-        allClusters: runtimeClusters,
-        analysisScope: effectiveWorkflowScope,
-        cacheVersion,
-        semanticFocus: senderDistributionSemanticFocus,
-        timeContextBucketLabel: requestedTimeContextBucketLabel,
-        timeContextBucketStartAt: requestedTimeContextBucketStartAt,
-        timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-        senderOverviewWindow: senderOverviewWindowSelection?.window || null,
-        senderOverviewStart: senderOverviewWindowSelection?.start || null,
-        senderOverviewEnd: senderOverviewWindowSelection?.end || null,
-        timeZone: browserTimeZone,
-        requestContext: {
-          source: 'operations_review_page',
-          component: 'sender_distribution',
-          reason: 'sender_distribution_chart',
-          phase: senderDistributionRequestPhase,
-          agentId,
-        },
-      })
-      if (cancelled || ('aborted' in result && result.aborted)) return
-      if (!result.ok) {
-        if (isTransientInboxAnalysisGuardError(result.error)) {
-          const attachDeadlineMs = Date.now() + SENDER_DISTRIBUTION_GUARD_ATTACH_WAIT_MS
-          while (!cancelled && Date.now() < attachDeadlineMs) {
-            const attachedData = readLatestSenderDistributionCache()
-            if (attachedData) {
-              setSenderDistributionWorkspaceState({
-                status: 'ready',
-                data: attachedData,
-                error: null,
-                requestKey: senderDistributionRequestKey,
-              })
-              return
+      try {
+        const result = await fetchGmailSenderDistribution({
+          selectedCluster: initialSelectedCluster,
+          allClusters: initialRequestPlan.allClusters,
+          analysisScope: initialRequestPlan.analysisScope,
+          cacheVersion: initialRequestPlan.cacheVersion,
+          semanticFocus: initialRequestPlan.semanticFocus,
+          timeContextBucketLabel: initialRequestPlan.timeContextBucketLabel,
+          timeContextBucketStartAt: initialRequestPlan.timeContextBucketStartAt,
+          timeContextBucketEndExclusiveAt: initialRequestPlan.timeContextBucketEndExclusiveAt,
+          senderOverviewWindow: initialRequestPlan.senderOverviewWindow,
+          senderOverviewStart: initialRequestPlan.senderOverviewStart,
+          senderOverviewEnd: initialRequestPlan.senderOverviewEnd,
+          timeZone: initialRequestPlan.timeZone,
+          expectedSenderKeys: initialRequestPlan.expectedSenderKeys,
+          requestContext: {
+            source: 'operations_review_page',
+            component: 'sender_distribution',
+            reason: 'sender_distribution_chart',
+            phase: senderDistributionRequestPhase,
+            agentId: initialRequestPlan.agentId,
+          },
+        })
+        if (!ownsCurrentVisibleState() || ('aborted' in result && result.aborted)) return
+        if (!result.ok) {
+          if (isTransientInboxAnalysisGuardError(result)) {
+            const attachDeadlineMs = Date.now() + SENDER_DISTRIBUTION_GUARD_ATTACH_WAIT_MS
+            while (ownsCurrentVisibleState() && Date.now() < attachDeadlineMs) {
+              const attachedData = readLatestSenderDistributionCache()
+              if (attachedData && ownsCurrentVisibleState()) {
+                const readyState: SenderDistributionWorkspaceState = {
+                  status: 'ready',
+                  data: attachedData,
+                  error: null,
+                  requestKey,
+                }
+                senderDistributionWorkspaceStateRef.current = readyState
+                setSenderDistributionWorkspaceState(readyState)
+                return
+              }
+              await delayMs(SENDER_DISTRIBUTION_GUARD_ATTACH_POLL_MS)
             }
-            await delayMs(SENDER_DISTRIBUTION_GUARD_ATTACH_POLL_MS)
+            if (!ownsCurrentVisibleState()) return
           }
-          if (cancelled) return
-          const latestState = senderDistributionWorkspaceStateRef.current
-          if (
-            latestState.requestKey === senderDistributionRequestKey &&
-            latestState.status === 'loading'
-          ) {
-            return
+
+          const errorState: SenderDistributionWorkspaceState = {
+            status: 'error',
+            data: null,
+            error: result.error,
+            requestKey,
           }
+          senderDistributionWorkspaceStateRef.current = errorState
+          setSenderDistributionWorkspaceState(errorState)
           return
         }
-        setSenderDistributionWorkspaceState({
-          status: 'error',
-          data: seedData,
-          error: result.error,
-          requestKey: senderDistributionRequestKey,
-        })
-        return
+
+        const readyState: SenderDistributionWorkspaceState = {
+          status: 'ready',
+          data: result.data,
+          error: null,
+          requestKey,
+        }
+        senderDistributionWorkspaceStateRef.current = readyState
+        setSenderDistributionWorkspaceState(readyState)
+      } finally {
+        if (ownsCurrentVisibleState()) {
+          senderDistributionActiveRequestOwnerRef.current = null
+        }
       }
-      setSenderDistributionWorkspaceState({
-        status: 'ready',
-        data: result.data,
-        error: null,
-        requestKey: senderDistributionRequestKey,
-      })
     })()
 
     return () => {
-      cancelled = true
+      const activeRequestOwner = senderDistributionActiveRequestOwnerRef.current
+      if (
+        activeRequestOwner?.lifecycleKey === owner.lifecycleKey &&
+        activeRequestOwner.generation === owner.generation
+      ) {
+        senderDistributionActiveRequestOwnerRef.current = null
+      }
     }
-  }, [
-    agentId,
-    browserTimeZone,
-    cacheVersion,
-    shouldHoldContinuityShell,
-    effectiveWorkflowScope,
-    runtimeClusters,
-    senderDistributionCachedData,
-    senderDistributionRequestKey,
-    senderDistributionSemanticFocus,
-    requestedTimeContextBucketLabel,
-    requestedTimeContextBucketStartAt,
-    requestedTimeContextBucketEndExclusiveAt,
-    senderOverviewWindowSelection?.end,
-    senderOverviewWindowSelection?.start,
-    senderOverviewWindowSelection?.window,
-    senderDistributionDedicatedFetchCluster,
-  ])
+  }, [senderDistributionLifecycleKey])
   const senderDistributionData = senderDistributionWorkspaceState.data
   const senderDistributionSenderLookup = useMemo(() => {
     const lookup = new Map<string, GmailSenderDistributionData['senders'][number]>()
@@ -9649,51 +9702,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     () => (senderDistributionData?.senders || []).map((sender) => sender.sender_key),
     [senderDistributionData?.senders]
   )
-  const senderDistributionAuthoritativeWorkflowSenderKeys = useMemo(() => {
-    if (
-      senderOverviewWindowSelection != null &&
-      sharedWorkflowSubset.focusedSenderKey == null &&
-      senderDistributionWorkspaceState.status === 'ready' &&
-      senderDistributionWorkspaceState.requestKey === senderDistributionRequestKey &&
-      senderDistributionBroadSenderKeys.length > 0
-    ) {
-      return senderDistributionBroadSenderKeys
-    }
-    if (
-      effectiveWorkflowScope !== normalizedAnalysisScope &&
-      senderOverviewWindowSelection == null &&
-      sharedWorkflowSubset.resolvedFilters.length === 1 &&
-      sharedWorkflowSubset.resolvedFilters[0]?.kind === 'workflow_scope' &&
-      sharedWorkflowSubset.focusedSenderKey == null &&
-      senderDistributionWorkspaceState.status === 'ready' &&
-      senderDistributionWorkspaceState.requestKey === senderDistributionRequestKey &&
-      senderDistributionBroadSenderKeys.length > 0
-    ) {
-      return senderDistributionBroadSenderKeys
-    }
-    if (
-      normalizedAnalysisScope === 'all_indexed' &&
-      effectiveWorkflowScope === normalizedAnalysisScope &&
-      sharedWorkflowSubset.resolvedFilters.length === 0 &&
-      sharedWorkflowSubset.focusedSenderKey == null &&
-      senderDistributionFullScopeAuthoritativeSenderKeys.length > 0
-    ) {
-      return senderDistributionFullScopeAuthoritativeSenderKeys
-    }
-    return authoritativeWorkflowSenderKeys
-  }, [
-    authoritativeWorkflowSenderKeys,
-    effectiveWorkflowScope,
-    normalizedAnalysisScope,
-    senderDistributionBroadSenderKeys,
-    senderDistributionFullScopeAuthoritativeSenderKeys,
-    senderDistributionRequestKey,
-    senderDistributionWorkspaceState.requestKey,
-    senderDistributionWorkspaceState.status,
-    senderOverviewWindowSelection,
-    sharedWorkflowSubset.focusedSenderKey,
-    sharedWorkflowSubset.resolvedFilters,
-  ])
+  const senderDistributionAuthoritativeWorkflowSenderKeys = authoritativeWorkflowSenderKeys
   const senderDistributionEmptyScopedSubset =
     senderDistributionWorkspaceState.status === 'ready' &&
     senderDistributionData != null &&
@@ -10247,6 +10256,24 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           ? senderDistributionWorkspaceState.error
           : null)
       : null
+  const senderDistributionRailState = !senderDistributionRequestExpected
+    ? 'unavailable_scope'
+    : senderDistributionWorkspaceState.status === 'error' || senderDistributionErrorMessage
+      ? 'unavailable_scope'
+      : senderDistributionLoading || senderDistributionUpdating
+        ? 'loading'
+        : senderDistributionWorkspaceState.status === 'ready' &&
+            senderDistributionConsistentWithWorkflow
+          ? 'ready'
+          : 'incomplete_scope'
+  const activeSharedAnalysisRailSource =
+    activeSharedAnalysisRailTab === 'time_context'
+      ? activeRailDisplay.sourceLabel
+      : 'sender_distribution'
+  const activeSharedAnalysisRailState =
+    activeSharedAnalysisRailTab === 'time_context'
+      ? activeRailDisplay.state
+      : senderDistributionRailState
   const decisionEligibleSenderKeys = useMemo(
     () => authoritativeWorkflowSenderKeys.filter((senderKey) => !managedBySender[senderKey]),
     [authoritativeWorkflowSenderKeys, managedBySender]
@@ -12651,8 +12678,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           </section>
 
           <div
-            data-sender-overview-rail-source={activeRailDisplay.sourceLabel}
-            data-sender-overview-rail-state={activeRailDisplay.state}
+            data-sender-overview-rail-source={activeSharedAnalysisRailSource}
+            data-sender-overview-rail-state={activeSharedAnalysisRailState}
             data-sender-overview-rail-scope={activeRailScope}
             data-shared-analysis-rail-tab={activeSharedAnalysisRailTab}
             data-shared-workflow-kind={sharedWorkflowSubset.kind}

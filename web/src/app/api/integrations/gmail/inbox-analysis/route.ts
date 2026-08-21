@@ -29,6 +29,7 @@ import {
   GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
   MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
 } from '@/lib/integrations/gmail/gmailWorkspaceContracts'
+import type { GmailArtifactPublicationRow } from '@/lib/integrations/gmail/gmailArtifactStore'
 
 type AuthContext =
   | { ok: true; supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>; tenantId: string }
@@ -43,13 +44,7 @@ type RequestMeta = {
 }
 
 const DISABLED_INITIAL_PAINT_LIVE_ACTIONS = new Set([
-  'sender_overview_window',
-  'sender_distribution',
-  'sender_workspace',
-  'mailbox_intelligence',
-  'mailbox_pressure_trend',
   'cleanup_group_intelligence',
-  'confirmation_preview',
 ])
 
 const HEAVY_INBOX_ANALYSIS_ACTIONS = new Set([
@@ -238,6 +233,56 @@ function clampSenderWorkspacePageSize(params: {
   }
 
   return normalizedPageSize
+}
+
+function artifactFailurePayload(result: {
+  error: string
+  reason?: string | null
+  retryAfterMs?: number | null
+  freshnessState?: string | null
+  buildStatus?: string | null
+  publishedVersion?: string | null
+  buildingVersion?: string | null
+}) {
+  return {
+    ok: false,
+    status: 'unavailable',
+    error: result.error,
+    reason: result.reason ?? 'artifact_unavailable',
+    retry_after_ms: result.retryAfterMs ?? null,
+    freshness_state: result.freshnessState ?? null,
+    build_status: result.buildStatus ?? null,
+    published_version: result.publishedVersion ?? null,
+    building_version: result.buildingVersion ?? null,
+  }
+}
+
+function artifactSuccessPayload<T>(params: {
+  publication: GmailArtifactPublicationRow | null
+  data: T
+}) {
+  const publication = params.publication
+  const transitional =
+    !publication?.published_version ||
+    publication.build_status === 'building' ||
+    publication.freshness_state === 'refresh_pending' ||
+    publication.freshness_state === 'refresh_in_progress'
+  const terminalUnavailable =
+    publication?.build_status === 'failed' ||
+    publication?.freshness_state === 'stale' ||
+    publication?.freshness_state === 'refresh_failed' ||
+    publication?.freshness_state === 'full_rebuild_required'
+  return {
+    ok: true,
+    status: terminalUnavailable ? 'unavailable' : transitional ? 'building' : 'ready',
+    reason: publication?.freshness_reason ?? (!publication ? 'missing_published_artifact' : null),
+    retry_after_ms: transitional ? 15_000 : null,
+    freshness_state: publication?.freshness_state ?? null,
+    build_status: publication?.build_status ?? null,
+    published_version: publication?.published_version ?? null,
+    building_version: publication?.building_version ?? null,
+    data: params.data,
+  }
 }
 
 async function resolveAuthContext(): Promise<AuthContext> {
@@ -736,14 +781,17 @@ export async function POST(req: Request) {
 
       if (!intelligence.ok) {
         logRequest(intelligence.status, false, { cluster_count: rawClusters.length })
-        return NextResponse.json({ error: intelligence.error }, { status: intelligence.status })
+        return NextResponse.json(artifactFailurePayload(intelligence), { status: intelligence.status })
       }
 
       logRequest(200, true, {
         cluster_count: rawClusters.length,
         cleanup_candidate_messages: intelligence.data.cleanup_candidate_universe.message_count,
       })
-      return NextResponse.json({ ok: true, data: intelligence.data })
+      return NextResponse.json(await artifactSuccessPayload({
+        publication: intelligence.publication,
+        data: intelligence.data,
+      }))
     }
 
     if (action === 'mailbox_pressure_trend') {
@@ -808,7 +856,7 @@ export async function POST(req: Request) {
 
       if (!trend.ok) {
         logRequest(trend.status, false, { cluster_count: rawClusters.length, pressure_window: pressureWindow })
-        return NextResponse.json({ error: trend.error }, { status: trend.status })
+        return NextResponse.json(artifactFailurePayload(trend), { status: trend.status })
       }
 
       logRequest(200, true, {
@@ -816,7 +864,10 @@ export async function POST(req: Request) {
         pressure_window: pressureWindow,
         series_count: trend.data.series.length,
       })
-      return NextResponse.json({ ok: true, data: trend.data })
+      return NextResponse.json(await artifactSuccessPayload({
+        publication: trend.publication,
+        data: trend.data,
+      }))
     }
 
     if (action === 'sender_workspace') {
@@ -1046,7 +1097,7 @@ export async function POST(req: Request) {
 
       if (!workspace.ok) {
         logRequest(workspace.status, false, { cluster_id: selectedCluster.cluster_id })
-        return NextResponse.json({ error: workspace.error }, { status: workspace.status })
+        return NextResponse.json(artifactFailurePayload(workspace), { status: workspace.status })
       }
 
       logRequest(200, true, {
@@ -1068,7 +1119,10 @@ export async function POST(req: Request) {
         time_context_bucket_end_exclusive_at: timeContextBucketEndExclusiveAt,
         semantic_focus_active: semanticFocus != null,
       })
-      return NextResponse.json({ ok: true, data: workspace.data })
+      return NextResponse.json(await artifactSuccessPayload({
+        publication: 'publication' in workspace ? workspace.publication : null,
+        data: workspace.data,
+      }))
     }
 
     if (action === 'sender_overview_window') {
@@ -1238,7 +1292,7 @@ export async function POST(req: Request) {
           cluster_id: selectedCluster.cluster_id,
           pressure_window: pressureWindow,
         })
-        return NextResponse.json({ error: windowData.error }, { status: windowData.status })
+        return NextResponse.json(artifactFailurePayload(windowData), { status: windowData.status })
       }
 
       logRequest(200, true, {
@@ -1247,7 +1301,10 @@ export async function POST(req: Request) {
         series_count: windowData.data.series.length,
         grouping: windowData.data.grouping.key,
       })
-      return NextResponse.json({ ok: true, data: windowData.data })
+      return NextResponse.json(await artifactSuccessPayload({
+        publication: null,
+        data: windowData.data,
+      }))
     }
 
     if (action === 'sender_distribution') {
@@ -1447,7 +1504,7 @@ export async function POST(req: Request) {
 
       if (!distribution.ok) {
         logRequest(distribution.status, false, { cluster_id: selectedCluster.cluster_id })
-        return NextResponse.json({ error: distribution.error }, { status: distribution.status })
+        return NextResponse.json(artifactFailurePayload(distribution), { status: distribution.status })
       }
 
       logRequest(200, true, {
@@ -1458,7 +1515,10 @@ export async function POST(req: Request) {
         time_context_bucket_start_at: timeContextBucketStartAt,
         time_context_bucket_end_exclusive_at: timeContextBucketEndExclusiveAt,
       })
-      return NextResponse.json({ ok: true, data: distribution.data })
+      return NextResponse.json(await artifactSuccessPayload({
+        publication: 'publication' in distribution ? distribution.publication : null,
+        data: distribution.data,
+      }))
     }
 
     if (action === 'confirmation_preview') {
@@ -1534,14 +1594,17 @@ export async function POST(req: Request) {
 
       if (!preview.ok) {
         logRequest(preview.status, false, { cluster_id: selectedCluster.cluster_id })
-        return NextResponse.json({ error: preview.error }, { status: preview.status })
+        return NextResponse.json(artifactFailurePayload(preview), { status: preview.status })
       }
 
       logRequest(200, true, {
         cluster_id: selectedCluster.cluster_id,
         archive_message_count: preview.data.exact_archive_impact.message_count,
       })
-      return NextResponse.json({ ok: true, data: preview.data })
+      return NextResponse.json(await artifactSuccessPayload({
+        publication: preview.publication,
+        data: preview.data,
+      }))
     }
 
     if (action === 'review_sender_cluster') {

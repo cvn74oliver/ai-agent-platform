@@ -252,9 +252,9 @@ type MailboxIndexLastResult = {
 
 type MailboxIndexHealth = {
   indexed_message_count: number
-  indexed_inbox_count: number
+  indexed_inbox_count: number | null
   indexed_total_rows?: number
-  indexed_inbox_rows?: number
+  indexed_inbox_rows?: number | null
   mailbox_estimated_total: number | null
   index_completion_pct: number | null
   indexed_oldest_message_at: string | null
@@ -275,6 +275,29 @@ type MailboxIndexHealth = {
   coverage_increased: boolean | null
   sync_health: 'healthy' | 'degraded_usable' | 'unavailable' | 'uninitialized' | null
   usable_with_cached_index: boolean
+  lifecycle_status: {
+    status: MailboxIndexExecutionState | null
+    reason: string | null
+    retry_after_ms: number | null
+    diagnostics_included: boolean
+    raw_message_rows_read: number | null
+    source: string | null
+  } | null
+  artifact_refresh: {
+    freshness_state: string | null
+    freshness_reason: string | null
+    published_version: string | null
+    building_version: string | null
+    build_status: string | null
+    job: {
+      job_id: string
+      status: string
+      phase: string | null
+      heartbeat_at: string | null
+      completed_at: string | null
+      last_error: string | null
+    } | null
+  } | null
 }
 
 function parseMailboxIndexYieldDetail(value: unknown): MailboxIndexYieldDetail | null {
@@ -439,6 +462,18 @@ async function fetchMailboxIndexHealth(
         payload.data.last_result && typeof payload.data.last_result === 'object'
           ? payload.data.last_result
           : null
+      const lifecycleStatusPayload =
+        payload.data.lifecycle_status && typeof payload.data.lifecycle_status === 'object'
+          ? payload.data.lifecycle_status
+          : null
+      const artifactRefreshPayload =
+        payload.data.artifact_refresh && typeof payload.data.artifact_refresh === 'object'
+          ? payload.data.artifact_refresh
+          : null
+      const artifactJobPayload =
+        artifactRefreshPayload?.job && typeof artifactRefreshPayload.job === 'object'
+          ? artifactRefreshPayload.job
+          : null
       const data: MailboxIndexHealth = {
       indexed_message_count:
         typeof payload.data.indexed_total_rows === 'number'
@@ -451,7 +486,7 @@ async function fetchMailboxIndexHealth(
           ? payload.data.indexed_inbox_rows
           : typeof payload.data.indexed_inbox_count === 'number'
             ? payload.data.indexed_inbox_count
-            : 0,
+            : null,
       indexed_total_rows:
         typeof payload.data.indexed_total_rows === 'number' ? payload.data.indexed_total_rows : undefined,
       indexed_inbox_rows:
@@ -659,6 +694,86 @@ async function fetchMailboxIndexHealth(
           ? payload.data.sync_health
           : null,
       usable_with_cached_index: payload.data.usable_with_cached_index === true,
+      lifecycle_status: lifecycleStatusPayload
+        ? {
+            status:
+              lifecycleStatusPayload.status === 'idle' ||
+              lifecycleStatusPayload.status === 'running' ||
+              lifecycleStatusPayload.status === 'stalled' ||
+              lifecycleStatusPayload.status === 'completed' ||
+              lifecycleStatusPayload.status === 'completed_no_growth' ||
+              lifecycleStatusPayload.status === 'failed'
+                ? lifecycleStatusPayload.status
+                : null,
+            reason:
+              typeof lifecycleStatusPayload.reason === 'string'
+                ? lifecycleStatusPayload.reason
+                : null,
+            retry_after_ms:
+              typeof lifecycleStatusPayload.retry_after_ms === 'number'
+                ? lifecycleStatusPayload.retry_after_ms
+                : null,
+            diagnostics_included: lifecycleStatusPayload.diagnostics_included === true,
+            raw_message_rows_read:
+              typeof lifecycleStatusPayload.raw_message_rows_read === 'number'
+                ? lifecycleStatusPayload.raw_message_rows_read
+                : null,
+            source:
+              typeof lifecycleStatusPayload.source === 'string'
+                ? lifecycleStatusPayload.source
+                : null,
+          }
+        : null,
+      artifact_refresh: artifactRefreshPayload
+        ? {
+            freshness_state:
+              typeof artifactRefreshPayload.freshness_state === 'string'
+                ? artifactRefreshPayload.freshness_state
+                : null,
+            freshness_reason:
+              typeof artifactRefreshPayload.freshness_reason === 'string'
+                ? artifactRefreshPayload.freshness_reason
+                : null,
+            published_version:
+              typeof artifactRefreshPayload.published_version === 'string'
+                ? artifactRefreshPayload.published_version
+                : null,
+            building_version:
+              typeof artifactRefreshPayload.building_version === 'string'
+                ? artifactRefreshPayload.building_version
+                : null,
+            build_status:
+              typeof artifactRefreshPayload.build_status === 'string'
+                ? artifactRefreshPayload.build_status
+                : null,
+            job:
+              artifactJobPayload && typeof artifactJobPayload.job_id === 'string'
+                ? {
+                    job_id: artifactJobPayload.job_id,
+                    status:
+                      typeof artifactJobPayload.status === 'string'
+                        ? artifactJobPayload.status
+                        : 'unknown',
+                    phase:
+                      typeof artifactJobPayload.phase === 'string'
+                        ? artifactJobPayload.phase
+                        : null,
+                    heartbeat_at:
+                      typeof artifactJobPayload.heartbeat_at === 'string'
+                        ? artifactJobPayload.heartbeat_at
+                        : null,
+                    completed_at:
+                      typeof artifactJobPayload.completed_at === 'string'
+                        ? artifactJobPayload.completed_at
+                        : null,
+                    last_error:
+                      typeof artifactJobPayload.last_error === 'string'
+                        ? artifactJobPayload.last_error
+                        : null,
+                  }
+                : null,
+          }
+        : null,
       }
 
       mailboxIndexHealthCache = {
@@ -728,7 +843,14 @@ const OperationsRuntimeContext = createContext<ContextValue | null>(null)
 const STORAGE_PREFIX = 'operations.runtime.snapshot.v2'
 const MAILBOX_INDEX_HEALTH_STORAGE_KEY = 'operations.mailbox-index.health.v1'
 const MAILBOX_INDEX_HEALTH_CACHE_TTL_MS = 15 * 1000
-const BUILD_PENDING_READY_POLL_INTERVAL_MS = 15000
+const MAILBOX_INDEX_ACTIVE_POLL_INTERVAL_MS = 10 * 1000
+const BUILD_PENDING_READY_POLL_INTERVAL_MS = 15 * 1000
+const RUNTIME_POLL_JITTER_RATIO = 0.2
+
+function jitteredRuntimePollDelay(baseMs: number): number {
+  const jitterWindow = Math.round(baseMs * RUNTIME_POLL_JITTER_RATIO)
+  return Math.max(1000, baseMs - jitterWindow + Math.round(Math.random() * jitterWindow * 2))
+}
 
 const MEMORY_CACHE = new Map<string, PersistedSnapshot>()
 let mailboxIndexHealthCache: CachedMailboxIndexHealthEntry | null = null
@@ -816,7 +938,7 @@ function readRuntimeRehydrateDiagnostics(
   return diagnostics && typeof diagnostics === 'object' ? diagnostics : null
 }
 
-function isFailedArtifactStandardRehydrateState(
+function isTerminalUnavailableArtifactRehydrateState(
   runtimeData: OperationsRuntimeData | null | undefined
 ): boolean {
   const diagnostics = readRuntimeRehydrateDiagnostics(runtimeData)
@@ -826,15 +948,12 @@ function isFailedArtifactStandardRehydrateState(
   const continuityState = regenerationDiagnostics.continuityState || 'standard'
   const freshnessState = regenerationDiagnostics.publicationFreshnessState || null
   const buildStatus = regenerationDiagnostics.publicationBuildStatus || null
-  const cleanupProfileStatus = regenerationDiagnostics.cleanupProfileStatus || null
-  const cleanupProfileRefreshReason = regenerationDiagnostics.cleanupProfileRefreshReason || null
-
   return (
     continuityState === 'standard' &&
-    freshnessState === 'refresh_failed' &&
-    buildStatus === 'failed' &&
-    cleanupProfileStatus === 'cached' &&
-    cleanupProfileRefreshReason === 'artifact_fresh'
+    (buildStatus === 'failed' ||
+      freshnessState === 'stale' ||
+      freshnessState === 'refresh_failed' ||
+      freshnessState === 'full_rebuild_required')
   )
 }
 
@@ -957,7 +1076,7 @@ export function OperationsRuntimeProvider(props: {
     [status.data, status.loadedAt]
   )
   const failedArtifactRehydrateHoldActive = useMemo(
-    () => isFailedArtifactStandardRehydrateState(status.data),
+    () => isTerminalUnavailableArtifactRehydrateState(status.data),
     [status.data]
   )
 
@@ -1231,23 +1350,18 @@ export function OperationsRuntimeProvider(props: {
         }))
 
         try {
-          const mailboxIndexHealthPromise =
+          const payload = await fetchOperationsRuntimeSnapshot({
+            agentId: props.agentId,
+            sessionId,
+            analysisScope,
+            forceMailboxProfileRefresh: options?.forceMailboxProfileRefresh === true,
+            preferredClusterId: props.preferredClusterId,
+            transitionEdge: options?.transitionEdge ?? null,
+          })
+          const mailboxIndexHealth =
             options?.forceMailboxProfileRefresh === true
-              ? fetchMailboxIndexHealth({ force: true })
-              : status.mailboxIndexHealth
-                ? Promise.resolve(status.mailboxIndexHealth)
-                : fetchMailboxIndexHealth()
-          const [payload, mailboxIndexHealth] = await Promise.all([
-            fetchOperationsRuntimeSnapshot({
-              agentId: props.agentId,
-              sessionId,
-              analysisScope,
-              forceMailboxProfileRefresh: options?.forceMailboxProfileRefresh === true,
-              preferredClusterId: props.preferredClusterId,
-              transitionEdge: options?.transitionEdge ?? null,
-            }),
-            mailboxIndexHealthPromise,
-          ])
+              ? await fetchMailboxIndexHealth({ force: true })
+              : status.mailboxIndexHealth || (await fetchMailboxIndexHealth())
           if (latestRequestKeyRef.current !== requestKey) {
             return { ok: true }
           }
@@ -1544,30 +1658,78 @@ export function OperationsRuntimeProvider(props: {
 
     let cancelled = false
     let pollTimeoutId: number | null = null
+    let pollInFlight = false
+    let terminal = false
 
-    const scheduleNextPoll = () => {
-      if (cancelled) return
+    const scheduleNextPoll = (delayMs = jitteredRuntimePollDelay(BUILD_PENDING_READY_POLL_INTERVAL_MS)) => {
+      if (cancelled || terminal || pollTimeoutId != null) return
+      if (document.visibilityState !== 'visible') return
       pollTimeoutId = window.setTimeout(() => {
+        pollTimeoutId = null
+        if (cancelled || terminal || pollInFlight || document.visibilityState !== 'visible') return
+        pollInFlight = true
         void (async () => {
-          await refreshRuntimeSnapshot({
-            silent: true,
-            refreshReason: 'smart_sync_build_ready_poll',
-            transitionEdge: 'build_pending_poll',
-          })
+          try {
+            const health = await refreshMailboxIndexHealth({ force: true })
+            if (cancelled) return
+            const artifact = health?.artifact_refresh || null
+            const artifactReady =
+              (artifact?.freshness_state === 'fresh' ||
+                artifact?.freshness_state === 'refresh_skipped') &&
+              (artifact.build_status === 'published' || artifact.build_status === 'idle') &&
+              Boolean(artifact.published_version) &&
+              !artifact.building_version
+            const artifactTerminalFailure = Boolean(
+              artifact &&
+                (artifact.build_status === 'failed' ||
+                  artifact.freshness_state === 'refresh_failed' ||
+                  artifact.freshness_state === 'stale' ||
+                  artifact.freshness_state === 'full_rebuild_required')
+            )
+
+            if (artifactReady) {
+              terminal = true
+              await refreshRuntimeSnapshot({
+                silent: true,
+                refreshReason: 'smart_sync_build_ready_poll',
+                transitionEdge: 'build_pending_poll',
+              })
+              return
+            }
+            if (artifactTerminalFailure) {
+              terminal = true
+              return
+            }
+          } finally {
+            pollInFlight = false
+          }
           scheduleNextPoll()
         })()
-      }, BUILD_PENDING_READY_POLL_INTERVAL_MS)
+      }, delayMs)
     }
 
     scheduleNextPoll()
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        if (pollTimeoutId != null) {
+          window.clearTimeout(pollTimeoutId)
+          pollTimeoutId = null
+        }
+        return
+      }
+      scheduleNextPoll(0)
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (pollTimeoutId != null) {
         window.clearTimeout(pollTimeoutId)
       }
     }
-  }, [refreshRuntimeSnapshot, status.runtimeContinuity?.phase])
+  }, [refreshMailboxIndexHealth, refreshRuntimeSnapshot, status.runtimeContinuity?.phase])
 
   useEffect(() => {
     if (status.runtimeContinuity?.phase !== 'ready') return
@@ -1650,7 +1812,7 @@ export function OperationsRuntimeProvider(props: {
     setStatus((prev) => reconcileMailboxIndexHealthState(prev, cachedHealth))
     void maybeBootstrapMailboxIndex(cachedHealth)
     void maybeRecoverDegradedIndexSync(cachedHealth, null)
-    if (isFailedArtifactStandardRehydrateState(cachedSnapshot?.data)) {
+    if (isTerminalUnavailableArtifactRehydrateState(cachedSnapshot?.data)) {
       return
     }
     const cachedClusterCount =
@@ -1693,11 +1855,45 @@ export function OperationsRuntimeProvider(props: {
       return
     }
 
-    const pollId = window.setInterval(() => {
-      void refreshMailboxIndexHealth({ force: true })
-    }, 5000)
+    let cancelled = false
+    let pollTimeoutId: number | null = null
+    let pollInFlight = false
 
-    return () => window.clearInterval(pollId)
+    const scheduleNextPoll = (delayMs = jitteredRuntimePollDelay(MAILBOX_INDEX_ACTIVE_POLL_INTERVAL_MS)) => {
+      if (cancelled || pollTimeoutId != null || document.visibilityState !== 'visible') return
+      pollTimeoutId = window.setTimeout(() => {
+        pollTimeoutId = null
+        if (cancelled || pollInFlight || document.visibilityState !== 'visible') return
+        pollInFlight = true
+        void (async () => {
+          try {
+            await refreshMailboxIndexHealth({ force: true })
+          } finally {
+            pollInFlight = false
+          }
+          if (!cancelled) scheduleNextPoll()
+        })()
+      }, delayMs)
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        if (pollTimeoutId != null) {
+          window.clearTimeout(pollTimeoutId)
+          pollTimeoutId = null
+        }
+        return
+      }
+      scheduleNextPoll(0)
+    }
+
+    scheduleNextPoll()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (pollTimeoutId != null) window.clearTimeout(pollTimeoutId)
+    }
   }, [
     refreshMailboxIndexHealth,
     status.mailboxIndexHealth,

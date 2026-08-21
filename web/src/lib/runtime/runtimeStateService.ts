@@ -21,10 +21,7 @@ import {
   loadGmailMailboxIntelligenceForTenant,
   loadGmailSenderWorkspaceForTenant,
 } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
-import {
-  loadGmailMailboxIndexCoverageForTenant,
-  loadGmailMailboxIndexState,
-} from '@/lib/integrations/gmail/gmailMailboxIndexer'
+import { loadGmailMailboxIndexState } from '@/lib/integrations/gmail/gmailMailboxIndexer'
 import {
   assembleGmailRuntimeState,
   shouldRunGmailCleanupDiscovery,
@@ -69,6 +66,13 @@ const RUNTIME_CLEANUP_SAFETY_DEFAULTS = [
 type CachedRuntimeMailboxArtifactEntry = {
   expiresAtMs: number
   data: Awaited<ReturnType<typeof loadPublishedGmailMailboxIntelligenceArtifact>>
+}
+
+type RuntimeMailboxIndexCoverage = {
+  indexed_total_rows: number
+  indexed_inbox_rows: number | null
+  indexed_date_span_start: string | null
+  indexed_date_span_end: string | null
 }
 
 type CachedRuntimeMailboxIntelligenceEntry = {
@@ -399,18 +403,35 @@ async function readCachedRuntimeMailboxArtifact(params: {
     return cached.data
   }
 
-  const data = await loadPublishedGmailMailboxIntelligenceArtifact({
+  const snapshotRead = await loadPublishedGmailMailboxIntelligenceArtifact({
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope: params.analysisScope,
     includeSnapshot: true,
-    includeClusterSummaries: true,
+    includeClusterSummaries: false,
     includeBuckets: false,
-    reconcileBuildLiveness: true,
-    buildLivenessLogPrefix: '[playground][cleanup-runtime-artifact-liveness]',
+    reconcileBuildLiveness: false,
     bypassPublicationCache: params.forceRefresh === true || params.bypassCache === true,
     awaitRefreshHandoff: params.awaitRefreshHandoff === true,
   })
+  const summariesRead = snapshotRead.artifact_version
+    ? await loadPublishedGmailMailboxIntelligenceArtifact({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: params.analysisScope,
+        includeSnapshot: false,
+        includeClusterSummaries: true,
+        includeBuckets: false,
+        reconcileBuildLiveness: false,
+      })
+    : snapshotRead
+  const data = {
+    ...snapshotRead,
+    publication: summariesRead.publication ?? snapshotRead.publication,
+    artifact_version: summariesRead.artifact_version ?? snapshotRead.artifact_version,
+    cluster_summaries: summariesRead.cluster_summaries,
+    build_liveness: null,
+  }
 
   runtimeMailboxArtifactCache.set(cacheKey, {
     expiresAtMs: now + RUNTIME_ARTIFACT_READ_CACHE_TTL_MS,
@@ -484,7 +505,7 @@ function readRecordString(value: Record<string, unknown> | null, key: string): s
 function indexedSnapshotAdvancedSinceCleanupSnapshot(params: {
   snapshot: CleanupDiscoverySnapshot | null
   indexState: Awaited<ReturnType<typeof loadGmailMailboxIndexState>> | null
-  indexCoverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>> | null
+  indexCoverage: RuntimeMailboxIndexCoverage | null
 }): boolean {
   if (!params.snapshot) return false
 
@@ -752,6 +773,10 @@ async function loadLatestCleanupDiscoverySnapshot(params: {
   supabase: SupabaseAdminClient
   agentId: string
   analysisScope: OperationsAnalysisScope
+  queryTelemetry?: {
+    queryCount: number
+    returnedRowCount: number
+  }
 }): Promise<CleanupDiscoverySnapshot | null> {
   const cached = readCachedCleanupDiscoverySnapshot({
     agentId: params.agentId,
@@ -768,6 +793,13 @@ async function loadLatestCleanupDiscoverySnapshot(params: {
     .eq('payload->>analysis_scope', params.analysisScope)
     .order('created_at', { ascending: false })
     .limit(1)
+
+  if (params.queryTelemetry) {
+    params.queryTelemetry.queryCount += 1
+    params.queryTelemetry.returnedRowCount += Array.isArray(exactQuery.data)
+      ? exactQuery.data.length
+      : 0
+  }
 
   if (!exactQuery.error) {
     for (const row of (exactQuery.data || []) as Array<{ payload: unknown }>) {
@@ -789,6 +821,11 @@ async function loadLatestCleanupDiscoverySnapshot(params: {
     agentId: params.agentId,
     limit: CLEANUP_DISCOVERY_SNAPSHOT_LOOKBACK_LIMIT,
   })
+
+  if (params.queryTelemetry) {
+    params.queryTelemetry.queryCount += 1
+    params.queryTelemetry.returnedRowCount += data.length
+  }
 
   if (error) {
     console.warn('[playground] cleanup snapshot lookup failed (non-fatal):', error)
@@ -813,12 +850,26 @@ async function loadLatestCleanupDiscoverySnapshotsForScopes(params: {
   supabase: SupabaseAdminClient
   agentId: string
   analysisScopes: GmailArtifactAnalysisScope[]
-}): Promise<Map<GmailArtifactAnalysisScope, CleanupDiscoverySnapshot>> {
+}): Promise<{
+  snapshots: Map<GmailArtifactAnalysisScope, CleanupDiscoverySnapshot>
+  queryCount: number
+  returnedRowCount: number
+  cacheHitScopeCount: number
+  cacheMissScopeCount: number
+}> {
   const requestedScopes = new Set<GmailArtifactAnalysisScope>(
     params.analysisScopes.map((scope) => scope)
   )
   const snapshots = new Map<GmailArtifactAnalysisScope, CleanupDiscoverySnapshot>()
-  if (requestedScopes.size === 0) return snapshots
+  if (requestedScopes.size === 0) {
+    return {
+      snapshots,
+      queryCount: 0,
+      returnedRowCount: 0,
+      cacheHitScopeCount: 0,
+      cacheMissScopeCount: 0,
+    }
+  }
 
   for (const scope of requestedScopes) {
     const cached = readCachedCleanupDiscoverySnapshot({
@@ -828,21 +879,46 @@ async function loadLatestCleanupDiscoverySnapshotsForScopes(params: {
     if (cached) snapshots.set(scope, cached)
   }
 
-  if (snapshots.size >= requestedScopes.size) return snapshots
+  let cacheHitScopeCount = snapshots.size
+  if (snapshots.size >= requestedScopes.size) {
+    return {
+      snapshots,
+      queryCount: 0,
+      returnedRowCount: 0,
+      cacheHitScopeCount,
+      cacheMissScopeCount: 0,
+    }
+  }
 
   const missingScopes = [...requestedScopes].filter((scope) => !snapshots.has(scope))
-  await Promise.all(
-    missingScopes.map(async (scope) => {
-      const scopedSnapshot = await loadLatestCleanupDiscoverySnapshot({
-        supabase: params.supabase,
-        agentId: params.agentId,
-        analysisScope: scope,
-      })
-      if (scopedSnapshot) snapshots.set(scope, scopedSnapshot)
+  const queryTelemetry = {
+    queryCount: 0,
+    returnedRowCount: 0,
+  }
+  let cacheMissScopeCount = 0
+  for (const scope of missingScopes) {
+    const queryCountBeforeScope = queryTelemetry.queryCount
+    const scopedSnapshot = await loadLatestCleanupDiscoverySnapshot({
+      supabase: params.supabase,
+      agentId: params.agentId,
+      analysisScope: scope,
+      queryTelemetry,
     })
-  )
+    if (queryTelemetry.queryCount > queryCountBeforeScope) {
+      cacheMissScopeCount += 1
+    } else {
+      cacheHitScopeCount += 1
+    }
+    if (scopedSnapshot) snapshots.set(scope, scopedSnapshot)
+  }
 
-  return snapshots
+  return {
+    snapshots,
+    queryCount: queryTelemetry.queryCount,
+    returnedRowCount: queryTelemetry.returnedRowCount,
+    cacheHitScopeCount,
+    cacheMissScopeCount,
+  }
 }
 
 function cleanupDiscoverySnapshotVisibleClusterCount(
@@ -863,7 +939,7 @@ function cleanupDiscoverySnapshotExpired(params: {
 
 function indexedCoverageIndicatesNonZeroClusterPotential(params: {
   analysisScope: GmailArtifactAnalysisScope
-  indexCoverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>> | null
+  indexCoverage: RuntimeMailboxIndexCoverage | null
   nowMs: number
 }): boolean {
   const scopeWindowDays = analysisScopeDays(params.analysisScope)
@@ -876,6 +952,7 @@ function indexedCoverageIndicatesNonZeroClusterPotential(params: {
     return false
   }
   if (
+    typeof params.indexCoverage.indexed_inbox_rows !== 'number' ||
     !Number.isFinite(params.indexCoverage.indexed_inbox_rows) ||
     params.indexCoverage.indexed_inbox_rows <= 0
   ) {
@@ -893,7 +970,7 @@ function selectedClusterRailBootstrapPersistedSnapshotRejectionReason(params: {
   analysisScope: GmailArtifactAnalysisScope
   snapshot: CleanupDiscoverySnapshot | null
   indexState: Awaited<ReturnType<typeof loadGmailMailboxIndexState>> | null
-  indexCoverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>> | null
+  indexCoverage: RuntimeMailboxIndexCoverage | null
   nowMs: number
 }): SelectedClusterRailBootstrapPersistedSnapshotRejectionReason | null {
   const snapshot = params.snapshot
@@ -941,12 +1018,16 @@ async function resolveSelectedClusterRailBootstrapSnapshots(params: {
   currentScope: GmailArtifactAnalysisScope | null
   currentScopeCleanupDiscoveryData: GmailCleanupDiscoveryData | null
   indexState: Awaited<ReturnType<typeof loadGmailMailboxIndexState>> | null
-  indexCoverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>> | null
+  indexCoverage: RuntimeMailboxIndexCoverage | null
   nowMs: number
   allowReadonlyScopedDiscovery?: boolean
 }): Promise<{
   snapshotsByScope: Partial<Record<GmailArtifactAnalysisScope, CleanupDiscoverySnapshot | null>>
   resolutions: SelectedClusterRailBootstrapSnapshotResolution[]
+  snapshotBootstrapQueryCount: number
+  snapshotBootstrapReturnedRowCount: number
+  snapshotBootstrapCacheHitScopeCount: number
+  snapshotBootstrapCacheMissScopeCount: number
 }> {
   const publicationStates = await loadGmailArtifactPublicationStatesForTenant({
     supabase: params.supabase,
@@ -961,11 +1042,12 @@ async function resolveSelectedClusterRailBootstrapSnapshots(params: {
       .map((row) => row.analysis_scope)
   )
 
-  const persistedSnapshots = await loadLatestCleanupDiscoverySnapshotsForScopes({
+  const persistedSnapshotLoad = await loadLatestCleanupDiscoverySnapshotsForScopes({
     supabase: params.supabase,
     agentId: params.agentId,
     analysisScopes: params.analysisScopes,
   })
+  const persistedSnapshots = persistedSnapshotLoad.snapshots
 
   const snapshotsByScope: Partial<Record<GmailArtifactAnalysisScope, CleanupDiscoverySnapshot | null>> =
     {}
@@ -1032,10 +1114,11 @@ async function resolveSelectedClusterRailBootstrapSnapshots(params: {
     }
 
     const shouldRunReadonlyScopedDiscovery =
+      params.allowReadonlyScopedDiscovery === true &&
       !publishedScopes.has(scope) &&
       (persistedSnapshotRejectedReason === 'empty_with_index_potential' ||
-        (params.allowReadonlyScopedDiscovery !== false &&
-          (!persistedSnapshot || !persistedSnapshotSupportsPreferredCluster)))
+        !persistedSnapshot ||
+        !persistedSnapshotSupportsPreferredCluster)
 
     if (shouldRunReadonlyScopedDiscovery) {
       const cleanupDiscovery = await discoverGmailCleanupClustersForTenant({
@@ -1085,6 +1168,10 @@ async function resolveSelectedClusterRailBootstrapSnapshots(params: {
   return {
     snapshotsByScope,
     resolutions,
+    snapshotBootstrapQueryCount: persistedSnapshotLoad.queryCount,
+    snapshotBootstrapReturnedRowCount: persistedSnapshotLoad.returnedRowCount,
+    snapshotBootstrapCacheHitScopeCount: persistedSnapshotLoad.cacheHitScopeCount,
+    snapshotBootstrapCacheMissScopeCount: persistedSnapshotLoad.cacheMissScopeCount,
   }
 }
 
@@ -2132,7 +2219,7 @@ function buildRuntimeCleanupDiscoveryDataFromArtifacts(params: {
 function runtimeCleanupArtifactAdvancedSincePublication(params: {
   publication: GmailArtifactPublicationRow | null
   indexState: Awaited<ReturnType<typeof loadGmailMailboxIndexState>> | null
-  indexCoverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>> | null
+  indexCoverage: RuntimeMailboxIndexCoverage | null
 }): boolean {
   if (!params.publication?.published_version) return false
 
@@ -2157,6 +2244,42 @@ function runtimeCleanupArtifactAdvancedSincePublication(params: {
       latestIndexActivityMs != null &&
       latestIndexActivityMs > publicationIndexStateMs + 1000
   )
+}
+
+type RuntimeArtifactPublicationReadiness = {
+  state: 'transitional' | 'terminal_unavailable' | 'usable'
+  reason: string
+}
+
+function runtimeArtifactPublicationReadiness(
+  publication: GmailArtifactPublicationRow | null
+): RuntimeArtifactPublicationReadiness {
+  if (
+    publication?.build_status === 'failed' ||
+    publication?.freshness_state === 'stale' ||
+    publication?.freshness_state === 'refresh_failed' ||
+    publication?.freshness_state === 'full_rebuild_required'
+  ) {
+    return { state: 'terminal_unavailable', reason: 'artifact_unavailable' }
+  }
+  if (
+    publication?.build_status === 'building' ||
+    publication?.freshness_state === 'refresh_pending' ||
+    publication?.freshness_state === 'refresh_in_progress'
+  ) {
+    return { state: 'transitional', reason: 'artifact_building' }
+  }
+  if (!publication?.published_version) {
+    return { state: 'transitional', reason: 'missing_artifact' }
+  }
+  if (
+    (publication.freshness_state === 'fresh' ||
+      publication.freshness_state === 'refresh_skipped') &&
+    (publication.build_status === 'published' || publication.build_status === 'idle')
+  ) {
+    return { state: 'usable', reason: publication.freshness_state }
+  }
+  return { state: 'terminal_unavailable', reason: 'artifact_unavailable' }
 }
 
 function enqueueCleanupDiscoveryRefreshInBackground(params: {
@@ -2487,28 +2610,31 @@ export async function loadPlaygroundRuntimeState(params: {
       params.requestMode === 'rehydrate_only' &&
       forceRefresh &&
       transitionEdge === 'smart_sync_handoff'
+    const acceptedArtifactOnlyHydration = params.requestMode === 'rehydrate_only'
     const tenantId = await loadTenantIdForUser({
       supabase: params.supabase,
       userId: params.agentUserId,
     })
     let indexState: Awaited<ReturnType<typeof loadGmailMailboxIndexState>> | null = null
-    let indexCoverage: Awaited<ReturnType<typeof loadGmailMailboxIndexCoverageForTenant>> | null =
-      null
+    let indexCoverage: RuntimeMailboxIndexCoverage | null = null
     let indexMetadataLoadMs = 0
     let artifactPublicationLoadMs = 0
 
     if (tenantId && analysisScope === 'all_indexed') {
       const startedAt = Date.now()
-      ;[indexState, indexCoverage] = await Promise.all([
-        loadGmailMailboxIndexState({
-          supabase: params.supabase,
-          tenantId,
-        }),
-        loadGmailMailboxIndexCoverageForTenant({
-          supabase: params.supabase,
-          tenantId,
-        }),
-      ])
+      indexState = await loadGmailMailboxIndexState({
+        supabase: params.supabase,
+        tenantId,
+      })
+      indexCoverage = {
+        indexed_total_rows:
+          typeof indexState?.indexed_message_count === 'number'
+            ? Math.max(0, indexState.indexed_message_count)
+            : 0,
+        indexed_inbox_rows: null,
+        indexed_date_span_start: null,
+        indexed_date_span_end: null,
+      }
       indexMetadataLoadMs = Math.max(0, Date.now() - startedAt)
     }
 
@@ -2519,7 +2645,9 @@ export async function loadPlaygroundRuntimeState(params: {
           ? indexState.indexed_message_count
           : 0
     cleanupIndexStateInboxCount =
-      indexCoverage && Number.isFinite(indexCoverage.indexed_inbox_rows)
+      indexCoverage &&
+      typeof indexCoverage.indexed_inbox_rows === 'number' &&
+      Number.isFinite(indexCoverage.indexed_inbox_rows)
         ? indexCoverage.indexed_inbox_rows
         : 0
 
@@ -2537,7 +2665,7 @@ export async function loadPlaygroundRuntimeState(params: {
       }
       phaseMs.cleanup_plan_ms = Date.now() - cleanupPlanStartedAt
     } else {
-      if (analysisScope === 'all_indexed') {
+      if (analysisScope === 'all_indexed' || acceptedArtifactOnlyHydration) {
         const artifactReadStartedAt = Date.now()
         const artifactRead = await (async () => {
           try {
@@ -2574,15 +2702,14 @@ export async function loadPlaygroundRuntimeState(params: {
         const summaries = artifactRead.cluster_summaries
         const clusterInputs = buildRuntimeCleanupArtifactClusterInputs(summaries)
         const artifactIsPublished = Boolean(publication?.published_version)
-        const artifactIsStale = runtimeCleanupArtifactAdvancedSincePublication({
+        const publicationReadiness = runtimeArtifactPublicationReadiness(publication)
+        const artifactIndexAdvanced = runtimeCleanupArtifactAdvancedSincePublication({
           publication,
           indexState,
           indexCoverage,
         })
-        const failedArtifactNeedsRecovery =
-          artifactIsPublished &&
-          (publication?.freshness_state === 'refresh_failed' ||
-            publication?.build_status === 'failed')
+        const artifactIsUsable = publicationReadiness.state === 'usable'
+        const failedArtifactNeedsRecovery = publicationReadiness.state === 'terminal_unavailable'
         const indexHasData = cleanupIndexStateIndexedCount > 0
         const zeroClusterArtifactNeedsRefresh = Boolean(
           artifactIsPublished && indexHasData && clusterInputs.length === 0
@@ -2599,20 +2726,21 @@ export async function loadPlaygroundRuntimeState(params: {
           params.requestMode === 'rehydrate_only' &&
           analysisScope === 'all_indexed' &&
           artifactIsPublished &&
+          publicationReadiness.state === 'transitional' &&
           publicationBuildActive
 
-        snapshotScope = artifactIsPublished ? analysisScope : null
+        snapshotScope = artifactIsUsable || buildPendingWhileServingStableSnapshot ? analysisScope : null
         snapshotVersionBefore = artifactRead.artifact_version
         snapshotVersionAfter = artifactRead.artifact_version
         cleanupSnapshotClusterCount = clusterInputs.length
 
         let mailboxIntelligenceLoadMs = 0
         let senderOverviewSnapshotLoadMs = 0
-        const shouldLoadMailboxIntelligence = clusterInputs.length > 0
+        const shouldLoadMailboxIntelligence =
+          (artifactIsUsable || buildPendingWhileServingStableSnapshot) && clusterInputs.length > 0
         const shouldPreloadSenderOverviewSnapshot =
           params.requestMode === 'rehydrate_only' &&
-          artifactIsPublished &&
-          failedArtifactNeedsRecovery &&
+          artifactIsUsable &&
           clusterInputs.length > 0 &&
           Boolean(params.preferredClusterId) &&
           !buildPendingWhileServingStableSnapshot
@@ -2669,7 +2797,7 @@ export async function loadPlaygroundRuntimeState(params: {
 
         cleanupProfileRefreshReason = forceRefresh
           ? 'force'
-          : artifactIsStale
+          : artifactIndexAdvanced
             ? 'index_advanced'
             : failedArtifactNeedsRecovery
               ? 'failed_artifact_recovery'
@@ -2684,9 +2812,10 @@ export async function loadPlaygroundRuntimeState(params: {
         }
 
         const shouldAttemptBackgroundRefresh =
+          params.requestMode !== 'rehydrate_only' &&
           !buildPendingWhileServingStableSnapshot &&
           (forceRefresh ||
-            artifactIsStale ||
+            artifactIndexAdvanced ||
             failedArtifactNeedsRecovery ||
             zeroClusterArtifactNeedsRefresh ||
             missingArtifactNeedsRefresh)
@@ -2726,10 +2855,10 @@ export async function loadPlaygroundRuntimeState(params: {
             const result = buildRuntimeCleanupDiscoveryDataFromArtifacts({
               analysisScope,
               publication,
-              summaries,
+              summaries: artifactIsUsable || buildPendingWhileServingStableSnapshot ? summaries : [],
               mailboxIntelligence,
               senderOverviewSnapshot,
-              freshness: artifactIsPublished && !artifactIsStale ? 'cached' : 'stale',
+              freshness: artifactIsUsable ? 'cached' : 'stale',
               currentIndexedTotal: cleanupIndexStateIndexedCount,
               currentIndexedInbox: cleanupIndexStateInboxCount,
             })
@@ -2747,7 +2876,11 @@ export async function loadPlaygroundRuntimeState(params: {
             })
           }
         })()
-        cleanupProfileStatus = artifactIsPublished ? (artifactIsStale ? 'stale' : 'cached') : 'stale'
+        cleanupProfileStatus = artifactIsUsable
+          ? 'cached'
+          : buildPendingWhileServingStableSnapshot
+            ? 'stale'
+            : 'none'
         previousSnapshotServedWhileRefreshing =
           (backgroundRefreshEnqueued && artifactIsPublished) || buildPendingWhileServingStableSnapshot
 
@@ -2756,6 +2889,9 @@ export async function loadPlaygroundRuntimeState(params: {
           wrapper_snapshot_preload_skipped: true,
           wrapper_index_metadata_preload_ms: indexMetadataLoadMs,
           wrapper_index_metadata_preload_skipped: false,
+          wrapper_index_metadata_source: 'gmail_mailbox_index_state',
+          request_time_gmail_messages_rows: 0,
+          runtime_artifact_query_concurrency: 1,
           artifact_publication_load_ms: artifactPublicationLoadMs,
           mailbox_intelligence_load_ms: mailboxIntelligenceLoadMs,
           sender_overview_snapshot_load_ms: senderOverviewSnapshotLoadMs,
@@ -2763,6 +2899,8 @@ export async function loadPlaygroundRuntimeState(params: {
           artifact_version: artifactRead.artifact_version,
           artifact_freshness_state: publication?.freshness_state ?? null,
           artifact_build_status: publication?.build_status ?? null,
+          artifact_publication_readiness: publicationReadiness.state,
+          artifact_publication_readiness_reason: publicationReadiness.reason,
           artifact_build_liveness_status: buildLiveness?.status ?? null,
           artifact_build_reclaim_reason: buildLiveness?.reclaim_reason ?? null,
           artifact_build_reclaim_applied: buildLiveness?.reclaim_applied ?? false,
@@ -3049,26 +3187,23 @@ export async function loadPlaygroundRuntimeState(params: {
             const summaries = artifactRead.cluster_summaries
             const clusterInputs = buildRuntimeCleanupArtifactClusterInputs(summaries)
             const artifactIsPublished = Boolean(publication?.published_version)
-            const artifactIsStale = runtimeCleanupArtifactAdvancedSincePublication({
-              publication,
-              indexState,
-              indexCoverage,
-            })
+            const publicationReadiness = runtimeArtifactPublicationReadiness(publication)
+            const artifactIsUsable = publicationReadiness.state === 'usable'
 
-            snapshotScope = artifactIsPublished ? analysisScope : null
+            snapshotScope = artifactIsUsable ? analysisScope : null
             snapshotVersionAfter = artifactRead.artifact_version
-            cleanupSnapshotClusterCount = clusterInputs.length
+            cleanupSnapshotClusterCount = artifactIsUsable ? clusterInputs.length : 0
             cleanupDiscoveryData = buildRuntimeCleanupDiscoveryDataFromArtifacts({
               analysisScope,
               publication,
-              summaries,
+              summaries: artifactIsUsable ? summaries : [],
               mailboxIntelligence: null,
               senderOverviewSnapshot: null,
-              freshness: artifactIsPublished && !artifactIsStale ? 'cached' : 'stale',
+              freshness: artifactIsUsable ? 'cached' : 'stale',
               currentIndexedTotal: cleanupIndexStateIndexedCount,
               currentIndexedInbox: cleanupIndexStateInboxCount,
             })
-            cleanupProfileStatus = artifactIsPublished ? (artifactIsStale ? 'stale' : 'cached') : 'stale'
+            cleanupProfileStatus = artifactIsUsable ? 'cached' : 'none'
 
             cleanupPlanDetailMs = {
               wrapper_snapshot_preload_ms: snapshotPreloadMs,
@@ -3079,6 +3214,8 @@ export async function loadPlaygroundRuntimeState(params: {
               artifact_mode: artifactIsPublished
                 ? 'published_artifact_scoped_fallback'
                 : 'safe_partial',
+              artifact_publication_readiness: publicationReadiness.state,
+              artifact_publication_readiness_reason: publicationReadiness.reason,
               artifact_version: artifactRead.artifact_version,
               artifact_cluster_summary_count: summaries.length,
               mailbox_intelligence_present: false,
@@ -3220,10 +3357,15 @@ export async function loadPlaygroundRuntimeState(params: {
               (cluster) => preferredClusterCandidateIds.includes(cluster.cluster_id)
             )?.title || null
           if (!indexCoverage) {
-            indexCoverage = await loadGmailMailboxIndexCoverageForTenant({
-              supabase: params.supabase,
-              tenantId,
-            })
+            indexCoverage = {
+              indexed_total_rows:
+                typeof indexState?.indexed_message_count === 'number'
+                  ? Math.max(0, indexState.indexed_message_count)
+                  : 0,
+              indexed_inbox_rows: null,
+              indexed_date_span_start: null,
+              indexed_date_span_end: null,
+            }
           }
           const normalizedCurrentScope =
             selectedAnalysisScope && GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS.includes(selectedAnalysisScope)
@@ -3244,6 +3386,17 @@ export async function loadPlaygroundRuntimeState(params: {
               nowMs: Date.now(),
               allowReadonlyScopedDiscovery: params.requestMode !== 'rehydrate_only',
             })
+            if (cleanupPlanDetailMs) {
+              cleanupPlanDetailMs.runtime_artifact_query_concurrency = 1
+              cleanupPlanDetailMs.selected_cluster_rail_snapshot_bootstrap_query_count =
+                scopedRailBootstrap.snapshotBootstrapQueryCount
+              cleanupPlanDetailMs.selected_cluster_rail_snapshot_bootstrap_returned_rows =
+                scopedRailBootstrap.snapshotBootstrapReturnedRowCount
+              cleanupPlanDetailMs.selected_cluster_rail_snapshot_bootstrap_cache_hit_scope_count =
+                scopedRailBootstrap.snapshotBootstrapCacheHitScopeCount
+              cleanupPlanDetailMs.selected_cluster_rail_snapshot_bootstrap_cache_miss_scope_count =
+                scopedRailBootstrap.snapshotBootstrapCacheMissScopeCount
+            }
             const snapshotFallbackByScope = Object.fromEntries(
               GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS.map((scope) => [
                 scope,
@@ -3293,6 +3446,15 @@ export async function loadPlaygroundRuntimeState(params: {
                   selected_cluster_rail_family_load_ms: selectedClusterRailFamilyLoadMs,
                   preferred_cluster_review_bootstrap_ms: preferredClusterReviewBootstrapMs,
                   mode: selectedClusterRailFamilyLoadMode,
+                  runtime_artifact_query_concurrency: 1,
+                  snapshot_bootstrap_query_count:
+                    scopedRailBootstrap.snapshotBootstrapQueryCount,
+                  snapshot_bootstrap_returned_rows:
+                    scopedRailBootstrap.snapshotBootstrapReturnedRowCount,
+                  snapshot_bootstrap_cache_hit_scope_count:
+                    scopedRailBootstrap.snapshotBootstrapCacheHitScopeCount,
+                  snapshot_bootstrap_cache_miss_scope_count:
+                    scopedRailBootstrap.snapshotBootstrapCacheMissScopeCount,
                   snapshot_resolution: scopedRailBootstrap.resolutions,
                   scope_resolution: railFamilyResult.scope_resolution,
                 })}`

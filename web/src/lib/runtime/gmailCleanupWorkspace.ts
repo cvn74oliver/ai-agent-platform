@@ -8,6 +8,10 @@ import {
   resolveCleanupClusterIdentity,
   type CleanupClusterIdentitySource,
 } from '@/lib/runtime/gmailCleanupClusterIdentity'
+import {
+  DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
+  MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
+} from '@/lib/integrations/gmail/gmailWorkspaceContracts'
 
 export const GMAIL_CLEANUP_STAGES = [
   'senders',
@@ -56,6 +60,14 @@ export const GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS = ['asc', 'desc'] as const
 
 export type GmailSenderWorkspaceSortDirection =
   (typeof GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS)[number]
+
+function clampGmailArtifactPageSize(value: number | null | undefined): number {
+  const requested =
+    typeof value === 'number' && Number.isFinite(value)
+      ? Math.floor(value)
+      : DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE
+  return Math.min(Math.max(requested, 1), MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE)
+}
 
 export type GmailSenderWorkspaceSemanticFocus = {
   family: GmailSemanticFamily
@@ -1350,6 +1362,21 @@ type CachedInboxAnalysisEntry<T> = {
   data: T
 }
 
+export type GmailInboxAnalysisFailure = {
+  ok: false
+  error: string
+  status: number | null
+  reason: string | null
+  retryAfterMs: number | null
+  freshnessState: string | null
+  buildStatus: string | null
+  publishedVersion: string | null
+  buildingVersion: string | null
+  aborted: boolean
+}
+
+export type GmailInboxAnalysisResult<T> = { ok: true; data: T } | GmailInboxAnalysisFailure
+
 const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_TTL_MS = 1000 * 60 * 10
 const GMAIL_INBOX_ANALYSIS_CLIENT_CACHE_STORAGE_PREFIX = 'gmail.inbox.analysis.v1'
 const GMAIL_RUNTIME_SUMMARY_CLIENT_CACHE_TTL_MS = 15 * 1000
@@ -1730,7 +1757,7 @@ async function requestCachedInboxAnalysis<T>(params: {
   errorMessage: string
   signal?: AbortSignal
   acceptCachedData?: (data: T) => boolean
-}): Promise<{ ok: true; data: T } | { ok: false; error: string; aborted?: true }> {
+}): Promise<GmailInboxAnalysisResult<T>> {
   const action = typeof params.action === 'string' && params.action.trim() ? params.action.trim() : ''
   if (!action) {
     console.warn(
@@ -1740,7 +1767,18 @@ async function requestCachedInboxAnalysis<T>(params: {
         cache_key: params.cacheKey,
       })}`
     )
-    return { ok: false, error: 'Inbox analysis action is required before requesting Gmail analysis.' }
+    return {
+      ok: false,
+      error: 'Inbox analysis action is required before requesting Gmail analysis.',
+      status: null,
+      reason: 'missing_action',
+      retryAfterMs: null,
+      freshnessState: null,
+      buildStatus: null,
+      publishedVersion: null,
+      buildingVersion: null,
+      aborted: false,
+    }
   }
 
   const inMemoryCached = readClientInboxAnalysisCache<T>(params.cacheKey)
@@ -1761,10 +1799,10 @@ async function requestCachedInboxAnalysis<T>(params: {
 
   const inflight = gmailInboxAnalysisClientInflight.get(params.cacheKey)
   if (inflight) {
-    return (await inflight) as { ok: true; data: T } | { ok: false; error: string; aborted?: true }
+    return (await inflight) as GmailInboxAnalysisResult<T>
   }
 
-  const request = (async (): Promise<{ ok: true; data: T } | { ok: false; error: string; aborted?: true }> => {
+  const request = (async (): Promise<GmailInboxAnalysisResult<T>> => {
     try {
       const res = await fetch('/api/integrations/gmail/inbox-analysis', {
         method: 'POST',
@@ -1778,19 +1816,72 @@ async function requestCachedInboxAnalysis<T>(params: {
       })
 
       const payload = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; data?: T }
+        | {
+            ok?: boolean
+            error?: string
+            data?: T
+            reason?: string | null
+            retry_after_ms?: number | null
+            freshness_state?: string | null
+            build_status?: string | null
+            published_version?: string | null
+            building_version?: string | null
+          }
         | null
 
       if (!res.ok || !payload?.ok || !payload.data) {
-        return { ok: false, error: payload?.error || params.errorMessage }
+        return {
+          ok: false,
+          error: payload?.error || params.errorMessage,
+          status: res.status,
+          reason:
+            typeof payload?.reason === 'string' && payload.reason.trim()
+              ? payload.reason.trim()
+              : null,
+          retryAfterMs:
+            typeof payload?.retry_after_ms === 'number' &&
+            Number.isFinite(payload.retry_after_ms)
+              ? Math.max(0, Math.round(payload.retry_after_ms))
+              : null,
+          freshnessState:
+            typeof payload?.freshness_state === 'string' ? payload.freshness_state : null,
+          buildStatus: typeof payload?.build_status === 'string' ? payload.build_status : null,
+          publishedVersion:
+            typeof payload?.published_version === 'string' ? payload.published_version : null,
+          buildingVersion:
+            typeof payload?.building_version === 'string' ? payload.building_version : null,
+          aborted: false,
+        }
       }
 
       return { ok: true, data: writeClientInboxAnalysisCache(params.cacheKey, payload.data) }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        return { ok: false, error: 'Request cancelled.', aborted: true }
+        return {
+          ok: false,
+          error: 'Request cancelled.',
+          status: null,
+          reason: null,
+          retryAfterMs: null,
+          freshnessState: null,
+          buildStatus: null,
+          publishedVersion: null,
+          buildingVersion: null,
+          aborted: true,
+        }
       }
-      return { ok: false, error: params.errorMessage }
+      return {
+        ok: false,
+        error: params.errorMessage,
+        status: null,
+        reason: null,
+        retryAfterMs: null,
+        freshnessState: null,
+        buildStatus: null,
+        publishedVersion: null,
+        buildingVersion: null,
+        aborted: false,
+      }
     }
   })()
 
@@ -2556,7 +2647,7 @@ export function readCachedGmailSenderWorkspace(params: {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const page = params.page ?? 1
-  const pageSize = params.pageSize ?? 12
+  const pageSize = clampGmailArtifactPageSize(params.pageSize)
   const search = typeof params.search === 'string' ? params.search.trim() : ''
   const filter = params.filter ?? 'all'
   const sort = params.sort ?? 'message_count'
@@ -2635,6 +2726,7 @@ export function readCachedGmailSenderDistribution(params: {
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
+  expectedSenderKeys?: string[]
 }): GmailSenderDistributionData | null {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
@@ -2669,10 +2761,18 @@ export function readCachedGmailSenderDistribution(params: {
     senderOverviewEnd,
     timeZone,
   })
-  return (
+  const cached =
     readClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey) ||
     readPersistedClientInboxAnalysisCache<GmailSenderDistributionData>(cacheKey)
-  )
+  if (!cached) return null
+  if (params.expectedSenderKeys && params.expectedSenderKeys.length > 0) {
+    const cachedSenderKeys = new Set(cached.senders.map((sender) => sender.sender_key))
+    if (params.expectedSenderKeys.some((senderKey) => !cachedSenderKeys.has(senderKey))) {
+      clearClientInboxAnalysisCache(cacheKey)
+      return null
+    }
+  }
+  return cached
 }
 
 export function readCachedGmailSenderOverviewWindow(params: {
@@ -2720,7 +2820,7 @@ export async function fetchGmailMailboxIntelligence(params: {
   initialPressureEnd?: string | null
   initialTimeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
-}): Promise<{ ok: true; data: GmailMailboxIntelligenceData } | { ok: false; error: string; aborted?: true }> {
+}): Promise<GmailInboxAnalysisResult<GmailMailboxIntelligenceData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const initialPressureStart =
@@ -2773,7 +2873,7 @@ export async function fetchGmailPressureTrend(params: {
   timeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
-}): Promise<{ ok: true; data: GmailPressureTrendData } | { ok: false; error: string; aborted?: true }> {
+}): Promise<GmailInboxAnalysisResult<GmailPressureTrendData>> {
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const pressureStart =
     typeof params.pressureStart === 'string' && params.pressureStart.trim()
@@ -2841,10 +2941,10 @@ export async function fetchGmailSenderWorkspace(params: {
   timeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
-}): Promise<{ ok: true; data: GmailSenderWorkspaceData } | { ok: false; error: string; aborted?: true }> {
+}): Promise<GmailInboxAnalysisResult<GmailSenderWorkspaceData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const page = params.page ?? 1
-  const pageSize = params.pageSize ?? 12
+  const pageSize = clampGmailArtifactPageSize(params.pageSize)
   const search = typeof params.search === 'string' ? params.search.trim() : ''
   const filter = params.filter ?? 'all'
   const sort = params.sort ?? 'message_count'
@@ -3028,9 +3128,10 @@ export async function fetchGmailSenderDistribution(params: {
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
+  expectedSenderKeys?: string[]
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
-}): Promise<{ ok: true; data: GmailSenderDistributionData } | { ok: false; error: string; aborted?: true }> {
+}): Promise<GmailInboxAnalysisResult<GmailSenderDistributionData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const senderOverviewStart =
@@ -3161,6 +3262,11 @@ export async function fetchGmailSenderDistribution(params: {
     },
     errorMessage: 'Failed to load Sender Distribution.',
     signal: params.signal,
+    acceptCachedData: (data) => {
+      if (!params.expectedSenderKeys || params.expectedSenderKeys.length === 0) return true
+      const senderKeys = new Set(data.senders.map((sender) => sender.sender_key))
+      return params.expectedSenderKeys.every((senderKey) => senderKeys.has(senderKey))
+    },
   })
 }
 
@@ -3175,9 +3281,7 @@ export async function fetchGmailSenderOverviewWindow(params: {
   timeZone?: string | null
   requestContext?: OperationsInboxAnalysisRequestContext
   signal?: AbortSignal
-}): Promise<
-  { ok: true; data: GmailSenderOverviewWindowData } | { ok: false; error: string; aborted?: true }
-> {
+}): Promise<GmailInboxAnalysisResult<GmailSenderOverviewWindowData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const pressureStart =
@@ -3281,7 +3385,7 @@ export async function fetchGmailConfirmationPreview(params: {
   senderPolicies: Record<string, GmailSenderPolicy>
   messageOverrides?: Record<string, 'include' | 'exclude'>
   requestContext?: OperationsInboxAnalysisRequestContext
-}): Promise<{ ok: true; data: GmailConfirmationPreviewData } | { ok: false; error: string; aborted?: true }> {
+}): Promise<GmailInboxAnalysisResult<GmailConfirmationPreviewData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const messageOverrides = params.messageOverrides || {}
   const cacheVersion = params.cacheVersion?.trim() || 'default'

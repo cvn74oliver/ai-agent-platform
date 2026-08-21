@@ -30,6 +30,7 @@ import {
 import { runGmailFullMailboxArtifactBuild } from '@/lib/integrations/gmail/gmailArtifactBuildRunner'
 import {
   loadGmailArtifactPublicationStatesForTenant,
+  loadGmailArtifactJobState,
   reconcileGmailArtifactBuildLiveness,
   updateGmailArtifactPublicationFreshness,
   type GmailArtifactAnalysisScope,
@@ -722,37 +723,29 @@ async function resolveAuthContext(): Promise<AuthContext> {
   return { ok: true, supabase, tenantId }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const auth = await resolveAuthContext()
     if (!auth.ok) return auth.response
 
-    const [state, coverage, publications, recentHealth] = await Promise.all([
-      loadGmailMailboxIndexState({
-        supabase: auth.supabase,
-        tenantId: auth.tenantId,
-      }),
-      loadGmailMailboxIndexCoverageForTenant({
-        supabase: auth.supabase,
-        tenantId: auth.tenantId,
-      }),
-      loadGmailArtifactPublicationStatesForTenant({
-        supabase: auth.supabase,
-        tenantId: auth.tenantId,
-      }),
-      loadGmailMailboxRecentHealthForTenant({
-        supabase: auth.supabase,
-        tenantId: auth.tenantId,
-      }),
-    ])
+    const diagnosticsRequested = new URL(req.url).searchParams.get('diagnostics') === '1'
+    // Recurring status is intentionally O(1): one mailbox-index state row, the bounded
+    // publication set, one optional active artifact job row, and one connection row.
+    // Exact gmail_messages coverage/recent-health scans are explicit diagnostics only.
+    const state = await loadGmailMailboxIndexState({
+      supabase: auth.supabase,
+      tenantId: auth.tenantId,
+    })
+    const publications = await loadGmailArtifactPublicationStatesForTenant({
+      supabase: auth.supabase,
+      tenantId: auth.tenantId,
+    })
     const { data: gmailConnectionRow, error: gmailConnectionError } = await auth.supabase
       .from('integration_connections')
       .select('tenant_id')
       .eq('tenant_id', auth.tenantId)
       .eq('provider', 'gmail')
       .maybeSingle()
-    const indexedCount = coverage.indexed_total_rows
-    const indexedInboxCount = coverage.indexed_inbox_rows
     const executionState = buildExecutionState(state)
     const hasGmailConnection = Boolean(gmailConnectionRow)
     const requiresReconnect = buildRequiresReconnect({
@@ -763,8 +756,30 @@ export async function GET() {
       publications.find((publication) => publication.analysis_scope === 'all_indexed') ??
       publications[0] ??
       null
+    const activeArtifactJob = primaryPublication?.refresh_job_id
+      ? await loadGmailArtifactJobState({
+          supabase: auth.supabase,
+          jobId: primaryPublication.refresh_job_id,
+        })
+      : null
+    const coverage = diagnosticsRequested
+      ? await loadGmailMailboxIndexCoverageForTenant({
+          supabase: auth.supabase,
+          tenantId: auth.tenantId,
+        })
+      : null
+    const recentHealth = diagnosticsRequested
+      ? await loadGmailMailboxRecentHealthForTenant({
+          supabase: auth.supabase,
+          tenantId: auth.tenantId,
+        })
+      : null
+    const indexedCount =
+      coverage?.indexed_total_rows ??
+      (typeof state?.indexed_message_count === 'number' ? state.indexed_message_count : 0)
+    const indexedInboxCount = coverage?.indexed_inbox_rows ?? null
     const historicalBackfill = buildHistoricalBackfillSummary(state)
-    const hasFalseHealthyState = recentHealth.false_healthy_state
+    const hasFalseHealthyState = recentHealth?.false_healthy_state === true
     const syncHealth =
       executionState === 'failed' || executionState === 'stalled'
         ? indexedCount > 0
@@ -788,10 +803,10 @@ export async function GET() {
         indexed_inbox_rows: indexedInboxCount,
         mailbox_estimated_total: state?.mailbox_estimated_total ?? null,
         index_completion_pct: state?.index_completion_pct ?? null,
-        indexed_oldest_message_at: coverage.indexed_date_span_start,
-        indexed_newest_message_at: coverage.indexed_date_span_end,
-        indexed_date_span_start: coverage.indexed_date_span_start,
-        indexed_date_span_end: coverage.indexed_date_span_end,
+        indexed_oldest_message_at: coverage?.indexed_date_span_start ?? null,
+        indexed_newest_message_at: coverage?.indexed_date_span_end ?? null,
+        indexed_date_span_start: coverage?.indexed_date_span_start ?? null,
+        indexed_date_span_end: coverage?.indexed_date_span_end ?? null,
         last_full_scan_at: state?.last_full_scan_at ?? null,
         last_incremental_sync_at: state?.last_incremental_sync_at ?? null,
         last_sync_status: state?.last_sync_status ?? null,
@@ -810,6 +825,14 @@ export async function GET() {
         sync_health: syncHealth,
         usable_with_cached_index: indexedCount > 0 && !hasFalseHealthyState,
         recent_window_health: recentHealth,
+        lifecycle_status: {
+          status: executionState,
+          reason: state?.last_failure_reason ?? state?.last_terminal_reason ?? null,
+          retry_after_ms: executionState === 'running' ? 10_000 : null,
+          diagnostics_included: diagnosticsRequested,
+          raw_message_rows_read: diagnosticsRequested ? null : 0,
+          source: 'gmail_mailbox_index_state',
+        },
         last_index_duration_ms: state?.last_index_duration_ms ?? null,
         has_gmail_connection: hasGmailConnection,
         artifact_refresh: primaryPublication
@@ -826,6 +849,17 @@ export async function GET() {
               published_version: primaryPublication.published_version,
               building_version: primaryPublication.building_version,
               build_status: primaryPublication.build_status,
+              job: activeArtifactJob
+                ? {
+                    job_id: activeArtifactJob.job_id,
+                    status: activeArtifactJob.status,
+                    phase: activeArtifactJob.phase,
+                    heartbeat_at: activeArtifactJob.heartbeat_at,
+                    started_at: activeArtifactJob.started_at,
+                    completed_at: activeArtifactJob.completed_at,
+                    last_error: activeArtifactJob.last_error,
+                  }
+                : null,
             }
           : null,
         artifact_publications: publications.map((publication) => ({
@@ -849,7 +883,16 @@ export async function GET() {
     })
   } catch (error) {
     console.error('[integrations/gmail/mailbox-index] GET failed:', error)
-    return NextResponse.json({ error: 'Unexpected error while loading mailbox index status.' }, { status: 500 })
+    return NextResponse.json(
+      {
+        ok: false,
+        status: 'unavailable',
+        reason: 'lifecycle_status_unavailable',
+        retry_after_ms: 15_000,
+        error: 'Unexpected error while loading mailbox index status.',
+      },
+      { status: 500 }
+    )
   }
 }
 
