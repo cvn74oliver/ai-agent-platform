@@ -3808,20 +3808,11 @@ async function loadPublishedSenderWorkspaceArtifactHeaders(params: {
   headers: GmailSenderWorkspaceSeedHeaderRow[]
   selected_header: GmailSenderWorkspaceSeedHeaderRow | null
 }> {
-  let publication = await loadPublicationState({
+  const publication = await loadPublicationState({
     supabase: params.supabase,
     tenantId: params.tenantId,
     analysisScope: params.analysisScope,
   })
-  if (normalizeText(publication?.building_version)) {
-    const buildLiveness = await reconcileGmailArtifactBuildLiveness({
-      supabase: params.supabase,
-      tenantId: params.tenantId,
-      analysisScope: params.analysisScope,
-      publication,
-    })
-    publication = buildLiveness.publication ?? publication
-  }
   const artifactVersion = normalizeNullableText(publication?.published_version)
   if (!publication || !artifactVersion) {
     return {
