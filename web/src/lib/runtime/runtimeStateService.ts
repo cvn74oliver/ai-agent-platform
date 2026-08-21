@@ -20,6 +20,7 @@ import {
   buildMailboxIntelligenceFromPublishedArtifactRead,
   loadGmailMailboxIntelligenceForTenant,
   loadGmailSenderWorkspaceForTenant,
+  resolvePublishedGmailArtifactAvailability,
 } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
 import { loadGmailMailboxIndexState } from '@/lib/integrations/gmail/gmailMailboxIndexer'
 import {
@@ -2246,42 +2247,6 @@ function runtimeCleanupArtifactAdvancedSincePublication(params: {
   )
 }
 
-type RuntimeArtifactPublicationReadiness = {
-  state: 'transitional' | 'terminal_unavailable' | 'usable'
-  reason: string
-}
-
-function runtimeArtifactPublicationReadiness(
-  publication: GmailArtifactPublicationRow | null
-): RuntimeArtifactPublicationReadiness {
-  if (
-    publication?.build_status === 'failed' ||
-    publication?.freshness_state === 'stale' ||
-    publication?.freshness_state === 'refresh_failed' ||
-    publication?.freshness_state === 'full_rebuild_required'
-  ) {
-    return { state: 'terminal_unavailable', reason: 'artifact_unavailable' }
-  }
-  if (
-    publication?.build_status === 'building' ||
-    publication?.freshness_state === 'refresh_pending' ||
-    publication?.freshness_state === 'refresh_in_progress'
-  ) {
-    return { state: 'transitional', reason: 'artifact_building' }
-  }
-  if (!publication?.published_version) {
-    return { state: 'transitional', reason: 'missing_artifact' }
-  }
-  if (
-    (publication.freshness_state === 'fresh' ||
-      publication.freshness_state === 'refresh_skipped') &&
-    (publication.build_status === 'published' || publication.build_status === 'idle')
-  ) {
-    return { state: 'usable', reason: publication.freshness_state }
-  }
-  return { state: 'terminal_unavailable', reason: 'artifact_unavailable' }
-}
-
 function enqueueCleanupDiscoveryRefreshInBackground(params: {
   supabase: SupabaseAdminClient
   agentId: string
@@ -2475,6 +2440,7 @@ export async function loadPlaygroundRuntimeState(params: {
     | 'force'
     | 'artifact_fresh'
     | 'index_advanced'
+    | 'published_fallback_refresh_failed'
     | 'failed_artifact_recovery'
     | 'missing_artifact'
     | 'snapshot_expired'
@@ -2702,14 +2668,18 @@ export async function loadPlaygroundRuntimeState(params: {
         const summaries = artifactRead.cluster_summaries
         const clusterInputs = buildRuntimeCleanupArtifactClusterInputs(summaries)
         const artifactIsPublished = Boolean(publication?.published_version)
-        const publicationReadiness = runtimeArtifactPublicationReadiness(publication)
+        const publicationReadiness = resolvePublishedGmailArtifactAvailability(publication)
         const artifactIndexAdvanced = runtimeCleanupArtifactAdvancedSincePublication({
           publication,
           indexState,
           indexCoverage,
         })
         const artifactIsUsable = publicationReadiness.state === 'usable'
-        const failedArtifactNeedsRecovery = publicationReadiness.state === 'terminal_unavailable'
+        const failedArtifactNeedsRecovery =
+          publicationReadiness.state === 'terminal_unavailable'
+        const publishedFallbackRequiresAttention =
+          publicationReadiness.servingPublishedFallback &&
+          publicationReadiness.refreshRequiresAttention
         const indexHasData = cleanupIndexStateIndexedCount > 0
         const zeroClusterArtifactNeedsRefresh = Boolean(
           artifactIsPublished && indexHasData && clusterInputs.length === 0
@@ -2795,10 +2765,12 @@ export async function loadPlaygroundRuntimeState(params: {
             : Promise.resolve(null),
         ])
 
-        cleanupProfileRefreshReason = forceRefresh
-          ? 'force'
-          : artifactIndexAdvanced
-            ? 'index_advanced'
+        cleanupProfileRefreshReason = publishedFallbackRequiresAttention
+          ? 'published_fallback_refresh_failed'
+          : forceRefresh
+            ? 'force'
+            : artifactIndexAdvanced
+              ? 'index_advanced'
             : failedArtifactNeedsRecovery
               ? 'failed_artifact_recovery'
             : zeroClusterArtifactNeedsRefresh
@@ -2814,6 +2786,7 @@ export async function loadPlaygroundRuntimeState(params: {
         const shouldAttemptBackgroundRefresh =
           params.requestMode !== 'rehydrate_only' &&
           !buildPendingWhileServingStableSnapshot &&
+          !publishedFallbackRequiresAttention &&
           (forceRefresh ||
             artifactIndexAdvanced ||
             failedArtifactNeedsRecovery ||
@@ -2901,6 +2874,8 @@ export async function loadPlaygroundRuntimeState(params: {
           artifact_build_status: publication?.build_status ?? null,
           artifact_publication_readiness: publicationReadiness.state,
           artifact_publication_readiness_reason: publicationReadiness.reason,
+          artifact_serving_published_fallback: publicationReadiness.servingPublishedFallback,
+          artifact_refresh_requires_attention: publicationReadiness.refreshRequiresAttention,
           artifact_build_liveness_status: buildLiveness?.status ?? null,
           artifact_build_reclaim_reason: buildLiveness?.reclaim_reason ?? null,
           artifact_build_reclaim_applied: buildLiveness?.reclaim_applied ?? false,
@@ -3187,7 +3162,7 @@ export async function loadPlaygroundRuntimeState(params: {
             const summaries = artifactRead.cluster_summaries
             const clusterInputs = buildRuntimeCleanupArtifactClusterInputs(summaries)
             const artifactIsPublished = Boolean(publication?.published_version)
-            const publicationReadiness = runtimeArtifactPublicationReadiness(publication)
+            const publicationReadiness = resolvePublishedGmailArtifactAvailability(publication)
             const artifactIsUsable = publicationReadiness.state === 'usable'
 
             snapshotScope = artifactIsUsable ? analysisScope : null

@@ -40,6 +40,7 @@ type LoadState =
 
 type PressureTrendLoadState =
   | { status: 'idle'; data: null; error: null; requestKey: null }
+  | { status: 'loading'; data: null; error: null; requestKey: string }
   | { status: 'ready'; data: GmailPressureTrendData; error: null; requestKey: string }
   | { status: 'error'; data: null; error: string; requestKey: string }
 
@@ -1004,6 +1005,7 @@ export default function OperationsIntelligencePage() {
     error: null,
     requestKey: null,
   })
+  const pressureTrendAttemptedKeyRef = useRef<string | null>(null)
   const [workflowProgress, setWorkflowProgress] = useState<LocalWorkflowProgress>({
     decidedSenderCount: 0,
     startedClusterCount: 0,
@@ -1168,6 +1170,36 @@ export default function OperationsIntelligencePage() {
       trustedRuntimeIntelligence,
     ]
   )
+  const pressureTrendRequestPlanRef = useRef({
+    clusters,
+    cacheVersion,
+    selection: pressureTrendSelection,
+    timeZone: browserTimeZone,
+    isInitialPaint: isPressureTrendInitialPaintPhase,
+    seedDecision: initialPressureTrendSeedDecision,
+  })
+  useEffect(() => {
+    pressureTrendRequestPlanRef.current = {
+      clusters,
+      cacheVersion,
+      selection: pressureTrendSelection,
+      timeZone: browserTimeZone,
+      isInitialPaint: isPressureTrendInitialPaintPhase,
+      seedDecision: initialPressureTrendSeedDecision,
+    }
+  }, [
+    browserTimeZone,
+    cacheVersion,
+    clusters,
+    initialPressureTrendSeedDecision,
+    isPressureTrendInitialPaintPhase,
+    pressureTrendSelection,
+  ])
+  const canRequestPressureTrend =
+    clusters.length > 0 &&
+    !cachedPressureTrend &&
+    Boolean(resolvedIntelligence) &&
+    !(isPressureTrendInitialPaintPhase && initialPressureTrendSeedDecision.usable)
 
   useEffect(() => {
     pressureTrendSeedRef.current = {
@@ -1333,51 +1365,54 @@ export default function OperationsIntelligencePage() {
   ])
 
   useEffect(() => {
-    if (clusters.length === 0) return
-    if (cachedPressureTrend) return
-    if (resolvedPressureTrendState.status === 'ready' && resolvedPressureTrendState.requestKey === pressureTrendRequestKey) {
-      return
-    }
-    if (!resolvedIntelligence) return
+    if (!canRequestPressureTrend) return
+    if (pressureTrendAttemptedKeyRef.current === pressureTrendRequestKey) return
+    pressureTrendAttemptedKeyRef.current = pressureTrendRequestKey
 
-    const shouldSkipFetchForInitialPaintSeed =
-      isPressureTrendInitialPaintPhase && initialPressureTrendSeedDecision.usable
-    if (shouldSkipFetchForInitialPaintSeed) return
-
+    const requestPlan = pressureTrendRequestPlanRef.current
     const controller = new AbortController()
     let cancelled = false
-    const allowRequestAbort = !isPressureTrendInitialPaintPhase
+    queueMicrotask(() => {
+      if (cancelled) return
+      setPressureTrendState({
+        status: 'loading',
+        data: null,
+        error: null,
+        requestKey: pressureTrendRequestKey,
+      })
+    })
+    const allowRequestAbort = !requestPlan.isInitialPaint
     const fetchReason =
-      isPressureTrendInitialPaintPhase && !initialPressureTrendSeedDecision.usable
-        ? initialPressureTrendSeedDecision.reason
-        : !isPressureTrendInitialPaintPhase
+      requestPlan.isInitialPaint && !requestPlan.seedDecision.usable
+        ? requestPlan.seedDecision.reason
+        : !requestPlan.isInitialPaint
           ? 'interactive_window_change'
           : null
 
-    if (fetchReason && isPressureTrendInitialPaintPhase) {
+    if (fetchReason && requestPlan.isInitialPaint) {
       console.info(`pressure_trend_initial_paint_fetch_required_reason: ${fetchReason}`, {
         request_key: pressureTrendRequestKey,
-        window: pressureTrendSelection.window,
-        start: pressureTrendSelection.start,
-        end: pressureTrendSelection.end,
-        time_zone: browserTimeZone,
+        window: requestPlan.selection.window,
+        start: requestPlan.selection.start,
+        end: requestPlan.selection.end,
+        time_zone: requestPlan.timeZone,
       })
     }
 
     void fetchGmailPressureTrend({
-      clusters,
-      cacheVersion,
-      pressureWindow: pressureTrendSelection.window,
-      pressureStart: pressureTrendSelection.start,
-      pressureEnd: pressureTrendSelection.end,
-      timeZone: browserTimeZone,
+      clusters: requestPlan.clusters,
+      cacheVersion: requestPlan.cacheVersion,
+      pressureWindow: requestPlan.selection.window,
+      pressureStart: requestPlan.selection.start,
+      pressureEnd: requestPlan.selection.end,
+      timeZone: requestPlan.timeZone,
       requestContext: {
         source: 'operations_intelligence_page',
         component: 'pressure_trend',
-        reason: isPressureTrendInitialPaintPhase
+        reason: requestPlan.isInitialPaint
           ? 'pressure_trend_initial_paint_seed_miss'
           : 'pressure_trend_window_change',
-        phase: isPressureTrendInitialPaintPhase ? 'deferred' : 'interactive',
+        phase: requestPlan.isInitialPaint ? 'deferred' : 'interactive',
       },
       signal: allowRequestAbort ? controller.signal : undefined,
     }).then((result) => {
@@ -1404,18 +1439,8 @@ export default function OperationsIntelligencePage() {
       if (allowRequestAbort) controller.abort()
     }
   }, [
-    browserTimeZone,
-    cacheVersion,
-    cachedPressureTrend,
-    clusters,
-    pressureTrendSelection.end,
-    pressureTrendSelection.start,
-    pressureTrendSelection.window,
+    canRequestPressureTrend,
     pressureTrendRequestKey,
-    initialPressureTrendSeedDecision,
-    isPressureTrendInitialPaintPhase,
-    resolvedPressureTrendState,
-    resolvedIntelligence,
   ])
 
   useEffect(() => {

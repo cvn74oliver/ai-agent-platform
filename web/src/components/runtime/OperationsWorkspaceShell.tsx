@@ -606,6 +606,27 @@ function OperationsWorkspaceShellInner(props: {
         return
       }
 
+      if (refreshResult.servingPublishedFallback) {
+        setRegeneratingClusters(false)
+        setPendingRegenerateBaseline(null)
+        setRegenerationStatusNote(
+          'Showing the last published cleanup analysis. The latest refresh failed, so no rebuild or repeated polling was started.'
+        )
+        console.info(
+          `[operations][regenerate-background] ${JSON.stringify({
+            event: 'published_fallback_retained',
+            snapshot_version_before: baselineVersion,
+            snapshot_version_after: refreshResult.publishedVersion || baselineVersion,
+            previous_snapshot_served_while_refreshing: true,
+            recompute_started_at: startedAtIso,
+            recompute_completed_at: null,
+            total_regenerate_background_ms: Math.max(0, Date.now() - startedAtMs),
+            selected_analysis_scope: props.analysisScope,
+          })}`
+        )
+        return
+      }
+
       const maxAttempts = 30
       const pollDelayMs = 4000
       const poll = async (attempt: number): Promise<void> => {

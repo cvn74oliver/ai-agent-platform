@@ -384,6 +384,78 @@ function fail(status: number, error: string, metadata?: GmailWorkspaceFailureMet
   }
 }
 
+export type PublishedGmailArtifactAvailability = {
+  state: 'transitional' | 'terminal_unavailable' | 'usable'
+  reason: string
+  servingPublishedFallback: boolean
+  refreshRequiresAttention: boolean
+}
+
+export function resolvePublishedGmailArtifactAvailability(
+  publication: GmailArtifactPublicationRow | null
+): PublishedGmailArtifactAvailability {
+  const publishedVersion = publication?.published_version?.trim() || ''
+  const terminalRefreshState =
+    publication?.build_status === 'failed' ||
+    publication?.freshness_state === 'stale' ||
+    publication?.freshness_state === 'refresh_failed' ||
+    publication?.freshness_state === 'full_rebuild_required'
+  const refreshInProgress =
+    publication?.build_status === 'building' ||
+    publication?.freshness_state === 'refresh_pending' ||
+    publication?.freshness_state === 'refresh_in_progress'
+
+  // A failed or in-progress candidate does not invalidate an independently
+  // published version. Callers still validate that version's required rows.
+  if (publishedVersion) {
+    if (terminalRefreshState) {
+      return {
+        state: 'usable',
+        reason: 'published_fallback_refresh_failed',
+        servingPublishedFallback: true,
+        refreshRequiresAttention: true,
+      }
+    }
+    if (refreshInProgress) {
+      return {
+        state: 'usable',
+        reason: 'published_fallback_refreshing',
+        servingPublishedFallback: true,
+        refreshRequiresAttention: false,
+      }
+    }
+    return {
+      state: 'usable',
+      reason: publication?.freshness_state || 'published_artifact',
+      servingPublishedFallback: false,
+      refreshRequiresAttention: false,
+    }
+  }
+
+  if (terminalRefreshState) {
+    return {
+      state: 'terminal_unavailable',
+      reason: 'artifact_unavailable',
+      servingPublishedFallback: false,
+      refreshRequiresAttention: true,
+    }
+  }
+  if (refreshInProgress) {
+    return {
+      state: 'transitional',
+      reason: 'artifact_building',
+      servingPublishedFallback: false,
+      refreshRequiresAttention: false,
+    }
+  }
+  return {
+    state: 'transitional',
+    reason: 'missing_published_artifact',
+    servingPublishedFallback: false,
+    refreshRequiresAttention: false,
+  }
+}
+
 function publishedArtifactAvailabilityFailure(
   publication: GmailArtifactPublicationRow | null
 ): ReturnType<typeof fail> | null {
@@ -393,47 +465,26 @@ function publishedArtifactAvailabilityFailure(
     publishedVersion: publication?.published_version ?? null,
     buildingVersion: publication?.building_version ?? null,
   }
-  if (
-    publication?.build_status === 'failed' ||
-    publication?.freshness_state === 'stale' ||
-    publication?.freshness_state === 'refresh_failed' ||
-    publication?.freshness_state === 'full_rebuild_required'
-  ) {
+  const availability = resolvePublishedGmailArtifactAvailability(publication)
+  if (availability.state === 'usable') return null
+  if (availability.state === 'terminal_unavailable') {
     return fail(503, 'Published Gmail runtime artifacts are unavailable.', {
       ...metadata,
-      reason: 'artifact_unavailable',
+      reason: availability.reason,
       retryAfterMs: null,
     })
   }
-  if (
-    publication?.build_status === 'building' ||
-    publication?.freshness_state === 'refresh_pending' ||
-    publication?.freshness_state === 'refresh_in_progress'
-  ) {
+  if (availability.reason === 'artifact_building') {
     return fail(409, 'Published Gmail runtime artifacts are not ready.', {
       ...metadata,
-      reason: 'artifact_building',
+      reason: availability.reason,
       retryAfterMs: 15_000,
     })
   }
-  if (!publication?.published_version) {
-    return fail(409, 'Published Gmail runtime artifacts are still being prepared.', {
-      ...metadata,
-      reason: 'missing_published_artifact',
-      retryAfterMs: 15_000,
-    })
-  }
-  if (
-    (publication.freshness_state === 'fresh' ||
-      publication.freshness_state === 'refresh_skipped') &&
-    (publication.build_status === 'published' || publication.build_status === 'idle')
-  ) {
-    return null
-  }
-  return fail(503, 'Published Gmail runtime artifacts are unavailable.', {
+  return fail(409, 'Published Gmail runtime artifacts are still being prepared.', {
     ...metadata,
-    reason: 'artifact_unavailable',
-    retryAfterMs: null,
+    reason: availability.reason,
+    retryAfterMs: 15_000,
   })
 }
 
@@ -3785,8 +3836,13 @@ function artifactCleanupGroupOperatorValueStatus(
 function artifactCleanupGroupReviewUnitBasis(
   value: unknown
 ): GmailSenderWorkspaceData['analytics']['cleanup_group_review_unit_basis'] {
-  return value === 'selected_axis_dominant_lane' ||
+  return value === 'subtype-first' ||
+    value === 'family-first' ||
+    value === 'protection-reason-first' ||
+    value === 'exclusion-reason-first' ||
+    value === 'selected_axis_dominant_lane' ||
     value === 'structural_lane' ||
+    value === 'direct-open' ||
     value === 'secondary_group' ||
     value === 'not_promoted'
     ? value
@@ -3814,14 +3870,19 @@ function parseArtifactCleanupGroupReviewUnits(
         record.source_kind === 'pattern_subtype' ||
         record.source_kind === 'family_remainder' ||
         record.source_kind === 'pattern_remainder' ||
-        record.source_kind === 'spillover'
+        record.source_kind === 'spillover' ||
+        record.source_kind === 'family_lane' ||
+        record.source_kind === 'assignment_reason' ||
+        record.source_kind === 'exclusion_reason'
           ? record.source_kind
           : null
       const sourceKey = artifactText(record.source_key)
       const unitRole =
         record.unit_role === 'subtype' ||
         record.unit_role === 'dominant_remainder' ||
-        record.unit_role === 'spillover'
+        record.unit_role === 'spillover' ||
+        record.unit_role === 'family_lane' ||
+        record.unit_role === 'reason'
           ? record.unit_role
           : null
       if (!unitId || !label || !sourceKind || !sourceKey || !unitRole) return null

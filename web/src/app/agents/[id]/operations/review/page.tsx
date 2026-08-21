@@ -47,11 +47,12 @@ import {
   type OperationsAnalysisScope,
 } from '@/lib/runtime/operationsWorkspace'
 import {
-  buildCleanupGroupDerivedReviewUnits,
+  buildCleanupGroupPublishedReviewUnits,
   buildCleanupGroupInternalStructure,
-  findCleanupGroupDerivedReviewUnit,
+  buildSemanticFocusFromPublishedReviewUnit,
+  findCleanupGroupPublishedReviewUnit,
   getCleanupGroupLaneLabel,
-  type CleanupGroupDerivedReviewUnit,
+  type CleanupGroupPublishedReviewUnit,
 } from '@/lib/runtime/cleanupGroupPresentation'
 import {
   DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
@@ -74,7 +75,15 @@ type OverviewSubsetSource =
   | 'contributor'
   | 'distribution'
   | 'review_unit'
+type MarketingReviewUnitEntryState =
+  | 'choose_unit'
+  | 'missing_unit'
+  | 'invalid_unit'
+  | 'oversized_unit'
+  | 'unavailable_units'
 type DrilldownSort = 'impact' | 'recent' | 'unread'
+
+const MARKETING_PARENT_CANONICAL_ID = 'semantic.marketing_subscriptions'
 type SharedAnalysisRailTab = 'time_context' | 'sender_distribution'
 type TimeContextChartScope =
   | 'all_indexed'
@@ -1160,6 +1169,16 @@ function uniqueNonEmptyStrings(values: Array<string | null | undefined>): string
   )
 }
 
+function buildRenderablePublishedReviewUnits<T extends { senderCount: number; targetState: string }>(
+  reviewUnits: T[]
+): T[] {
+  return reviewUnits.filter((unit) => unit.senderCount > 0 && unit.targetState !== 'oversized')
+}
+
+function hasRequestedReviewUnitValue(value: string | null): boolean {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
 function hydrateClusterRefWithCanonicalIdentity(cluster: GmailCleanupClusterRef): GmailCleanupClusterRef {
   const publishIdentity = buildCleanupGroupFutureCanonicalPublishIdentity(
     cluster.canonicalClusterId || cluster.clusterId
@@ -1255,7 +1274,11 @@ function buildReviewHref(params: ReviewHrefParams): string {
     if (params.senderKey) search.set('sender_key', params.senderKey)
     if (params.overlayIntent) search.set('overlay_intent', params.overlayIntent)
   }
-  if (params.semanticRoute?.family && params.semanticRoute.subtype) {
+  if (
+    params.subsetSource !== 'review_unit' &&
+    params.semanticRoute?.family &&
+    params.semanticRoute.subtype
+  ) {
     search.set('semantic_family', params.semanticRoute.family)
     search.set('semantic_subtype', params.semanticRoute.subtype)
   }
@@ -1384,6 +1407,12 @@ function resolveAuthoritativeOverviewReturnContext(params: {
     return {
       subsetSource: params.activeSubset.source,
       subsetValue: params.activeSubset.value,
+    }
+  }
+  if (params.subsetSource === 'review_unit' && params.subsetValue) {
+    return {
+      subsetSource: params.subsetSource,
+      subsetValue: params.subsetValue,
     }
   }
   if (params.semanticFocus) {
@@ -2142,9 +2171,11 @@ function buildSemanticSubtypeFocusRequest(
 }
 
 function buildSemanticFocusFromDerivedReviewUnit(params: {
-  unit: CleanupGroupDerivedReviewUnit
+  unit: CleanupGroupPublishedReviewUnit
   familyRow: SemanticFamilyRowPresentation
 }): SemanticSubtypeFocus | null {
+  if (!params.unit.semanticFamily) return null
+
   const surfacedSubtypeKeys = params.familyRow.children
     .filter((row) => row.focusTarget.kind === 'subtype' && row.focusTarget.subtypeKey)
     .map((row) => row.focusTarget.subtypeKey as string)
@@ -3919,6 +3950,57 @@ export default function OperationsReviewPage() {
 
     return firstPopulatedCluster || runtimeClusters[0] || null
   }, [rawRequestedClusterId, renderRuntimeData?.runtime_sender_overview, requestedCluster, runtimeClusters])
+  const selectedCanonicalClusterId =
+    selectedCluster?.canonicalClusterId || selectedCluster?.clusterId || resolvedRequestedClusterId
+  const isMarketingCleanupGroup = selectedCanonicalClusterId === MARKETING_PARENT_CANONICAL_ID
+  const selectedMailboxIntelligenceGroup = useMemo(() => {
+    if (!selectedCanonicalClusterId) return null
+    return (
+      (renderRuntimeData?.runtime_mailbox_intelligence?.cleanup_groups || []).find(
+        (group) =>
+          (group.canonical_cluster_id || group.cluster_id) === selectedCanonicalClusterId ||
+          group.cluster_id === selectedCanonicalClusterId
+      ) || null
+    )
+  }, [renderRuntimeData?.runtime_mailbox_intelligence?.cleanup_groups, selectedCanonicalClusterId])
+  const marketingReviewUnitEntryUnits = useMemo(
+    () =>
+      selectedCluster && isMarketingCleanupGroup
+        ? buildCleanupGroupPublishedReviewUnits(
+            selectedCluster.clusterId,
+            selectedMailboxIntelligenceGroup?.semantic_rollup || null
+          )
+        : [],
+    [isMarketingCleanupGroup, selectedCluster, selectedMailboxIntelligenceGroup?.semantic_rollup]
+  )
+  const marketingReviewUnitEntryRequestedUnit = useMemo(
+    () =>
+      subsetSource === 'review_unit'
+        ? findCleanupGroupPublishedReviewUnit(marketingReviewUnitEntryUnits, subsetValue?.trim())
+        : null,
+    [marketingReviewUnitEntryUnits, subsetSource, subsetValue]
+  )
+  const selectableMarketingReviewUnits = useMemo(
+    () => buildRenderablePublishedReviewUnits(marketingReviewUnitEntryUnits),
+    [marketingReviewUnitEntryUnits]
+  )
+  const marketingReviewUnitEntryState = useMemo<MarketingReviewUnitEntryState | null>(() => {
+    if (!isMarketingCleanupGroup) return null
+    if (subsetSource === 'review_unit' && !hasRequestedReviewUnitValue(subsetValue)) {
+      return 'missing_unit'
+    }
+    if (selectableMarketingReviewUnits.length === 0) return 'unavailable_units'
+    if (subsetSource !== 'review_unit') return 'choose_unit'
+    if (!marketingReviewUnitEntryRequestedUnit) return 'invalid_unit'
+    if (marketingReviewUnitEntryRequestedUnit.targetState === 'oversized') return 'oversized_unit'
+    return null
+  }, [
+    isMarketingCleanupGroup,
+    marketingReviewUnitEntryRequestedUnit,
+    selectableMarketingReviewUnits.length,
+    subsetSource,
+    subsetValue,
+  ])
   const selectedWorkflowTarget = useMemo(
     () =>
       selectedCluster
@@ -4776,7 +4858,10 @@ export default function OperationsReviewPage() {
     data: null,
     error: null,
   })
-  const decisionOverlayOpen = mode === 'decision' && !missingScopedCluster
+  // Keep the document locked only when Decision Mode has an actual cleanup
+  // group to render. An unscoped guidance route must remain page-scrollable.
+  const decisionOverlayOpen =
+    mode === 'decision' && !missingScopedCluster && selectedCluster != null
   const decisionOverlayScrollTopRef = useRef<number | null>(null)
   const decisionOverlayPreviouslyOpenRef = useRef<boolean>(decisionOverlayOpen)
   const activeSemanticSubtypeFocusRef = useRef<SemanticSubtypeFocus | null>(null)
@@ -5241,7 +5326,7 @@ export default function OperationsReviewPage() {
     workflowCachedWorkspaceSnapshot,
   ])
   const workspaceRequestKey = useMemo(() => {
-    if (!selectedCluster) return null
+    if (!selectedCluster || marketingReviewUnitEntryState) return null
     return buildWorkspaceRequestKey({
       clusterId: selectedCluster.clusterId,
       analysisScope: effectiveWorkflowScope,
@@ -5263,6 +5348,7 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
+    marketingReviewUnitEntryState,
     selectedCluster,
     senderOverviewWindowSelection,
   ])
@@ -5573,6 +5659,13 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   ])
   const workspaceFetchPlan = useMemo<WorkspaceFetchPlan | null>(() => {
     if (!workspaceRequestKey || !selectedCluster) return null
+    if (
+      isMarketingCleanupGroup &&
+      marketingReviewUnitEntryRequestedUnit &&
+      marketingReviewUnitEntryState == null
+    ) {
+      return null
+    }
     if (mode === 'overview') {
       if (!shouldFetchOverviewCoverageBackfill && passiveReadyWorkspaceSnapshot) return null
     } else if (!shouldFetchDecisionWorkspacePage) {
@@ -5612,6 +5705,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     decisionPreviewEvidenceSenderKey,
     decisionTargetPage,
     effectiveWorkflowScope,
+    isMarketingCleanupGroup,
+    marketingReviewUnitEntryRequestedUnit,
+    marketingReviewUnitEntryState,
     shouldFetchOverviewCoverageBackfill,
     shouldFetchDecisionWorkspacePage,
     mode,
@@ -7984,15 +8080,36 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     [overviewShellWorkspace?.analytics.semantic_rollup, selectedCluster]
   )
   const groupReviewUnits = useMemo(
-    () => buildCleanupGroupDerivedReviewUnits(groupInternalStructure),
-    [groupInternalStructure]
+    () =>
+      isMarketingCleanupGroup
+        ? marketingReviewUnitEntryUnits
+        : selectedCluster
+        ? buildCleanupGroupPublishedReviewUnits(
+            selectedCluster.clusterId,
+            overviewShellWorkspace?.analytics.semantic_rollup || null
+          )
+        : [],
+    [
+      isMarketingCleanupGroup,
+      marketingReviewUnitEntryUnits,
+      overviewShellWorkspace?.analytics.semantic_rollup,
+      selectedCluster,
+    ]
   )
   const activeDerivedReviewUnit = useMemo(
     () =>
       subsetSource === 'review_unit'
-        ? findCleanupGroupDerivedReviewUnit(groupReviewUnits, subsetValue)
+        ? isMarketingCleanupGroup
+          ? marketingReviewUnitEntryRequestedUnit
+          : findCleanupGroupPublishedReviewUnit(groupReviewUnits, subsetValue)
         : null,
-    [groupReviewUnits, subsetSource, subsetValue]
+    [
+      groupReviewUnits,
+      isMarketingCleanupGroup,
+      marketingReviewUnitEntryRequestedUnit,
+      subsetSource,
+      subsetValue,
+    ]
   )
   const isDerivedReviewUnitActive = subsetSource === 'review_unit'
   const [expandedSemanticMixFamilies, setExpandedSemanticMixFamilies] = useState<
@@ -8423,6 +8540,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       subsetSource: storedContext.subsetSource,
       subsetValue: storedContext.subsetValue,
     })
+    const storedSemanticFocus =
+      storedRouteContext.subsetSource === 'review_unit' ? null : storedContext.semanticFocus
     const storedSenderPage =
       typeof storedContext.senderPage === 'number' &&
       Number.isFinite(storedContext.senderPage) &&
@@ -8432,7 +8551,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     const restoreClusterId = selectedCluster?.clusterId || clusterId || requestedClusterId
 
     if (
-      storedContext.semanticFocus &&
+      storedSemanticFocus &&
+      storedRouteContext.subsetSource !== 'review_unit' &&
       (subsetSource != null || subsetValue != null) &&
       restoreClusterId
     ) {
@@ -8445,13 +8565,13 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           workflowScope: workflowScopeForOverviewContext({
             subsetSource: null,
             subsetValue: null,
-            semanticFocus: storedContext.semanticFocus,
+            semanticFocus: storedSemanticFocus,
           }),
           clusterId: restoreClusterId,
           subsetSource: null,
           subsetValue: null,
           senderPage: storedSenderPage,
-          semanticFocus: storedContext.semanticFocus,
+          semanticFocus: storedSemanticFocus,
           senderOverviewWindowSelection: storedSenderOverviewWindowSelection,
           }),
           { scroll: false }
@@ -8479,13 +8599,13 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
             workflowScope: workflowScopeForOverviewContext({
               subsetSource: storedRouteContext.subsetSource,
               subsetValue: storedRouteContext.subsetValue,
-              semanticFocus: storedContext.semanticFocus,
+              semanticFocus: storedSemanticFocus,
             }),
             clusterId: restoreClusterId,
             subsetSource: storedRouteContext.subsetSource,
             subsetValue: storedRouteContext.subsetValue,
             senderPage: storedSenderPage,
-            semanticFocus: storedContext.semanticFocus,
+            semanticFocus: storedSemanticFocus,
             senderOverviewWindowSelection: storedSenderOverviewWindowSelection,
           }),
           { scroll: false }
@@ -8494,8 +8614,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       return
     }
 
-    if (!semanticSubtypeFocusesEqual(activeSemanticSubtypeFocus, storedContext.semanticFocus)) {
-      setActiveSemanticSubtypeFocus(storedContext.semanticFocus)
+    if (!semanticSubtypeFocusesEqual(activeSemanticSubtypeFocus, storedSemanticFocus)) {
+      setActiveSemanticSubtypeFocus(storedSemanticFocus)
     }
     if (typeof window !== 'undefined' && storedContext.scrollTop != null) {
       window.requestAnimationFrame(() => {
@@ -8610,12 +8730,20 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     semanticRowModel.primaryFamilyRows,
   ])
 
+  const activePublishedReviewUnitFocusRequest = useMemo(
+    () =>
+      isDerivedReviewUnitActive && activeDerivedReviewUnit
+        ? buildSemanticFocusFromPublishedReviewUnit(activeDerivedReviewUnit)
+        : null,
+    [activeDerivedReviewUnit, isDerivedReviewUnitActive]
+  )
   const activeSemanticSubtypeFocusRequest = useMemo(
     () =>
-      activeSemanticSubtypeFocus
+      activePublishedReviewUnitFocusRequest ||
+      (activeSemanticSubtypeFocus
         ? buildSemanticSubtypeFocusRequest(activeSemanticSubtypeFocus)
-        : null,
-    [activeSemanticSubtypeFocus]
+        : null),
+    [activePublishedReviewUnitFocusRequest, activeSemanticSubtypeFocus]
   )
   const semanticFocusWorkspaceOrdering = useMemo(
     () => senderWorkspaceOrderingForDrilldownSort(drilldownSort),
@@ -8625,9 +8753,62 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     ? MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE
     : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE
 
+  const semanticFocusWorkspaceRequestPlan = useMemo(() => {
+    if (mode !== 'overview' && !isDerivedReviewUnitActive) return null
+    if (!selectedCluster || !activeSemanticSubtypeFocusRequest) return null
+    return {
+      selectedCluster,
+      allClusters: runtimeClusters,
+      analysisScope: effectiveWorkflowScope,
+      cacheVersion,
+      page: requestedSenderPage,
+      pageSize: semanticFocusPageSize,
+      sort: semanticFocusWorkspaceOrdering.sort,
+      direction: semanticFocusWorkspaceOrdering.direction,
+      semanticFocus: activeSemanticSubtypeFocusRequest,
+      timeContextBucketLabel: requestedTimeContextBucketLabel,
+    }
+  }, [
+    activeSemanticSubtypeFocusRequest,
+    cacheVersion,
+    effectiveWorkflowScope,
+    isDerivedReviewUnitActive,
+    mode,
+    requestedSenderPage,
+    requestedTimeContextBucketLabel,
+    runtimeClusters,
+    selectedCluster,
+    semanticFocusPageSize,
+    semanticFocusWorkspaceOrdering.direction,
+    semanticFocusWorkspaceOrdering.sort,
+  ])
+  const semanticFocusWorkspaceRequestKey = useMemo(() => {
+    const plan = semanticFocusWorkspaceRequestPlan
+    if (!plan) return null
+    return [
+      agentId,
+      plan.selectedCluster.clusterId,
+      plan.analysisScope,
+      plan.cacheVersion,
+      plan.page,
+      plan.pageSize,
+      plan.sort,
+      plan.direction,
+      plan.semanticFocus.family,
+      plan.semanticFocus.subtypeKey || 'no-subtype',
+      plan.semanticFocus.kind,
+      plan.timeContextBucketLabel || 'no-time-context-bucket',
+    ].join('::')
+  }, [agentId, semanticFocusWorkspaceRequestPlan])
+  const semanticFocusWorkspaceRequestPlanRef = useRef(semanticFocusWorkspaceRequestPlan)
+
   useEffect(() => {
-    if (mode !== 'overview' && !isDerivedReviewUnitActive) return
-    if (!selectedCluster || !activeSemanticSubtypeFocusRequest) {
+    semanticFocusWorkspaceRequestPlanRef.current = semanticFocusWorkspaceRequestPlan
+  }, [semanticFocusWorkspaceRequestPlan])
+
+  useEffect(() => {
+    const plan = semanticFocusWorkspaceRequestPlanRef.current
+    if (!semanticFocusWorkspaceRequestKey || !plan) {
       setSemanticFocusWorkspaceState({
         status: 'idle',
         data: null,
@@ -8646,17 +8827,17 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }))
 
     void fetchGmailSenderWorkspace({
-      selectedCluster,
-      allClusters: runtimeClusters,
-      analysisScope: effectiveWorkflowScope,
-      cacheVersion,
+      selectedCluster: plan.selectedCluster,
+      allClusters: plan.allClusters,
+      analysisScope: plan.analysisScope,
+      cacheVersion: plan.cacheVersion,
       includeClusterSenderKeys: true,
-      page: requestedSenderPage,
-      pageSize: semanticFocusPageSize,
-      sort: semanticFocusWorkspaceOrdering.sort,
-      direction: semanticFocusWorkspaceOrdering.direction,
-      semanticFocus: activeSemanticSubtypeFocusRequest,
-      timeContextBucketLabel: requestedTimeContextBucketLabel,
+      page: plan.page,
+      pageSize: plan.pageSize,
+      sort: plan.sort,
+      direction: plan.direction,
+      semanticFocus: plan.semanticFocus,
+      timeContextBucketLabel: plan.timeContextBucketLabel,
       requestContext: {
         source: 'operations_review_page',
         component: 'sender_overview',
@@ -8686,21 +8867,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       cancelled = true
       controller.abort()
     }
-  }, [
-    activeSemanticSubtypeFocusRequest,
-    agentId,
-    cacheVersion,
-    effectiveWorkflowScope,
-    isDerivedReviewUnitActive,
-    mode,
-    requestedSenderPage,
-    requestedTimeContextBucketLabel,
-    runtimeClusters,
-    selectedCluster,
-    semanticFocusPageSize,
-    semanticFocusWorkspaceOrdering.direction,
-    semanticFocusWorkspaceOrdering.sort,
-  ])
+  }, [agentId, semanticFocusWorkspaceRequestKey])
   const activeOverviewSubset = useMemo(() => {
     if (!renderedSubsetSource || !renderedSubsetValue) return null
 
@@ -8848,7 +9015,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     let actionStyle = ''
 
     if (renderedSubsetSource === 'review_unit' && activeDerivedReviewUnit) {
-      const familyLabel = gmailSemanticFamilyDisplayLabel(activeDerivedReviewUnit.semanticFamily)
+      const familyLabel = activeDerivedReviewUnit.semanticFamily
+        ? gmailSemanticFamilyDisplayLabel(activeDerivedReviewUnit.semanticFamily)
+        : 'the published semantic family'
       whyItMatters =
         activeDerivedReviewUnit.kind === 'family'
           ? `${label} is a descriptive family-backed review unit inside this parent cleanup group, covering ${formatPercent(
@@ -9255,11 +9424,17 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }
 
     if (semanticFocusedSubsetActive && semanticFocusOrderedSenderKeys.length > 0) {
+      const publishedReviewUnitSenderCount =
+        activeOverviewSubset?.source === 'review_unit'
+          ? activeOverviewSubset.chartCount
+          : null
       resolvedFilters.push({
         kind: 'semantic_focus',
         label: activeSemanticSubtypeFocus?.label || 'Focused semantic segment',
-        senderCount: semanticFocusOrderedSenderKeys.length,
-        exact: workspaceHasUsableClusterGlobalSenderKeys(semanticFocusWorkspace),
+        senderCount: publishedReviewUnitSenderCount ?? semanticFocusOrderedSenderKeys.length,
+        exact:
+          publishedReviewUnitSenderCount != null ||
+          workspaceHasUsableClusterGlobalSenderKeys(semanticFocusWorkspace),
       })
       const allowedSenderKeys = new Set(semanticFocusOrderedSenderKeys)
       orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
@@ -9336,7 +9511,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       orderedSenderKeys,
       focusedSenderKey,
       label,
-      resolvedSenderCount: orderedSenderKeys.length,
+      resolvedSenderCount:
+        activeOverviewSubset?.source === 'review_unit'
+          ? activeOverviewSubset.chartCount
+          : orderedSenderKeys.length,
       resolvedFilters,
       source: {
         primary: sourcePrimary,
@@ -9376,7 +9554,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     workspaceSnapshot?.timeContextBucketLabel,
   ])
   const senderDistributionSemanticFocus = activeSemanticSubtypeFocusRequest
-  const senderDistributionDedicatedFetchCluster = selectedCluster || null
+  const senderDistributionDedicatedFetchCluster =
+    isDerivedReviewUnitActive && !senderDistributionSemanticFocus ? null : selectedCluster || null
   const senderDistributionExpectedSenderKeys = baseSharedWorkflowSubset.orderedSenderKeys
   const senderDistributionRequestKey = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
@@ -9702,7 +9881,12 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     () => (senderDistributionData?.senders || []).map((sender) => sender.sender_key),
     [senderDistributionData?.senders]
   )
-  const senderDistributionAuthoritativeWorkflowSenderKeys = authoritativeWorkflowSenderKeys
+  const senderDistributionAuthoritativeWorkflowSenderKeys =
+    activeOverviewSubset?.source === 'review_unit' &&
+    senderDistributionWorkspaceState.status === 'ready' &&
+    senderDistributionBroadSenderKeys.length === activeOverviewSubset.chartCount
+      ? senderDistributionBroadSenderKeys
+      : authoritativeWorkflowSenderKeys
   const senderDistributionEmptyScopedSubset =
     senderDistributionWorkspaceState.status === 'ready' &&
     senderDistributionData != null &&
@@ -9835,16 +10019,53 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         requestedTimeContextBucketEndExclusiveAt
   )
   const stableOverviewSummary = lastCompleteOverviewSummaryRef.current
+  const publishedReviewUnitSummaryActive = activeOverviewSubset?.source === 'review_unit'
+  const publishedReviewUnitDistributionReady = Boolean(
+    publishedReviewUnitSummaryActive &&
+      senderDistributionSemanticFocus &&
+      senderDistributionWorkspaceState.status === 'ready' &&
+      senderDistributionData &&
+      senderDistributionBroadSenderKeys.length === activeOverviewSubset.chartCount
+  )
+  const publishedReviewUnitManagedCount = publishedReviewUnitDistributionReady
+    ? senderDistributionBroadSenderKeys.reduce(
+        (count, senderKey) => count + (managedBySender[senderKey] ? 1 : 0),
+        0
+      )
+    : null
+  const publishedReviewUnitRemainingCount =
+    publishedReviewUnitSummaryActive && publishedReviewUnitManagedCount != null
+      ? Math.max(activeOverviewSubset.chartCount - publishedReviewUnitManagedCount, 0)
+      : null
+  const publishedReviewUnitCoveragePct =
+    publishedReviewUnitSummaryActive && publishedReviewUnitManagedCount != null
+      ? ratioPercent(
+          publishedReviewUnitManagedCount,
+          Math.max(activeOverviewSubset.chartCount, 1)
+        )
+      : null
   const renderedTopSummarySenderTotal =
-    topSummarySenderTotal ?? stableOverviewSummary?.senderTotal ?? null
+    publishedReviewUnitSummaryActive
+      ? activeOverviewSubset.chartCount
+      : topSummarySenderTotal ?? stableOverviewSummary?.senderTotal ?? null
   const renderedTopSummaryManagedCount =
-    topSummaryManagedCount ?? stableOverviewSummary?.managedCount ?? null
+    publishedReviewUnitSummaryActive
+      ? publishedReviewUnitManagedCount
+      : topSummaryManagedCount ?? stableOverviewSummary?.managedCount ?? null
   const renderedTopSummaryRemainingCount =
-    topSummaryRemainingCount ?? stableOverviewSummary?.remainingCount ?? null
+    publishedReviewUnitSummaryActive
+      ? publishedReviewUnitRemainingCount
+      : topSummaryRemainingCount ?? stableOverviewSummary?.remainingCount ?? null
   const renderedTopSummaryCoveragePct =
-    topSummaryCoveragePct ?? stableOverviewSummary?.coveragePct ?? null
+    publishedReviewUnitSummaryActive
+      ? publishedReviewUnitCoveragePct
+      : topSummaryCoveragePct ?? stableOverviewSummary?.coveragePct ?? null
   const renderedTopSummarySupportingMessageCount =
-    topSummarySupportingMessageCount ?? stableOverviewSummary?.supportingMessageCount ?? null
+    publishedReviewUnitSummaryActive
+      ? publishedReviewUnitDistributionReady
+        ? senderDistributionBroadMessageTotal
+        : null
+      : topSummarySupportingMessageCount ?? stableOverviewSummary?.supportingMessageCount ?? null
   const renderedTopSummaryCoverageIsLoading =
     renderedTopSummaryManagedCount == null ||
     renderedTopSummaryRemainingCount == null ||
@@ -9857,7 +10078,13 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       ? `${renderedTopSummaryManagedCount.toLocaleString()} covered · ${renderedTopSummaryRemainingCount.toLocaleString()} remaining`
       : stableOverviewSummary?.goalSummary || topSummaryGoalSummary
   const renderedTopSummaryGoalFollowUp =
-    stableOverviewSummary?.goalFollowUp || topSummaryGoalFollowUp
+    publishedReviewUnitSummaryActive
+      ? publishedReviewUnitRemainingCount == null
+        ? 'Unit-wide coverage will appear when the focused distribution is ready.'
+        : publishedReviewUnitRemainingCount > 0
+          ? `Next step: review the ${publishedReviewUnitRemainingCount.toLocaleString()} senders that still need a decision in this unit.`
+          : 'Next step: every sender in this published review unit is already covered.'
+      : stableOverviewSummary?.goalFollowUp || topSummaryGoalFollowUp
   const renderedTimeContextWorkflowSenderUniverseTotal =
     activeRailDisplay.workflowSenderUniverseTotal
   const renderedTimeContextWorkflowContext = senderOverviewWindowSelection
@@ -11734,32 +11961,40 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const topSummarySupportingValue = renderedTopSummarySupportingMessageCount
   const topSummarySenderCardIsLoading = renderedTopSummarySenderTotalIsLoading
   const topSummaryManagedCardIsLoading = renderedTopSummaryCoverageIsLoading
-  const topSummaryRemainingCardIsLoading = false
+  const topSummaryRemainingCardIsLoading = renderedTopSummaryCoverageIsLoading
   const topSummarySupportingCardIsLoading = renderedTopSummarySupportingMessageIsLoading
   const topSummarySenderDetail =
     topSummarySenderCardIsLoading
       ? 'Scoped sender count will appear here as soon as the current cleanup group finishes loading.'
       : workflowWindowActive
         ? `${chartOnlyRangeLabel} is the active workflow window. This sender count matches the live workflow below.`
-        : 'Review is sender-first.'
+        : publishedReviewUnitSummaryActive
+          ? 'Published sender total for this review unit.'
+          : 'Review is sender-first.'
   const topSummaryManagedDetail =
     topSummaryManagedCardIsLoading
       ? 'Managed sender coverage will appear once scoped sender truth is ready.'
       : workflowWindowActive
         ? 'Covered senders inside this active workflow window.'
-        : 'Already covered.'
+        : publishedReviewUnitSummaryActive
+          ? 'Covered senders inside this published review unit.'
+          : 'Already covered.'
   const topSummaryRemainingDetail =
     topSummaryRemainingCardIsLoading
       ? 'The count left to review will appear once the current scoped workspace is ready.'
       : workflowWindowActive
         ? `Decision Mode and the sender workflow are both narrowed to ${chartOnlyRangeLabel}.`
-        : 'Ready for review.'
+        : publishedReviewUnitSummaryActive
+          ? 'Ready for review inside this published unit.'
+          : 'Ready for review.'
   const topSummarySupportingDetail =
     topSummarySupportingCardIsLoading
       ? 'Scoped supporting-message volume will appear once the current cleanup group finishes loading.'
       : workflowWindowActive
         ? 'Supporting message volume from the same active workflow window.'
-        : 'Supports sender priority.'
+        : publishedReviewUnitSummaryActive
+          ? 'Focused supporting-message volume for this published unit.'
+          : 'Supports sender priority.'
   const topSummaryCoveredSendersDetail =
     workflowWindowActive
       ? renderedTopSummaryRemainingCount == null
@@ -11775,10 +12010,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const senderReviewGoalEyebrow = 'Workflow review goal'
   const senderReviewGoalTitle = workflowWindowActive
     ? `Give every sender in ${chartOnlyRangeLabel} a decision.`
-    : 'Give every sender in this cleanup group a decision.'
+    : publishedReviewUnitSummaryActive
+      ? `Give every sender in ${activeOverviewSubset.label} a decision.`
+      : 'Give every sender in this cleanup group a decision.'
   const senderReviewGoalDetail = workflowWindowActive
     ? `${chartOnlyRangeLabel} is now the active workflow window, so this progress meter, Sender Distribution, and the sender list all track the same narrowed sender universe.`
-    : 'Coverage is sender-level, not message-level.'
+    : publishedReviewUnitSummaryActive
+      ? 'Coverage is sender-level and stays inside this published review unit.'
+      : 'Coverage is sender-level, not message-level.'
   const senderReviewGoalMeterLabel = 'Covered senders'
   const senderReviewGoalManagedCount = renderedTopSummaryManagedCount
   const senderReviewGoalTotal = renderedTopSummarySenderTotal
@@ -12063,6 +12302,121 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     } finally {
       setSubmittingSenderKey(null)
     }
+  }
+
+  if (marketingReviewUnitEntryState) {
+    const marketingTitle = selectedCluster?.title || 'Marketing / promotional subscriptions'
+    const operationsQuery = serializeOperationsQuery(sessionId, analysisScope)
+    const cleanupGroupsHref = `/agents/${agentId}/operations/clusters${operationsQuery}`
+    const routeClusterId =
+      selectedCluster?.canonicalClusterId ||
+      selectedCluster?.clusterId ||
+      selectedCanonicalClusterId ||
+      MARKETING_PARENT_CANONICAL_ID
+    const blockedUnitLabel =
+      marketingReviewUnitEntryRequestedUnit?.label || 'The requested Marketing unit'
+    const headline =
+      marketingReviewUnitEntryState === 'choose_unit'
+        ? 'Choose a Marketing unit before review starts'
+        : marketingReviewUnitEntryState === 'missing_unit'
+          ? 'Marketing unit is missing from this route'
+          : marketingReviewUnitEntryState === 'invalid_unit'
+            ? 'Selected Marketing unit is unavailable'
+            : marketingReviewUnitEntryState === 'oversized_unit'
+              ? 'Selected Marketing unit is above the safe review limit'
+              : 'Published Marketing units are unavailable'
+    const guidance =
+      marketingReviewUnitEntryState === 'choose_unit'
+        ? 'This semantic parent is intentionally decomposed at first click. Choose one published child unit below; the broad 857-sender parent will not open as a review queue.'
+        : marketingReviewUnitEntryState === 'missing_unit'
+          ? 'This route requested unit-based review without a unit id. Choose a current published child below.'
+          : marketingReviewUnitEntryState === 'invalid_unit'
+            ? 'The requested unit is no longer part of the published artifact. Choose a current published child below.'
+            : marketingReviewUnitEntryState === 'oversized_unit'
+              ? `${blockedUnitLabel} exceeds the 400-sender first-click limit, so broad review remains blocked.`
+              : 'The published artifact does not currently expose a complete safe child-unit set. Broad Marketing review remains blocked.'
+
+    return (
+      <div className="space-y-4" data-marketing-review-entry-state={marketingReviewUnitEntryState}>
+        <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-700/50 bg-[linear-gradient(180deg,rgba(14,31,47,0.98),rgba(8,17,29,0.98),rgba(4,9,16,0.98))] p-5 space-y-4 shadow-[0_24px_64px_rgba(2,6,23,0.36)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
+                Published Marketing Review Entry
+              </p>
+              <h1 className="text-2xl font-semibold text-white">{marketingTitle}</h1>
+              <p className="max-w-3xl text-sm leading-6 text-slate-200">{guidance}</p>
+            </div>
+            <Link
+              href={cleanupGroupsHref}
+              className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
+            >
+              Cleanup Groups
+            </Link>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="app-surface-card-inset rounded-2xl p-4">
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Parent context</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
+                {formatCountOrPlaceholder(selectedCluster?.senderCount ?? null)}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-200">
+                Senders in the parent; this total is context, not the active review queue.
+              </p>
+            </div>
+            <div className="app-surface-card-inset rounded-2xl p-4">
+              <p className="text-[10px] uppercase tracking-wide text-slate-300">Entry contract</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-white">Unit-only</p>
+              <p className="mt-2 text-xs leading-5 text-slate-200">
+                Each valid first-click unit stays at or below 400 senders.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className={`${primarySurfaceClass} p-5 space-y-4`}>
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
+              Marketing Review Units
+            </p>
+            <h2 className="text-xl font-semibold text-white">{headline}</h2>
+            <p className="max-w-3xl text-sm leading-6 text-slate-200">{guidance}</p>
+          </div>
+
+          {selectableMarketingReviewUnits.length > 0 ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {selectableMarketingReviewUnits.map((unit) => (
+                <Link
+                  key={unit.id}
+                  href={buildReviewHref({
+                    agentId,
+                    sessionId,
+                    analysisScope,
+                    clusterId: routeClusterId,
+                    subsetSource: 'review_unit',
+                    subsetValue: unit.id,
+                  })}
+                  className="rounded-2xl border border-cyan-700/45 bg-cyan-950/15 p-4 text-left transition hover:border-cyan-600/70 hover:bg-cyan-950/20"
+                >
+                  <p className="text-base font-semibold text-cyan-50">{unit.label}</p>
+                  <p className="mt-2 text-sm text-cyan-100/90">
+                    {unit.senderCount.toLocaleString()} senders
+                  </p>
+                  <p className="mt-1 text-xs text-cyan-200/80">
+                    {unit.groupSharePct}% of the published parent · {unit.targetLabel}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-amber-700/45 bg-amber-950/20 p-4 text-sm leading-6 text-amber-100">
+              No valid published child units are available. This page is intentionally failing closed rather than opening broad Marketing review.
+            </div>
+          )}
+        </section>
+      </div>
+    )
   }
 
   if (runtime.loading && !renderRuntimeData && !continuityOverviewWorkspaceSnapshot) {
@@ -13258,7 +13612,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               <p className="text-sm leading-6 text-slate-200">
                 {activeOverviewSubset
                   ? activeOverviewSubset.source === 'review_unit'
-                    ? 'You can either review only this derived review unit or return to the full cleanup group. This scope is session-only and still uses the same one-sender-at-a-time Decision Mode.'
+                    ? isMarketingCleanupGroup
+                      ? 'Continue with this published review unit in the same one-sender-at-a-time Decision Mode, or return to Cleanup Groups to choose another unit.'
+                      : 'You can either review only this derived review unit or return to the full cleanup group. This scope is session-only and still uses the same one-sender-at-a-time Decision Mode.'
                     : 'You can either review the full cleanup group or hand off only this selected subset into the same one-sender-at-a-time decision flow. Gmail still never mutates here.'
                   : 'Decision Mode is the next step when you are ready to move from overview into one-sender-at-a-time action.'}
               </p>
@@ -13279,13 +13635,22 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                         : 'Review Selected Subset'}
                     </Link>
                   )}
-                  <Link
-                    href={decisionHref}
-                    scroll={false}
-                    className={`${quietSecondaryActionClass} inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold`}
-                  >
-                    Review Full Group
-                  </Link>
+                  {isMarketingCleanupGroup ? (
+                    <Link
+                      href={`/agents/${agentId}/operations/clusters`}
+                      className={`${quietSecondaryActionClass} inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold`}
+                    >
+                      Choose Another Unit
+                    </Link>
+                  ) : (
+                    <Link
+                      href={decisionHref}
+                      scroll={false}
+                      className={`${quietSecondaryActionClass} inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold`}
+                    >
+                      Review Full Group
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <Link

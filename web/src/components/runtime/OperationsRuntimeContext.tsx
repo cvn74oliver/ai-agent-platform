@@ -60,7 +60,11 @@ type SnapshotRefreshOptions = {
 }
 
 type SnapshotRefreshResult =
-  | { ok: true }
+  | {
+      ok: true
+      servingPublishedFallback?: boolean
+      publishedVersion?: string | null
+    }
   | { ok: false; error: string; reason?: string | null }
 
 type TriggerManualReindexResult =
@@ -948,13 +952,36 @@ function isTerminalUnavailableArtifactRehydrateState(
   const continuityState = regenerationDiagnostics.continuityState || 'standard'
   const freshnessState = regenerationDiagnostics.publicationFreshnessState || null
   const buildStatus = regenerationDiagnostics.publicationBuildStatus || null
+  const publishedVersion = regenerationDiagnostics.publishedVersion?.trim() || ''
   return (
     continuityState === 'standard' &&
+    !publishedVersion &&
     (buildStatus === 'failed' ||
       freshnessState === 'stale' ||
       freshnessState === 'refresh_failed' ||
       freshnessState === 'full_rebuild_required')
   )
+}
+
+function isTransientEmptyRuntimeSnapshot(
+  runtimeData: OperationsRuntimeData | null | undefined
+): boolean {
+  if (!runtimeData || runtimeData.runtime_cleanup_plan?.clusters?.length) return false
+  if (isTerminalUnavailableArtifactRehydrateState(runtimeData)) return false
+
+  const diagnostics = readRuntimeRehydrateDiagnostics(runtimeData)
+  const regenerationDiagnostics = diagnostics?.manual_cleanup_regeneration_diagnostics
+  const publishedVersion = regenerationDiagnostics?.publishedVersion?.trim() || ''
+  const sourceCounts = runtimeData.runtime_mailbox_profile?.cluster_diagnostics?.source_counts
+  const indexedTotalRows =
+    typeof sourceCounts?.indexed_total_rows === 'number' ? sourceCounts.indexed_total_rows : 0
+  const indexedInboxRows =
+    typeof sourceCounts?.indexed_inbox_rows === 'number' ? sourceCounts.indexed_inbox_rows : 0
+
+  // A zero-cluster payload is not authoritative when the runtime already knows
+  // that a publication or indexed mailbox exists. Treat it as a transient
+  // hydration failure instead of persisting/rendering a false empty state.
+  return Boolean(publishedVersion) || indexedTotalRows > 0 || indexedInboxRows > 0
 }
 
 function mailboxIndexSnapshotChanged(
@@ -1306,6 +1333,7 @@ export function OperationsRuntimeProvider(props: {
       data: OperationsRuntimeData,
       runtimeContinuity: SnapshotStatus['runtimeContinuity']
     ) => {
+      if (isTransientEmptyRuntimeSnapshot(data)) return
       MEMORY_CACHE.set(storageKey, { loadedAt, data, runtimeContinuity })
       if (typeof window === 'undefined') return
       try {
@@ -1332,12 +1360,12 @@ export function OperationsRuntimeProvider(props: {
       latestRequestKeyRef.current = requestKey
       if (requestInFlightRef.current?.key === requestKey) {
         const inflightRequest = requestInFlightRef.current
-        await requestInFlightRef.current.promise
+        const inflightResult = await requestInFlightRef.current.promise
         if (
           options?.forceMailboxProfileRefresh !== true ||
           inflightRequest.forceMailboxProfileRefresh
         ) {
-          return { ok: true }
+          return inflightResult
         }
       }
 
@@ -1386,9 +1414,41 @@ export function OperationsRuntimeProvider(props: {
           }
           const runtimeData = payload.data as OperationsRuntimeData
           const loadedAt = Date.now()
+          if (isTransientEmptyRuntimeSnapshot(runtimeData)) {
+            const error =
+              'Published cleanup groups are still hydrating. Keeping the last valid snapshot visible.'
+            setStatus((prev) => {
+              const stableData =
+                prev.data && !isTransientEmptyRuntimeSnapshot(prev.data) ? prev.data : null
+              const nextStatus: SnapshotStatus = {
+                ...prev,
+                loading: false,
+                refreshing: false,
+                error: stableData ? null : error,
+                data: stableData,
+                loadedAt: stableData ? prev.loadedAt : null,
+                mailboxIndexHealth: mailboxIndexHealth ?? prev.mailboxIndexHealth,
+              }
+              return mailboxIndexHealth
+                ? reconcileMailboxIndexHealthState(nextStatus, mailboxIndexHealth)
+                : nextStatus
+            })
+            return {
+              ok: false,
+              error,
+              reason: 'transient_empty_snapshot',
+            }
+          }
           const rehydrateDiagnostics = readRuntimeRehydrateDiagnostics(runtimeData)
           const regenerationDiagnostics =
             rehydrateDiagnostics?.manual_cleanup_regeneration_diagnostics || null
+          const publishedVersion = regenerationDiagnostics?.publishedVersion?.trim() || null
+          const terminalRefreshState =
+            regenerationDiagnostics?.publicationBuildStatus === 'failed' ||
+            regenerationDiagnostics?.publicationFreshnessState === 'stale' ||
+            regenerationDiagnostics?.publicationFreshnessState === 'refresh_failed' ||
+            regenerationDiagnostics?.publicationFreshnessState === 'full_rebuild_required'
+          const servingPublishedFallback = Boolean(publishedVersion && terminalRefreshState)
           const buildPending =
             regenerationDiagnostics?.continuityState === 'build_pending_showing_stable_snapshot' ||
             regenerationDiagnostics?.buildPending === true
@@ -1470,7 +1530,11 @@ export function OperationsRuntimeProvider(props: {
             (options?.forceMailboxProfileRefresh ? 'manual_regenerate' : null)
           void maybeBootstrapMailboxIndex(mailboxIndexHealth)
           void maybeRecoverDegradedIndexSync(mailboxIndexHealth, effectiveRefreshReason)
-          return { ok: true }
+          return {
+            ok: true,
+            servingPublishedFallback,
+            publishedVersion,
+          }
         } catch {
           if (latestRequestKeyRef.current !== requestKey) {
             return { ok: true }
@@ -1764,7 +1828,21 @@ export function OperationsRuntimeProvider(props: {
       }
     }
 
-    if (cachedSnapshot) {
+    const cachedSnapshotIsTransientEmpty = Boolean(
+      cachedSnapshot && isTransientEmptyRuntimeSnapshot(cachedSnapshot.data)
+    )
+    if (cachedSnapshotIsTransientEmpty) {
+      MEMORY_CACHE.delete(storageKey)
+      if (typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.removeItem(storageKey)
+        } catch {
+          // Ignore cache eviction failures; the invalid snapshot is still not mounted.
+        }
+      }
+    }
+
+    if (cachedSnapshot && !cachedSnapshotIsTransientEmpty) {
       setStatus({
         loading: false,
         refreshing: false,
@@ -1796,7 +1874,7 @@ export function OperationsRuntimeProvider(props: {
       })
     }
 
-    if (!cachedSnapshot) {
+    if (!cachedSnapshot || cachedSnapshotIsTransientEmpty) {
       void refreshRuntimeSnapshot({
         silent: false,
         force: true,
@@ -1804,19 +1882,28 @@ export function OperationsRuntimeProvider(props: {
       return
     }
 
+    const cachedClusterCount =
+      cachedSnapshot?.data?.runtime_cleanup_plan?.clusters?.length ?? 0
+    const terminalArtifactUnavailable = isTerminalUnavailableArtifactRehydrateState(
+      cachedSnapshot?.data
+    )
     const cachedHealth = readCachedMailboxIndexHealth()
     if (!cachedHealth) {
       void refreshMailboxIndexHealth()
+      if (!terminalArtifactUnavailable && cachedClusterCount === 0) {
+        void refreshRuntimeSnapshot({
+          silent: true,
+          force: true,
+        })
+      }
       return
     }
     setStatus((prev) => reconcileMailboxIndexHealthState(prev, cachedHealth))
     void maybeBootstrapMailboxIndex(cachedHealth)
     void maybeRecoverDegradedIndexSync(cachedHealth, null)
-    if (isTerminalUnavailableArtifactRehydrateState(cachedSnapshot?.data)) {
+    if (terminalArtifactUnavailable) {
       return
     }
-    const cachedClusterCount =
-      cachedSnapshot?.data?.runtime_cleanup_plan?.clusters?.length ?? 0
     if (cachedSnapshot && cachedClusterCount === 0 && cachedHealth.indexed_message_count > 0) {
       void refreshRuntimeSnapshot({
         silent: true,

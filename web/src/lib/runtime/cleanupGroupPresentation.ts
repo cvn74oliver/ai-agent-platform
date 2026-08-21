@@ -1,7 +1,10 @@
 import type {
   GmailCleanupClusterRef,
+  GmailCleanupGroupReviewUnit,
+  GmailCleanupGroupReviewUnitBasis,
   GmailMailboxIntelligenceData,
   GmailSemanticFamily,
+  GmailSenderWorkspaceSemanticFocus,
   GmailSharedGroupSemanticRollup,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
@@ -84,6 +87,45 @@ export type CleanupGroupDerivedReviewUnit = {
   familySharePct: number
   guidance: string
   honestyLabel: string
+}
+
+export const CLEANUP_GROUP_REVIEW_UNIT_TARGET_MIN = 50
+export const CLEANUP_GROUP_REVIEW_UNIT_TARGET_MAX = 300
+export const CLEANUP_GROUP_REVIEW_UNIT_HARD_MAX = 400
+
+export type CleanupGroupPublishedReviewUnitTargetState =
+  | 'under_target'
+  | 'within_target'
+  | 'near_cap'
+  | 'oversized'
+
+export type CleanupGroupPublishedReviewUnit = {
+  id: string
+  label: string
+  senderCount: number
+  groupSharePct: number
+  sourceKind: GmailCleanupGroupReviewUnit['source_kind']
+  sourceKey: string
+  unitRole: GmailCleanupGroupReviewUnit['unit_role']
+  basis: GmailCleanupGroupReviewUnitBasis
+  semanticFamily: GmailSemanticFamily | null
+  semanticSubtype: string | null
+  focusKind: GmailSenderWorkspaceSemanticFocus['kind'] | null
+  surfacedSubtypeKeys: string[]
+  reasonKind: 'assignment_reason' | 'exclusion_reason' | null
+  targetState: CleanupGroupPublishedReviewUnitTargetState
+  targetLabel: string
+  guidance: string
+  kind: 'family' | 'subtype' | 'remainder'
+  tone: CleanupGroupInternalPattern['tone']
+  familySharePct: number
+  honestyLabel: string
+}
+
+const CLEANUP_GROUP_DEFAULT_REVIEW_UNIT_FAMILY_BY_CANONICAL_ID: Partial<
+  Record<string, GmailSemanticFamily>
+> = {
+  'semantic.marketing_subscriptions': 'marketing_promotional',
 }
 
 export type CleanupGroupSurfaceTier = 'featured_parent' | 'collapsed_parent' | 'secondary'
@@ -666,6 +708,162 @@ export function recommendCleanupGroupDerivedReviewUnit(
   units: CleanupGroupDerivedReviewUnit[]
 ): CleanupGroupDerivedReviewUnit | null {
   return units[0] || null
+}
+
+function reviewUnitSemanticFamily(params: {
+  clusterId: string
+  unit: GmailCleanupGroupReviewUnit
+}): GmailSemanticFamily | null {
+  const canonicalClusterId = cleanupGroupCanonicalId(params.clusterId)
+
+  if (
+    params.unit.source_kind === 'family_lane' ||
+    params.unit.source_kind === 'family_remainder'
+  ) {
+    if (
+      params.unit.source_key === 'marketing_promotional' ||
+      params.unit.source_key === 'commerce_transactional' ||
+      params.unit.source_key === 'account_notification' ||
+      params.unit.source_key === 'security_alert' ||
+      params.unit.source_key === 'social_community' ||
+      params.unit.source_key === 'human_personal'
+    ) {
+      return params.unit.source_key
+    }
+  }
+
+  if (
+    params.unit.source_kind === 'family_subtype' ||
+    params.unit.source_kind === 'spillover'
+  ) {
+    return CLEANUP_GROUP_DEFAULT_REVIEW_UNIT_FAMILY_BY_CANONICAL_ID[canonicalClusterId] || null
+  }
+
+  return null
+}
+
+function reviewUnitTargetState(senderCount: number): CleanupGroupPublishedReviewUnitTargetState {
+  if (senderCount > CLEANUP_GROUP_REVIEW_UNIT_HARD_MAX) return 'oversized'
+  if (senderCount > CLEANUP_GROUP_REVIEW_UNIT_TARGET_MAX) return 'near_cap'
+  if (senderCount < CLEANUP_GROUP_REVIEW_UNIT_TARGET_MIN) return 'under_target'
+  return 'within_target'
+}
+
+function reviewUnitTargetLabel(targetState: CleanupGroupPublishedReviewUnitTargetState): string {
+  if (targetState === 'oversized') return 'Blocking: above hard max'
+  if (targetState === 'near_cap') return 'Near cap'
+  if (targetState === 'under_target') return 'Small but valid'
+  return 'Target size'
+}
+
+function reviewUnitGuidance(params: {
+  basis: GmailCleanupGroupReviewUnitBasis
+  unit: GmailCleanupGroupReviewUnit
+}): string {
+  if (params.unit.source_kind === 'assignment_reason') {
+    return 'Start here to keep protected review bounded by one protection reason.'
+  }
+  if (params.unit.source_kind === 'exclusion_reason') {
+    return 'Start here to keep unresolved review bounded by one exclusion reason.'
+  }
+  if (params.unit.source_kind === 'family_lane') {
+    return 'Start here to narrow the first pass to one semantic family lane.'
+  }
+  if (params.unit.source_kind === 'family_remainder') {
+    return 'Use this remainder after the named subtype slices.'
+  }
+  if (params.basis === 'subtype-first') {
+    return 'Start here for the narrowest published subtype slice.'
+  }
+  return 'Start here to narrow the sender queue before entering review.'
+}
+
+export function buildCleanupGroupPublishedReviewUnits(
+  clusterId: string,
+  rollup: GmailSharedGroupSemanticRollup | null
+): CleanupGroupPublishedReviewUnit[] {
+  const unitPlan = rollup?.review_unit_plan
+  if (!unitPlan?.units?.length || !unitPlan.basis) return []
+
+  const surfacedSubtypeKeys = unitPlan.units
+    .filter((unit) => unit.source_kind === 'family_subtype')
+    .map((unit) => unit.source_key)
+
+  return unitPlan.units.map((unit) => {
+    const semanticFamily = reviewUnitSemanticFamily({ clusterId, unit })
+    const focusKind =
+      unit.source_kind === 'family_lane'
+        ? 'family'
+        : unit.source_kind === 'family_subtype'
+          ? 'subtype'
+          : unit.source_kind === 'family_remainder'
+            ? 'remainder'
+            : null
+    const kind: CleanupGroupPublishedReviewUnit['kind'] =
+      unit.source_kind === 'family_lane'
+        ? 'family'
+        : unit.source_kind === 'family_subtype'
+          ? 'subtype'
+          : 'remainder'
+    const senderCount = Math.max(0, unit.sender_count)
+    const targetState = reviewUnitTargetState(senderCount)
+    return {
+      id: unit.unit_id,
+      label: unit.label,
+      senderCount,
+      groupSharePct: Math.max(0, Math.min(unit.share_pct, 100)),
+      sourceKind: unit.source_kind,
+      sourceKey: unit.source_key,
+      unitRole: unit.unit_role,
+      basis: unitPlan.basis,
+      semanticFamily,
+      semanticSubtype: unit.source_kind === 'family_subtype' ? unit.source_key : null,
+      focusKind,
+      surfacedSubtypeKeys,
+      reasonKind:
+        unit.source_kind === 'assignment_reason' || unit.source_kind === 'exclusion_reason'
+          ? unit.source_kind
+          : null,
+      targetState,
+      targetLabel: reviewUnitTargetLabel(targetState),
+      guidance: reviewUnitGuidance({ basis: unitPlan.basis, unit }),
+      kind,
+      tone: 'resolved',
+      familySharePct: Math.max(0, Math.min(unit.share_pct, 100)),
+      honestyLabel:
+        unit.source_kind === 'family_remainder'
+          ? 'Published remainder'
+          : unit.source_kind === 'spillover'
+            ? 'Published spillover'
+            : 'Published review unit',
+    }
+  })
+}
+
+export function findCleanupGroupPublishedReviewUnit(
+  units: CleanupGroupPublishedReviewUnit[],
+  unitId: string | null | undefined
+): CleanupGroupPublishedReviewUnit | null {
+  if (!unitId) return null
+  return units.find((unit) => unit.id === unitId) || null
+}
+
+export function recommendCleanupGroupPublishedReviewUnit(
+  units: CleanupGroupPublishedReviewUnit[]
+): CleanupGroupPublishedReviewUnit | null {
+  return units.find((unit) => unit.targetState !== 'oversized') || units[0] || null
+}
+
+export function buildSemanticFocusFromPublishedReviewUnit(
+  unit: CleanupGroupPublishedReviewUnit
+): GmailSenderWorkspaceSemanticFocus | null {
+  if (!unit.semanticFamily || !unit.focusKind) return null
+  return {
+    family: unit.semanticFamily,
+    kind: unit.focusKind,
+    subtypeKey: unit.focusKind === 'subtype' ? unit.semanticSubtype : null,
+    surfacedSubtypeKeys: unit.surfacedSubtypeKeys,
+  }
 }
 
 function buildRecommendationCandidates<T>(params: {

@@ -1,5 +1,74 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-21 • two-file response-lifecycle correction source ACCEPT/HIGH • environment mechanism found/HIGH • one bounded recovery build next • Claude successor transition is deferred_
+_Last updated: 2026-08-21 • all-parent consolidation plan approved • same-flow pre-rebuild execution active • no semantic rebuild authorized_
+
+## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
+
+- [x] Oliver approved the decision-complete all-parent plan and immediate same-flow implementation through the pre-rebuild gate.
+- [x] Create authoritative runtime packet `docs/00_control_plane/runtime/ACE-048_ALL_PARENT_CLEANUP_TAXONOMY_CONSOLIDATION_PM_BRIEF.md`; supersede Marketing-only execution authority while preserving it as partial evidence.
+- [ ] Preserve and classify every dirty checkout/branch without committing auth state, secrets, or generated Playwright output.
+- [ ] Create a clean main-derived integration worktree and record the pre-integration runtime baseline.
+- [ ] Correct the unchanged-key Decision Mode close/overview workspace lifecycle without adding requests or polling.
+- [ ] Add materialized `review_unit_id` membership, indexed bounded lookup, exact-partition validator, and old-publication compatibility without applying the migration live.
+- [ ] Replace Marketing-only rendering with one generic flat child chooser for every actionable parent; keep Historical/Context informational only.
+- [ ] Integrate Sender Distribution and Pressure Trend seams on the shared selected review-unit universe.
+- [ ] Run static/build plus bounded Playwright correction proof and stop at the explicit pre-rebuild decision gate.
+- [ ] Do not run a semantic candidate build, publish an artifact, advance local main, push, deploy, or retire lineage without the later required gates.
+
+### Historical active heading retained below
+
+Operations published fallback and scroll-lock repair
+
+- [x] Reproduce Oliver's exact blank Mailbox Intelligence route and capture human-visible baseline evidence.
+- [x] Confirm read-only Supabase truth: published artifact `full-mailbox-20260415024237593` has 13 cluster summaries plus one Intelligence snapshot; later candidate failed and remains unpublished.
+- [x] Lock blank-surface mechanism: failed candidate status incorrectly invalidates the existing published artifact across runtime/workspace availability selectors.
+- [x] Lock scroll mechanism: unscoped Decision Mode can lock body overflow before the no-cluster early return and render no overlay.
+- [x] Record Oliver approval for two sequential correction slices.
+- [x] Slice A: serve immutable last-known-good published artifact while exposing candidate/refresh failure separately; bound all-indexed refresh to safe single-flight behavior with no raw mailbox scan or rebuild.
+- [x] Slice A correction proof: TypeScript, targeted lint, fresh build, exact-route runtime exercise, single manual refresh, published-fallback warning, and no repeated UI polling/rebuild.
+- [x] Slice A linked cache correction: a cached blank snapshot plus missing cached health now starts one silent snapshot hydration instead of leaving Cleanup Groups blank indefinitely.
+- [x] Slice B: lock body scrolling only while a visible Decision Mode overlay is mounted; restore it on every no-cluster/close/navigation path.
+- [x] Slice B correction proof: no-cluster Decision Mode remains scrollable; valid overlay locks the background; real backdrop close restores route and body scrolling.
+- [x] Correction-proof bundle and five-row State Transition Matrix written to `output/playwright/ace048-main-cleanup-restore-correction/correction-proof.json`; verification confidence HIGH.
+- [x] Guided bounded Human Review decision: `REJECT` — populated state did not survive normal navigation; exact route returned to blank groups while background-refresh and `Syncing…` states remained visible.
+- [x] Repeated-failure diagnosis: old zero-cluster session snapshot is admitted as ready data before bounded live artifact hydration; controlled cold route repopulates after about `20s`.
+- [x] Root Cause Execution Translation: one-file runtime-context correction; reject/evict transient zero-cluster cache, preserve mounted non-empty snapshot, and expose loading/error until valid artifact data arrives. Prior diffs remain distinguished from this new current-pass edit.
+- [x] Execute the one-file transient-empty cache admission correction.
+- [x] New correction proof: cold load, click-through navigation loop, return to Intelligence, Cleanup Groups, and post-settle visible persistence artifacts; false terminal-empty copy absent and both routes scrollable. TypeScript, targeted lint, diff check, and isolated `63/63` build PASS.
+- [x] Human Review incident RETURN: exact Intelligence route produced an unbounded inbox-analysis authentication-failure waterfall; terminate PID `57130` and verify port `3000` closed.
+- [x] Lock mechanism: Pressure Trend error state retriggers the same effect/request key immediately.
+- [x] Root Cause Execution Translation: one-file key-owned loading/error correction; one request per semantic key and zero steady requests after failure.
+- [x] Apply the bounded one-file Pressure Trend request-ownership correction.
+- [x] Static gate before restart: non-incremental TypeScript, targeted lint, diff check, and `63/63` build PASS.
+- [x] Controlled exact-route proof: one cold request plus one legitimate 1M new-key request, both `200`; final `20s` steady state stayed at exactly two total; no auth waterfall; 1M visible chart settled; browser/server stopped and port closed.
+- [x] Record Oliver Human Review: same-key request storm contained, broader Operations `RETURN_TO_PM`; Pressure Trend bounds and Cleanup Groups child-unit truth remain open.
+- [x] Recover the accepted Cleanup Groups design from both lineages: artifact-backed units, first-click narrowing, `50–300` preferred, `400` hard maximum; Marketing Lane A accepted, Lane B incomplete, Lane C not started.
+- [x] Run one bounded read-only audit of the April published artifact review-unit plans and sizing metadata. Result: stable schema-v2 unit IDs exist; Marketing reconciles to `347 / 218 / 160 / 76 / 56`; Backlog, Protected/Trusted, and Unresolved retain oversized units of `487 / 1,660 / 1,110`. No raw Gmail rows, polling, rebuild, publication change, or database write.
+- [x] Complete the execution-ready Marketing packet brief and exact hot-file seam lock using main as destination and `cleanup-taxonomy-rebuild@c690dff` as mandatory feature-authority evidence. Do not widen to the three oversized parents or Sender Distribution in this packet.
+- [x] Execute the first isolated Cleanup Groups chooser/child packet and run the first Playwright gate. Root chooser PASS; exact Deals child REJECT because focused `347` truth did not commit and a broad-parent request family repeated into `409` churn.
+- [x] Correct only the review-page child request ownership/commit seam: focused Marketing child truth owns the visible lifecycle, broad Marketing fallback is unavailable, published unit total remains `347`, loaded rows are nonzero, and steady repeated requests/`409` churn are zero.
+- [x] Re-run the exact candidate root -> Deals child Playwright gate. PASS/HIGH: `347` unit senders, `347` ranked distribution entries, `12` visible rows on page `1 / 29`, no broad escape, two required focused `200` requests, zero `409`/polling/retry/console error.
+- [x] Lock the reconciliation invariant for all integration packets: displayed parents sum to global cleanup scope; exposed children sum to their parent; linked counts describe one active universe. Current proof: `4,881 = 857 + 1,003 + 1,118 + 1,844 + 59` and `857 = 347 + 160 + 76 + 218 + 56`.
+- [x] Transfer the exact five-file candidate semantic union into current main; pass TypeScript, targeted zero-error lint, diff check, fresh `63/63` build, root chooser, exact Deals overview, and Decision Mode entry.
+- [x] Diagnose main return-loop failure and reject the insufficient first resolver correction with authenticated Chrome visible proof.
+- [x] Lock the actual seam: the overview return-storage effect overwrites an already stored valid `review_unit` route whenever stored semantic focus exists.
+- [x] Reject the first storage-condition correction: route/hero/distribution survive, but carried semantic focus appends legacy query state and collapses sender rows to `0`.
+- [x] Sanitize restored semantic focus to `null` only when the authoritative stored route is `review_unit`; preserve legacy non-review-unit restoration; no load/backend change. Re-verification proved this correction necessary but insufficient.
+- [x] Diagnose the residual Close failure: the shared review URL builder still emits legacy semantic-family/subtype parameters alongside authoritative `review_unit` identity, producing contradictory route state and `0` sender rows.
+- [x] Enforce route-identity exclusivity in the shared review URL builder. Static/build PASS; Close now returns to a clean review-unit URL, but rows remain `0`, so this is partial proof only.
+- [x] Diagnose the residual state-lifecycle failure: overview-mode transition clears the ready focused review-unit workspace while its request key remains unchanged, so the request effect does not rerun.
+- [x] Record Oliver's all-parent Cleanup Groups Human Review return: the hybrid Marketing-child / other-parent-broad behavior is not a finished design and supersedes the prior isolated hot-file decision gate.
+- [ ] Build a bounded read-only all-parent inventory from the published artifact and `cleanup-taxonomy-rebuild@c690dff`: parent identity, intended child identities, source/basis, partition or overlap rule, child counts, parent reconciliation, size guardrail, and route behavior.
+- [ ] Classify every missing/oversized child path as parser/UI omission, existing unpublished lineage truth, or genuinely missing artifact decomposition. Do not infer child completion from labels or session-only slices.
+- [ ] Produce the revised implementation packet order and proof matrix. Every visible parent must end with intuitive artifact-backed children; first click must narrow; no child may exceed `400`; children and parents must reconcile exactly; linked workflow surfaces must share one universe.
+- [ ] Reissue the bounded Deals overlay state-lifecycle correction inside that revised sequence: retain ready review-unit workspace across Decision Mode overlay mode transitions when cluster/request identity is unchanged; reset only on genuine identity change; no additional request/backend load.
+- [ ] Re-verify exact Decision Mode close, retained `347` overview truth and page `1 / 29`, then root return. Request narrow Oliver Human Review only after the full main loop passes.
+- [ ] Overall accepted-fix verification remains open: Pressure Trend, protected Sender Distribution, sender rows, Time Context, and Decision Mode linked parity still require integration-stage proof.
+- [ ] Continue preservation-first cleanup/sender-distribution semantic integration packet-by-packet; no blind merge or blanket conflict resolution.
+
+### Full semantic rebuild guard
+
+- No full Supabase semantic rebuild is part of this repair.
+- Any future rebuild is a separately approved multi-hour candidate-only operation: pretest code and artifact contracts, preserve the current publication, validate candidate integrity/parity, publish atomically only after acceptance, and retain rollback.
 
 ## NOW — Next deterministic step
 
@@ -19,7 +88,8 @@ _Last updated: 2026-08-21 • two-file response-lifecycle correction source ACCE
 - [x] Propagate implementation and verification truth into the `ACE-048` control plane.
 - [x] Oliver issued post-implementation `ACCEPT` for the bounded current-tree remediation.
 - [x] Create Recovery Contract: `CHANGELOG.md` -> `August 15, 2026 — ACE-048 Current-Tree Auth-Artifact Remediation Accepted`.
-- [x] Complete initial semantic archaeology: `84` total, `47` identical, `37` disposition paths (`8` cleanup-unopposed, `7` cleanup-only, `22` both-changed), `17` textual conflicts, `5` auto-merges requiring semantic review; now stale after verified cleanup corrections.
+- [x] Complete initial semantic archaeology: historical `84 / 47 / 37 / 8 / 7 / 22 / 17 / 5`; now superseded for path disposition by the live comparison below.
+- [x] Recompute current branch-tree disposition: `84` cleanup-changed paths, `45` byte-identical on main, `39` disposition paths (`8` cleanup-unopposed, `31` both-changed-differently). Recompute textual conflict/auto-merge counts before the execution-ready integration packet; do not reuse historical `17 / 5` as current truth.
 - [x] Run initial independent pre-integration baselines for main and cleanup.
   - main verdict: FAIL, confidence HIGH
   - cleanup initial verdict: FAIL; later bounded correction and independent re-verification passed as recorded below

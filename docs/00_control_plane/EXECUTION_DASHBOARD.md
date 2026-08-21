@@ -2,18 +2,78 @@
 
 Last updated: 2026-08-21
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — GIT PRESERVATION PASS; WORKTREE-RETIREMENT/HANDOFF PREPARATION NEXT; RUNTIME BLOCKER PRESERVED
+Status: ACTIVE — ALL-PARENT CLEANUP CONSOLIDATION EXECUTION; PRE-REBUILD ONLY
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Git preservation PASS; read-only generated-worktree retirement audit and Claude handoff preparation active; runtime verification BLOCKED/HIGH and integration blocked
-- Problem class: runtime behavior constrained by artifact/publication truth
+- Execution phase: approved same-flow implementation of the all-parent child-only contract, lineage preservation, materialized review-unit membership, lifecycle correction, and linked chart integration through the explicit pre-rebuild gate
+- Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.
+
+## Approved all-parent consolidation
+
+- [x] Decision-complete plan approved for immediate same-flow execution
+- [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
+- [ ] Preserve/classify every dirty lineage; no secret or generated proof commit
+- [ ] Create clean main-derived integration candidate and pre-merge baseline
+- [ ] Fix unchanged-key Decision Mode return lifecycle
+- [ ] Add materialized exact review-unit membership and indexed bounded lookup; do not apply live
+- [ ] Render every actionable parent as a flat child chooser; Context informational only
+- [ ] Integrate Sender Distribution and Pressure Trend on shared child identity
+- [ ] Pass static/build and bounded Playwright correction proof
+- [ ] Stop at pre-rebuild approval gate; no candidate build/publication/main promotion yet
+
+## Immediate Human Review return
+
+- [x] Blank Mailbox Intelligence reproduced on Oliver's exact authenticated route
+- [x] Published semantic artifact proven intact: 13 cluster summaries + 1 Intelligence snapshot
+- [x] Failed later candidate proven unpublished; no rebuild required for current recovery
+- [x] Scroll freeze mechanism reproduced on unscoped Decision Mode
+- [x] Two-slice correction plan approved by Oliver
+- [x] Restore last-known-good published artifact across Mailbox Intelligence and Cleanup Groups
+- [x] Bound Refresh Cleanup Analysis fallback behavior with no repeated polling or automatic rebuild
+- [x] Correct unscoped/overlay body scroll-lock ownership and restoration
+- [x] Capture post-settle correction proof plus five-row State Transition Matrix
+- [ ] Pressure Trend and protected Sender Distribution/sender rows remain open integration surfaces
+- [x] Explicit guided Oliver Human Review decision: `REJECT`
+- [x] Diagnose navigation/persistent-state overwrite: stale zero-cluster session snapshot is mounted as ready before live artifact hydration
+- [x] Produce Root Cause Execution Translation: one-file transient-empty cache admission/eviction correction; preserve non-empty stable snapshot
+- [x] Execute and verify the new one-file correction
+- [x] Re-verify a full navigation/return loop with new visible before/after proof before asking Oliver again
+- [x] Human Review incident RETURN: auth-missing inbox-analysis waterfall reproduced in Oliver's exact Chrome route
+- [x] Stop PID `57130`; confirm localhost `3000` closed and backend pressure contained
+- [x] Lock same-key Pressure Trend error/effect loop and bounded one-file correction contract
+- [x] Apply correction and pass TypeScript, zero-error/warning targeted lint, diff check, and `63/63` build
+- [x] Prove one request per semantic key and zero steady requests: All indexed `1`, 1M new key `1`, final total after `20s` remained `2`
+- [x] Prove visible 1M final state: daily bars, `Pressure is steady`, no console errors/warnings
+- [x] Oliver Human Review: request storm contained; broader Operations `RETURN_TO_PM`
+- [x] Recover accepted child-unit contract: artifact-backed, first-click narrow, `50–300` preferred, `400` hard maximum
+- [x] Confirm current main uses session-only derived units and does not represent the finished child-group model
+- [x] Bounded read-only April artifact review-unit-plan audit: stable schema-v2 unit identities present; no rebuild needed for first packet
+- [x] Lock first packet to Marketing only: five units `347 / 218 / 160 / 76 / 56`, exact reconciliation, no broad-parent shortcut
+- [x] Complete exact hot-file seam lock and bounded PM Brief for isolated implementation
+- [x] First Playwright gate: root chooser PASS; exact Deals child REJECT because focused `347` truth rendered `0`, broad fallback remained visible, and repeated broad requests produced `409` churn
+- [x] Correct the bounded review-page request-ownership/commit seam and remove the broad Marketing escape
+- [x] Candidate post-settle Deals proof PASS/HIGH: `347` unit senders, `347` ranked distribution entries, `12` visible rows on page `1 / 29`, two required focused `200` requests, zero `409`/polling/retry/error
+- [x] Root reconciliation proof: `4,881 = 857 + 1,003 + 1,118 + 1,844 + 59`; Marketing child reconciliation: `857 = 347 + 160 + 76 + 218 + 56`
+- [x] Transfer the exact five-file candidate union to current main; fresh build and authenticated root -> Deals -> Decision Mode entry PASS
+- [x] Reject the insufficient first resolver correction with authenticated Chrome proof: stable Deals Decision Mode still returns to legacy semantic-family/subtype state
+- [x] Lock the actual return-storage effect seam that overwrites stored valid `review_unit` identity when semantic focus exists
+- [x] Reject the first storage-condition correction: explicit unit/`347` distribution survive, but legacy semantic state remains and visible sender rows collapse to `0`
+- [x] Sanitize restored semantic focus only for authoritative `review_unit` returns; re-verification proved the correction necessary but insufficient
+- [x] Lock residual mechanism: shared review URL builder emits semantic-family/subtype parameters alongside authoritative `review_unit`, collapsing the visible sender rows to `0`
+- [x] Enforce mutually exclusive route identity in the shared URL builder; static/build PASS and clean post-Close URL proven, but visible rows remain `0`
+- [x] Lock residual mechanism: overview-mode transition clears ready focused workspace while unchanged request key prevents refetch
+- [x] Oliver all-parent Human Review return: mixed child-only and broad-only parent behavior is not an acceptable finished Cleanup Groups design
+- [ ] Recover and reconcile the intended child contract for every visible parent from published artifact plus preserved cleanup lineage
+- [ ] Classify missing children as parser/UI omission versus absent artifact decomposition; do not rebuild or publish during this audit
+- [ ] Issue revised packet order and proof matrix: intuitive parents, bounded artifact-backed children, first-click narrowing, exact parent/child/global parity
+- [ ] Reissue the bounded Deals state-lifecycle correction within the revised packet sequence; no Human Review until `347` rows/page truth survives Close
 
 ## Progress
 
@@ -47,6 +107,8 @@ Status: ACTIVE — GIT PRESERVATION PASS; WORKTREE-RETIREMENT/HANDOFF PREPARATIO
 - [ ] 4. Runtime Read Isolation + O(1) Lifecycle Status response-lifecycle correction source ACCEPT/HIGH; one bounded recovery build ACTIVE; runtime acceptance REJECT/HIGH
 - [ ] 5. Separate Dashboard baseline correction and verification
 - [ ] 6. Recomputed dual-worktree manifest and revised semantic-integration PM Brief
+  - [x] current path disposition: `84` changed / `45` identical / `39` dispositions / `8` cleanup-unopposed / `31` both-changed
+  - [ ] recompute current textual conflict and auto-merge counts; historical `17 / 5` is stale
 - [ ] 7. Cleanup-lineage preservation and seam-by-seam integration program
   - [ ] freeze and preserve both refs
   - [ ] baseline `main` with terminal health and Playwright CLI

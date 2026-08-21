@@ -354,7 +354,10 @@ export async function POST(req: Request) {
     }
 
     const bypassManualRuntimeRefreshGuard =
-      rehydrateOnly && forceMailboxProfileRefresh && analysisScope === 'all_indexed'
+      rehydrateOnly &&
+      forceMailboxProfileRefresh &&
+      analysisScope === 'all_indexed' &&
+      (transitionEdge === 'smart_sync_handoff' || transitionEdge === 'build_pending_poll')
     const manualRuntimeRefreshKey =
       forceMailboxProfileRefresh && !bypassManualRuntimeRefreshGuard
         ? ['manual_runtime_refresh', agent.id, analysisScope].join('::')

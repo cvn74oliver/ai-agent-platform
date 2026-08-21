@@ -23,6 +23,7 @@ import {
   loadGmailSenderOverviewWindowForTenant,
   loadGmailSenderDistributionForTenant,
   loadGmailSenderWorkspaceForTenant,
+  resolvePublishedGmailArtifactAvailability,
 } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
 import {
   DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
@@ -262,25 +263,24 @@ function artifactSuccessPayload<T>(params: {
   data: T
 }) {
   const publication = params.publication
-  const transitional =
-    !publication?.published_version ||
-    publication.build_status === 'building' ||
-    publication.freshness_state === 'refresh_pending' ||
-    publication.freshness_state === 'refresh_in_progress'
-  const terminalUnavailable =
-    publication?.build_status === 'failed' ||
-    publication?.freshness_state === 'stale' ||
-    publication?.freshness_state === 'refresh_failed' ||
-    publication?.freshness_state === 'full_rebuild_required'
+  const availability = resolvePublishedGmailArtifactAvailability(publication)
   return {
     ok: true,
-    status: terminalUnavailable ? 'unavailable' : transitional ? 'building' : 'ready',
-    reason: publication?.freshness_reason ?? (!publication ? 'missing_published_artifact' : null),
-    retry_after_ms: transitional ? 15_000 : null,
+    status:
+      availability.state === 'usable'
+        ? 'ready'
+        : availability.state === 'transitional'
+          ? 'building'
+          : 'unavailable',
+    reason: availability.servingPublishedFallback
+      ? availability.reason
+      : publication?.freshness_reason ?? availability.reason,
+    retry_after_ms: availability.state === 'transitional' ? 15_000 : null,
     freshness_state: publication?.freshness_state ?? null,
     build_status: publication?.build_status ?? null,
     published_version: publication?.published_version ?? null,
     building_version: publication?.building_version ?? null,
+    serving_published_fallback: availability.servingPublishedFallback,
     data: params.data,
   }
 }
