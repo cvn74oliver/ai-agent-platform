@@ -985,6 +985,28 @@ Original-main landing — PASS; Git preservation packet active, 2026-08-21:
 - Correction: read-only comparison against clean `0524910` proves candidate differs in exactly six governed source files: runtime `gmailCleanupWorkspace.ts`, `runtimeStateService.ts`, `OperationsRuntimeContext.tsx`, inbox-analysis route, integration `gmailCleanupWorkspace.ts`, and review `page.tsx`. Mailbox-index route and `gmailWorkspaceContracts.ts` are byte-identical to clean main and must not be copied or committed on the preservation branch.
 - Next: Git preservation only. Reconstruct candidate from clean `0524910` main plus exact six-file candidate-vs-main delta; commit cleanup's exact three corrections on its existing branch; push explicit named branches/commits; prove branch/hash parity before retiring ambiguous generated worktrees. No semantic integration, cleanup merge, or runtime route action. `ACE-049` remains inactive.
 
+Git preservation — PASS complete; worktree-retirement/handoff preparation active, 2026-08-21:
+- Live main is `2ffcae1fdf35ca246a94fc2172bba795f74bd809`; local/tracking/live parity holds and main is clean.
+- `cleanup-taxonomy-rebuild` is live `c690dffed054486e7758be344b680ce418a08ee2`, upstream-set and clean, preserving the exact three correction hashes.
+- `codex/ace-048-runtime-isolation-candidate` is live `87632d46891ec6b33eff4278acbc253fc04da77a`, parent clean main `2ffcae1f`; its exact six candidate files match detached `33ad`; mailbox-index route and `gmailWorkspaceContracts.ts` match main; branch local/tracking/live parity holds.
+- Temporary preservation worktree was removed after proof. No semantic merge/integration/build/runtime/DB/deploy/history rewrite occurred. Runtime remains BLOCKED/HIGH; Accepted Fix NO.
+- Residual detached worktrees `33ad`, `56ab`, `7865`, `95b7`, `9ae2`, `a985`, and `ad0d` remain at old `cce016b`; cleanup is clean. First perform read-only uniqueness audit, then retire only after proving all material state is on main, preserved branches, control plane, or explicitly retained.
+- Next phases: generated-worktree retirement audit/cleanup; formal Claude handoff plus root `CLAUDE.md` importing official `AGENTS.md`, agent-neutral control plane, and first read-only audit assignment; final branch/live/control-plane reconciliation and commit/push. `ACE-049` activates only if successor-readiness criteria are met.
+- Semantic integration remains intentionally outside main on the two preserved branches because runtime mutation-safety proof is blocked and hot-file integration is not accepted.
+
+Worktree-retirement audit — new preservation truth, 2026-08-21:
+- Redundant worktrees `56ab`, `9ae2`, `ad0d`, and cleanup checkout were removed after redundancy proof; branches/refs remain and external `/tmp` was untouched. `ad0d` ignored raw proof/auth files left with its worktree and are not Git-recoverable; outcomes/path summaries remain in the control plane and auth was never read.
+- Retained linked worktrees: `33ad`, `7865`, `95b7` active CPA, `a985`, and main.
+- Candidate preservation branch `87632d` is incomplete: add governed accepted/build-proven `web/src/lib/integrations/gmail/gmailArtifactStore.ts` SHA `93ca4df4dae8191830a12c30199807c16bb3a690dbb96cfa04970144d0296375`. Candidate preservation is exact seven-file delta after this addition; `33ad` retires only after all seven hashes match.
+- `7865` and `a985` share identical unique intermediate bytes: artifact store `ab7fddbb0a4038a14cb27e86f84358d8f93f5fb4945b1b597d1d60eaaa476138` and runtime workspace `ce2e1050a26879dc5d6c5c201647d27328b6db20040e9ea0c2e671a801772a3a`. Preserve these once on `codex/archive/ace-048-intermediate-lifecycle` from clean main, clearly superseded/intermediate and non-authoritative; then retire `7865`/`a985` only after parity.
+- Next bounded preservation: add/push candidate artifact-store commit and prove seven hashes; create/push archival two-file branch and prove `a985` identity; remove only `33ad`, `7865`, `a985` after live parity. No branch deletion, semantic integration/build/runtime/DB/deploy/history rewrite. `95b7` remains until handoff docs complete.
+
+Final successor-handoff authoring — audit-ready, 2026-08-21:
+- Candidate preservation is live `2597caf8a55da22aa4801958e156c2d665641c74` with exact seven accepted/build-proven files. Archival superseded/intermediate branch is live `59f6c7a778084ccad4aaa60985a989d807e36af1` with exact two files. Main `2ffcae1f...` and cleanup `c690dffe...` remain live.
+- Worktree deletion of `33ad` was rejected by destructive-action safety because it would discard superseded control-plane variants and duplicated local proof. `33ad`, `7865`, `a985`, and active CPA `95b7` remain; deletion needs explicit operator decision. Previously removed `56ab`, `9ae2`, `ad0d`, and cleanup checkout remain preserved by branches.
+- Authoritative successor artifacts: root `CLAUDE.md`, `docs/00_control_plane/handoffs/CODEX_TO_CLAUDE_HANDOFF.md`, and `docs/00_control_plane/handoffs/CLAUDE_FIRST_ASSIGNMENT.md`.
+- Classification: SUCCESSOR AUDIT READY / SUCCESSOR IMPLEMENTATION NOT READY. `ACE-049` remains queued/inactive. Next: transfer/commit/push the eight documentation artifacts, then Claude performs read-only audit and reconciles handoff against live state.
+
 Explicit non-claims:
 - Current-tree remediation does not claim Git-history remediation, broader credential rotation, route hardening, framework upgrade, Vercel adjudication, schema reconciliation, cleanup-lineage integration, or product implementation.
 - Prior accepted Recovery Contracts remain historical accepted-fix truth and are not reopened.

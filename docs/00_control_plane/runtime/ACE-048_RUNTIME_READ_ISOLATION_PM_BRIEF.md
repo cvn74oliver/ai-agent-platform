@@ -1,39 +1,77 @@
-# ACE-048 Git Preservation — Candidate and Cleanup Lineage Packet
+# ACE-048 Final Successor-Handoff Closeout Packet
 
-Status: EXECUTION-READY — byte-exact control-plane propagation required before Executor start
+Status: EXECUTION-READY FOR DOCUMENT TRANSFER ONLY
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Feature domain: Git/worktree preservation; no semantic integration
+Feature domain: successor handoff, Git/worktree preservation, and final reconciliation
+Execution mode: `transitional_self_verification`
+Reasoning: MEDIUM
 Accepted Fix: NO
-Runtime acceptance: REJECT/HIGH
+Runtime acceptance: BLOCKED/HIGH; no product runtime verdict
 `ACE-049`: queued/inactive
 
-## Original-main landing evidence
+## Objective
 
-`main`, `origin/main`, live refs, and `heads/main` resolve to `05249103ab23b3d7cbf30cccfa5747fac90616d6`.
+Land the eight bounded successor/control-plane documents, commit and push them through the normal main workflow, then run Claude's first read-only institutional audit. This packet authorizes no source, runtime, cloud, Git-history, or worktree-retirement action.
 
-- `b6bdc9e93feeff3b480d5f0b42744f9ea87b000d` — security auth-state removal
-- `866c549cf43fe12795180e9f1be859164997176f` — Gmail Operations lifecycle stabilization
-- `05249103ab23b3d7cbf30cccfa5747fac90616d6` — control-plane reconciliation
+## Authoritative status
 
-Main worktree/index/unmerged are clean; diff check passed; nine runtime hashes unchanged. `output/playwright/` is ignored and `275` proof files remain local ignored. Push succeeded through a redirect to canonical `cvn74oliver/automata.git`; do not alter configured origin in this packet.
+- Main live baseline: `2ffcae1fdf35ca246a94fc2172bba795f74bd809`.
+- Cleanup lineage: `c690dffed054486e7758be344b680ce418a08ee2`, with sender-distribution semantics authoritative for that feature family.
+- Preserved candidate: `2597caf8a55da22aa4801958e156c2d665641c74`, exact seven accepted/build-proven candidate files. Source ACCEPT/HIGH and build PASS do not authorize transfer; runtime verification is BLOCKED/HIGH before navigation because ordinary reads may persistently mutate publication/job state.
+- Preserved archival intermediate: `59f6c7a778084ccad4aaa60985a989d807e36af1`, exact two superseded files and non-authoritative.
+- Retained `33ad`, `7865`, `a985`, and CPA `95b7` must not be deleted. A retirement attempt was rejected because `33ad` could still contain superseded control-plane variants and duplicated local proof. Any removal requires explicit Oliver decision after parity/uniqueness proof.
+- Git-history auth-blob exposure remains OPEN. Current-tree containment is historical accepted truth only; no rewrite is authorized.
 
-## Preservation objective
+## Locked document scope
 
-Preserve valuable unmerged states without duplicating common main/security/docs truth and without semantic integration.
+Only the following eight files are the current pass:
 
-1. Reconstruct candidate from clean `0524910` main plus the exact six-file candidate-vs-main delta; create and push an explicit named branch/commit. Include only runtime `gmailCleanupWorkspace.ts`, `runtimeStateService.ts`, `OperationsRuntimeContext.tsx`, inbox-analysis route, integration `gmailCleanupWorkspace.ts`, and review `page.tsx`.
-2. Commit cleanup's exact three verified local corrections on its existing branch; create/push explicit preservation state.
-3. Prove branch/hash parity for both preserved lineages.
-4. Retire ambiguous generated worktrees only after parity proof.
+1. `ai-agent-platform-docs/06_system_state/ACTIVE_CHANGE_EVENTS.md`
+2. `ai-agent-platform-docs/06_system_state/CURRENT_STATE.md`
+3. `ai-agent-platform-docs/06_system_state/TODO.md`
+4. `docs/00_control_plane/EXECUTION_DASHBOARD.md`
+5. `docs/00_control_plane/runtime/ACE-048_RUNTIME_READ_ISOLATION_PM_BRIEF.md`
+6. `CLAUDE.md`
+7. `docs/00_control_plane/handoffs/CODEX_TO_CLAUDE_HANDOFF.md`
+8. `docs/00_control_plane/handoffs/CLAUDE_FIRST_ASSIGNMENT.md`
 
-## Boundaries
+Protected doctrine is not edited. `CLAUDE.md` imports root `AGENTS.md`; it does not duplicate it or establish a parallel control plane.
 
-- Mailbox-index route and `gmailWorkspaceContracts.ts` are byte-identical to clean main; do not copy or commit them on the candidate preservation branch.
-- Candidate `33ad` remains detached `cce016b` with accepted seven-file correction/build PASS/runtime BLOCKED.
-- Cleanup remains `382c9d6` plus exactly three verified local corrections.
-- No semantic merge/integration, cleanup merge, runtime route, build, DB/Gmail/Supabase/artifact action, deployment, rebase, history rewrite, or source semantic change.
-- Do not retire any worktree before explicit branch/hash parity proof.
+## Transfer and reconciliation contract
 
-## Required reporting
+1. Transfer these eight documents byte-exactly into original main only after a preflight confirms the expected old document hashes and no overlap requiring reconciliation.
+2. Preserve unrelated dirty state and index state. Do not use broad copies, destructive Git operations, or whole-worktree replacement.
+3. Run document diff scope, `git diff --check`, SHA-256 parity, index/unmerged checks, and protected-file invariant checks.
+4. Commit and push only after the normal owner-authorized Git workflow confirms the transfer is correct.
+5. Then assign Claude the separate read-only audit. It must independently verify live refs, worktrees, handoff claims, and control-plane coherence before any development proposal.
 
-Report exact named branches, commit hashes, six-file delta parity, cleanup three-file parity, push status, and generated-worktree retirement eligibility. Preserve the runtime safety blocker; this packet does not authorize runtime continuation, transfer, Accepted Fix, or Recovery Contract.
+## Non-negotiable boundaries
+
+- No candidate transfer, semantic integration, merge, build, browser route, runtime start, DB/Supabase/Gmail/Vercel/artifact operation, deployment, history rewrite, branch deletion, or worktree deletion in this packet.
+- No direct concurrent editing of a worktree by Codex and Claude (or another agent). Use claimed isolated branch/worktree/assignment ownership.
+- Do not activate `ACE-049` until the read-only audit, final live reconciliation, and successor-readiness decisions are complete.
+- Candidate runtime safety remains a blocker: published artifact reads must not reclaim, publish, or otherwise mutate lifecycle state. The August partial candidate remains untouched.
+
+## Acceptance surfaces
+
+- Exact eight-file document scope and protected-file exclusion.
+- Handoff accurately distinguishes audit-ready from implementation-ready and states the explicit operator decisions still needed.
+- Root Claude entrypoint imports `AGENTS.md`, sends the first session to a read-only audit, preserves agent-neutral authority, and prevents concurrent shared-worktree editing.
+- Formal handoff includes active authority, lineage/ref/worktree state, runtime proof limits, safety constraints, blockers, and source-of-truth routing without secrets.
+- First assignment is self-contained and prohibits all mutations/runtime/cloud operations.
+
+## Next sequence
+
+1. Documentation Propagation Executor transfers, commits, and pushes these eight documents.
+2. Claude performs the first read-only institutional audit and reports discrepancies/risks/authoritative next step.
+3. Oliver decides on retained-worktree deletion, a mutation-safe runtime-verification design, artifact recovery governance, and a refreshed cleanup semantic-integration plan.
+4. Only then may a separately scoped PM Brief seek to advance `ACE-048` or activate `ACE-049`.
+
+## Artifact status
+
+- `CLAUDE.md`: created, authoritative Claude entrypoint.
+- `CODEX_TO_CLAUDE_HANDOFF.md`: created, authoritative successor continuity/handoff artifact.
+- `CLAUDE_FIRST_ASSIGNMENT.md`: created, authoritative first-session read-only assignment.
+- Local proof/auth output remains ignored and non-authoritative; no secret/auth content is part of this packet.
+
+Checkpoint Status: propagation required before closeout. This packet stays open until the eight documents are byte-exactly transferred to original main and committed/pushed through the governed workflow.

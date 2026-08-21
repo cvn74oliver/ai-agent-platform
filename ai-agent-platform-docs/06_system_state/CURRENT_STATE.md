@@ -13,7 +13,7 @@ Project Manager: Automata Control Plane active (current implementation environme
 - `ACE-049` is a planned, inactive successor-environment event. It is subordinate to ACE-048 and cannot begin cutover work until the current cleanup/reconciliation/stabilization cycle reaches an explicit acceptance gate.
 - Revival/control-plane baseline decision: **ACCEPTED by Oliver on 2026-08-15**.
 - Active lane: **Cleanup-Lineage Integration Program**.
-- Current execution phase: **Runtime Read Isolation + O(1) Lifecycle Status — original-main landing PASS; Git preservation packet ACTIVE; runtime blocker preserved and transfer/integration remain blocked**.
+- Current execution phase: **ACE-048 stabilization — Git preservation PASS; generated-worktree retirement audit and Claude handoff preparation ACTIVE; runtime blocker and integration block preserved**.
 - Human plan decision: **ACCEPT**. That execution commitment produced the isolated seven-file candidate. The three-file lifecycle correction remains valuable Partial Proof / Blocked Build Proof, but source acceptance remains rejected because a degraded-owned request can install an older building response before cache reuse rejects it; it is not runtime acceptance, a milestone, an Accepted Fix, or a Recovery Contract.
 - Main Contracts A/B status: **Accepted Fix** — verifier ACCEPT/HIGH, `Missing Proof Type: none`, five-row matrix PASS, and Oliver Human Review acceptance recorded.
 - Recovery Contract: `CHANGELOG.md` -> `August 15, 2026 — ACE-048 Main Contracts A/B Sender-Distribution Scope Truth Accepted`
@@ -29,7 +29,7 @@ Project Manager: Automata Control Plane active (current implementation environme
 ### Approved deferred successor direction — Claude Code
 
 - Oliver approved Claude Code as the future primary implementation environment after the current cleanup/reconciliation/stabilization cycle, not immediately.
-- Current next step is Git preservation of candidate and cleanup lineage into explicit named pushed branches/commits, while preserving the ACE-048 runtime blocker. `ACE-049` remains queued/inactive.
+- Current next step is read-only generated-worktree uniqueness audit and retirement preparation, followed by formal Claude handoff preparation. `ACE-049` remains queued/inactive.
 - The future model is agent-neutral: `Oliver -> Automata Control Plane -> Codex / Claude / future agents -> isolated worktrees or branches -> Git -> verification -> authoritative state`.
 - A future root `CLAUDE.md` must reference/import root `AGENTS.md` and add only Claude-specific entry/efficiency guidance; no parallel Claude control plane is permitted.
 - Codex and Claude may never write the same working directory concurrently. Post-cutover Claude operates autonomously; Codex is not a required reviewer.
@@ -209,6 +209,26 @@ Project Manager: Automata Control Plane active (current implementation environme
 - Main/origin/main/live refs/heads/main resolve to `05249103ab23b3d7cbf30cccfa5747fac90616d6`; main is clean with diff-check PASS, unchanged nine runtime hashes, ignored `output/playwright/`, and `275` local ignored proofs.
 - Candidate remains detached `cce016b`; cleanup remains `382c9d6` plus exact three local verified corrections. No build, runtime, DB, deploy, merge, rebase, or history rewrite occurred.
 - Active packet reconstructs candidate from clean `0524910` main plus exact six-file candidate-vs-main delta, commits cleanup's exact three corrections on existing branch, pushes explicit named branches/commits, then proves parity before any generated-worktree retirement. Mailbox-index route and `gmailWorkspaceContracts.ts` are byte-identical to clean main and must not be copied/committed. No semantic integration or route action.
+
+#### Git preservation PASS — successor preparation active
+
+- Main/live parity is `2ffcae1fdf35ca246a94fc2172bba795f74bd809`; cleanup is preserved/live at `c690dffed054486e7758be344b680ce418a08ee2`; candidate branch is preserved/live at `87632d46891ec6b33eff4278acbc253fc04da77a` with exact six-file parity to `33ad` and excluded-file parity to main.
+- Read-only uniqueness audit governs detached `33ad`, `56ab`, `7865`, `95b7`, `9ae2`, `a985`, and `ad0d`. Never delete a dirty or unique worktree; preserve branch/hash state first; no force/reset/history rewrite.
+- After audit, prepare formal Claude handoff and root `CLAUDE.md` importing official `AGENTS.md`; first successor assignment is read-only audit. Final reconciliation/commit/push precedes any `ACE-049` activation.
+- Semantic integration remains outside main, blocked by mutation-safety and unaccepted hot-file integration proof.
+
+#### Final successor handoff — audit-ready, implementation not ready
+
+- Preserved candidate branch is live `2597caf8a55da22aa4801958e156c2d665641c74` with seven accepted/build-proven files; archival intermediate branch is live `59f6c7a778084ccad4aaa60985a989d807e36af1`; main `2ffcae1f...`, cleanup `c690dffe...`.
+- Root `CLAUDE.md` imports `AGENTS.md`; formal handoff and first read-only assignment are authoritative under `docs/00_control_plane/handoffs/`.
+- `33ad`, `7865`, `a985`, and CPA `95b7` remain because destructive safety rejected deletion that could discard local variants/proof. Any deletion requires explicit operator authority after audit.
+- Next: land eight documentation artifacts, then Claude performs the read-only institutional audit. `ACE-049` remains inactive until successor-readiness criteria and final reconciliation are met.
+
+#### Worktree-retirement audit correction — bounded preservation active
+
+- `56ab`, `9ae2`, `ad0d`, and cleanup checkout retired after redundancy proof; refs retained. `ad0d` ignored raw proof/auth files are not Git-recoverable but their outcomes/path summaries are controlled-plane truth; auth was never read.
+- Candidate branch needs accepted artifact-store SHA `93ca4df4dae8191830a12c30199807c16bb3a690dbb96cfa04970144d0296375`; exact candidate preservation is seven files, and `33ad` cannot retire before all seven hashes match live branch.
+- Archive identical `7865`/`a985` two-file intermediate bytes once on `codex/archive/ace-048-intermediate-lifecycle` from clean main, labeled superseded/non-authoritative; retire only after parity. `95b7` remains for handoff docs.
 
 #### First transfer verifier rejection — historical correction checkpoint
 

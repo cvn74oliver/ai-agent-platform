@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-21
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — ORIGINAL MAIN LANDING PASS; GIT PRESERVATION PACKET NEXT; RUNTIME BLOCKER PRESERVED
+Status: ACTIVE — GIT PRESERVATION PASS; WORKTREE-RETIREMENT/HANDOFF PREPARATION NEXT; RUNTIME BLOCKER PRESERVED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: original-main landing PASS; Git preservation of candidate/cleanup lineage active; runtime verification remains BLOCKED/HIGH and integration blocked
+- Execution phase: Git preservation PASS; read-only generated-worktree retirement audit and Claude handoff preparation active; runtime verification BLOCKED/HIGH and integration blocked
 - Problem class: runtime behavior constrained by artifact/publication truth
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -185,6 +185,13 @@ Status: ACTIVE — ORIGINAL MAIN LANDING PASS; GIT PRESERVATION PACKET NEXT; RUN
   - [ ] Claude transition/stabilization handoff planning and Git/worktree reconciliation; ACE-049 remains queued/inactive
   - [x] Original main landing PASS: `05249103...` aligned/pushed/clean; proof output ignored/local
   - [ ] Git preservation: named candidate reconstruction from exact six-file delta (exclude byte-identical mailbox-index route and `gmailWorkspaceContracts.ts`) and cleanup correction commits/branches, push and parity proof before generated-worktree retirement; no integration
+  - [x] Git preservation PASS: main/cleanup/candidate branches pushed with parity; temporary worktree removed after proof
+  - [ ] Worktree uniqueness audit then safe retirement; formal Claude handoff/root `CLAUDE.md`; final reconciliation before any ACE-049 activation
+  - [x] Successor handoff artifacts authored; classification audit-ready, not implementation-ready
+  - [ ] Transfer/commit/push eight documentation artifacts; Claude first assignment is read-only live-state audit; ACE-049 inactive
+  - [x] Redundant `56ab`, `9ae2`, `ad0d`, cleanup checkout retired after redundancy proof; refs retained
+  - [ ] Candidate correction: add accepted artifact store to make exact seven-file live parity before `33ad` retirement
+  - [ ] Archive identical `7865`/`a985` two-file intermediate state once on superseded/non-authoritative branch; push/parity before retirement
 - [ ] Independent candidate actual-effect verification only after source ACCEPT
 - [ ] Execute separate Dashboard packet through its own PM Brief and verification loop
 - [ ] Recompute stale integration manifest under cleanup sender-distribution feature authority
