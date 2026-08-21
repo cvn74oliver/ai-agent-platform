@@ -8,10 +8,6 @@ import {
   resolveCleanupClusterIdentity,
   type CleanupClusterIdentitySource,
 } from '@/lib/runtime/gmailCleanupClusterIdentity'
-import {
-  DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
-  MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
-} from '@/lib/integrations/gmail/gmailWorkspaceContracts'
 
 export const GMAIL_CLEANUP_STAGES = [
   'senders',
@@ -60,14 +56,6 @@ export const GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS = ['asc', 'desc'] as const
 
 export type GmailSenderWorkspaceSortDirection =
   (typeof GMAIL_SENDER_WORKSPACE_SORT_DIRECTIONS)[number]
-
-function clampGmailArtifactPageSize(value: number | null | undefined): number {
-  const requested =
-    typeof value === 'number' && Number.isFinite(value)
-      ? Math.floor(value)
-      : DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE
-  return Math.min(Math.max(requested, 1), MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE)
-}
 
 export type GmailSenderWorkspaceSemanticFocus = {
   family: GmailSemanticFamily
@@ -1368,10 +1356,6 @@ export type GmailInboxAnalysisFailure = {
   status: number | null
   reason: string | null
   retryAfterMs: number | null
-  freshnessState: string | null
-  buildStatus: string | null
-  publishedVersion: string | null
-  buildingVersion: string | null
   aborted: boolean
 }
 
@@ -1773,10 +1757,6 @@ async function requestCachedInboxAnalysis<T>(params: {
       status: null,
       reason: 'missing_action',
       retryAfterMs: null,
-      freshnessState: null,
-      buildStatus: null,
-      publishedVersion: null,
-      buildingVersion: null,
       aborted: false,
     }
   }
@@ -1822,10 +1802,6 @@ async function requestCachedInboxAnalysis<T>(params: {
             data?: T
             reason?: string | null
             retry_after_ms?: number | null
-            freshness_state?: string | null
-            build_status?: string | null
-            published_version?: string | null
-            building_version?: string | null
           }
         | null
 
@@ -1843,13 +1819,6 @@ async function requestCachedInboxAnalysis<T>(params: {
             Number.isFinite(payload.retry_after_ms)
               ? Math.max(0, Math.round(payload.retry_after_ms))
               : null,
-          freshnessState:
-            typeof payload?.freshness_state === 'string' ? payload.freshness_state : null,
-          buildStatus: typeof payload?.build_status === 'string' ? payload.build_status : null,
-          publishedVersion:
-            typeof payload?.published_version === 'string' ? payload.published_version : null,
-          buildingVersion:
-            typeof payload?.building_version === 'string' ? payload.building_version : null,
           aborted: false,
         }
       }
@@ -1863,10 +1832,6 @@ async function requestCachedInboxAnalysis<T>(params: {
           status: null,
           reason: null,
           retryAfterMs: null,
-          freshnessState: null,
-          buildStatus: null,
-          publishedVersion: null,
-          buildingVersion: null,
           aborted: true,
         }
       }
@@ -1876,10 +1841,6 @@ async function requestCachedInboxAnalysis<T>(params: {
         status: null,
         reason: null,
         retryAfterMs: null,
-        freshnessState: null,
-        buildStatus: null,
-        publishedVersion: null,
-        buildingVersion: null,
         aborted: false,
       }
     }
@@ -2647,7 +2608,7 @@ export function readCachedGmailSenderWorkspace(params: {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const cacheVersion = params.cacheVersion?.trim() || 'default'
   const page = params.page ?? 1
-  const pageSize = clampGmailArtifactPageSize(params.pageSize)
+  const pageSize = params.pageSize ?? 12
   const search = typeof params.search === 'string' ? params.search.trim() : ''
   const filter = params.filter ?? 'all'
   const sort = params.sort ?? 'message_count'
@@ -2944,7 +2905,7 @@ export async function fetchGmailSenderWorkspace(params: {
 }): Promise<GmailInboxAnalysisResult<GmailSenderWorkspaceData>> {
   const analysisScope = normalizeOperationsAnalysisScope(params.analysisScope)
   const page = params.page ?? 1
-  const pageSize = clampGmailArtifactPageSize(params.pageSize)
+  const pageSize = params.pageSize ?? 12
   const search = typeof params.search === 'string' ? params.search.trim() : ''
   const filter = params.filter ?? 'all'
   const sort = params.sort ?? 'message_count'

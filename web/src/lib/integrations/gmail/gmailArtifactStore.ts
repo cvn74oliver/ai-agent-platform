@@ -384,12 +384,6 @@ const GMAIL_ARTIFACT_STORE_RETRY_DELAY_MS = 750
 const GMAIL_ARTIFACT_READ_BATCH_SIZE = 500
 const GMAIL_ARTIFACT_PREVIEW_SENDER_KEY_READ_BATCH_SIZE = 200
 const GMAIL_ARTIFACT_SENDER_KEY_READ_BATCH_SIZE = 1000
-const GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET = 1000
-const GMAIL_ARTIFACT_RUNTIME_HEADER_ROW_LIMIT = 100
-const GMAIL_ARTIFACT_RUNTIME_RAIL_SURFACE_ROW_LIMIT = 100
-const GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT = 200
-const GMAIL_ARTIFACT_RUNTIME_PREVIEW_ROWS_PER_SENDER = 2
-const GMAIL_ARTIFACT_RUNTIME_MAX_PREVIEW_RANK = 2
 const GMAIL_ARTIFACT_CLUSTER_READ_CONCURRENCY = 3
 const GMAIL_ARTIFACT_BUILD_STALL_THRESHOLD_MS = Math.max(
   60 * 1000,
@@ -413,21 +407,6 @@ const SELECTED_CLUSTER_RAIL_SUMMARY_SELECT =
   'tenant_id,analysis_scope,cluster_id,artifact_version,title,dominant_sender'
 const SELECTED_CLUSTER_RAIL_HEADER_SELECT =
   'tenant_id,analysis_scope,cluster_id,artifact_version,title,message_count,analytics'
-
-function assertRuntimeArtifactReadBudget(params: {
-  actualRows: number
-  nextQueryMaximumRows: number
-  family: string
-}): void {
-  if (
-    params.actualRows + params.nextQueryMaximumRows >=
-    GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET
-  ) {
-    throw new Error(
-      `${params.family} would exceed the runtime artifact row budget before the next query.`
-    )
-  }
-}
 
 type CachedPublicationStateEntry = {
   expires_at_ms: number
@@ -3282,20 +3261,11 @@ export async function loadPublishedGmailSenderWorkspaceArtifactPage(params: {
   }
 
   const totalSenders = Math.max(0, normalizeInteger(headerRead.selected_header.sender_count))
-  const normalizedPageSize = Math.min(
-    GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT,
-    Math.max(1, normalizeInteger(params.pageSize, 1))
-  )
+  const normalizedPageSize = Math.max(1, normalizeInteger(params.pageSize, 1))
   const totalPages = Math.max(1, Math.ceil(totalSenders / normalizedPageSize))
   const normalizedPage = Math.min(Math.max(1, normalizeInteger(params.page, 1)), totalPages)
   const rangeStart = (normalizedPage - 1) * normalizedPageSize
   const rangeEnd = rangeStart + normalizedPageSize - 1
-  const headerActualRows = (headerRead.publication ? 1 : 0) + headerRead.headers.length
-  assertRuntimeArtifactReadBudget({
-    actualRows: headerActualRows,
-    nextQueryMaximumRows: normalizedPageSize,
-    family: 'sender_workspace_page_seed_rows',
-  })
 
   const seedRows: GmailSenderWorkspaceSeedRow[] = []
   const rangeReadPageSize = 1000
@@ -3321,14 +3291,6 @@ export async function loadPublishedGmailSenderWorkspaceArtifactPage(params: {
   }
 
   const previewFetchStrategy = 'sender_key' as const
-  const maximumPreviewRows =
-    uniqueStrings(seedRows.map((row) => row.sender_key)).length *
-    GMAIL_ARTIFACT_RUNTIME_PREVIEW_ROWS_PER_SENDER
-  assertRuntimeArtifactReadBudget({
-    actualRows: headerActualRows + seedRows.length,
-    nextQueryMaximumRows: maximumPreviewRows,
-    family: 'sender_workspace_page_preview_rows',
-  })
   const previewRows = await loadPreviewIndexRowsBySenderKeys({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -3336,21 +3298,6 @@ export async function loadPublishedGmailSenderWorkspaceArtifactPage(params: {
     artifactVersion: headerRead.artifact_version,
     selectedClusterId: headerRead.resolved_cluster_id || params.selectedClusterId,
     senderKeys: seedRows.map((row) => row.sender_key),
-  })
-  const actualReturnedRowCount =
-    headerActualRows + seedRows.length + previewRows.length
-  if (actualReturnedRowCount >= GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET) {
-    throw new Error('Sender workspace page exceeded the runtime artifact row budget.')
-  }
-  console.info('[gmail-artifact-store] bounded sender workspace page read', {
-    tenant_id: params.tenantId,
-    analysis_scope: params.analysisScope,
-    artifact_version: headerRead.artifact_version,
-    header_rows: headerRead.headers.length,
-    seed_rows: seedRows.length,
-    preview_rows: previewRows.length,
-    actual_returned_rows: actualReturnedRowCount,
-    query_concurrency: 1,
   })
 
   return {
@@ -3419,21 +3366,12 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
   }
 
   const focusedTotalSenders = typeof count === 'number' ? Math.max(0, count) : 0
-  const normalizedPageSize = Math.min(
-    GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT,
-    Math.max(1, normalizeInteger(params.pageSize))
-  )
+  const normalizedPageSize = Math.max(1, normalizeInteger(params.pageSize))
   const totalPages = Math.max(1, Math.ceil(focusedTotalSenders / normalizedPageSize))
   const normalizedPage = Math.min(Math.max(1, normalizeInteger(params.page)), totalPages)
   const rangeStart = (normalizedPage - 1) * normalizedPageSize
   const rangeEnd = rangeStart + normalizedPageSize - 1
   const primarySortColumn = focusedSemanticSortColumn(params.sort)
-  const headerActualRows = (headerRead.publication ? 1 : 0) + headerRead.headers.length
-  assertRuntimeArtifactReadBudget({
-    actualRows: headerActualRows,
-    nextQueryMaximumRows: normalizedPageSize,
-    family: 'focused_sender_workspace_page_seed_rows',
-  })
 
   let seedRowsQuery = params.supabase
     .from('gmail_sender_workspace_seed_rows')
@@ -3467,14 +3405,6 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
 
   const seedRows = (seedRowData || []) as GmailSenderWorkspaceSeedRow[]
   const previewFetchStrategy = 'sender_key' as const
-  const maximumPreviewRows =
-    uniqueStrings(seedRows.map((row) => row.sender_key)).length *
-    GMAIL_ARTIFACT_RUNTIME_PREVIEW_ROWS_PER_SENDER
-  assertRuntimeArtifactReadBudget({
-    actualRows: headerActualRows + seedRows.length,
-    nextQueryMaximumRows: maximumPreviewRows,
-    family: 'focused_sender_workspace_page_preview_rows',
-  })
   const previewRows = await loadPreviewIndexRowsBySenderKeys({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -3482,21 +3412,6 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
     artifactVersion: headerRead.artifact_version,
     selectedClusterId: headerRead.resolved_cluster_id || params.selectedClusterId,
     senderKeys: seedRows.map((row) => row.sender_key),
-  })
-  const actualReturnedRowCount =
-    headerActualRows + seedRows.length + previewRows.length
-  if (actualReturnedRowCount >= GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET) {
-    throw new Error('Focused sender workspace page exceeded the runtime artifact row budget.')
-  }
-  console.info('[gmail-artifact-store] bounded focused sender workspace page read', {
-    tenant_id: params.tenantId,
-    analysis_scope: params.analysisScope,
-    artifact_version: headerRead.artifact_version,
-    header_rows: headerRead.headers.length,
-    seed_rows: seedRows.length,
-    preview_rows: previewRows.length,
-    actual_returned_rows: actualReturnedRowCount,
-    query_concurrency: 1,
   })
 
   return {
@@ -3643,37 +3558,24 @@ export async function loadPublishedGmailSenderWorkspaceExecutionArtifact(params:
     }
   }
 
-  const baseActualRows =
-    (baseRead.publication ? 1 : 0) + baseRead.headers.length + baseRead.seed_rows.length
-  const previewSenderKeys = uniqueStrings(params.previewSenderKeys || [])
-  const previewMessageIds = uniqueStrings(params.previewMessageIds || [])
-  assertRuntimeArtifactReadBudget({
-    actualRows: baseActualRows,
-    nextQueryMaximumRows:
-      previewSenderKeys.length * GMAIL_ARTIFACT_RUNTIME_PREVIEW_ROWS_PER_SENDER,
-    family: 'sender_workspace_execution_sender_previews',
-  })
-  const previewRowsBySenderKeys = await loadPreviewIndexRowsBySenderKeys({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
-    analysisScope: params.analysisScope,
-    artifactVersion: baseRead.artifact_version,
-    selectedClusterId: baseRead.resolved_cluster_id || params.selectedClusterId,
-    senderKeys: previewSenderKeys,
-  })
-  assertRuntimeArtifactReadBudget({
-    actualRows: baseActualRows + previewRowsBySenderKeys.length,
-    nextQueryMaximumRows: previewMessageIds.length,
-    family: 'sender_workspace_execution_message_previews',
-  })
-  const previewRowsByMessageIds = await loadPreviewIndexRowsByMessageIds({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
-    analysisScope: params.analysisScope,
-    artifactVersion: baseRead.artifact_version,
-    selectedClusterId: baseRead.resolved_cluster_id || params.selectedClusterId,
-    messageIds: previewMessageIds,
-  })
+  const [previewRowsBySenderKeys, previewRowsByMessageIds] = await Promise.all([
+    loadPreviewIndexRowsBySenderKeys({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      artifactVersion: baseRead.artifact_version,
+      selectedClusterId: baseRead.resolved_cluster_id || params.selectedClusterId,
+      senderKeys: params.previewSenderKeys || [],
+    }),
+    loadPreviewIndexRowsByMessageIds({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      artifactVersion: baseRead.artifact_version,
+      selectedClusterId: baseRead.resolved_cluster_id || params.selectedClusterId,
+      messageIds: params.previewMessageIds || [],
+    }),
+  ])
 
   const previewRowsByCompositeKey = new Map<string, GmailPreviewIndexRow>()
   for (const row of [...previewRowsBySenderKeys, ...previewRowsByMessageIds]) {
@@ -3683,37 +3585,14 @@ export async function loadPublishedGmailSenderWorkspaceExecutionArtifact(params:
     )
   }
 
-  const previewIndexRows = Array.from(previewRowsByCompositeKey.values()).sort(
-    (left, right) =>
-      left.sender_key.localeCompare(right.sender_key) ||
-      left.preview_rank - right.preview_rank ||
-      left.message_id.localeCompare(right.message_id)
-  )
-  const rawSenderPreviewRowCount = previewRowsBySenderKeys.length
-  const rawMessagePreviewRowCount = previewRowsByMessageIds.length
-  const deduplicatedPreviewRowCount = previewIndexRows.length
-  const actualReturnedRowCount =
-    baseActualRows + rawSenderPreviewRowCount + rawMessagePreviewRowCount
-  if (actualReturnedRowCount >= GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET) {
-    throw new Error('Sender workspace execution read exceeded the runtime artifact row budget.')
-  }
-  console.info('[gmail-artifact-store] bounded sender workspace execution read', {
-    tenant_id: params.tenantId,
-    analysis_scope: params.analysisScope,
-    artifact_version: baseRead.artifact_version,
-    header_rows: baseRead.headers.length,
-    seed_rows: baseRead.seed_rows.length,
-    raw_sender_preview_rows: rawSenderPreviewRowCount,
-    raw_message_preview_rows: rawMessagePreviewRowCount,
-    preview_rows: deduplicatedPreviewRowCount,
-    deduplicated_preview_rows: deduplicatedPreviewRowCount,
-    actual_returned_rows: actualReturnedRowCount,
-    query_concurrency: 1,
-  })
-
   return {
     ...baseRead,
-    preview_index_rows: previewIndexRows,
+    preview_index_rows: Array.from(previewRowsByCompositeKey.values()).sort(
+      (left, right) =>
+        left.sender_key.localeCompare(right.sender_key) ||
+        left.preview_rank - right.preview_rank ||
+        left.message_id.localeCompare(right.message_id)
+    ),
   }
 }
 
@@ -3748,17 +3627,8 @@ async function loadPublishedSenderWorkspaceArtifactBase(params: {
     0,
     normalizeInteger(headerRead.selected_header?.sender_count)
   )
-  if (selectedClusterSenderCount > GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT) {
-    throw new Error('Sender workspace artifact seed read exceeds the bounded runtime page limit.')
-  }
-  const headerActualRows = (headerRead.publication ? 1 : 0) + headerRead.headers.length
-  assertRuntimeArtifactReadBudget({
-    actualRows: headerActualRows,
-    nextQueryMaximumRows: Math.max(selectedClusterSenderCount, 1),
-    family: 'sender_workspace_artifact_seed_rows',
-  })
   const seedRows: GmailSenderWorkspaceSeedRow[] = []
-  const rangeReadPageSize = GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT
+  const rangeReadPageSize = GMAIL_ARTIFACT_SENDER_KEY_READ_BATCH_SIZE
   for (
     let from = 0;
     from < Math.max(selectedClusterSenderCount, 1);
@@ -3842,7 +3712,7 @@ async function loadPublishedSenderWorkspaceArtifactHeaders(params: {
   const cachedHeaders = senderWorkspaceHeaderCache.get(headerCacheKey) || null
   let headers: GmailSenderWorkspaceSeedHeaderRow[]
   if (cachedHeaders && cachedHeaders.expires_at_ms > Date.now()) {
-    headers = cachedHeaders.data.slice(0, GMAIL_ARTIFACT_RUNTIME_HEADER_ROW_LIMIT)
+    headers = cachedHeaders.data
   } else {
     const inflight = senderWorkspaceHeaderInflight.get(headerCacheKey)
     const loadPromise =
@@ -3855,16 +3725,12 @@ async function loadPublishedSenderWorkspaceArtifactHeaders(params: {
           .eq('analysis_scope', params.analysisScope)
           .eq('artifact_version', artifactVersion)
           .order('cluster_id', { ascending: true })
-          .limit(GMAIL_ARTIFACT_RUNTIME_HEADER_ROW_LIMIT)
 
         if (error) {
           throw new Error(`Failed to load gmail_sender_workspace_seed_headers: ${error.message}`)
         }
 
-        const loadedHeaders = ((data || []) as GmailSenderWorkspaceSeedHeaderRow[]).slice(
-          0,
-          GMAIL_ARTIFACT_RUNTIME_HEADER_ROW_LIMIT
-        )
+        const loadedHeaders = (data || []) as GmailSenderWorkspaceSeedHeaderRow[]
         senderWorkspaceHeaderCache.set(headerCacheKey, {
           expires_at_ms: Date.now() + GMAIL_ARTIFACT_VERSIONED_READ_CACHE_TTL_MS,
           data: loadedHeaders,
@@ -3876,7 +3742,7 @@ async function loadPublishedSenderWorkspaceArtifactHeaders(params: {
       senderWorkspaceHeaderInflight.set(headerCacheKey, loadPromise)
     }
     try {
-      headers = (await loadPromise).slice(0, GMAIL_ARTIFACT_RUNTIME_HEADER_ROW_LIMIT)
+      headers = await loadPromise
     } finally {
       senderWorkspaceHeaderInflight.delete(headerCacheKey)
     }
@@ -3917,6 +3783,12 @@ export async function loadSelectedClusterRailFamily(params: {
         Boolean(entry.artifactVersion)
     )
 
+  const publishedScopes = publishedPairs.map((entry) => entry.scope)
+  const publishedVersions = uniqueStrings(publishedPairs.map((entry) => entry.artifactVersion))
+  const publishedPairKeySet = new Set(
+    publishedPairs.map((entry) => `${entry.scope}::${entry.artifactVersion}`)
+  )
+
   const cacheKey = selectedClusterRailFamilyCacheKey({
     tenantId: params.tenantId,
     preferredClusterId,
@@ -3942,73 +3814,50 @@ export async function loadSelectedClusterRailFamily(params: {
   }
 
   const loadPromise = (async (): Promise<Omit<SelectedClusterRailFamilyLoadResult, 'cache_status'>> => {
-    const clusterSummaries: SelectedClusterRailSummarySurfaceRow[] = []
-    for (const pair of publishedPairs) {
-      const remainingRows =
-        GMAIL_ARTIFACT_RUNTIME_RAIL_SURFACE_ROW_LIMIT - clusterSummaries.length
-      if (remainingRows <= 0) break
-      assertRuntimeArtifactReadBudget({
-        actualRows: publications.length + clusterSummaries.length,
-        nextQueryMaximumRows: remainingRows,
-        family: 'selected_cluster_rail_summaries',
-      })
-      const result = await params.supabase
-        .from('gmail_cluster_summaries')
-        .select(SELECTED_CLUSTER_RAIL_SUMMARY_SELECT)
-        .eq('tenant_id', params.tenantId)
-        .eq('analysis_scope', pair.scope)
-        .eq('artifact_version', pair.artifactVersion)
-        .order('cluster_id', { ascending: true })
-        .limit(remainingRows)
-      if (result.error) {
-        throw new Error(`Failed to load gmail_cluster_summaries: ${result.error.message}`)
-      }
-      clusterSummaries.push(
-        ...((result.data || []) as SelectedClusterRailSummarySurfaceRow[]).slice(0, remainingRows)
+    const [clusterSummariesResult, seedHeadersResult] = await Promise.all([
+      publishedScopes.length > 0 && publishedVersions.length > 0
+        ? params.supabase
+            .from('gmail_cluster_summaries')
+            .select(SELECTED_CLUSTER_RAIL_SUMMARY_SELECT)
+            .eq('tenant_id', params.tenantId)
+            .in('analysis_scope', publishedScopes)
+            .in('artifact_version', publishedVersions)
+        : Promise.resolve({ data: [], error: null }),
+      publishedScopes.length > 0 && publishedVersions.length > 0
+        ? params.supabase
+            .from('gmail_sender_workspace_seed_headers')
+            .select(SELECTED_CLUSTER_RAIL_HEADER_SELECT)
+            .eq('tenant_id', params.tenantId)
+            .in('analysis_scope', publishedScopes)
+            .in('artifact_version', publishedVersions)
+        : Promise.resolve({ data: [], error: null }),
+    ])
+
+    if (clusterSummariesResult.error) {
+      throw new Error(
+        `Failed to load gmail_cluster_summaries: ${clusterSummariesResult.error.message}`
+      )
+    }
+    if (seedHeadersResult.error) {
+      throw new Error(
+        `Failed to load gmail_sender_workspace_seed_headers: ${seedHeadersResult.error.message}`
       )
     }
 
-    const seedHeaders: SelectedClusterRailHeaderSurfaceRow[] = []
-    for (const pair of publishedPairs) {
-      const remainingRows =
-        GMAIL_ARTIFACT_RUNTIME_RAIL_SURFACE_ROW_LIMIT - seedHeaders.length
-      if (remainingRows <= 0) break
-      assertRuntimeArtifactReadBudget({
-        actualRows: publications.length + clusterSummaries.length + seedHeaders.length,
-        nextQueryMaximumRows: remainingRows,
-        family: 'selected_cluster_rail_headers',
-      })
-      const result = await params.supabase
-        .from('gmail_sender_workspace_seed_headers')
-        .select(SELECTED_CLUSTER_RAIL_HEADER_SELECT)
-        .eq('tenant_id', params.tenantId)
-        .eq('analysis_scope', pair.scope)
-        .eq('artifact_version', pair.artifactVersion)
-        .order('cluster_id', { ascending: true })
-        .limit(remainingRows)
-      if (result.error) {
-        throw new Error(
-          `Failed to load gmail_sender_workspace_seed_headers: ${result.error.message}`
-        )
-      }
-      seedHeaders.push(
-        ...((result.data || []) as SelectedClusterRailHeaderSurfaceRow[]).slice(0, remainingRows)
+    const clusterSummaries = (
+      (clusterSummariesResult.data || []) as SelectedClusterRailSummarySurfaceRow[]
+    ).filter((row) =>
+      publishedPairKeySet.has(
+        `${normalizeAnalysisScope(row.analysis_scope)}::${normalizeText(row.artifact_version)}`
       )
-    }
-
-    const actualReturnedRowCount =
-      publications.length + clusterSummaries.length + seedHeaders.length
-    if (actualReturnedRowCount >= GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET) {
-      throw new Error('Selected-cluster rail read exceeded the runtime artifact row budget.')
-    }
-    console.info('[gmail-artifact-store] bounded selected-cluster rail read', {
-      tenant_id: params.tenantId,
-      publication_rows: publications.length,
-      summary_rows: clusterSummaries.length,
-      header_rows: seedHeaders.length,
-      actual_returned_rows: actualReturnedRowCount,
-      query_concurrency: 1,
-    })
+    )
+    const seedHeaders = (
+      (seedHeadersResult.data || []) as SelectedClusterRailHeaderSurfaceRow[]
+    ).filter((row) =>
+      publishedPairKeySet.has(
+        `${normalizeAnalysisScope(row.analysis_scope)}::${normalizeText(row.artifact_version)}`
+      )
+    )
     const resolvedIdentity = resolveCleanupClusterIdentity(
       preferredClusterId,
       seedHeaders.map((header) => cleanupClusterIdentitySourceFromHeader(header))
@@ -4068,9 +3917,6 @@ async function loadPreviewIndexRowsByMessageIds(params: {
 }): Promise<GmailPreviewIndexRow[]> {
   const messageIds = uniqueStrings(params.messageIds)
   if (messageIds.length === 0) return []
-  if (messageIds.length > GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT) {
-    throw new Error('Preview message-id read exceeds the bounded runtime artifact limit.')
-  }
 
   const rows: GmailPreviewIndexRow[] = []
   for (const batch of chunkArray(messageIds, GMAIL_ARTIFACT_READ_BATCH_SIZE)) {
@@ -4084,7 +3930,6 @@ async function loadPreviewIndexRowsByMessageIds(params: {
       .in('message_id', batch)
       .order('sender_key', { ascending: true })
       .order('preview_rank', { ascending: true })
-      .limit(batch.length)
 
     if (error) {
       throw new Error(`Failed to load gmail_preview_index by message_id: ${error.message}`)
@@ -4105,19 +3950,9 @@ async function loadPreviewIndexRowsBySenderKeys(params: {
 }): Promise<GmailPreviewIndexRow[]> {
   const senderKeys = uniqueStrings(params.senderKeys)
   if (senderKeys.length === 0) return []
-  if (senderKeys.length > GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT) {
-    throw new Error('Preview sender-key read exceeds the bounded runtime artifact limit.')
-  }
 
   const rows: GmailPreviewIndexRow[] = []
   for (const batch of chunkArray(senderKeys, GMAIL_ARTIFACT_PREVIEW_SENDER_KEY_READ_BATCH_SIZE)) {
-    const remainingRowBudget =
-      senderKeys.length * GMAIL_ARTIFACT_RUNTIME_PREVIEW_ROWS_PER_SENDER - rows.length
-    if (remainingRowBudget <= 0) break
-    const batchRowLimit = Math.min(
-      batch.length * GMAIL_ARTIFACT_RUNTIME_PREVIEW_ROWS_PER_SENDER,
-      remainingRowBudget
-    )
     const { data, error } = await params.supabase
       .from('gmail_preview_index')
       .select('*')
@@ -4125,16 +3960,15 @@ async function loadPreviewIndexRowsBySenderKeys(params: {
       .eq('analysis_scope', params.analysisScope)
       .eq('artifact_version', params.artifactVersion)
       .eq('cluster_id', normalizeText(params.selectedClusterId))
-      .lte('preview_rank', GMAIL_ARTIFACT_RUNTIME_MAX_PREVIEW_RANK)
+      .lte('preview_rank', 5)
       .in('sender_key', batch)
       .order('sender_key', { ascending: true })
       .order('preview_rank', { ascending: true })
-      .limit(batchRowLimit)
 
     if (error) {
       throw new Error(`Failed to load gmail_preview_index by sender_key: ${error.message}`)
     }
-    rows.push(...((data || []) as GmailPreviewIndexRow[]).slice(0, batchRowLimit))
+    rows.push(...((data || []) as GmailPreviewIndexRow[]))
   }
 
   return rows
