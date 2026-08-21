@@ -976,6 +976,15 @@ Candidate runtime verification — BLOCKED/HIGH; runtime safety adjudication req
 - Continuation requires explicit operator authorization accepting persistent-mutation risk or a safely isolated runtime where reads cannot mutate publication/lifecycle state. Do not request that authority implicitly.
 - Active next step shifts to Claude transition/stabilization handoff planning and Git/worktree reconciliation while preserving this runtime blocker. `ACE-049` remains queued/inactive until an ACE-048 stabilization/handoff checkpoint.
 
+Original-main landing — PASS; Git preservation packet active, 2026-08-21:
+- Accepted dirty main state was committed and pushed. `main`, `origin/main`, live refs, and `heads/main` all resolve to `05249103ab23b3d7cbf30cccfa5747fac90616d6`.
+- Landing commits: `b6bdc9e93feeff3b480d5f0b42744f9ea87b000d` security auth-state removal; `866c549cf43fe12795180e9f1be859164997176f` Gmail Operations lifecycle stabilization; `05249103ab23b3d7cbf30cccfa5747fac90616d6` control-plane reconciliation.
+- Main worktree/index/unmerged are clean; diff check PASS; nine runtime hashes unchanged; `output/playwright/` is ignored and `275` proof files remain local ignored. No build/runtime/DB/deploy/merge/rebase/history rewrite occurred.
+- Push reported canonical remote redirect to `cvn74oliver/automata.git`; configured origin remains unchanged. Stale `gh` authentication did not block plain Git push.
+- Candidate `33ad` remains detached `cce016b` with accepted seven-file correction/build PASS/runtime BLOCKED. Cleanup remains `382c9d6` with its exact three verified local corrections.
+- Correction: read-only comparison against clean `0524910` proves candidate differs in exactly six governed source files: runtime `gmailCleanupWorkspace.ts`, `runtimeStateService.ts`, `OperationsRuntimeContext.tsx`, inbox-analysis route, integration `gmailCleanupWorkspace.ts`, and review `page.tsx`. Mailbox-index route and `gmailWorkspaceContracts.ts` are byte-identical to clean main and must not be copied or committed on the preservation branch.
+- Next: Git preservation only. Reconstruct candidate from clean `0524910` main plus exact six-file candidate-vs-main delta; commit cleanup's exact three corrections on its existing branch; push explicit named branches/commits; prove branch/hash parity before retiring ambiguous generated worktrees. No semantic integration, cleanup merge, or runtime route action. `ACE-049` remains inactive.
+
 Explicit non-claims:
 - Current-tree remediation does not claim Git-history remediation, broader credential rotation, route hardening, framework upgrade, Vercel adjudication, schema reconciliation, cleanup-lineage integration, or product implementation.
 - Prior accepted Recovery Contracts remain historical accepted-fix truth and are not reopened.

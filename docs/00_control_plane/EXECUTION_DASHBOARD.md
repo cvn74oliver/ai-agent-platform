@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-21
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: BLOCKED/HIGH — CANDIDATE RUNTIME NAVIGATION WOULD RISK PERSISTENT MUTATION; HANDOFF/RECONCILIATION PLANNING NEXT
+Status: ACTIVE — ORIGINAL MAIN LANDING PASS; GIT PRESERVATION PACKET NEXT; RUNTIME BLOCKER PRESERVED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: runtime verification BLOCKED/HIGH before route navigation; no product verdict; handoff/reconciliation planning active; transfer blocked
+- Execution phase: original-main landing PASS; Git preservation of candidate/cleanup lineage active; runtime verification remains BLOCKED/HIGH and integration blocked
 - Problem class: runtime behavior constrained by artifact/publication truth
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -183,6 +183,8 @@ Status: BLOCKED/HIGH — CANDIDATE RUNTIME NAVIGATION WOULD RISK PERSISTENT MUTA
   - [ ] Independent candidate runtime/Playwright verification on governed Protected and Marketing routes before transfer
   - [x] BLOCKED/HIGH before navigation: no matrix/ready/post-settle proof because historical reads risk persistent publication-state mutation
   - [ ] Claude transition/stabilization handoff planning and Git/worktree reconciliation; ACE-049 remains queued/inactive
+  - [x] Original main landing PASS: `05249103...` aligned/pushed/clean; proof output ignored/local
+  - [ ] Git preservation: named candidate reconstruction from exact six-file delta (exclude byte-identical mailbox-index route and `gmailWorkspaceContracts.ts`) and cleanup correction commits/branches, push and parity proof before generated-worktree retirement; no integration
 - [ ] Independent candidate actual-effect verification only after source ACCEPT
 - [ ] Execute separate Dashboard packet through its own PM Brief and verification loop
 - [ ] Recompute stale integration manifest under cleanup sender-distribution feature authority

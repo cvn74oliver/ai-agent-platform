@@ -1,42 +1,39 @@
-# ACE-048 Candidate Runtime Blocker — Transfer Adjudication Record
+# ACE-048 Git Preservation — Candidate and Cleanup Lineage Packet
 
-Status: BLOCKED — not execution authorization
+Status: EXECUTION-READY — byte-exact control-plane propagation required before Executor start
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
+Feature domain: Git/worktree preservation; no semantic integration
 Accepted Fix: NO
 Runtime acceptance: REJECT/HIGH
-Transfer: BLOCKED
+`ACE-049`: queued/inactive
 
-## Blocked verification result
+## Original-main landing evidence
 
-Independent candidate runtime verification is BLOCKED/HIGH. Saved ignored authentication succeeded and the fresh-BUILD_ID production server started and stopped cleanly, but no accepted route was opened.
+`main`, `origin/main`, live refs, and `heads/main` resolve to `05249103ab23b3d7cbf30cccfa5747fac90616d6`.
 
-- Protected cold All remains pending; no State Transition Matrix row ran.
-- Ready state: NO.
-- Post-settle artifacts: NO.
-- No workspace/distribution/poll/raw Gmail/mutation/guard request or Supabase inspection occurred.
-- Source/build/worktree invariants remain unchanged; port closed and environment absent.
+- `b6bdc9e93feeff3b480d5f0b42744f9ea87b000d` — security auth-state removal
+- `866c549cf43fe12795180e9f1be859164997176f` — Gmail Operations lifecycle stabilization
+- `05249103ab23b3d7cbf30cccfa5747fac90616d6` — control-plane reconciliation
 
-Evidence root:
+Main worktree/index/unmerged are clean; diff check passed; nine runtime hashes unchanged. `output/playwright/` is ignored and `275` proof files remain local ignored. Push succeeded through a redirect to canonical `cvn74oliver/automata.git`; do not alter configured origin in this packet.
 
-`/Users/olivercarlin/.codex/worktrees/ad0d/ai-agent-platform/output/playwright/ace048-independent-candidate-runtime/.playwright-cli/runtime-proof/`
+## Preservation objective
 
-Read `BLOCKED.md`, `preflight-snapshot.txt`, and `server.log` there before any future adjudication.
+Preserve valuable unmerged states without duplicating common main/security/docs truth and without semantic integration.
 
-## Safety mechanism
+1. Reconstruct candidate from clean `0524910` main plus the exact six-file candidate-vs-main delta; create and push an explicit named branch/commit. Include only runtime `gmailCleanupWorkspace.ts`, `runtimeStateService.ts`, `OperationsRuntimeContext.tsx`, inbox-analysis route, integration `gmailCleanupWorkspace.ts`, and review `page.tsx`.
+2. Commit cleanup's exact three verified local corrections on its existing branch; create/push explicit preservation state.
+3. Prove branch/hash parity for both preserved lineages.
+4. Retire ambiguous generated worktrees only after parity proof.
 
-Navigation was blocked because historical reads on this surface can trigger stale-build reclaim and persistent publication/lifecycle-state mutation. That conflicts with the no-mutation boundary and Supabase safety constraint. No workaround is authorized.
+## Boundaries
 
-## Continuation boundary
+- Mailbox-index route and `gmailWorkspaceContracts.ts` are byte-identical to clean main; do not copy or commit them on the candidate preservation branch.
+- Candidate `33ad` remains detached `cce016b` with accepted seven-file correction/build PASS/runtime BLOCKED.
+- Cleanup remains `382c9d6` plus exactly three verified local corrections.
+- No semantic merge/integration, cleanup merge, runtime route, build, DB/Gmail/Supabase/artifact action, deployment, rebase, history rewrite, or source semantic change.
+- Do not retire any worktree before explicit branch/hash parity proof.
 
-Runtime verification may resume only with either:
+## Required reporting
 
-1. explicit operator authorization accepting persistent-mutation risk; or
-2. a safely isolated runtime where reads cannot mutate publication/lifecycle state.
-
-Do not solicit that authority implicitly. No route/browser/runtime/DB/Gmail/Supabase/artifact action is authorized by this record.
-
-## Active non-runtime next step
-
-Plan Claude transition/stabilization handoff and Git/worktree reconciliation while preserving this blocker. `ACE-049` remains queued/inactive until an explicit ACE-048 stabilization/handoff checkpoint.
-
-This record does not authorize transfer, source edits, build, Playwright, merge, commit, push, deployment, Accepted Fix, or Recovery Contract.
+Report exact named branches, commit hashes, six-file delta parity, cleanup three-file parity, push status, and generated-worktree retirement eligibility. Preserve the runtime safety blocker; this packet does not authorize runtime continuation, transfer, Accepted Fix, or Recovery Contract.

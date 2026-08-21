@@ -13,7 +13,7 @@ Project Manager: Automata Control Plane active (current implementation environme
 - `ACE-049` is a planned, inactive successor-environment event. It is subordinate to ACE-048 and cannot begin cutover work until the current cleanup/reconciliation/stabilization cycle reaches an explicit acceptance gate.
 - Revival/control-plane baseline decision: **ACCEPTED by Oliver on 2026-08-15**.
 - Active lane: **Cleanup-Lineage Integration Program**.
-- Current execution phase: **Runtime Read Isolation + O(1) Lifecycle Status — candidate runtime verification BLOCKED/HIGH by persistent-mutation safety risk; no product-runtime verdict; transfer remains blocked**.
+- Current execution phase: **Runtime Read Isolation + O(1) Lifecycle Status — original-main landing PASS; Git preservation packet ACTIVE; runtime blocker preserved and transfer/integration remain blocked**.
 - Human plan decision: **ACCEPT**. That execution commitment produced the isolated seven-file candidate. The three-file lifecycle correction remains valuable Partial Proof / Blocked Build Proof, but source acceptance remains rejected because a degraded-owned request can install an older building response before cache reuse rejects it; it is not runtime acceptance, a milestone, an Accepted Fix, or a Recovery Contract.
 - Main Contracts A/B status: **Accepted Fix** — verifier ACCEPT/HIGH, `Missing Proof Type: none`, five-row matrix PASS, and Oliver Human Review acceptance recorded.
 - Recovery Contract: `CHANGELOG.md` -> `August 15, 2026 — ACE-048 Main Contracts A/B Sender-Distribution Scope Truth Accepted`
@@ -29,7 +29,7 @@ Project Manager: Automata Control Plane active (current implementation environme
 ### Approved deferred successor direction — Claude Code
 
 - Oliver approved Claude Code as the future primary implementation environment after the current cleanup/reconciliation/stabilization cycle, not immediately.
-- Current next step is Claude transition/stabilization handoff planning and Git/worktree reconciliation while preserving the ACE-048 runtime blocker. `ACE-049` remains queued/inactive.
+- Current next step is Git preservation of candidate and cleanup lineage into explicit named pushed branches/commits, while preserving the ACE-048 runtime blocker. `ACE-049` remains queued/inactive.
 - The future model is agent-neutral: `Oliver -> Automata Control Plane -> Codex / Claude / future agents -> isolated worktrees or branches -> Git -> verification -> authoritative state`.
 - A future root `CLAUDE.md` must reference/import root `AGENTS.md` and add only Claude-specific entry/efficiency guidance; no parallel Claude control plane is permitted.
 - Codex and Claude may never write the same working directory concurrently. Post-cutover Claude operates autonomously; Codex is not a required reviewer.
@@ -203,6 +203,12 @@ Project Manager: Automata Control Plane active (current implementation environme
 - Reviewer blocked navigation because historical reads can reclaim stale builds and persist publication/lifecycle mutation, violating no-mutation/Supabase safety constraints. No request family or Supabase inspection ran; no workaround occurred.
 - Missing Proof Blocked; no product runtime verdict. Source ACCEPT/HIGH and build PASS remain valid; runtime acceptance REJECT, Accepted Fix NO, and transfer blocked.
 - Continue only through explicit operator risk authorization or safely isolated non-mutating runtime. Active work is handoff/reconciliation planning; `ACE-049` stays queued/inactive.
+
+#### Original-main landing PASS — Git preservation active
+
+- Main/origin/main/live refs/heads/main resolve to `05249103ab23b3d7cbf30cccfa5747fac90616d6`; main is clean with diff-check PASS, unchanged nine runtime hashes, ignored `output/playwright/`, and `275` local ignored proofs.
+- Candidate remains detached `cce016b`; cleanup remains `382c9d6` plus exact three local verified corrections. No build, runtime, DB, deploy, merge, rebase, or history rewrite occurred.
+- Active packet reconstructs candidate from clean `0524910` main plus exact six-file candidate-vs-main delta, commits cleanup's exact three corrections on existing branch, pushes explicit named branches/commits, then proves parity before any generated-worktree retirement. Mailbox-index route and `gmailWorkspaceContracts.ts` are byte-identical to clean main and must not be copied/committed. No semantic integration or route action.
 
 #### First transfer verifier rejection — historical correction checkpoint
 
