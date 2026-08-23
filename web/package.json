@@ -12,6 +12,7 @@
     "review-packet": "node scripts/codex-review-packet.mjs",
     "test:gmail-cleanup-group-assignment": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-cleanup-group-assignment-fixtures.mjs",
     "test:gmail-pressure-trend-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-pressure-trend-contract-fixtures.mjs",
+    "test:workspace-review-unit-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/workspace-review-unit-contract-fixtures.mjs",
     "test:gmail-review-unit-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-review-unit-contract-fixtures.mjs",
     "audit:gmail-cleanup-group-live": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-cleanup-group-live-audit.mjs",
     "accept:gmail-workspace-data-access": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-workspace-data-access-acceptance.mjs",

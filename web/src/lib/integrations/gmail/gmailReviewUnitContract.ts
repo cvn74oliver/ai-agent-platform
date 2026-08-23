@@ -1,3 +1,11 @@
+import {
+  materializeReviewUnits,
+  validateReviewUnitContract,
+  type ReviewUnitAdapter,
+  type ReviewUnitPartitionPathEntry,
+  type ReviewUnitPartitionValue,
+  type WorkspaceDecisionWorkflowBlueprint,
+} from '@/lib/runtime/reviewUnitContract'
 import type {
   GmailCleanupGroupReviewUnit,
   GmailCleanupGroupReviewUnitBasis,
@@ -18,7 +26,7 @@ export type GmailReviewUnitSeed = {
   exclusionReason: string | null
 }
 
-type ReviewUnitDimension =
+export type GmailReviewUnitDimension =
   | 'subtype'
   | 'family'
   | 'pattern'
@@ -27,20 +35,8 @@ type ReviewUnitDimension =
   | 'recency'
   | 'volume'
 
-type PartitionValue = {
-  key: string
-  label: string
-  sourceKind: GmailCleanupGroupReviewUnit['source_kind']
-  unitRole: GmailCleanupGroupReviewUnit['unit_role']
-}
-
-type PartitionPathEntry = PartitionValue & {
-  dimension: ReviewUnitDimension | 'all'
-}
-
-type ReviewUnitLeaf = {
-  senders: GmailReviewUnitSeed[]
-  path: PartitionPathEntry[]
+type GmailReviewUnitContext = {
+  artifactCutoffAt: string
 }
 
 export type GmailMaterializedReviewUnitPlan = {
@@ -77,7 +73,7 @@ function humanize(value: string): string {
     .replace(/\b\w/g, (character) => character.toUpperCase())
 }
 
-function recencyValue(timestamp: string | null, cutoffAt: string): PartitionValue {
+function recencyValue(timestamp: string | null, cutoffAt: string): ReviewUnitPartitionValue {
   const cutoffMs = Date.parse(cutoffAt)
   const timestampMs = timestamp ? Date.parse(timestamp) : Number.NaN
   if (!Number.isFinite(cutoffMs) || !Number.isFinite(timestampMs) || timestampMs > cutoffMs) {
@@ -90,36 +86,76 @@ function recencyValue(timestamp: string | null, cutoffAt: string): PartitionValu
   }
   const days = Math.floor((cutoffMs - timestampMs) / 86_400_000)
   if (days <= 30) {
-    return { key: '0_30_days', label: 'Active in the last 30 days', sourceKind: 'recency_band', unitRole: 'bounded_partition' }
+    return {
+      key: '0_30_days',
+      label: 'Active in the last 30 days',
+      sourceKind: 'recency_band',
+      unitRole: 'bounded_partition',
+    }
   }
   if (days <= 90) {
-    return { key: '31_90_days', label: 'Active 31–90 days ago', sourceKind: 'recency_band', unitRole: 'bounded_partition' }
+    return {
+      key: '31_90_days',
+      label: 'Active 31–90 days ago',
+      sourceKind: 'recency_band',
+      unitRole: 'bounded_partition',
+    }
   }
   if (days <= 365) {
-    return { key: '91_365_days', label: 'Active 91–365 days ago', sourceKind: 'recency_band', unitRole: 'bounded_partition' }
+    return {
+      key: '91_365_days',
+      label: 'Active 91–365 days ago',
+      sourceKind: 'recency_band',
+      unitRole: 'bounded_partition',
+    }
   }
-  return { key: 'over_365_days', label: 'Inactive for over 365 days', sourceKind: 'recency_band', unitRole: 'bounded_partition' }
+  return {
+    key: 'over_365_days',
+    label: 'Inactive for over 365 days',
+    sourceKind: 'recency_band',
+    unitRole: 'bounded_partition',
+  }
 }
 
-function volumeValue(messageCount: number): PartitionValue {
+function volumeValue(messageCount: number): ReviewUnitPartitionValue {
   const count = Number.isFinite(messageCount) ? Math.max(0, Math.floor(messageCount)) : 0
   if (count <= 1) {
-    return { key: '1_message', label: '1 supporting message', sourceKind: 'volume_band', unitRole: 'bounded_partition' }
+    return {
+      key: '1_message',
+      label: '1 supporting message',
+      sourceKind: 'volume_band',
+      unitRole: 'bounded_partition',
+    }
   }
   if (count <= 5) {
-    return { key: '2_5_messages', label: '2–5 supporting messages', sourceKind: 'volume_band', unitRole: 'bounded_partition' }
+    return {
+      key: '2_5_messages',
+      label: '2–5 supporting messages',
+      sourceKind: 'volume_band',
+      unitRole: 'bounded_partition',
+    }
   }
   if (count <= 20) {
-    return { key: '6_20_messages', label: '6–20 supporting messages', sourceKind: 'volume_band', unitRole: 'bounded_partition' }
+    return {
+      key: '6_20_messages',
+      label: '6–20 supporting messages',
+      sourceKind: 'volume_band',
+      unitRole: 'bounded_partition',
+    }
   }
-  return { key: 'over_20_messages', label: 'Over 20 supporting messages', sourceKind: 'volume_band', unitRole: 'bounded_partition' }
+  return {
+    key: 'over_20_messages',
+    label: 'Over 20 supporting messages',
+    sourceKind: 'volume_band',
+    unitRole: 'bounded_partition',
+  }
 }
 
 function valueForDimension(params: {
-  dimension: ReviewUnitDimension
+  dimension: GmailReviewUnitDimension
   sender: GmailReviewUnitSeed
   cutoffAt: string
-}): PartitionValue {
+}): ReviewUnitPartitionValue {
   const sender = params.sender
   if (params.dimension === 'subtype') {
     if (sender.semanticSubtypeKey) {
@@ -181,11 +217,15 @@ function valueForDimension(params: {
       unitRole: 'reason',
     }
   }
-  if (params.dimension === 'recency') return recencyValue(sender.lastActivityAt, params.cutoffAt)
+  if (params.dimension === 'recency') {
+    return recencyValue(sender.lastActivityAt, params.cutoffAt)
+  }
   return volumeValue(sender.messageCount)
 }
 
-function dimensionsForBasis(basis: GmailCleanupGroupReviewUnitBasis): ReviewUnitDimension[] {
+function dimensionsForBasis(
+  basis: GmailCleanupGroupReviewUnitBasis
+): GmailReviewUnitDimension[] {
   if (basis === 'subtype-first') return ['subtype', 'pattern', 'recency', 'volume']
   if (basis === 'protection-reason-first') {
     return ['protection_reason', 'family', 'subtype', 'pattern', 'recency', 'volume']
@@ -196,51 +236,92 @@ function dimensionsForBasis(basis: GmailCleanupGroupReviewUnitBasis): ReviewUnit
   return ['family', 'subtype', 'pattern', 'recency', 'volume']
 }
 
-function splitLeaf(params: {
-  leaf: ReviewUnitLeaf
-  dimension: ReviewUnitDimension
-  cutoffAt: string
-}): ReviewUnitLeaf[] | null {
-  const buckets = new Map<string, { value: PartitionValue; senders: GmailReviewUnitSeed[] }>()
-  for (const sender of params.leaf.senders) {
-    const value = valueForDimension({ dimension: params.dimension, sender, cutoffAt: params.cutoffAt })
-    const bucket = buckets.get(value.key) || { value, senders: [] }
-    bucket.senders.push(sender)
-    buckets.set(value.key, bucket)
+export function gmailCleanupDecisionWorkflowBlueprint(
+  basis: GmailCleanupGroupReviewUnitBasis
+): WorkspaceDecisionWorkflowBlueprint<GmailReviewUnitDimension> {
+  return {
+    schemaVersion: 1,
+    workspaceType: 'gmail',
+    workflowId: 'mailbox_cleanup',
+    universe: { type: 'mailbox', label: 'Mailbox' },
+    decisionSubject: {
+      type: 'sender',
+      singularLabel: 'Sender',
+      pluralLabel: 'Senders',
+    },
+    evidenceKinds: [
+      'semantic_family',
+      'semantic_subtype',
+      'semantic_pattern',
+      'last_activity',
+      'supporting_message_count',
+      'assignment_reason',
+      'exclusion_reason',
+    ],
+    actions: [
+      { id: 'keep', label: 'Always keep' },
+      { id: 'archive', label: 'Archive automatically' },
+      { id: 'quarantine', label: 'Quarantine' },
+      { id: 'unsubscribe', label: 'Unsubscribe' },
+      { id: 'custom_rule', label: 'Create custom rule' },
+    ],
+    reviewUnits: {
+      dimensions: dimensionsForBasis(basis),
+      sizing: {
+        targetMin: GMAIL_REVIEW_UNIT_TARGET_MIN,
+        targetMax: GMAIL_REVIEW_UNIT_TARGET_MAX,
+        hardMax: GMAIL_REVIEW_UNIT_HARD_MAX,
+      },
+    },
   }
-  if (buckets.size < 2) return null
-  return Array.from(buckets.values())
-    .sort((left, right) => left.value.key.localeCompare(right.value.key))
-    .map((bucket) => ({
-      senders: bucket.senders.slice().sort((left, right) => left.senderKey.localeCompare(right.senderKey)),
-      path: [...params.leaf.path, { ...bucket.value, dimension: params.dimension }],
-    }))
 }
 
-function compatibilityUnitId(parentId: string, path: PartitionPathEntry[]): string | null {
-  if (!MARKETING_PARENT_IDS.has(parentId) || path.length !== 1 || path[0].dimension !== 'subtype') {
+function compatibilityUnitId(
+  parentId: string,
+  path: ReviewUnitPartitionPathEntry[]
+): string | null {
+  if (
+    !MARKETING_PARENT_IDS.has(parentId) ||
+    path.length !== 1 ||
+    path[0].dimension !== 'subtype'
+  ) {
     return null
   }
   const key = path[0].key
-  if (key === 'marketing_promotional_remainder') return 'family:marketing_promotional:remainder'
+  if (key === 'marketing_promotional_remainder') {
+    return 'family:marketing_promotional:remainder'
+  }
   if (key === 'non_promotional_spillover') return 'family:spillover'
   return `family:${key}`
 }
 
-function unitId(parentId: string, path: PartitionPathEntry[]): string {
-  const compatible = compatibilityUnitId(parentId, path)
-  if (compatible) return compatible
-  const suffix = path
-    .map((entry) => `${normalizedToken(entry.dimension)}-${normalizedToken(entry.key)}`)
-    .join(':')
-  return `review-unit:${normalizedToken(parentId)}:${suffix || 'all'}`
-}
-
-function unitLabel(path: PartitionPathEntry[], duplicateLabels: Set<string>): string {
+function unitLabel(
+  path: ReviewUnitPartitionPathEntry[],
+  duplicateLabels: Set<string>
+): string {
   const last = path[path.length - 1]
   if (!last) return 'All senders'
   if (!duplicateLabels.has(last.label)) return last.label
   return path.map((entry) => entry.label).join(' · ')
+}
+
+function gmailReviewUnitAdapter(
+  basis: GmailCleanupGroupReviewUnitBasis
+): ReviewUnitAdapter<GmailReviewUnitSeed, GmailReviewUnitContext, GmailReviewUnitDimension> {
+  return {
+    adapterId: 'gmail_sender_cleanup',
+    blueprint: gmailCleanupDecisionWorkflowBlueprint(basis),
+    entityId: (sender) => sender.senderKey,
+    partitionValue: ({ dimension, entity, context }) =>
+      valueForDimension({
+        dimension,
+        sender: entity,
+        cutoffAt: context.artifactCutoffAt,
+      }),
+    compatibilityUnitId: ({ parentId, path }) => compatibilityUnitId(parentId, path),
+    unitLabel: ({ path, duplicateTerminalLabels }) =>
+      unitLabel(path, duplicateTerminalLabels),
+  }
 }
 
 export function materializeGmailReviewUnits(params: {
@@ -251,80 +332,32 @@ export function materializeGmailReviewUnits(params: {
   artifactCutoffAt: string
   senders: GmailReviewUnitSeed[]
 }): GmailMaterializedReviewUnitPlan {
-  if (!params.actionable) {
-    return { basis: params.basis, units: [], reviewUnitIdBySenderKey: new Map() }
+  const materialized = materializeReviewUnits({
+    parentId: params.parentId,
+    parentLabel: params.parentLabel,
+    actionable: params.actionable,
+    entities: params.senders,
+    context: { artifactCutoffAt: params.artifactCutoffAt },
+    adapter: gmailReviewUnitAdapter(params.basis),
+  })
+  return {
+    basis: params.basis,
+    units: materialized.units.map(
+      (unit) =>
+        ({
+          unit_id: unit.unitId,
+          label: unit.label,
+          source_kind: unit.sourceKind as GmailCleanupGroupReviewUnit['source_kind'],
+          source_key: unit.sourceKey,
+          sender_count: unit.entityCount,
+          share_pct: unit.sharePct,
+          unit_role: unit.unitRole as GmailCleanupGroupReviewUnit['unit_role'],
+          decomposition_path: unit.decompositionPath,
+          publication_status: unit.publicationStatus,
+        }) satisfies GmailCleanupGroupReviewUnit
+    ),
+    reviewUnitIdBySenderKey: materialized.reviewUnitIdByEntityId,
   }
-  const senderKeys = new Set<string>()
-  for (const sender of params.senders) {
-    if (!sender.senderKey || senderKeys.has(sender.senderKey)) {
-      throw new Error(`Review-unit candidate ${params.parentId} contains a missing or duplicate sender key.`)
-    }
-    senderKeys.add(sender.senderKey)
-  }
-  let leaves: ReviewUnitLeaf[] = [
-    {
-      senders: params.senders.slice().sort((left, right) => left.senderKey.localeCompare(right.senderKey)),
-      path: [],
-    },
-  ]
-  for (const dimension of dimensionsForBasis(params.basis)) {
-    leaves = leaves.flatMap((leaf) => {
-      if (leaf.senders.length <= GMAIL_REVIEW_UNIT_TARGET_MAX && leaf.path.length > 0) return [leaf]
-      const split = splitLeaf({ leaf, dimension, cutoffAt: params.artifactCutoffAt })
-      return split || [leaf]
-    })
-  }
-  leaves = leaves.map((leaf) =>
-    leaf.path.length > 0
-      ? leaf
-      : {
-          ...leaf,
-          path: [
-            {
-              dimension: 'all',
-              key: 'all',
-              label: `All ${params.parentLabel}`,
-              sourceKind: 'materialized_partition',
-              unitRole: 'bounded_partition',
-            },
-          ],
-        }
-  )
-  const oversized = leaves.filter((leaf) => leaf.senders.length > GMAIL_REVIEW_UNIT_HARD_MAX)
-  if (oversized.length > 0) {
-    throw new Error(
-      `Review-unit candidate ${params.parentId} cannot be semantically partitioned below ${GMAIL_REVIEW_UNIT_HARD_MAX} senders; largest unresolved unit has ${Math.max(...oversized.map((leaf) => leaf.senders.length))}.`
-    )
-  }
-  const labelCounts = new Map<string, number>()
-  for (const leaf of leaves) {
-    const label = leaf.path[leaf.path.length - 1]?.label || 'All senders'
-    labelCounts.set(label, (labelCounts.get(label) || 0) + 1)
-  }
-  const duplicateLabels = new Set(
-    Array.from(labelCounts.entries()).filter(([, count]) => count > 1).map(([label]) => label)
-  )
-  const reviewUnitIdBySenderKey = new Map<string, string>()
-  const units = leaves
-    .map((leaf) => {
-      const id = unitId(params.parentId, leaf.path)
-      for (const sender of leaf.senders) reviewUnitIdBySenderKey.set(sender.senderKey, id)
-      const terminal = leaf.path[leaf.path.length - 1]
-      return {
-        unit_id: id,
-        label: unitLabel(leaf.path, duplicateLabels),
-        source_kind: terminal.sourceKind,
-        source_key: terminal.key,
-        sender_count: leaf.senders.length,
-        share_pct:
-          params.senders.length > 0 ? Math.round((leaf.senders.length / params.senders.length) * 100) : 0,
-        unit_role: terminal.unitRole,
-        decomposition_path: leaf.path.map((entry) => `${entry.dimension}:${entry.key}`),
-        publication_status: 'materialized' as const,
-      } satisfies GmailCleanupGroupReviewUnit
-    })
-    .sort((left, right) => left.label.localeCompare(right.label) || left.unit_id.localeCompare(right.unit_id))
-  return { basis: params.basis, units, reviewUnitIdBySenderKey }
 }
 
 export function validateGmailReviewUnitContract(params: {
@@ -334,40 +367,29 @@ export function validateGmailReviewUnitContract(params: {
   units: GmailCleanupGroupReviewUnit[]
   reviewUnitIdBySenderKey: Map<string, string>
 }): GmailReviewUnitContractValidation {
-  const errors: string[] = []
-  const parentKeys = new Set(params.parentSenderKeys)
-  if (parentKeys.size !== params.parentSenderKeys.length) {
-    errors.push(`${params.parentId}: parent membership contains duplicate sender keys.`)
-  }
-  const unitIds = new Set(params.units.map((unit) => unit.unit_id))
-  if (unitIds.size !== params.units.length) errors.push(`${params.parentId}: unit IDs are not unique.`)
-  const countsByUnit = new Map<string, number>()
-  for (const [senderKey, reviewUnitId] of params.reviewUnitIdBySenderKey.entries()) {
-    if (!parentKeys.has(senderKey)) errors.push(`${params.parentId}: child membership contains an unknown sender.`)
-    if (!unitIds.has(reviewUnitId)) errors.push(`${params.parentId}: sender references an unknown child unit.`)
-    countsByUnit.set(reviewUnitId, (countsByUnit.get(reviewUnitId) || 0) + 1)
-  }
-  if (params.actionable && params.units.length === 0) errors.push(`${params.parentId}: actionable parent has no child units.`)
-  if (!params.actionable && (params.units.length > 0 || params.reviewUnitIdBySenderKey.size > 0)) {
-    errors.push(`${params.parentId}: informational parent must not publish review membership.`)
-  }
-  for (const unit of params.units) {
-    const actualCount = countsByUnit.get(unit.unit_id) || 0
-    if (actualCount !== unit.sender_count) {
-      errors.push(`${params.parentId}/${unit.unit_id}: manifest count ${unit.sender_count} does not match membership ${actualCount}.`)
-    }
-    if (unit.sender_count > GMAIL_REVIEW_UNIT_HARD_MAX) {
-      errors.push(`${params.parentId}/${unit.unit_id}: child exceeds the hard maximum.`)
-    }
-  }
-  if (params.actionable && params.reviewUnitIdBySenderKey.size !== parentKeys.size) {
-    errors.push(`${params.parentId}: child union does not equal parent membership.`)
-  }
+  const validation = validateReviewUnitContract({
+    parentId: params.parentId,
+    actionable: params.actionable,
+    parentEntityIds: params.parentSenderKeys,
+    units: params.units.map((unit) => ({
+      unitId: unit.unit_id,
+      label: unit.label,
+      sourceKind: unit.source_kind,
+      sourceKey: unit.source_key,
+      entityCount: unit.sender_count,
+      sharePct: unit.share_pct,
+      unitRole: unit.unit_role,
+      decompositionPath: unit.decomposition_path || [],
+      publicationStatus: 'materialized' as const,
+    })),
+    reviewUnitIdByEntityId: params.reviewUnitIdBySenderKey,
+    hardMax: GMAIL_REVIEW_UNIT_HARD_MAX,
+  })
   return {
-    errors,
-    parentSenderCount: parentKeys.size,
-    assignedSenderCount: Array.from(countsByUnit.values()).reduce((sum, count) => sum + count, 0),
-    uniqueAssignedSenderCount: params.reviewUnitIdBySenderKey.size,
-    largestUnitSenderCount: params.units.reduce((largest, unit) => Math.max(largest, unit.sender_count), 0),
+    errors: validation.errors,
+    parentSenderCount: validation.parentEntityCount,
+    assignedSenderCount: validation.assignedEntityCount,
+    uniqueAssignedSenderCount: validation.uniqueAssignedEntityCount,
+    largestUnitSenderCount: validation.largestUnitEntityCount,
   }
 }

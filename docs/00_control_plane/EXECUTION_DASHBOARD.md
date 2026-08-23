@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-23
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — FRAMEWORK-FIRST EXTRACTION DECISION; REBUILD BLOCKED
+Status: AWAITING DECISION — FRAMEWORK EXTRACTION VERIFIED; REBUILD NOT STARTED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: pre-rebuild implementation and correction proof complete; framework audit found Gmail coupling that must be extracted before live migration or candidate build
+- Execution phase: workflow-blueprint framework extraction and correction proof complete; additive migration and one candidate build await separate approval
 - Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -28,8 +28,9 @@ Status: ACTIVE — FRAMEWORK-FIRST EXTRACTION DECISION; REBUILD BLOCKED
 - [x] Pass fixtures, TypeScript, lint, diff check, production build, and bounded authenticated Playwright correction proof
 - [x] Stop at pre-rebuild approval gate; no candidate build/publication/main promotion occurred
 - [x] Audit framework-first condition before rebuild; reusable behavior confirmed but materializer remains Gmail-coupled
-- [ ] Await Oliver decision on bounded generic review-unit engine plus Gmail-adapter extraction
-- [ ] After extraction proof, return to additive migration plus one candidate artifact build gate; no Gmail reindex or Smart Sync
+- [x] Oliver approved bounded generic review-unit engine plus Gmail-adapter extraction on 2026-08-23
+- [x] Implement and verify workflow-blueprint engine, adapter/store boundary, crypto and tax fixtures, and unchanged Gmail fixture
+- [ ] Await Oliver decision on additive migration plus one candidate artifact build; no Gmail reindex or Smart Sync
 
 ## Immediate Human Review return
 

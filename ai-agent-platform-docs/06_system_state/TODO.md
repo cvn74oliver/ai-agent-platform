@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-23 • framework-first audit found Gmail coupling • extraction approval required before migration/build • no semantic rebuild authorized_
+_Last updated: 2026-08-23 • workflow-blueprint extraction approved • migration/build remain separately gated • no semantic rebuild authorized_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -14,9 +14,9 @@ _Last updated: 2026-08-23 • framework-first audit found Gmail coupling • ext
 - [x] Run static/build plus bounded authenticated Playwright correction proof and stop at the explicit pre-rebuild decision gate.
 - [x] Preserve the gate: no semantic candidate build, publication, local-main advance, push, deployment, or lineage retirement occurred.
 - [x] Audit the framework-first condition before rebuild. Result: reusable invariants exist, but the partition materializer remains coupled to Gmail sender types and vocabulary.
-- [ ] `Status: Awaiting Decision` — approve or revise the bounded extraction of a generic review-unit engine plus Gmail adapter.
-- [ ] After approval, extract and verify the generic engine without changing the accepted Gmail fixture or current published artifact.
-- [ ] Only after framework verification passes, request/confirm authorization to apply the additive migration and start one candidate artifact build from the existing indexed mailbox; do not run Gmail reindex or Smart Sync.
+- [x] Oliver approved the bounded extraction of a generic review-unit engine plus Gmail adapter on 2026-08-23.
+- [x] Extract and verify a workflow-blueprint-driven generic engine, crypto and tax contract fixtures, and the Gmail adapter without changing the accepted Gmail fixture or current published artifact.
+- [ ] `Status: Awaiting Decision` — authorize or defer applying the additive migration and starting one candidate artifact build from the existing indexed mailbox; do not run Gmail reindex or Smart Sync.
 - [ ] After approval, validate candidate counts and every child route through the development-only artifact override, then hold Cleanup Groups Human Review checkpoint one before publication.
 
 ### Historical active heading retained below

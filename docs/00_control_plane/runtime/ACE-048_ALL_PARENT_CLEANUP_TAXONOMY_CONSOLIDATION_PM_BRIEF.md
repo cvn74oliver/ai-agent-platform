@@ -1,6 +1,6 @@
 # ACE-048 All-Parent Cleanup Taxonomy Consolidation PM Brief
 
-Status: PAUSED AT PRE-REBUILD GATE — FRAMEWORK-FIRST EXTRACTION REQUIRES APPROVAL
+Status: FRAMEWORK-FIRST EXTRACTION VERIFIED — AWAITING SEPARATE REBUILD DECISION
 Owner: Project Manager
 Governing event: ACE-048
 Mode: approved Plan -> Execution continuation
@@ -23,13 +23,23 @@ Oliver confirmed that Automata is an AI agent platform and Gmail is only the fir
 
 Required correction before rebuild:
 
-- Extract a domain-neutral review-unit engine that accepts generic entity identity, ordered adapter-provided dimensions, target/hard-size policy, stable-ID policy, and labels.
+- Extract a domain-neutral review-unit engine driven by a declarative workflow blueprint. The blueprint names the universe, workflow, current decision-subject type and vocabulary, evidence kinds, action catalog, ordered semantic dimensions, and target/hard-size policy.
 - Keep exact partition, explicit remainder, deterministic identity, fail-closed oversize behavior, and count reconciliation in the generic engine.
 - Keep Gmail-only concepts—sender, semantic family/subtype/pattern, protection/exclusion reasons, message volume, compatibility IDs, and Gmail table access—in a Gmail adapter.
-- Define a small adapter/store interface so future CRM contacts, ad campaigns, transactions, portfolio assets, or other entities can reuse the same engine without copying Gmail code or inheriting Gmail vocabulary.
-- Preserve the current April Marketing fixture and all pre-rebuild proof while adding generic-engine contract fixtures plus Gmail-adapter compatibility fixtures.
+- Define a small adapter/store interface so a workspace can use different decision subjects by workflow—for example crypto positions, assets, opportunities, or risk events; tax transactions, documents, accounts, issues, or deadlines—without copying Gmail code or inheriting Gmail vocabulary.
+- Preserve the current April Marketing fixture and all pre-rebuild proof while adding generic-engine contract fixtures for non-Gmail crypto and tax blueprints plus Gmail-adapter compatibility fixtures.
 
-This is an execution-plan correction awaiting Oliver approval. It does not authorize implementation, migration application, or artifact generation.
+Oliver approved this bounded framework-first extraction on 2026-08-23. Implementation and verification of the generic engine plus Gmail adapter are authorized. Migration application and artifact generation remain unauthorized until the extraction passes and returns to the separate rebuild gate.
+
+The locked platform abstraction is workflow-specific decision subject, not one hardcoded entity noun per workspace. A workspace may publish multiple blueprints for distinct workflows. New domains require adapter/configuration plus background artifact generation from their data; they must not require application-framework rewrites or request-time data derivation.
+
+Verification checkpoint — 2026-08-23:
+
+- The domain-neutral engine now consumes a declarative workflow blueprint and owns deterministic partitioning, explicit remainder preservation, bounded sizing, exact membership, stable IDs, and validation.
+- The Gmail adapter preserves the existing projector/updater API and the April compatibility fixture exactly: `857 = 347 + 218 + 160 + 76 + 56`.
+- Non-Gmail fixtures prove crypto position review (`520 = 230 + 190 + 100`) and two decision subjects inside one tax workspace: transactions (`450 = 200 + 150 + 100`) and documents (`350 = 180 + 170`).
+- TypeScript, targeted lint, diff validation, and the `63/63` production build pass. No runtime route, request family, database schema, artifact, publication pointer, sync state, or mailbox data changed.
+- Framework-first condition is satisfied for the bounded extraction. Migration application and one candidate semantic build remain a separate explicit Oliver decision.
 
 ## Scope and feature domain
 

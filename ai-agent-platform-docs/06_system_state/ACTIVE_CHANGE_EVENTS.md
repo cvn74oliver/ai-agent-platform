@@ -144,6 +144,11 @@ Framework-first rebuild prerequisite — 2026-08-23:
 - No implementation, migration, build, publication, Smart Sync, reindex, push, main promotion, or deployment is authorized by this finding.
 - Status: Awaiting Decision on the bounded framework-extraction correction. The long semantic build remains blocked until the framework-first condition passes.
 - Checkpoint Status: continuity checkpoint created; newly discovered governing implementation truth is propagated before the next execution stage.
+- Approval update: Oliver approved immediate bounded framework-first extraction on 2026-08-23. Authorized scope is generic engine, Gmail adapter, adapter/store contract, and generic plus Gmail compatibility fixtures only. The live migration and semantic build remain separately gated.
+- Approved architecture refinement: the generic input is a declarative workspace workflow blueprint with a workflow-specific decision subject, not one hardcoded entity type per workspace. The blueprint owns universe/subject vocabulary, evidence kinds, action catalog, semantic dimension order, and sizing policy; the adapter maps domain records into that contract. Crypto and tax fixtures must prove portability before the Gmail candidate-build gate reopens.
+- Extraction verification: PASS/HIGH. Crypto position, tax transaction, and tax document fixtures reconcile exactly; the same tax workspace proves multiple decision subjects; Gmail preserves the April `857` five-child fixture; fail-closed `>400`, TypeScript, targeted lint, diff check, and the `63/63` production build pass.
+- Status: Awaiting Decision. The framework-first condition is satisfied for this bounded slice, but the additive migration and one candidate semantic build remain separately gated. No live data or publication mutation occurred.
+- Checkpoint Status: continuity checkpoint created; material implementation state and the reopened pre-rebuild decision gate are propagated before stage handoff.
 
 Decision:
 - Automata is now governed by the **Revival — Security and Rebaseline** program.
