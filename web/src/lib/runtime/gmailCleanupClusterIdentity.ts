@@ -117,7 +117,7 @@ export const GMAIL_CLEANUP_CANONICAL_GROUP_REGISTRY = [
     aliases: [{ clusterId: 'social-platform-senders', kind: 'legacy' }],
     lane: 'secondary',
     groupType: 'secondary',
-    surfacedStatus: 'hidden_alias_only',
+    surfacedStatus: 'surfaced',
     displayPriority: 610,
     primaryEntryEligible: false,
   },

@@ -5000,6 +5000,7 @@ async function loadSenderWorkspaceFromArtifact(params: {
             reviewUnitId,
             sort: params.sort,
             direction: params.direction,
+            includeFocusedSenderKeys: params.includeClusterSenderKeys === true,
           })
           if (reviewUnitRead.focused_capability_available) {
             focusedReviewUnitArtifactPageRead = true
@@ -5099,9 +5100,15 @@ async function loadSenderWorkspaceFromArtifact(params: {
 
     const clusterSenderKeysStartedAt = Date.now()
     const clusterSenderKeys =
-      params.includeClusterSenderKeys === true && artifactRead.seed_rows.length >= clusterTotalSenders
-        ? artifactRead.seed_rows.map((row) => row.sender_key)
-        : null
+      params.includeClusterSenderKeys === true &&
+      focusedReviewUnitArtifactPageRead &&
+      'focused_sender_keys' in artifactRead &&
+      Array.isArray(artifactRead.focused_sender_keys)
+        ? artifactRead.focused_sender_keys
+        : params.includeClusterSenderKeys === true &&
+            artifactRead.seed_rows.length >= clusterTotalSenders
+          ? artifactRead.seed_rows.map((row) => row.sender_key)
+          : null
     const statsLoadStartedAt = Date.now()
     const statsBySenderKey = new Map<string, GmailSenderWorkspaceArtifactStatsRow>()
     const clusterSenderKeysMs =

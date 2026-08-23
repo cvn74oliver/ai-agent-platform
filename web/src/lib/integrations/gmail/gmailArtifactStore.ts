@@ -391,6 +391,7 @@ export type GmailPublishedSenderWorkspaceFocusedArtifactRead = {
   preview_index_rows: GmailPreviewIndexRow[]
   preview_fetch_strategy?: 'message_id' | 'sender_key'
   focused_total_senders: number
+  focused_sender_keys?: string[]
   focused_capability_available: boolean
   focused_request_valid?: boolean
 }
@@ -3918,6 +3919,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
   reviewUnitId: string
   sort: GmailSenderWorkspaceSort
   direction: GmailSenderWorkspaceSortDirection
+  includeFocusedSenderKeys?: boolean
 }): Promise<GmailPublishedSenderWorkspaceFocusedArtifactRead> {
   const headerRead = await loadPublishedSenderWorkspaceArtifactHeaders(params)
   if (!headerRead.publication || !headerRead.artifact_version || !headerRead.selected_header) {
@@ -3977,6 +3979,35 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
       `Published review-unit manifest mismatch for ${reviewUnitId}: expected ${manifestEntry.senderCount}, found ${focusedTotalSenders}.`
     )
   }
+  let focusedSenderKeys: string[] | undefined
+  if (params.includeFocusedSenderKeys === true) {
+    const { data: focusedSenderKeyData, error: focusedSenderKeyError } = await params.supabase
+      .from('gmail_sender_workspace_seed_rows')
+      .select('sender_key')
+      .eq('tenant_id', params.tenantId)
+      .eq('analysis_scope', params.analysisScope)
+      .eq('artifact_version', headerRead.artifact_version)
+      .eq('cluster_id', resolvedClusterId)
+      .eq('review_unit_id', reviewUnitId)
+      .order('default_rank', { ascending: true })
+      .order('sender_key', { ascending: true })
+      .range(0, Math.max(0, focusedTotalSenders - 1))
+    if (focusedSenderKeyError) {
+      throw new Error(
+        `Failed to load materialized Gmail review-unit sender keys: ${focusedSenderKeyError.message}`
+      )
+    }
+    focusedSenderKeys = uniqueStrings(
+      (focusedSenderKeyData || []).map((row) =>
+        typeof row.sender_key === 'string' ? row.sender_key.trim() : ''
+      )
+    )
+    if (focusedSenderKeys.length !== focusedTotalSenders) {
+      throw new Error(
+        `Published review-unit sender-key mismatch for ${reviewUnitId}: expected ${focusedTotalSenders}, found ${focusedSenderKeys.length}.`
+      )
+    }
+  }
   const normalizedPageSize = Math.min(
     GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT,
     Math.max(1, normalizeInteger(params.pageSize))
@@ -4022,7 +4053,8 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
     (headerRead.publication ? 1 : 0) +
     headerRead.headers.length +
     seedRows.length +
-    previewRows.length
+    previewRows.length +
+    (focusedSenderKeys?.length || 0)
   if (actualReturnedRowCount >= GMAIL_ARTIFACT_RUNTIME_ROW_BUDGET) {
     throw new Error('Materialized review-unit page exceeded the runtime artifact row budget.')
   }
@@ -4032,6 +4064,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
     artifact_version: headerRead.artifact_version,
     review_unit_id: reviewUnitId,
     seed_rows: seedRows.length,
+    focused_sender_keys: focusedSenderKeys?.length || 0,
     preview_rows: previewRows.length,
     actual_returned_rows: actualReturnedRowCount,
     query_concurrency: 1,
@@ -4042,6 +4075,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
     preview_index_rows: previewRows,
     preview_fetch_strategy: 'sender_key',
     focused_total_senders: focusedTotalSenders,
+    focused_sender_keys: focusedSenderKeys,
     focused_capability_available: true,
     focused_request_valid: true,
   }

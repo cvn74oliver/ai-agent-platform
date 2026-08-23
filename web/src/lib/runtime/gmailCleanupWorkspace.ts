@@ -2659,6 +2659,7 @@ export function readCachedGmailSenderWorkspace(params: {
   sort?: GmailSenderWorkspaceSort
   direction?: GmailSenderWorkspaceSortDirection
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
+  reviewUnitId?: string | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
@@ -2697,12 +2698,13 @@ export function readCachedGmailSenderWorkspace(params: {
     pageSize,
     search,
     filter,
-      sort,
-      direction,
-      semanticFocus: params.semanticFocus ?? null,
-      previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
-      timeContextBucketLabel: params.timeContextBucketLabel ?? null,
-      timeContextBucketStartAt:
+    sort,
+    direction,
+    semanticFocus: params.semanticFocus ?? null,
+    reviewUnitId: params.reviewUnitId ?? null,
+    previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
+    timeContextBucketLabel: params.timeContextBucketLabel ?? null,
+    timeContextBucketStartAt:
         typeof params.timeContextBucketStartAt === 'string' && params.timeContextBucketStartAt.trim()
           ? params.timeContextBucketStartAt.trim()
           : null,

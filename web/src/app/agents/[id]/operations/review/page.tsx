@@ -75,7 +75,7 @@ type OverviewSubsetSource =
   | 'contributor'
   | 'distribution'
   | 'review_unit'
-type MarketingReviewUnitEntryState =
+type PublishedReviewUnitEntryState =
   | 'choose_unit'
   | 'missing_unit'
   | 'invalid_unit'
@@ -144,6 +144,7 @@ type SharedWorkflowResolvedFilterKind =
   | 'workflow_scope'
   | 'workflow_window'
   | 'time_context_bucket'
+  | 'review_unit'
   | 'semantic_focus'
   | 'route_subset'
   | 'focused_sender'
@@ -335,6 +336,7 @@ type WorkspaceFetchPlan = {
   mode: ReviewMode
   page: number
   pageSize: number
+  reviewUnitId: string | null
   requestPhase: 'interactive' | 'deferred'
   seedSnapshot: WorkspaceSnapshot | null
   previewEvidenceSenderKey: string | null
@@ -2328,6 +2330,7 @@ function buildWorkspaceRequestKey(params: {
   analysisScope: OperationsAnalysisScope
   mode: ReviewMode
   cacheVersion: string | null
+  reviewUnitId?: string | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
@@ -2340,6 +2343,7 @@ function buildWorkspaceRequestKey(params: {
     params.analysisScope,
     params.mode,
     normalizeWorkspaceCacheVersion(params.cacheVersion),
+    params.reviewUnitId?.trim() || 'no-review-unit',
     params.previewEvidenceSenderKey || 'no-preview-evidence-sender',
     normalizeTimeContextBucketLabel(params.timeContextBucketLabel) || 'no-time-context-bucket',
     normalizeTimeContextBucketIso(params.timeContextBucketStartAt) || 'no-time-context-bucket-start',
@@ -3963,7 +3967,6 @@ export default function OperationsReviewPage() {
   }, [rawRequestedClusterId, renderRuntimeData?.runtime_sender_overview, requestedCluster, runtimeClusters])
   const selectedCanonicalClusterId =
     selectedCluster?.canonicalClusterId || selectedCluster?.clusterId || resolvedRequestedClusterId
-  const isMarketingCleanupGroup = selectedCanonicalClusterId === MARKETING_PARENT_CANONICAL_ID
   const selectedMailboxIntelligenceGroup = useMemo(() => {
     if (!selectedCanonicalClusterId) return null
     return (
@@ -3974,49 +3977,54 @@ export default function OperationsReviewPage() {
       ) || null
     )
   }, [renderRuntimeData?.runtime_mailbox_intelligence?.cleanup_groups, selectedCanonicalClusterId])
-  const marketingReviewUnitEntryUnits = useMemo(
+  const publishedReviewUnitEntryUnits = useMemo(
     () =>
-      selectedCluster && isMarketingCleanupGroup
+      selectedCluster
         ? buildCleanupGroupPublishedReviewUnits(
             selectedCluster.clusterId,
             selectedMailboxIntelligenceGroup?.semantic_rollup || null
           )
         : [],
-    [isMarketingCleanupGroup, selectedCluster, selectedMailboxIntelligenceGroup?.semantic_rollup]
+    [selectedCluster, selectedMailboxIntelligenceGroup?.semantic_rollup]
   )
-  const marketingReviewUnitEntryRequestedUnit = useMemo(
+  const publishedReviewUnitEntryRequestedUnit = useMemo(
     () =>
       subsetSource === 'review_unit'
-        ? findCleanupGroupPublishedReviewUnit(marketingReviewUnitEntryUnits, subsetValue?.trim())
+        ? findCleanupGroupPublishedReviewUnit(publishedReviewUnitEntryUnits, subsetValue?.trim())
         : null,
-    [marketingReviewUnitEntryUnits, subsetSource, subsetValue]
+    [publishedReviewUnitEntryUnits, subsetSource, subsetValue]
   )
-  const selectableMarketingReviewUnits = useMemo(
-    () => buildRenderablePublishedReviewUnits(marketingReviewUnitEntryUnits),
-    [marketingReviewUnitEntryUnits]
+  const selectablePublishedReviewUnits = useMemo(
+    () => buildRenderablePublishedReviewUnits(publishedReviewUnitEntryUnits),
+    [publishedReviewUnitEntryUnits]
   )
-  const marketingReviewUnitEntryState = useMemo<MarketingReviewUnitEntryState | null>(() => {
-    if (!isMarketingCleanupGroup) return null
+  const publishedReviewUnitsRequired =
+    selectedMailboxIntelligenceGroup?.semantic_rollup?.review_unit_plan?.required === true
+  const publishedReviewUnitEntryState = useMemo<PublishedReviewUnitEntryState | null>(() => {
+    if (!selectedCluster) return null
+    if (!publishedReviewUnitsRequired && publishedReviewUnitEntryUnits.length === 0) return null
     if (subsetSource === 'review_unit' && !hasRequestedReviewUnitValue(subsetValue)) {
       return 'missing_unit'
     }
-    if (selectableMarketingReviewUnits.length === 0) return 'unavailable_units'
+    if (selectablePublishedReviewUnits.length === 0) return 'unavailable_units'
     if (subsetSource !== 'review_unit') return 'choose_unit'
-    if (!marketingReviewUnitEntryRequestedUnit) return 'invalid_unit'
-    if (marketingReviewUnitEntryRequestedUnit.targetState === 'oversized') return 'oversized_unit'
+    if (!publishedReviewUnitEntryRequestedUnit) return 'invalid_unit'
+    if (publishedReviewUnitEntryRequestedUnit.targetState === 'oversized') return 'oversized_unit'
     return null
   }, [
-    isMarketingCleanupGroup,
-    marketingReviewUnitEntryRequestedUnit,
-    selectableMarketingReviewUnits.length,
+    publishedReviewUnitEntryRequestedUnit,
+    publishedReviewUnitEntryUnits.length,
+    publishedReviewUnitsRequired,
+    selectablePublishedReviewUnits.length,
+    selectedCluster,
     subsetSource,
     subsetValue,
   ])
   useEffect(() => {
     if (runtime.loading || !renderRuntimeData) return
     if (
-      marketingReviewUnitEntryState !== 'missing_unit' &&
-      marketingReviewUnitEntryState !== 'invalid_unit'
+      publishedReviewUnitEntryState !== 'missing_unit' &&
+      publishedReviewUnitEntryState !== 'invalid_unit'
     ) {
       return
     }
@@ -4025,7 +4033,7 @@ export default function OperationsReviewPage() {
   }, [
     agentId,
     analysisScope,
-    marketingReviewUnitEntryState,
+    publishedReviewUnitEntryState,
     renderRuntimeData,
     router,
     runtime.loading,
@@ -5356,7 +5364,13 @@ export default function OperationsReviewPage() {
     workflowCachedWorkspaceSnapshot,
   ])
   const workspaceRequestKey = useMemo(() => {
-    if (!selectedCluster || marketingReviewUnitEntryState) return null
+    if (
+      !selectedCluster ||
+      publishedReviewUnitEntryState ||
+      publishedReviewUnitEntryRequestedUnit
+    ) {
+      return null
+    }
     return buildWorkspaceRequestKey({
       clusterId: selectedCluster.clusterId,
       analysisScope: effectiveWorkflowScope,
@@ -5378,7 +5392,8 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
-    marketingReviewUnitEntryState,
+    publishedReviewUnitEntryRequestedUnit,
+    publishedReviewUnitEntryState,
     selectedCluster,
     senderOverviewWindowSelection,
   ])
@@ -5689,13 +5704,6 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   ])
   const workspaceFetchPlan = useMemo<WorkspaceFetchPlan | null>(() => {
     if (!workspaceRequestKey || !selectedCluster) return null
-    if (
-      isMarketingCleanupGroup &&
-      marketingReviewUnitEntryRequestedUnit &&
-      marketingReviewUnitEntryState == null
-    ) {
-      return null
-    }
     if (mode === 'overview') {
       if (!shouldFetchOverviewCoverageBackfill && passiveReadyWorkspaceSnapshot) return null
     } else if (!shouldFetchDecisionWorkspacePage) {
@@ -5714,6 +5722,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         mode === 'decision'
           ? DECISION_QUEUE_WORKSPACE_PAGE_SIZE
           : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       requestPhase: mode === 'decision' ? 'interactive' : 'deferred',
       seedSnapshot:
         mode === 'decision'
@@ -5735,9 +5744,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     decisionPreviewEvidenceSenderKey,
     decisionTargetPage,
     effectiveWorkflowScope,
-    isMarketingCleanupGroup,
-    marketingReviewUnitEntryRequestedUnit,
-    marketingReviewUnitEntryState,
+    publishedReviewUnitEntryRequestedUnit?.id,
     shouldFetchOverviewCoverageBackfill,
     shouldFetchDecisionWorkspacePage,
     mode,
@@ -5760,6 +5767,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       workspaceFetchPlan.requestKey,
       workspaceFetchPlan.requestPhase,
       workspaceFetchPlan.page,
+      workspaceFetchPlan.reviewUnitId || 'no-review-unit',
       workspaceFetchPlan.seedSnapshot?.source || 'no-seed',
       workspaceFetchPlan.seedSnapshot?.data.selected_cluster.cluster_id || 'no-cluster',
       workspaceFetchPlan.seedSnapshot?.data.cluster_global.sender_keys_complete === true ? 'keys' : 'no-keys',
@@ -6150,7 +6158,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
     void (async () => {
       const readLatestWorkspaceCacheSnapshot = () => {
-        const cachedData = readCachedGmailSenderWorkspace({
+      const cachedData = readCachedGmailSenderWorkspace({
           selectedCluster: plan.selectedCluster,
           allClusters: plan.allClusters,
           analysisScope: plan.analysisScope,
@@ -6158,6 +6166,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           includeClusterSenderKeys: true,
           page: plan.page,
           pageSize: plan.pageSize,
+          reviewUnitId: plan.reviewUnitId,
           previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
           timeContextBucketLabel: plan.timeContextBucketLabel,
           senderOverviewWindow: plan.senderOverviewWindowSelection?.window || null,
@@ -6205,6 +6214,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         includeClusterSenderKeys: true,
         page: plan.page,
         pageSize: plan.pageSize,
+        reviewUnitId: plan.reviewUnitId,
         previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
         timeContextBucketLabel: plan.timeContextBucketLabel,
         timeContextBucketStartAt: plan.timeContextBucketStartAt,
@@ -8117,12 +8127,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         overviewShellWorkspace?.analytics.semantic_rollup || null
       )
       if (publishedReviewUnits.length > 0) return publishedReviewUnits
-      return isMarketingCleanupGroup ? marketingReviewUnitEntryUnits : []
+      return publishedReviewUnitEntryUnits
     },
     [
-      isMarketingCleanupGroup,
-      marketingReviewUnitEntryUnits,
       overviewShellWorkspace?.analytics.semantic_rollup,
+      publishedReviewUnitEntryUnits,
       selectedCluster,
     ]
   )
@@ -8130,12 +8139,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     () =>
       subsetSource === 'review_unit'
         ? findCleanupGroupPublishedReviewUnit(groupReviewUnits, subsetValue) ||
-          (isMarketingCleanupGroup ? marketingReviewUnitEntryRequestedUnit : null)
+          publishedReviewUnitEntryRequestedUnit
         : null,
     [
       groupReviewUnits,
-      isMarketingCleanupGroup,
-      marketingReviewUnitEntryRequestedUnit,
+      publishedReviewUnitEntryRequestedUnit,
       subsetSource,
       subsetValue,
     ]
@@ -9424,7 +9432,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     const timeContextBucketOrderedSenderKeys = timeContextBucketSubsetActive
       ? workspaceClusterGlobalSenderKeys(authoritativeBucketWorkflowWorkspace)
       : []
-    const semanticFocusedSubsetActive = activeSemanticSubtypeFocus != null
+    const publishedReviewUnitSubsetActive = activeOverviewSubset?.source === 'review_unit'
+    const publishedReviewUnitOrderedSenderKeys =
+      publishedReviewUnitSubsetActive && semanticFocusWorkspace
+        ? workspaceHasUsableClusterGlobalSenderKeys(semanticFocusWorkspace)
+          ? workspaceClusterGlobalSenderKeys(semanticFocusWorkspace)
+          : semanticFocusWorkspace.senders.map((sender) => sender.sender_key)
+        : []
+    const semanticFocusedSubsetActive =
+      activeSemanticSubtypeFocus != null && !publishedReviewUnitSubsetActive
     const semanticFocusOrderedSenderKeys =
       semanticFocusedSubsetActive && semanticFocusWorkspace
         ? workspaceHasUsableClusterGlobalSenderKeys(semanticFocusWorkspace)
@@ -9438,7 +9454,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         : []
     const baseLabel = selectedCluster?.title || humanizeCleanupGroupId(parentClusterId)
     const resolvedFilters: SharedWorkflowResolvedFilter[] = []
-    let orderedSenderKeys = workflowScopeUniverseOrderedSenderKeys
+    let orderedSenderKeys =
+      publishedReviewUnitSubsetActive && publishedReviewUnitOrderedSenderKeys.length > 0
+        ? publishedReviewUnitOrderedSenderKeys
+        : workflowScopeUniverseOrderedSenderKeys
 
     if (detachedWorkflowScopeActive) {
       resolvedFilters.push({
@@ -9468,6 +9487,17 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         exact: true,
       })
       const allowedSenderKeys = new Set(timeContextBucketOrderedSenderKeys)
+      orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
+    }
+
+    if (publishedReviewUnitSubsetActive && publishedReviewUnitOrderedSenderKeys.length > 0) {
+      resolvedFilters.push({
+        kind: 'review_unit',
+        label: activeOverviewSubset?.label || 'Published review unit',
+        senderCount: activeOverviewSubset?.chartCount || publishedReviewUnitOrderedSenderKeys.length,
+        exact: workspaceHasUsableClusterGlobalSenderKeys(semanticFocusWorkspace),
+      })
+      const allowedSenderKeys = new Set(publishedReviewUnitOrderedSenderKeys)
       orderedSenderKeys = orderedSenderKeys.filter((senderKey) => allowedSenderKeys.has(senderKey))
     }
 
@@ -10079,7 +10109,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const publishedReviewUnitSummaryActive = activeOverviewSubset?.source === 'review_unit'
   const publishedReviewUnitDistributionReady = Boolean(
     publishedReviewUnitSummaryActive &&
-      senderDistributionSemanticFocus &&
+      senderDistributionReviewUnitId &&
       senderDistributionWorkspaceState.status === 'ready' &&
       senderDistributionData &&
       senderDistributionBroadSenderKeys.length === activeOverviewSubset.chartCount
@@ -12361,8 +12391,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }
   }
 
-  if (marketingReviewUnitEntryState) {
-    const marketingTitle = selectedCluster?.title || 'Marketing / promotional subscriptions'
+  if (publishedReviewUnitEntryState) {
+    const parentTitle = selectedCluster?.title || 'Selected cleanup group'
     const operationsQuery = serializeOperationsQuery(sessionId, analysisScope)
     const cleanupGroupsHref = `/agents/${agentId}/operations/clusters${operationsQuery}`
     const routeClusterId =
@@ -12371,37 +12401,37 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       selectedCanonicalClusterId ||
       MARKETING_PARENT_CANONICAL_ID
     const blockedUnitLabel =
-      marketingReviewUnitEntryRequestedUnit?.label || 'The requested Marketing unit'
+      publishedReviewUnitEntryRequestedUnit?.label || 'The requested review unit'
     const headline =
-      marketingReviewUnitEntryState === 'choose_unit'
-        ? 'Choose a Marketing unit before review starts'
-        : marketingReviewUnitEntryState === 'missing_unit'
-          ? 'Marketing unit is missing from this route'
-          : marketingReviewUnitEntryState === 'invalid_unit'
-            ? 'Selected Marketing unit is unavailable'
-            : marketingReviewUnitEntryState === 'oversized_unit'
-              ? 'Selected Marketing unit is above the safe review limit'
-              : 'Published Marketing units are unavailable'
+      publishedReviewUnitEntryState === 'choose_unit'
+        ? `Choose a ${parentTitle} unit before review starts`
+        : publishedReviewUnitEntryState === 'missing_unit'
+          ? 'Review unit is missing from this route'
+          : publishedReviewUnitEntryState === 'invalid_unit'
+            ? 'Selected review unit is unavailable'
+            : publishedReviewUnitEntryState === 'oversized_unit'
+              ? 'Selected review unit is above the safe review limit'
+              : 'Published review units are unavailable'
     const guidance =
-      marketingReviewUnitEntryState === 'choose_unit'
-        ? 'This semantic parent is intentionally decomposed at first click. Choose one published child unit below; the broad 857-sender parent will not open as a review queue.'
-        : marketingReviewUnitEntryState === 'missing_unit'
+      publishedReviewUnitEntryState === 'choose_unit'
+        ? 'This parent is intentionally decomposed at first click. Choose one published child unit below; the broad parent will not open as a review queue.'
+        : publishedReviewUnitEntryState === 'missing_unit'
           ? 'This route requested unit-based review without a unit id. Choose a current published child below.'
-          : marketingReviewUnitEntryState === 'invalid_unit'
+          : publishedReviewUnitEntryState === 'invalid_unit'
             ? 'The requested unit is no longer part of the published artifact. Choose a current published child below.'
-            : marketingReviewUnitEntryState === 'oversized_unit'
+            : publishedReviewUnitEntryState === 'oversized_unit'
               ? `${blockedUnitLabel} exceeds the 400-sender first-click limit, so broad review remains blocked.`
-              : 'The published artifact does not currently expose a complete safe child-unit set. Broad Marketing review remains blocked.'
+              : 'The published artifact does not currently expose a complete safe child-unit set. Broad-parent review remains blocked.'
 
     return (
-      <div className="space-y-4" data-marketing-review-entry-state={marketingReviewUnitEntryState}>
+      <div className="space-y-4" data-published-review-entry-state={publishedReviewUnitEntryState}>
         <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-700/50 bg-[linear-gradient(180deg,rgba(14,31,47,0.98),rgba(8,17,29,0.98),rgba(4,9,16,0.98))] p-5 space-y-4 shadow-[0_24px_64px_rgba(2,6,23,0.36)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-2">
               <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
-                Published Marketing Review Entry
+                Published Review Entry
               </p>
-              <h1 className="text-2xl font-semibold text-white">{marketingTitle}</h1>
+              <h1 className="text-2xl font-semibold text-white">{parentTitle}</h1>
               <p className="max-w-3xl text-sm leading-6 text-slate-200">{guidance}</p>
             </div>
             <Link
@@ -12435,15 +12465,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         <section className={`${primarySurfaceClass} p-5 space-y-4`}>
           <div className="space-y-2">
             <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
-              Marketing Review Units
+              Published Review Units
             </p>
             <h2 className="text-xl font-semibold text-white">{headline}</h2>
             <p className="max-w-3xl text-sm leading-6 text-slate-200">{guidance}</p>
           </div>
 
-          {selectableMarketingReviewUnits.length > 0 ? (
+          {selectablePublishedReviewUnits.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-2">
-              {selectableMarketingReviewUnits.map((unit) => (
+              {selectablePublishedReviewUnits.map((unit) => (
                 <Link
                   key={unit.id}
                   href={buildReviewHref({
@@ -12468,7 +12498,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
             </div>
           ) : (
             <div className="rounded-2xl border border-amber-700/45 bg-amber-950/20 p-4 text-sm leading-6 text-amber-100">
-              No valid published child units are available. This page is intentionally failing closed rather than opening broad Marketing review.
+              No valid published child units are available. This page is intentionally failing closed rather than opening broad-parent review.
             </div>
           )}
         </section>
@@ -13669,9 +13699,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               <p className="text-sm leading-6 text-slate-200">
                 {activeOverviewSubset
                   ? activeOverviewSubset.source === 'review_unit'
-                    ? isMarketingCleanupGroup
-                      ? 'Continue with this published review unit in the same one-sender-at-a-time Decision Mode, or return to Cleanup Groups to choose another unit.'
-                      : 'You can either review only this derived review unit or return to the full cleanup group. This scope is session-only and still uses the same one-sender-at-a-time Decision Mode.'
+                    ? 'Continue with this published review unit in the same one-sender-at-a-time Decision Mode, or return to Cleanup Groups to choose another unit.'
                     : 'You can either review the full cleanup group or hand off only this selected subset into the same one-sender-at-a-time decision flow. Gmail still never mutates here.'
                   : 'Decision Mode is the next step when you are ready to move from overview into one-sender-at-a-time action.'}
               </p>
@@ -13692,7 +13720,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                         : 'Review Selected Subset'}
                     </Link>
                   )}
-                  {isMarketingCleanupGroup ? (
+                  {activeOverviewSubset.source === 'review_unit' ? (
                     <Link
                       href={`/agents/${agentId}/operations/clusters`}
                       className={`${quietSecondaryActionClass} inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold`}
@@ -13721,9 +13749,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               <p className="text-xs leading-5 text-slate-300">
                 {activeOverviewSubset
                   ? reviewUnitDecisionQueueLoading
-                    ? 'Preparing the full sender list for this derived review unit before entering Decision Mode.'
+                    ? 'Preparing the full sender list for this published review unit before entering Decision Mode.'
                     : activeOverviewSubset.source === 'review_unit'
-                    ? `${activeOverviewSubset.eligibleCount.toLocaleString()} senders are ready to review inside this derived review unit. This scope is session-only, keeps the parent group intact, and does not create a taxonomy split.`
+                    ? `${activeOverviewSubset.chartCount.toLocaleString()} senders are in this published review unit. ${activeOverviewSubset.loadedCount.toLocaleString()} are shown on this page, and the exact child membership stays stable across Sender Overview and Decision Mode.`
                     : `${activeOverviewSubset.eligibleCount.toLocaleString()} senders are ready to review inside this subset. This handoff is session-only and does not create a saved cleanup group.`
                   : workflowOverviewWorkspace?.pagination.total_senders === 0 &&
                       effectiveWorkflowScope !== normalizedAnalysisScope

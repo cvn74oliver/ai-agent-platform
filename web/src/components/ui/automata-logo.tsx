@@ -1,12 +1,11 @@
-import { useId, type SVGProps } from 'react'
+import type { SVGProps } from 'react'
+
+const glowId = 'automata-logo-glow'
+const beamId = 'automata-logo-beam'
+const nodeId = 'automata-logo-node'
+const coreId = 'automata-logo-core'
 
 export default function AutomataLogo(props: SVGProps<SVGSVGElement>) {
-  const baseId = useId().replace(/:/g, '')
-  const glowId = `${baseId}-glow`
-  const beamId = `${baseId}-beam`
-  const nodeId = `${baseId}-node`
-  const coreId = `${baseId}-core`
-
   return (
     <svg
       viewBox="0 0 32 32"

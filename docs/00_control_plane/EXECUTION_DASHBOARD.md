@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-23
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — UNPUBLISHED CANDIDATE READY FOR RUNTIME VERIFICATION
+Status: AWAITING DECISION — CLEANUP GROUPS HUMAN REVIEW CHECKPOINT ONE
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: one unpublished candidate built and reconciled; rerun static/build proof, then candidate-only Playwright and Human Review checkpoint one
+- Execution phase: unpublished candidate built, reconciled, and runtime-verified; Cleanup Groups Human Review checkpoint one active
 - Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -37,7 +37,8 @@ Status: ACTIVE — UNPUBLISHED CANDIDATE READY FOR RUNTIME VERIFICATION
 - [x] Correct exact preview-row validation and replace-before-finalize behavior; same candidate reconciles `5,024` unique senders and `217,561` preview rows
 - [x] Remove orphan source membership and retire the retail parent into canonical destinations without a second artifact build
 - [x] Pass exact candidate taxonomy audit: `7` parents, every actionable parent child-complete, Context no-action, largest child `296`, all child/parent/root totals exact
-- [ ] Rerun static/build correction proof and complete candidate-version Playwright on the canonical Cleanup Groups route
+- [x] Rerun static/build correction proof and complete candidate-version Playwright on the canonical Cleanup Groups route: `60/60` child routes plus full child lifecycle PASS/HIGH
+- [x] Prove bounded largest-child load: `296` senders, one workspace plus one paginated distribution family, query concurrency `1`, zero steady polling/retry/`409`
 - [ ] Hold Cleanup Groups Human Review checkpoint one before any publication decision
 
 ## Immediate Human Review return

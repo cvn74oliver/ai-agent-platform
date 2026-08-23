@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-23 • framework extraction verified • one unpublished candidate build authorized • publication remains gated_
+_Last updated: 2026-08-23 • unpublished candidate runtime verified • Cleanup Groups Human Review checkpoint one active • publication remains gated_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -23,7 +23,9 @@ _Last updated: 2026-08-23 • framework extraction verified • one unpublished 
 - [x] Correct the planned-count false failure and upsert-only preview-row drift; exact candidate totals are `5,024` unique senders and `217,561` preview rows with no orphan cluster membership.
 - [x] Reconcile the retired retail parent into canonical System Notifications / Needs Review and re-finalize the same candidate without another mailbox scan or artifact build.
 - [x] Validate the unpublished taxonomy contract: `7` parents, all actionable parents child-complete, exact one-child membership, exact parent/root reconciliation, Context no-action, largest child `296`.
-- [ ] Validate candidate counts and every child route through the development-only artifact override, then hold Cleanup Groups Human Review checkpoint one before publication.
+- [x] Validate candidate counts and all `60/60` actionable child routes through the development-only artifact override; complete static/build, lifecycle, linked-count, and largest-child bounded-load proof.
+- [ ] Record Oliver's explicit Cleanup Groups Human Review checkpoint-one decision on parent/child names, intuitiveness, and navigation.
+- [ ] After checkpoint-one acceptance, integrate and verify the preserved Sender Distribution and Pressure Trend lineage on the shared `review_unit_id` before any publication decision.
 
 ### Historical active heading retained below
 
