@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-23
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — SINGLE UNPUBLISHED CANDIDATE BUILD READY
+Status: ACTIVE — UNPUBLISHED CANDIDATE READY FOR RUNTIME VERIFICATION
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: framework and candidate-only lifecycle correction proof complete; additive migration verified; run one unpublished candidate build over the existing indexed mailbox
+- Execution phase: one unpublished candidate built and reconciled; rerun static/build proof, then candidate-only Playwright and Human Review checkpoint one
 - Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -33,7 +33,12 @@ Status: ACTIVE — SINGLE UNPUBLISHED CANDIDATE BUILD READY
 - [x] Oliver authorized additive migration plus one unpublished candidate artifact build; no Gmail reindex, Smart Sync, or publication
 - [x] Restore preserved candidate-only completion/publication-state restoration seam and pass static/build/fixture correction proof
 - [x] Apply and verify the additive migration without broad-pushing across remote migration-history drift
-- [ ] Run the single candidate build and prove the April active pointer remains unchanged
+- [x] Run the single candidate build and prove the April active pointer remains unchanged
+- [x] Correct exact preview-row validation and replace-before-finalize behavior; same candidate reconciles `5,024` unique senders and `217,561` preview rows
+- [x] Remove orphan source membership and retire the retail parent into canonical destinations without a second artifact build
+- [x] Pass exact candidate taxonomy audit: `7` parents, every actionable parent child-complete, Context no-action, largest child `296`, all child/parent/root totals exact
+- [ ] Rerun static/build correction proof and complete candidate-version Playwright on the canonical Cleanup Groups route
+- [ ] Hold Cleanup Groups Human Review checkpoint one before any publication decision
 
 ## Immediate Human Review return
 

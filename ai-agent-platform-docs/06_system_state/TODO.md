@@ -19,7 +19,10 @@ _Last updated: 2026-08-23 • framework extraction verified • one unpublished 
 - [x] Oliver authorized applying the additive migration and starting exactly one unpublished candidate artifact build from the existing indexed mailbox on 2026-08-23; Gmail reindex, Smart Sync, and publication remain prohibited.
 - [x] Restore the proven candidate-only runner lifecycle from preserved cleanup lineage and pass static/build/fixture correction proof.
 - [x] Apply and verify the additive `review_unit_id` migration without broad-pushing across remote migration-history drift.
-- [ ] Run the single unpublished candidate build over the existing `244,628` indexed messages; assert `published_version` remains `full-mailbox-20260415024237593` and the candidate job terminates as `candidate_ready`.
+- [x] Run the single unpublished candidate build over the existing `244,628` indexed messages; candidate `full-mailbox-20260823022932121` is terminal `candidate_ready` and `published_version` remains `full-mailbox-20260415024237593`.
+- [x] Correct the planned-count false failure and upsert-only preview-row drift; exact candidate totals are `5,024` unique senders and `217,561` preview rows with no orphan cluster membership.
+- [x] Reconcile the retired retail parent into canonical System Notifications / Needs Review and re-finalize the same candidate without another mailbox scan or artifact build.
+- [x] Validate the unpublished taxonomy contract: `7` parents, all actionable parents child-complete, exact one-child membership, exact parent/root reconciliation, Context no-action, largest child `296`.
 - [ ] Validate candidate counts and every child route through the development-only artifact override, then hold Cleanup Groups Human Review checkpoint one before publication.
 
 ### Historical active heading retained below

@@ -35,6 +35,7 @@ import {
   buildCleanupGroupIntelligence,
   buildGmailPressureTrendData,
   buildQueryClusterBrowserSenderBreakdown,
+  cleanupGroupSpecById,
   isCleanupCandidateGroupId,
   classifySenderPatternFromSubject,
   planCleanupGroupArtifactSurfaces,
@@ -52,6 +53,7 @@ import {
 import {
   loadGmailPreviewIndexRowsForArtifactVersion,
   loadGmailSenderScopeRollupsForArtifactVersion,
+  replaceGmailPreviewIndexRowsForArtifactVersion,
   type GmailArtifactAnalysisScope,
   type GmailArtifactPublicationRestoreState,
   type GmailClusterSummaryArtifactRow,
@@ -91,6 +93,7 @@ const FINALIZE_SENDER_STATS_BATCH_SIZE = 50
 const SUPABASE_RETRY_ATTEMPTS = 4
 const SUPABASE_RETRY_DELAY_MS = 750
 const STRUCTURAL_PREVIEW_SEED_LIMIT = 5
+const RETIRED_RETAIL_CLEANUP_GROUP_ID = 'retail-commerce-senders'
 
 function reviewUnitBasisForParent(params: {
   sourceClusterId: string
@@ -1573,6 +1576,13 @@ export async function streamGmailSenderArtifactProjection(params: {
       rows: scopedRows,
       nowMs,
     })
+    const normalizedCleanupDecision = normalizeCleanupDecisionForCanonicalPublish({
+      sender: currentSenderKey,
+      scopedRows,
+      scopedInboxRows,
+      statsRow,
+      cleanupDecision,
+    })
     const rollupRow = buildSenderScopeRollup({
       tenantId: params.tenantId,
       analysisScope: params.analysisScope,
@@ -1581,20 +1591,21 @@ export async function streamGmailSenderArtifactProjection(params: {
       senderKey: currentSenderKey,
       scopedRows,
       scopedInboxRows,
-      assignedCleanupGroupId: cleanupDecision.groupSpec.cluster_id as GmailAssignedCleanupGroupId,
-      assignmentReason: cleanupDecision.assignmentReason,
-      isCleanupCandidate: cleanupDecision.isCleanupCandidate,
-      exclusionReason: cleanupDecision.exclusionReason,
+      assignedCleanupGroupId:
+        normalizedCleanupDecision.groupSpec.cluster_id as GmailAssignedCleanupGroupId,
+      assignmentReason: normalizedCleanupDecision.assignmentReason,
+      isCleanupCandidate: normalizedCleanupDecision.isCleanupCandidate,
+      exclusionReason: normalizedCleanupDecision.exclusionReason,
     })
     if (rollupRow) pendingRollupRows.push(rollupRow)
 
-    const clusterSpecSnapshot = toCleanupClusterSnapshot(cleanupDecision.groupSpec)
-    checkpoint.cluster_specs[cleanupDecision.groupSpec.cluster_id] = clusterSpecSnapshot
+    const clusterSpecSnapshot = toCleanupClusterSnapshot(normalizedCleanupDecision.groupSpec)
+    checkpoint.cluster_specs[normalizedCleanupDecision.groupSpec.cluster_id] = clusterSpecSnapshot
 
     const previewSeedRows = shouldUseStructuralPreviewSeedFallback({
       scopedInboxRows,
-      isCleanupCandidate: cleanupDecision.isCleanupCandidate,
-      exclusionReason: cleanupDecision.exclusionReason,
+      isCleanupCandidate: normalizedCleanupDecision.isCleanupCandidate,
+      exclusionReason: normalizedCleanupDecision.exclusionReason,
     })
       ? selectStructuralPreviewSeedRows({ rows: scopedRows })
       : scopedInboxRows
@@ -1605,7 +1616,7 @@ export async function streamGmailSenderArtifactProjection(params: {
           tenantId: params.tenantId,
           analysisScope: params.analysisScope,
           artifactVersion: params.artifactVersion,
-          clusterId: cleanupDecision.groupSpec.cluster_id,
+          clusterId: normalizedCleanupDecision.groupSpec.cluster_id,
           senderKey: currentSenderKey,
           rows: previewSeedRows,
         })
@@ -1893,6 +1904,75 @@ function resolveSenderSignal(statsRow: GmailSenderStatsArtifactRow | null): Gmai
     if ((statsRow.machine_probability || 0) >= 0.65) return 'likely_machine_generated'
   }
   return 'uncertain'
+}
+
+function normalizeCleanupDecisionForCanonicalPublish(params: {
+  sender: string
+  scopedRows: GmailMailboxStreamRow[]
+  scopedInboxRows: GmailMailboxStreamRow[]
+  statsRow: GmailSenderStatsArtifactRow | null
+  cleanupDecision: ReturnType<typeof assignSenderCleanupGroupDecision>
+}): ReturnType<typeof assignSenderCleanupGroupDecision> {
+  if (params.cleanupDecision.groupSpec.cluster_id !== RETIRED_RETAIL_CLEANUP_GROUP_ID) {
+    return params.cleanupDecision
+  }
+
+  const categoryProfile = resolveCategoryProfile(params.statsRow)
+  const operatorProfile = resolveOperatorProfile(params.statsRow)
+  const persistedPatternMix = normalizePatternMix(params.statsRow?.pattern_mix)
+  const dominantPattern =
+    params.statsRow?.dominant_pattern ||
+    persistedPatternMix[0]?.pattern ||
+    GMAIL_PATTERN_LABEL_THIN_HISTORY
+  const semantic = resolveSenderSemanticsFromCompatibility({
+    sender: params.sender,
+    subjectHints: params.scopedRows.map((row) => row.subject || ''),
+    totalMessageCount: params.scopedRows.length,
+    categoryProfile,
+    patternMix: persistedPatternMix,
+    dominantPattern,
+    operatorProfile,
+    machineProbability: params.statsRow?.machine_probability ?? null,
+    humanProbability: params.statsRow?.human_probability ?? null,
+    sourceKind: 'sender_stats',
+  })
+
+  if (semantic.semantic_family.family === 'account_notification') {
+    const groupSpec = cleanupGroupSpecById('system-notification-senders')
+    if (!groupSpec) {
+      throw new Error(
+        '[gmail-artifact-full-mailbox-projector] Missing cleanup group spec for system-notification-senders.'
+      )
+    }
+    return {
+      groupSpec,
+      assignmentReason: params.cleanupDecision.assignmentReason || 'behavioral_safe_rows',
+      exclusionReason: null,
+      isCleanupCandidate: true,
+      evidenceSource: params.cleanupDecision.evidenceSource,
+    }
+  }
+
+  const groupSpec = cleanupGroupSpecById('needs-review-senders')
+  if (!groupSpec) {
+    throw new Error(
+      '[gmail-artifact-full-mailbox-projector] Missing cleanup group spec for needs-review-senders.'
+    )
+  }
+  const senderCountHint = Math.max(params.scopedInboxRows.length, params.scopedRows.length)
+  const exclusionReason: GmailCleanupExclusionReason =
+    senderCountHint <= 10 ? 'too_few_safe_rows' : 'score_below_threshold'
+
+  return {
+    groupSpec,
+    assignmentReason:
+      exclusionReason === 'too_few_safe_rows'
+        ? 'needs_review_too_few_safe_rows'
+        : 'needs_review_score_below_threshold',
+    exclusionReason,
+    isCleanupCandidate: false,
+    evidenceSource: 'structural',
+  }
 }
 
 function buildSenderActivityTimeline(params: {
@@ -2668,10 +2748,23 @@ export function projectGmailSenderArtifactSlice(params: {
     isRowWithinAnalysisScope(row, params.analysisScope, nowMs)
   )
   const scopedInboxRows = scopedRows.filter((row) => row.is_in_inbox)
+  const statsRow = buildSenderStatsRow({
+    tenantId: params.tenantId,
+    sender,
+    rows: params.rows,
+    nowMs,
+  })
   const cleanupDecision = assignSenderCleanupGroupDecision({
     sender,
     rows: scopedRows,
     nowMs,
+  })
+  const normalizedCleanupDecision = normalizeCleanupDecisionForCanonicalPublish({
+    sender,
+    scopedRows,
+    scopedInboxRows,
+    statsRow,
+    cleanupDecision,
   })
   const rollupRow = buildSenderScopeRollup({
     tenantId: params.tenantId,
@@ -2681,16 +2774,17 @@ export function projectGmailSenderArtifactSlice(params: {
     senderKey,
     scopedRows,
     scopedInboxRows,
-    assignedCleanupGroupId: cleanupDecision.groupSpec.cluster_id as GmailAssignedCleanupGroupId,
-    assignmentReason: cleanupDecision.assignmentReason,
-    isCleanupCandidate: cleanupDecision.isCleanupCandidate,
-    exclusionReason: cleanupDecision.exclusionReason,
+    assignedCleanupGroupId:
+      normalizedCleanupDecision.groupSpec.cluster_id as GmailAssignedCleanupGroupId,
+    assignmentReason: normalizedCleanupDecision.assignmentReason,
+    isCleanupCandidate: normalizedCleanupDecision.isCleanupCandidate,
+    exclusionReason: normalizedCleanupDecision.exclusionReason,
   })
 
   const previewSeedRows = shouldUseStructuralPreviewSeedFallback({
     scopedInboxRows,
-    isCleanupCandidate: cleanupDecision.isCleanupCandidate,
-    exclusionReason: cleanupDecision.exclusionReason,
+    isCleanupCandidate: normalizedCleanupDecision.isCleanupCandidate,
+    exclusionReason: normalizedCleanupDecision.exclusionReason,
   })
     ? selectStructuralPreviewSeedRows({ rows: scopedRows })
     : scopedInboxRows
@@ -2700,7 +2794,7 @@ export function projectGmailSenderArtifactSlice(params: {
           tenantId: params.tenantId,
           analysisScope: params.analysisScope,
           artifactVersion: params.artifactVersion,
-          clusterId: cleanupDecision.groupSpec.cluster_id,
+          clusterId: normalizedCleanupDecision.groupSpec.cluster_id,
           senderKey,
           rows: previewSeedRows,
         })
@@ -2711,7 +2805,7 @@ export function projectGmailSenderArtifactSlice(params: {
     sender,
     rollup_row: rollupRow,
     preview_rows: previewRows,
-    cluster_spec: toCleanupClusterSnapshot(cleanupDecision.groupSpec),
+    cluster_spec: toCleanupClusterSnapshot(normalizedCleanupDecision.groupSpec),
   }
 }
 
@@ -3486,9 +3580,22 @@ export async function finalizeGmailFullMailboxArtifacts(params: {
       stage: 'writing_preview_index_rows',
       label: 'gmail_preview_index.upsert',
       run: () =>
-        upsertGmailPreviewIndexRows({
+        replaceGmailPreviewIndexRowsForArtifactVersion({
           supabase: params.supabase,
+          tenantId: params.tenantId,
+          analysisScope: params.analysisScope,
+          artifactVersion: params.artifactVersion,
           rows: derivedRows.previewRows,
+          clearClusterSenderKeys: [
+            ...previewRows.map((row) => ({
+              clusterId: row.cluster_id,
+              senderKey: row.sender_key,
+            })),
+            ...derivedRows.previewRows.map((row) => ({
+              clusterId: row.cluster_id,
+              senderKey: row.sender_key,
+            })),
+          ],
         }),
     },
     {

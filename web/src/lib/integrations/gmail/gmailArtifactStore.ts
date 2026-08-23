@@ -43,6 +43,10 @@ export type GmailArtifactFreshnessState =
   (typeof GMAIL_ARTIFACT_FRESHNESS_STATE_OPTIONS)[number]
 export type GmailArtifactRefreshStrategy = 'incremental' | 'full_rebuild'
 
+const GMAIL_ARTIFACT_PREVIEW_COUNT_PAGE_SIZE = 1000
+const GMAIL_ARTIFACT_PREVIEW_REPLACE_DELETE_SENDER_BATCH_SIZE = 100
+const GMAIL_ARTIFACT_PREVIEW_REPLACE_DELETE_ROW_LIMIT = 1000
+
 export type GmailArtifactPublicationRow = {
   tenant_id: string
   analysis_scope: GmailArtifactAnalysisScope
@@ -3143,6 +3147,119 @@ export async function upsertGmailPreviewIndexRows(params: {
   })
 }
 
+export async function replaceGmailPreviewIndexRowsForArtifactVersion(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  artifactVersion: string
+  rows: GmailPreviewIndexRow[]
+  clearClusterSenderKeys?: Array<{ clusterId: string; senderKey: string }>
+}): Promise<void> {
+  const timestamp = nowIso()
+  const normalizedRows = params.rows.map((row) =>
+    withTimestamp(
+      {
+        ...row,
+        tenant_id: normalizeText(row.tenant_id),
+        analysis_scope: normalizeAnalysisScope(row.analysis_scope),
+        artifact_version: normalizeText(row.artifact_version),
+        cluster_id: normalizeText(row.cluster_id),
+        sender_key: normalizeText(row.sender_key),
+        preview_rank: normalizeInteger(row.preview_rank),
+        message_id: normalizeText(row.message_id),
+        thread_id: normalizeNullableText(row.thread_id),
+        sender: normalizeNullableText(row.sender),
+        subject: normalizeNullableText(row.subject),
+        snippet: normalizeNullableText(row.snippet),
+        internal_date_ms:
+          typeof row.internal_date_ms === 'number' && Number.isFinite(row.internal_date_ms)
+            ? Math.round(row.internal_date_ms)
+            : null,
+        date: normalizeNullableText(row.date),
+        label_ids: normalizeStringArray(row.label_ids),
+        category_labels: normalizeStringArray(row.category_labels),
+        is_in_inbox: normalizeBoolean(row.is_in_inbox),
+        is_unread: normalizeBoolean(row.is_unread),
+        is_important: normalizeBoolean(row.is_important),
+        is_starred: normalizeBoolean(row.is_starred),
+        protected_hint: normalizeNullableText(row.protected_hint),
+        preview_payload: normalizeJsonObject(row.preview_payload),
+      },
+      timestamp
+    )
+  )
+  const clearPairs =
+    params.clearClusterSenderKeys && params.clearClusterSenderKeys.length > 0
+      ? params.clearClusterSenderKeys
+      : normalizedRows.map((row) => ({
+          clusterId: row.cluster_id,
+          senderKey: row.sender_key,
+        }))
+  const senderKeysByClusterId = new Map<string, Set<string>>()
+  for (const pair of clearPairs) {
+    const clusterId = normalizeText(pair.clusterId)
+    const senderKey = normalizeText(pair.senderKey)
+    if (!clusterId || !senderKey) continue
+    const senderKeys = senderKeysByClusterId.get(clusterId) || new Set<string>()
+    senderKeys.add(senderKey)
+    senderKeysByClusterId.set(clusterId, senderKeys)
+  }
+
+  if (senderKeysByClusterId.size === 0) {
+    await replaceVersionRows({
+      supabase: params.supabase,
+      table: 'gmail_preview_index',
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      artifactVersion: params.artifactVersion,
+      rows: normalizedRows,
+      onConflict:
+        'tenant_id,analysis_scope,cluster_id,sender_key,artifact_version,preview_rank',
+    })
+    return
+  }
+
+  for (const [clusterId, senderKeys] of senderKeysByClusterId.entries()) {
+    for (const batch of chunkArray(
+      Array.from(senderKeys),
+      GMAIL_ARTIFACT_PREVIEW_REPLACE_DELETE_SENDER_BATCH_SIZE
+    )) {
+      if (batch.length === 0) continue
+      let deletedRowCount = 0
+      do {
+        deletedRowCount = await withArtifactStoreRetry({
+          label: 'gmail_preview_index.clear_cluster_sender_batch',
+          run: async () => {
+            const { data, error: deleteError } = await params.supabase
+              .from('gmail_preview_index')
+              .delete()
+              .eq('tenant_id', params.tenantId)
+              .eq('analysis_scope', params.analysisScope)
+              .eq('artifact_version', params.artifactVersion)
+              .eq('cluster_id', clusterId)
+              .in('sender_key', batch)
+              .select('cluster_id,sender_key,preview_rank')
+              .limit(GMAIL_ARTIFACT_PREVIEW_REPLACE_DELETE_ROW_LIMIT)
+
+            if (deleteError) {
+              throw new Error(`Failed to clear gmail_preview_index: ${deleteError.message}`)
+            }
+
+            return Array.isArray(data) ? data.length : 0
+          },
+        })
+      } while (deletedRowCount === GMAIL_ARTIFACT_PREVIEW_REPLACE_DELETE_ROW_LIMIT)
+    }
+  }
+
+  await upsertVersionRows({
+    supabase: params.supabase,
+    table: 'gmail_preview_index',
+    rows: normalizedRows,
+    onConflict: 'tenant_id,analysis_scope,cluster_id,sender_key,artifact_version,preview_rank',
+  })
+}
+
 export async function loadGmailSenderScopeRollupsForArtifactVersion(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -3421,7 +3538,6 @@ export async function countGmailArtifactVersionRows(params: {
     ['gmail_cluster_summaries', 'exact'],
     ['gmail_mailbox_intelligence_snapshots', 'exact'],
     ['gmail_mailbox_intelligence_buckets', 'exact'],
-    ['gmail_preview_index', 'planned'],
   ] as const
 
   const counts = await Promise.all(
@@ -3439,7 +3555,74 @@ export async function countGmailArtifactVersionRows(params: {
     })
   )
 
-  return Object.fromEntries(counts)
+  let previewIndexCount = 0
+  const { data: previewClusterIdRows, error: previewClusterIdError } = await params.supabase
+    .from('gmail_sender_workspace_seed_headers')
+    .select('cluster_id')
+    .eq('tenant_id', params.tenantId)
+    .eq('analysis_scope', params.analysisScope)
+    .eq('artifact_version', params.artifactVersion)
+    .order('cluster_id', { ascending: true })
+
+  if (previewClusterIdError) {
+    throw new Error(`Failed to load preview cluster ids: ${previewClusterIdError.message}`)
+  }
+
+  const previewClusterIds = uniqueStrings(
+    ((previewClusterIdRows || []) as Array<{ cluster_id?: unknown }>).map((row) =>
+      normalizeText(row.cluster_id)
+    )
+  )
+  for (const clusterId of previewClusterIds) {
+    let cursor: { sender_key: string; preview_rank: number } | null = null
+    while (true) {
+      const batchSize = await withArtifactStoreRetry({
+        label: 'gmail_preview_index.count_page',
+        run: async () => {
+          let query = params.supabase
+            .from('gmail_preview_index')
+            .select('sender_key,preview_rank')
+            .eq('tenant_id', params.tenantId)
+            .eq('analysis_scope', params.analysisScope)
+            .eq('artifact_version', params.artifactVersion)
+            .eq('cluster_id', clusterId)
+            .order('sender_key', { ascending: true })
+            .order('preview_rank', { ascending: true })
+            .limit(GMAIL_ARTIFACT_PREVIEW_COUNT_PAGE_SIZE)
+
+          if (cursor) {
+            const senderKeyFilter = JSON.stringify(cursor.sender_key)
+            query = query.or(
+              `sender_key.gt.${senderKeyFilter},and(sender_key.eq.${senderKeyFilter},preview_rank.gt.${cursor.preview_rank})`
+            )
+          }
+
+          const { data, error } = await query
+          if (error) {
+            throw new Error(`Failed to count gmail_preview_index: ${error.message}`)
+          }
+          const batch = (data || []) as Array<{
+            sender_key?: unknown
+            preview_rank?: unknown
+          }>
+          if (batch.length > 0) {
+            const lastRow = batch[batch.length - 1]
+            cursor = {
+              sender_key: normalizeText(lastRow?.sender_key),
+              preview_rank: normalizeInteger(lastRow?.preview_rank),
+            }
+          }
+          return batch.length
+        },
+      })
+      previewIndexCount += batchSize
+      if (batchSize < GMAIL_ARTIFACT_PREVIEW_COUNT_PAGE_SIZE) {
+        break
+      }
+    }
+  }
+
+  return Object.fromEntries([...counts, ['gmail_preview_index', previewIndexCount] as const])
 }
 
 export async function loadPublishedGmailSenderWorkspaceArtifact(params: {
