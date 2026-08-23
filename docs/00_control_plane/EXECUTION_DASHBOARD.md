@@ -1,14 +1,14 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-08-21
+Last updated: 2026-08-23
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — PRE-REBUILD DECISION GATE; AWAITING OLIVER
+Status: ACTIVE — FRAMEWORK-FIRST EXTRACTION DECISION; REBUILD BLOCKED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: pre-rebuild implementation and correction proof complete in the isolated candidate; live migration and one candidate build await explicit approval
+- Execution phase: pre-rebuild implementation and correction proof complete; framework audit found Gmail coupling that must be extracted before live migration or candidate build
 - Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -27,7 +27,9 @@ Status: ACTIVE — PRE-REBUILD DECISION GATE; AWAITING OLIVER
 - [x] Integrate Sender Distribution and Pressure Trend on shared child identity and real coverage bounds
 - [x] Pass fixtures, TypeScript, lint, diff check, production build, and bounded authenticated Playwright correction proof
 - [x] Stop at pre-rebuild approval gate; no candidate build/publication/main promotion occurred
-- [ ] Await Oliver decision on additive migration plus exactly one candidate artifact build; no Gmail reindex or Smart Sync
+- [x] Audit framework-first condition before rebuild; reusable behavior confirmed but materializer remains Gmail-coupled
+- [ ] Await Oliver decision on bounded generic review-unit engine plus Gmail-adapter extraction
+- [ ] After extraction proof, return to additive migration plus one candidate artifact build gate; no Gmail reindex or Smart Sync
 
 ## Immediate Human Review return
 

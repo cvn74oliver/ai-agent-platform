@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-21 • pre-rebuild candidate implemented and verified • awaiting explicit migration/build approval • no semantic rebuild authorized_
+_Last updated: 2026-08-23 • framework-first audit found Gmail coupling • extraction approval required before migration/build • no semantic rebuild authorized_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -13,7 +13,10 @@ _Last updated: 2026-08-21 • pre-rebuild candidate implemented and verified •
 - [x] Integrate Sender Distribution and Pressure Trend seams on the shared selected review-unit identity; full all-parent/live-date parity remains a post-build candidate proof gate.
 - [x] Run static/build plus bounded authenticated Playwright correction proof and stop at the explicit pre-rebuild decision gate.
 - [x] Preserve the gate: no semantic candidate build, publication, local-main advance, push, deployment, or lineage retirement occurred.
-- [ ] `Status: Awaiting Decision` — obtain Oliver approval before applying the additive migration and starting one candidate artifact build from the existing indexed mailbox; do not run Gmail reindex or Smart Sync.
+- [x] Audit the framework-first condition before rebuild. Result: reusable invariants exist, but the partition materializer remains coupled to Gmail sender types and vocabulary.
+- [ ] `Status: Awaiting Decision` — approve or revise the bounded extraction of a generic review-unit engine plus Gmail adapter.
+- [ ] After approval, extract and verify the generic engine without changing the accepted Gmail fixture or current published artifact.
+- [ ] Only after framework verification passes, request/confirm authorization to apply the additive migration and start one candidate artifact build from the existing indexed mailbox; do not run Gmail reindex or Smart Sync.
 - [ ] After approval, validate candidate counts and every child route through the development-only artifact override, then hold Cleanup Groups Human Review checkpoint one before publication.
 
 ### Historical active heading retained below

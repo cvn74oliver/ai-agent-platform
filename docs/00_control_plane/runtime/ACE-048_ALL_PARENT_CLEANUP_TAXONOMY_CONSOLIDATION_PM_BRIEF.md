@@ -1,6 +1,6 @@
 # ACE-048 All-Parent Cleanup Taxonomy Consolidation PM Brief
 
-Status: ACTIVE — APPROVED FOR SAME-FLOW IMPLEMENTATION THROUGH THE PRE-REBUILD GATE
+Status: PAUSED AT PRE-REBUILD GATE — FRAMEWORK-FIRST EXTRACTION REQUIRES APPROVAL
 Owner: Project Manager
 Governing event: ACE-048
 Mode: approved Plan -> Execution continuation
@@ -16,6 +16,20 @@ Reasoning: HIGH
 ## Objective
 
 Implement a materialized review-unit membership contract, generic child-only Cleanup Groups runtime, stable review-unit routing, exact count validation, Decision Mode return-state correction, and later sender-distribution/Pressure Trend integration. Stop before any long semantic-artifact candidate build until Oliver gives a separate explicit approval.
+
+## Framework-first boundary — added 2026-08-23
+
+Oliver confirmed that Automata is an AI agent platform and Gmail is only the first reference adapter. The pre-rebuild audit found that the behavioral contract is reusable, but the current materializer still binds partition policy, entity fields, labels, IDs, and validation types directly to Gmail sender types. Therefore the live migration and candidate build remain blocked.
+
+Required correction before rebuild:
+
+- Extract a domain-neutral review-unit engine that accepts generic entity identity, ordered adapter-provided dimensions, target/hard-size policy, stable-ID policy, and labels.
+- Keep exact partition, explicit remainder, deterministic identity, fail-closed oversize behavior, and count reconciliation in the generic engine.
+- Keep Gmail-only concepts—sender, semantic family/subtype/pattern, protection/exclusion reasons, message volume, compatibility IDs, and Gmail table access—in a Gmail adapter.
+- Define a small adapter/store interface so future CRM contacts, ad campaigns, transactions, portfolio assets, or other entities can reuse the same engine without copying Gmail code or inheriting Gmail vocabulary.
+- Preserve the current April Marketing fixture and all pre-rebuild proof while adding generic-engine contract fixtures plus Gmail-adapter compatibility fixtures.
+
+This is an execution-plan correction awaiting Oliver approval. It does not authorize implementation, migration application, or artifact generation.
 
 ## Scope and feature domain
 

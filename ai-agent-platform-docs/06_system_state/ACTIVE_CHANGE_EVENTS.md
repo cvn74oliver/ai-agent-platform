@@ -136,6 +136,15 @@ Pre-rebuild implementation and correction-proof checkpoint — 2026-08-21:
 - Status: Awaiting Decision. This flow is not closed. Oliver must explicitly approve or decline applying the additive migration and starting exactly one candidate artifact build from the existing indexed mailbox.
 - Checkpoint Status: continuity checkpoint created; pre-rebuild work is propagated and paused at the approved decision boundary.
 
+Framework-first rebuild prerequisite — 2026-08-23:
+- Oliver reaffirmed platform architecture truth: Automata is the product; Gmail is the reference implementation and test adapter, not the framework boundary.
+- Bounded code audit result: exact partitions, deterministic IDs, explicit remainders, bounded units, and count reconciliation are reusable concepts, but the current materializer directly owns Gmail sender fields, Gmail semantic dimensions, Gmail labels, Gmail compatibility IDs, and Gmail validation types.
+- Root Cause Execution Translation: extract a domain-neutral review-unit engine with adapter-provided entity identity, ordered dimensions, labeling, stable-ID policy, and sizing policy; retain Gmail-only semantics and persistence in a Gmail adapter. Add generic-engine fixtures and preserve the existing Gmail fixture unchanged.
+- Risk if skipped: future CRM, ads, finance, crypto, or other workspaces would need to copy Gmail code or inherit email-specific vocabulary, defeating the documented universal workspace architecture.
+- No implementation, migration, build, publication, Smart Sync, reindex, push, main promotion, or deployment is authorized by this finding.
+- Status: Awaiting Decision on the bounded framework-extraction correction. The long semantic build remains blocked until the framework-first condition passes.
+- Checkpoint Status: continuity checkpoint created; newly discovered governing implementation truth is propagated before the next execution stage.
+
 Decision:
 - Automata is now governed by the **Revival — Security and Rebaseline** program.
 - All application implementation is blocked until the first revival execution packet is approved from this rebaselined control plane.
