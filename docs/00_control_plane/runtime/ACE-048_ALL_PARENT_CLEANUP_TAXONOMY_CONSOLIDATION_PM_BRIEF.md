@@ -1,6 +1,6 @@
 # ACE-048 All-Parent Cleanup Taxonomy Consolidation PM Brief
 
-Status: FRAMEWORK-FIRST EXTRACTION VERIFIED — AWAITING SEPARATE REBUILD DECISION
+Status: CANDIDATE BUILD AUTHORIZED — MIGRATION AND SAFETY PROOF COMPLETE
 Owner: Project Manager
 Governing event: ACE-048
 Mode: approved Plan -> Execution continuation
@@ -15,7 +15,7 @@ Reasoning: HIGH
 
 ## Objective
 
-Implement a materialized review-unit membership contract, generic child-only Cleanup Groups runtime, stable review-unit routing, exact count validation, Decision Mode return-state correction, and later sender-distribution/Pressure Trend integration. Stop before any long semantic-artifact candidate build until Oliver gives a separate explicit approval.
+Implement a materialized review-unit membership contract, generic child-only Cleanup Groups runtime, stable review-unit routing, exact count validation, Decision Mode return-state correction, and sender-distribution/Pressure Trend integration. Oliver authorized the additive migration and exactly one unpublished semantic-artifact candidate build from the existing indexed mailbox on 2026-08-23.
 
 ## Framework-first boundary — added 2026-08-23
 
@@ -53,7 +53,7 @@ In scope:
 
 Out of scope before a later explicit gate:
 
-- Smart Sync, Gmail full reindex, raw mailbox scan, semantic-artifact candidate execution, artifact publication/pointer promotion, Vercel deployment, GitHub push, branch/worktree deletion, and credential rotation.
+- Smart Sync, Gmail full reindex, raw Gmail API mailbox scan, artifact publication/pointer promotion, Vercel deployment, GitHub push, branch/worktree deletion, and credential rotation. The sole authorized data operation is one candidate build over the existing indexed mailbox after the additive migration and candidate-only lifecycle proof pass.
 - Root `AGENTS.md`, `CODEX_PROMPT_TEMPLATES.md`, any `SKILL.md`, or reference-only protected duplicates.
 
 ## Locked product contract
@@ -109,7 +109,7 @@ Use only dimensions that create at least two non-empty groups. Preserve null/unk
 - Build readiness polling: single-flight, visible-tab only, about `15s`, terminal on published/failed/idle/dead-build reclamation.
 - Mailbox-index polling: single-flight about `10s` only while a live index job exists.
 - Navigation triggers no Smart Sync, artifact build, cleanup refresh, publication, raw scan, or Supabase-wide query.
-- No live artifact build or database migration application is authorized in the current pre-rebuild implementation pass.
+- One additive migration and one unpublished candidate build are authorized. The runner must restore the complete pre-build publication state, finish the candidate job as `candidate_ready`, and leave the active pointer unchanged. Navigation must not trigger or poll this build.
 
 ## Locked implementation surfaces
 
@@ -125,6 +125,8 @@ Primary application/database files:
 8. `web/src/app/agents/[id]/operations/review/page.tsx`
 9. `web/src/components/runtime/OperationsRuntimeContext.tsx`
 10. the existing inbox-analysis API route only where request parsing/candidate preview identity requires it
+11. `web/src/lib/integrations/gmail/gmailArtifactBuildRunner.ts` and the minimal artifact-store/checkpoint seams required to restore the preserved candidate-only lifecycle
+12. a candidate-only build/validation script that asserts `published_version` is unchanged
 
 Tests/validators may be added beside these modules. Whole-file replacement, broad refactor, or copying a hot file from another lineage is prohibited.
 
@@ -174,5 +176,6 @@ Required proof includes cold root, every actionable parent, every rendered child
 - Route identity: LOCKED.
 - Primary file set: TARGET-LOCKED; additional tests/validators may be added only within this feature domain.
 - Pre-rebuild implementation: READY.
-- Long candidate build/publication: NOT AUTHORIZED.
+- One unpublished candidate build: AUTHORIZED after candidate-only lifecycle correction proof and migration verification.
+- Artifact publication/pointer promotion: NOT AUTHORIZED.
 - Human Review: REQUIRED after verifier proof; no acceptance may be inferred.

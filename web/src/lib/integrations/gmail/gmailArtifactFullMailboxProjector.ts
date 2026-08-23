@@ -53,6 +53,7 @@ import {
   loadGmailPreviewIndexRowsForArtifactVersion,
   loadGmailSenderScopeRollupsForArtifactVersion,
   type GmailArtifactAnalysisScope,
+  type GmailArtifactPublicationRestoreState,
   type GmailClusterSummaryArtifactRow,
   type GmailMailboxIntelligenceBucketRow,
   type GmailMailboxIntelligenceSnapshotRow,
@@ -233,6 +234,7 @@ export type GmailArtifactCheckpointPayload = {
   whole_mailbox_aggregate: GmailWholeMailboxAggregateCheckpoint
   cluster_specs: Record<string, GmailClusterSpecSnapshot>
   reference_now_ms?: number | null
+  publication_restore_state?: GmailArtifactPublicationRestoreState | null
 }
 
 export type GmailSenderProjectionProgress = {
@@ -301,6 +303,63 @@ function normalizeNullableText(value: unknown): string | null {
 
 function normalizeInteger(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0
+}
+
+function normalizePublicationBuildStatus(
+  value: unknown
+): GmailArtifactPublicationRestoreState['build_status'] {
+  return value === 'idle' || value === 'building' || value === 'published' || value === 'failed'
+    ? value
+    : 'idle'
+}
+
+function normalizePublicationFreshnessState(
+  value: unknown
+): GmailArtifactPublicationRestoreState['freshness_state'] {
+  return value === 'fresh' ||
+    value === 'stale' ||
+    value === 'refresh_pending' ||
+    value === 'refresh_in_progress' ||
+    value === 'refresh_failed' ||
+    value === 'refresh_skipped' ||
+    value === 'full_rebuild_required'
+    ? value
+    : 'stale'
+}
+
+function normalizePublicationRefreshStrategy(
+  value: unknown
+): GmailArtifactPublicationRestoreState['refresh_strategy'] {
+  return value === 'incremental' || value === 'full_rebuild' ? value : null
+}
+
+function parsePublicationRestoreState(value: unknown): GmailArtifactPublicationRestoreState | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+  const restoreState = value as Partial<GmailArtifactPublicationRestoreState>
+  return {
+    published_version: normalizeNullableText(restoreState.published_version),
+    published_at: normalizeNullableText(restoreState.published_at),
+    building_version: normalizeNullableText(restoreState.building_version),
+    build_status: normalizePublicationBuildStatus(restoreState.build_status),
+    last_error: normalizeNullableText(restoreState.last_error),
+    last_error_at: normalizeNullableText(restoreState.last_error_at),
+    last_index_state_updated_at: normalizeNullableText(restoreState.last_index_state_updated_at),
+    last_indexed_message_count:
+      typeof restoreState.last_indexed_message_count === 'number' &&
+      Number.isFinite(restoreState.last_indexed_message_count)
+        ? Math.max(0, Math.round(restoreState.last_indexed_message_count))
+        : null,
+    freshness_state: normalizePublicationFreshnessState(restoreState.freshness_state),
+    freshness_reason: normalizeNullableText(restoreState.freshness_reason),
+    refresh_strategy: normalizePublicationRefreshStrategy(restoreState.refresh_strategy),
+    refresh_requested_at: normalizeNullableText(restoreState.refresh_requested_at),
+    refresh_started_at: normalizeNullableText(restoreState.refresh_started_at),
+    refresh_completed_at: normalizeNullableText(restoreState.refresh_completed_at),
+    refresh_job_id: normalizeNullableText(restoreState.refresh_job_id),
+    refresh_sync_run_id: normalizeNullableText(restoreState.refresh_sync_run_id),
+  }
 }
 
 function buildSeedRowSemanticPersistence(params: {
@@ -608,6 +667,7 @@ function parseCheckpointPayload(params: {
       cursor: null,
       whole_mailbox_aggregate: createWholeMailboxAggregate(params.analysisScope),
       cluster_specs: {},
+      publication_restore_state: null,
     }
   }
   try {
@@ -659,12 +719,14 @@ function parseCheckpointPayload(params: {
         typeof parsed.cluster_specs === 'object' && parsed.cluster_specs != null
           ? (parsed.cluster_specs as Record<string, GmailClusterSpecSnapshot>)
           : {},
+      publication_restore_state: parsePublicationRestoreState(parsed.publication_restore_state),
     }
   } catch {
     return {
       cursor: null,
       whole_mailbox_aggregate: createWholeMailboxAggregate(params.analysisScope),
       cluster_specs: {},
+      publication_restore_state: null,
     }
   }
 }
@@ -1454,6 +1516,7 @@ export async function streamGmailSenderArtifactProjection(params: {
     whole_mailbox_aggregate: createWholeMailboxAggregate(params.analysisScope),
     cluster_specs: {},
     reference_now_ms: params.referenceNowMs ?? null,
+    publication_restore_state: null,
   }
   const nowMs = Math.max(
     0,

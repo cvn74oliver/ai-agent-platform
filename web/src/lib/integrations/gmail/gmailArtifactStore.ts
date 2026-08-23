@@ -66,6 +66,26 @@ export type GmailArtifactPublicationRow = {
   updated_at: string
 }
 
+export type GmailArtifactPublicationRestoreState = Pick<
+  GmailArtifactPublicationRow,
+  | 'published_version'
+  | 'published_at'
+  | 'building_version'
+  | 'build_status'
+  | 'last_error'
+  | 'last_error_at'
+  | 'last_index_state_updated_at'
+  | 'last_indexed_message_count'
+  | 'freshness_state'
+  | 'freshness_reason'
+  | 'refresh_strategy'
+  | 'refresh_requested_at'
+  | 'refresh_started_at'
+  | 'refresh_completed_at'
+  | 'refresh_job_id'
+  | 'refresh_sync_run_id'
+>
+
 export type GmailArtifactJobRow = {
   job_id: string
   tenant_id: string
@@ -601,6 +621,12 @@ function normalizeFreshnessState(value: unknown): GmailArtifactFreshnessState {
   return GMAIL_ARTIFACT_FRESHNESS_STATE_OPTIONS.includes(value as GmailArtifactFreshnessState)
     ? (value as GmailArtifactFreshnessState)
     : 'stale'
+}
+
+function normalizeBuildStatus(value: unknown): GmailArtifactBuildStatus {
+  return value === 'idle' || value === 'building' || value === 'published' || value === 'failed'
+    ? value
+    : 'idle'
 }
 
 function normalizeRefreshStrategy(value: unknown): GmailArtifactRefreshStrategy | null {
@@ -1453,6 +1479,45 @@ async function writePublicationState(params: {
     publication: result,
   })
   return result
+}
+
+async function restoreCandidatePublicationStateCompareAndSet(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  artifactVersion: string
+  jobId: string
+  restoreState: GmailArtifactPublicationRestoreState
+}): Promise<GmailArtifactPublicationRow | null> {
+  const nextPatch = {
+    ...params.restoreState,
+    updated_at: nowIso(),
+  }
+  let update = params.supabase
+    .from('gmail_artifact_publications')
+    .update(nextPatch)
+    .eq('tenant_id', params.tenantId)
+    .eq('analysis_scope', params.analysisScope)
+    .eq('building_version', params.artifactVersion)
+    .eq('refresh_job_id', params.jobId)
+
+  update = params.restoreState.published_version
+    ? update.eq('published_version', params.restoreState.published_version)
+    : update.is('published_version', null)
+
+  const { data, error } = await update.select(GMAIL_ARTIFACT_PUBLICATION_SELECT).maybeSingle()
+  if (error) {
+    throw new Error(`Failed to restore candidate publication state: ${error.message}`)
+  }
+  const publication = (data as GmailArtifactPublicationRow | null) ?? null
+  if (publication) {
+    cachePublicationState({
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      publication,
+    })
+  }
+  return publication
 }
 
 async function loadArtifactJob(params: {
@@ -2590,6 +2655,98 @@ export async function updateGmailArtifactBuildProgress(params: {
     artifactVersion: params.artifactVersion,
     patch,
   })
+}
+
+export function snapshotGmailArtifactPublicationRestoreState(
+  publication: GmailArtifactPublicationRow | null | undefined
+): GmailArtifactPublicationRestoreState {
+  return {
+    published_version: normalizeNullableText(publication?.published_version),
+    published_at: normalizeNullableText(publication?.published_at),
+    building_version: normalizeNullableText(publication?.building_version),
+    build_status: normalizeBuildStatus(publication?.build_status),
+    last_error: normalizeNullableText(publication?.last_error),
+    last_error_at: normalizeNullableText(publication?.last_error_at),
+    last_index_state_updated_at: normalizeNullableText(publication?.last_index_state_updated_at),
+    last_indexed_message_count:
+      typeof publication?.last_indexed_message_count === 'number' &&
+      Number.isFinite(publication.last_indexed_message_count)
+        ? Math.max(0, Math.round(publication.last_indexed_message_count))
+        : null,
+    freshness_state: normalizeFreshnessState(publication?.freshness_state),
+    freshness_reason: normalizeNullableText(publication?.freshness_reason),
+    refresh_strategy: normalizeRefreshStrategy(publication?.refresh_strategy),
+    refresh_requested_at: normalizeNullableText(publication?.refresh_requested_at),
+    refresh_started_at: normalizeNullableText(publication?.refresh_started_at),
+    refresh_completed_at: normalizeNullableText(publication?.refresh_completed_at),
+    refresh_job_id: normalizeNullableText(publication?.refresh_job_id),
+    refresh_sync_run_id: normalizeNullableText(publication?.refresh_sync_run_id),
+  }
+}
+
+function normalizePublicationRestoreState(
+  restoreState: GmailArtifactPublicationRestoreState
+): GmailArtifactPublicationRestoreState {
+  return snapshotGmailArtifactPublicationRestoreState(restoreState as GmailArtifactPublicationRow)
+}
+
+export async function completeGmailArtifactBuildCandidate(params: {
+  supabase: SupabaseClient
+  jobId: string
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  artifactVersion: string
+  publicationRestoreState: GmailArtifactPublicationRestoreState
+  processedSenderCount?: number | null
+  processedMessageCount?: number | null
+  processedClusterCount?: number | null
+}): Promise<GmailArtifactPublicationRow> {
+  const completedAt = nowIso()
+  const restoreState = normalizePublicationRestoreState(params.publicationRestoreState)
+  const restoredPublication = await restoreCandidatePublicationStateCompareAndSet({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    analysisScope: params.analysisScope,
+    artifactVersion: params.artifactVersion,
+    jobId: params.jobId,
+    restoreState,
+  })
+
+  if (!restoredPublication) {
+    throw new Error(
+      `Unable to restore publication state after candidate build for ${params.artifactVersion}; publication preconditions drifted.`
+    )
+  }
+
+  await writeArtifactJob({
+    supabase: params.supabase,
+    jobId: params.jobId,
+    tenantId: params.tenantId,
+    analysisScope: params.analysisScope,
+    artifactVersion: params.artifactVersion,
+    patch: {
+      status: 'completed',
+      phase: 'candidate_ready',
+      heartbeat_at: completedAt,
+      completed_at: completedAt,
+      processed_sender_count:
+        typeof params.processedSenderCount === 'number' && Number.isFinite(params.processedSenderCount)
+          ? Math.max(0, Math.round(params.processedSenderCount))
+          : undefined,
+      processed_message_count:
+        typeof params.processedMessageCount === 'number' &&
+        Number.isFinite(params.processedMessageCount)
+          ? Math.max(0, Math.round(params.processedMessageCount))
+          : undefined,
+      processed_cluster_count:
+        typeof params.processedClusterCount === 'number' &&
+        Number.isFinite(params.processedClusterCount)
+          ? Math.max(0, Math.round(params.processedClusterCount))
+          : undefined,
+    },
+  })
+
+  return restoredPublication
 }
 
 export async function publishGmailArtifactBuild(params: {

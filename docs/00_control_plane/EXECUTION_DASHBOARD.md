@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-23
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: AWAITING DECISION — FRAMEWORK EXTRACTION VERIFIED; REBUILD NOT STARTED
+Status: ACTIVE — SINGLE UNPUBLISHED CANDIDATE BUILD READY
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: workflow-blueprint framework extraction and correction proof complete; additive migration and one candidate build await separate approval
+- Execution phase: framework and candidate-only lifecycle correction proof complete; additive migration verified; run one unpublished candidate build over the existing indexed mailbox
 - Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -30,7 +30,10 @@ Status: AWAITING DECISION — FRAMEWORK EXTRACTION VERIFIED; REBUILD NOT STARTED
 - [x] Audit framework-first condition before rebuild; reusable behavior confirmed but materializer remains Gmail-coupled
 - [x] Oliver approved bounded generic review-unit engine plus Gmail-adapter extraction on 2026-08-23
 - [x] Implement and verify workflow-blueprint engine, adapter/store boundary, crypto and tax fixtures, and unchanged Gmail fixture
-- [ ] Await Oliver decision on additive migration plus one candidate artifact build; no Gmail reindex or Smart Sync
+- [x] Oliver authorized additive migration plus one unpublished candidate artifact build; no Gmail reindex, Smart Sync, or publication
+- [x] Restore preserved candidate-only completion/publication-state restoration seam and pass static/build/fixture correction proof
+- [x] Apply and verify the additive migration without broad-pushing across remote migration-history drift
+- [ ] Run the single candidate build and prove the April active pointer remains unchanged
 
 ## Immediate Human Review return
 

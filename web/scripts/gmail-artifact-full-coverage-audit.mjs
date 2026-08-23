@@ -41,6 +41,32 @@ function mkdirpForFile(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
 }
 
+function parseRestoreStateFromCheckpoint(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const parsed = JSON.parse(value)
+    const restoreState =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed.publication_restore_state
+        : null
+    return restoreState && typeof restoreState === 'object' && !Array.isArray(restoreState)
+      ? restoreState
+      : null
+  } catch {
+    return null
+  }
+}
+
+function parseFinalizeCheckpoint(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 function formatArg(value) {
   if (typeof value === 'string') return value
   if (value instanceof Error) return value.stack || value.message || String(value)
@@ -148,6 +174,7 @@ const { result: buildResult, entries: buildLogs } = await captureLogs(async () =
     tenantId: TENANT_ID,
     analysisScope: ANALYSIS_SCOPE,
     resumeJobId: RESUME_JOB_ID,
+    publishResult: false,
   })
 )
 
@@ -172,11 +199,33 @@ const rowCounts = await countGmailArtifactVersionRows({
   analysisScope: ANALYSIS_SCOPE,
   artifactVersion: buildResult.artifact_version,
 })
+const expectedRestoredPublication =
+  parseRestoreStateFromCheckpoint(job?.message_checkpoint) || preBuildPublication
+const finalizeCheckpoint = parseFinalizeCheckpoint(job?.cluster_checkpoint)
+const expectedPreviewIndexRows =
+  typeof finalizeCheckpoint?.derived_row_counts?.preview_index_rows === 'number'
+    ? Math.max(0, Math.round(finalizeCheckpoint.derived_row_counts.preview_index_rows))
+    : null
 
 assert.equal(
-  postBuildPublication?.published_version,
-  buildResult.artifact_version,
-  'published_version should move to the completed full-mailbox artifact version'
+  buildResult.publication_action,
+  'candidate_ready',
+  'Full-mailbox build audit must complete as a candidate-only build in this lane.'
+)
+assert.equal(
+  postBuildPublication?.published_version ?? null,
+  expectedRestoredPublication?.published_version ?? null,
+  'candidate-only full-mailbox build must not mutate published_version'
+)
+assert.equal(
+  postBuildPublication?.building_version ?? null,
+  expectedRestoredPublication?.building_version ?? null,
+  'candidate-only full-mailbox build must restore the prebuild building_version state'
+)
+assert.equal(
+  postBuildPublication?.build_status ?? null,
+  expectedRestoredPublication?.build_status ?? null,
+  'candidate-only full-mailbox build must restore the prebuild build_status'
 )
 assert.ok(rowCounts.gmail_sender_workspace_seed_headers > 0)
 assert.ok(rowCounts.gmail_sender_workspace_seed_rows > 0)
@@ -184,6 +233,13 @@ assert.ok(rowCounts.gmail_sender_scope_rollups > 0)
 assert.ok(rowCounts.gmail_cluster_summaries > 0)
 assert.ok(rowCounts.gmail_mailbox_intelligence_snapshots > 0)
 assert.ok(rowCounts.gmail_preview_index > 0)
+if (expectedPreviewIndexRows != null) {
+  assert.equal(
+    rowCounts.gmail_preview_index,
+    expectedPreviewIndexRows,
+    'candidate-only full-mailbox build must leave gmail_preview_index at the finalized derived row count'
+  )
+}
 
 const forbiddenLogFragments = [
   'loadIndexedGmailMessagesForTenant(limit=100000)',
@@ -204,9 +260,12 @@ const proof = {
   analysis_scope: ANALYSIS_SCOPE,
   build_job_id: buildResult.job_id,
   artifact_version: buildResult.artifact_version,
+  publication_action: buildResult.publication_action,
   resumed: buildResult.resumed,
   publication_before: preBuildPublication,
+  expected_restored_publication: expectedRestoredPublication,
   publication_after: postBuildPublication,
+  auto_published: false,
   processed_sender_count: buildResult.processed_sender_count,
   processed_message_count: buildResult.processed_message_count,
   processed_cluster_count: buildResult.processed_cluster_count,
@@ -214,6 +273,7 @@ const proof = {
   indexed_inbox_rows: coverageBefore.indexed_inbox_rows,
   job_row: job,
   row_counts: rowCounts,
+  finalized_preview_index_rows: expectedPreviewIndexRows,
   build_logs: buildLogs.map((entry) => entry.text),
 }
 

@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-23 • workflow-blueprint extraction approved • migration/build remain separately gated • no semantic rebuild authorized_
+_Last updated: 2026-08-23 • framework extraction verified • one unpublished candidate build authorized • publication remains gated_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -16,8 +16,11 @@ _Last updated: 2026-08-23 • workflow-blueprint extraction approved • migrati
 - [x] Audit the framework-first condition before rebuild. Result: reusable invariants exist, but the partition materializer remains coupled to Gmail sender types and vocabulary.
 - [x] Oliver approved the bounded extraction of a generic review-unit engine plus Gmail adapter on 2026-08-23.
 - [x] Extract and verify a workflow-blueprint-driven generic engine, crypto and tax contract fixtures, and the Gmail adapter without changing the accepted Gmail fixture or current published artifact.
-- [ ] `Status: Awaiting Decision` — authorize or defer applying the additive migration and starting one candidate artifact build from the existing indexed mailbox; do not run Gmail reindex or Smart Sync.
-- [ ] After approval, validate candidate counts and every child route through the development-only artifact override, then hold Cleanup Groups Human Review checkpoint one before publication.
+- [x] Oliver authorized applying the additive migration and starting exactly one unpublished candidate artifact build from the existing indexed mailbox on 2026-08-23; Gmail reindex, Smart Sync, and publication remain prohibited.
+- [x] Restore the proven candidate-only runner lifecycle from preserved cleanup lineage and pass static/build/fixture correction proof.
+- [x] Apply and verify the additive `review_unit_id` migration without broad-pushing across remote migration-history drift.
+- [ ] Run the single unpublished candidate build over the existing `244,628` indexed messages; assert `published_version` remains `full-mailbox-20260415024237593` and the candidate job terminates as `candidate_ready`.
+- [ ] Validate candidate counts and every child route through the development-only artifact override, then hold Cleanup Groups Human Review checkpoint one before publication.
 
 ### Historical active heading retained below
 
