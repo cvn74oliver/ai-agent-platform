@@ -184,6 +184,19 @@ Cleanup Groups Human Review correction activation — 2026-08-23:
 - Status: `Cleanup Groups Accepted — Charts and Linked-Surface Reconciliation Next`. Rebuild, active-pointer promotion, main promotion, push, deploy, and lineage retirement remain unauthorized.
 - Checkpoint Status: none; Human Review acceptance and Recovery Contract are propagated, and the next bounded work unit is explicitly identified.
 
+Windowed review-unit artifact-contract planning expansion — 2026-08-24:
+- Bounded read-only diagnosis proved two distinct mechanisms. Intelligence accepts an empty Pressure Trend seed as usable and therefore suppresses its existing one-key artifact-bucket request. On the review route, selecting `1M` maps to `analysis_scope=30d`, but the unpublished all-indexed candidate has no exact `30d` review-unit membership/projection. Limited preview evidence cannot reconstruct exact preset/Custom activity without violating bounded-read and mixed-universe guards.
+- Oliver approved `RETURN_TO_PM` and the recommendation to expand the artifact contract correctly. This is newly governing truth and supersedes executor-ready chart correction until the plan is approved.
+- Semantic contract: `review_unit_id` remains stable, immutable membership for one artifact version. All Indexed, preset, and Custom selections are separate window projections over that fixed unit. Each projection owns exact active-entity, activity, ordered rows, pagination, Decision Mode, distribution, and time-context/trend truth. Fixed membership and active-in-window counts must be separately labeled; a window never creates a child unit.
+- Platform boundary: the generic workflow-blueprint engine owns projection identity, validation, parity, and storage interfaces. Domain adapters supply entity keys, activity timestamps, measures, and vocabulary. Gmail is the first reference adapter, not the framework model.
+- Authoritative runtime artifact: `docs/00_control_plane/runtime/ACE-048_WINDOWED_REVIEW_UNIT_ARTIFACT_CONTRACT_PM_BRIEF.md` — `created`, authoritative for this expanded planning scope, and `AWAITING OLIVER PLAN DECISION`.
+- The plan requires one additive generic migration and, for acceptance-quality proof, one new immutable unpublished candidate generated from existing indexed data. Neither action is authorized yet. A projection-only replay is eligible only if implementation proof shows complete immutable inputs and still creates a new artifact version.
+- Separate narrow seam: Pressure Trend seed admission must reject empty/invalid/epoch coverage while preserving the accepted one-attempt-per-semantic-key request owner and zero steady repeats.
+- Frozen boundary: accepted Cleanup Groups presentation, stable child IDs, membership, counts, child-first navigation, cold-load behavior, and Decision Mode return must not change. Candidate `full-mailbox-20260823022932121`, active publication `full-mailbox-20260415024237593`, main, and every external environment remain untouched.
+- Approval contract: `ACCEPT` authorizes plan Stages A/B only—generic contract/runtime implementation, exact fixtures, an unapplied migration file, and static/build proof. Migration application and one new unpublished candidate require a second explicit Oliver decision. `REJECT`, `BLOCKED`, and `RETURN_TO_PM` preserve the non-execution state.
+- Status: `Awaiting Decision — ACE-048 Windowed Review-Unit Artifact Contract Plan`.
+- Checkpoint Status: none; approved expanded planning truth is fully propagated, no implementation state exists, and stage progression is blocked pending Oliver's plan decision.
+
 Decision:
 - Automata is now governed by the **Revival — Security and Rebaseline** program.
 - All application implementation is blocked until the first revival execution packet is approved from this rebaselined control plane.

@@ -36,7 +36,12 @@ _Last updated: 2026-08-24 • Cleanup Groups Human Review returned to bounded pr
 - [x] Run focused fixtures plus post-settle Playwright cold-load/switch/Decision Mode proof; the canonical chooser, four representative children, and exact Decision Mode return pass without recurring heavy requests.
 - [x] Record Oliver's explicit Cleanup Groups checkpoint-one `ACCEPT`: names, explanations, starting guidance, and bite-sized flow are accepted as usable.
 - [x] Create Recovery Contract: `CHANGELOG.md` -> `August 24, 2026 — ACE-048 Framework-First Cleanup Groups Presentation Accepted`.
-- [ ] Begin a separately bounded Sender Distribution and Pressure Trend linked-surface reconciliation on the shared `review_unit_id` before any publication decision; preserve accepted Cleanup Groups behavior unchanged.
+- [x] Run bounded read-only linked-surface diagnosis. Lock the missing candidate-scope mechanism and separate Pressure Trend empty-seed admission seam without implementing or mutating runtime/data state.
+- [x] Record Oliver's `RETURN_TO_PM` approval for a platform-generic artifact-contract planning expansion.
+- [x] Create authoritative runtime plan `docs/00_control_plane/runtime/ACE-048_WINDOWED_REVIEW_UNIT_ARTIFACT_CONTRACT_PM_BRIEF.md` and decide the semantics explicitly: immutable review-unit membership plus a separate windowed activity projection; expose fixed and active counts distinctly.
+- [x] Micro-propagate the new governing truth, staged migration/rebuild implications, frozen Cleanup Groups boundary, and decision gate into the ACE-048 control plane and execution dashboard.
+- [ ] Await Oliver decision on the plan. No implementation, migration application, candidate generation, publication, main promotion, push, deployment, Smart Sync, or Gmail reindex before `ACCEPT`.
+- [ ] After `ACCEPT`, execute only Stages A/B: generic projection contract, Gmail adapter, unapplied additive migration, fixtures, and static/build proof. Return for a separate migration/new-candidate authorization gate.
 
 ### Historical active heading retained below
 

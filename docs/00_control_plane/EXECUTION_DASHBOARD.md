@@ -2,14 +2,14 @@
 
 Last updated: 2026-08-24
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: CLEANUP GROUPS ACCEPTED — CHARTS AND LINKED-SURFACE RECONCILIATION NEXT
+Status: AWAITING DECISION — WINDOWED REVIEW-UNIT ARTIFACT CONTRACT PLAN
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Cleanup Groups checkpoint one accepted; Sender Distribution and Pressure Trend linked-surface reconciliation is next; candidate data and publication remain unchanged
-- Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
+- Execution phase: Cleanup Groups checkpoint one accepted; expanded windowed review-unit artifact-contract plan propagated and awaiting Oliver approval; candidate data and publication remain unchanged
+- Problem class: artifact/publication truth primary — exact preset/Custom projection data is absent from the all-indexed-only candidate; bounded Pressure Trend empty-seed runtime seam is secondary
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
@@ -50,7 +50,12 @@ Status: CLEANUP GROUPS ACCEPTED — CHARTS AND LINKED-SURFACE RECONCILIATION NEX
 - [x] Pass focused fixtures and post-settle browser correction proof, including canonical cold load, four representative child transitions, and exact Decision Mode close/return
 - [x] Return the corrected Cleanup Groups surface for focused Human Review before any publication decision
 - [x] Record Oliver's explicit checkpoint-one `ACCEPT` and Recovery Contract
-- [ ] Execute the separately bounded Sender Distribution and Pressure Trend linked-surface reconciliation without regressing accepted Cleanup Groups behavior
+- [x] Diagnose the candidate scope gap and Pressure Trend empty-seed seam read-only; no runtime/data mutation
+- [x] Record Oliver's `RETURN_TO_PM` approval for a platform-generic contract plan
+- [x] Create and propagate `ACE-048_WINDOWED_REVIEW_UNIT_ARTIFACT_CONTRACT_PM_BRIEF.md`
+- [x] Lock immutable review-unit membership plus separately identified window projections; fixed and active counts remain distinct
+- [ ] Await Oliver plan decision; implementation remains blocked
+- [ ] After plan `ACCEPT`, implement Stages A/B only and return for a separate migration/new-candidate decision
 
 ## Immediate Human Review return
 
