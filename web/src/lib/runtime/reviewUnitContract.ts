@@ -112,6 +112,76 @@ export type ReviewUnitMembershipScope = {
   reviewUnitId: string
 }
 
+export const REVIEW_UNIT_ACTIVITY_RESOLUTIONS = [
+  'all_indexed',
+  'day',
+  'month',
+  'quarter',
+  'year',
+] as const
+
+export type ReviewUnitActivityResolution =
+  (typeof REVIEW_UNIT_ACTIVITY_RESOLUTIONS)[number]
+
+export type ReviewUnitProjectionIdentity = ReviewUnitMembershipScope
+
+export type ReviewUnitProjectionCoverage = {
+  startAt: string
+  endAt: string
+  timeZone: string
+}
+
+export type ReviewUnitProjectionManifest = ReviewUnitProjectionIdentity & {
+  adapterId: string
+  adapterSchemaVersion: number
+  unitEntityTotal: number
+  membershipHash: string
+  allIndexedActivityTotal: number
+  coverage: ReviewUnitProjectionCoverage
+  supportedResolutions: ReviewUnitActivityResolution[]
+  projectionHash: string
+  validationStatus: 'candidate_validated'
+  metadata: Record<string, unknown>
+}
+
+export type ReviewUnitActivityBucket = ReviewUnitProjectionIdentity & {
+  resolution: ReviewUnitActivityResolution
+  bucketStart: string
+  rowKind: 'entity' | 'unit'
+  entityId: string
+  activityCount: number
+  measurePayload: Record<string, number>
+}
+
+export type ReviewUnitWindowKind = 'all_indexed' | 'preset' | 'custom'
+
+export type ReviewUnitWindowRequest = {
+  kind: ReviewUnitWindowKind
+  presetKey?: string | null
+  requestedStartAt?: string | null
+  requestedEndAt?: string | null
+  timeZone: string
+}
+
+export type ReviewUnitWindowResolution = {
+  request: ReviewUnitWindowRequest
+  effectiveStartAt: string
+  effectiveEndAt: string
+  clampedStart: boolean
+  clampedEnd: boolean
+  empty: boolean
+}
+
+export type ReviewUnitProjectionValidation = {
+  errors: string[]
+  unitEntityTotal: number
+  activityEntityTotal: number
+  activeEntityTotal: number
+  allIndexedActivityTotal: number
+  dailyActivityTotal: number
+  monthlyActivityTotal: number
+}
+
 export type ReviewUnitMembershipPage<TEntityRecord> = {
   total: number
   records: TEntityRecord[]

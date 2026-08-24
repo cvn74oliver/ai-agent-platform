@@ -1,8 +1,8 @@
 # ACE-048 Windowed Review-Unit Artifact Contract — PM Brief
 
-Status: `AWAITING OLIVER PLAN DECISION`
+Status: `STAGES A/B IMPLEMENTED — AWAITING MIGRATION/CANDIDATE DECISION`
 
-Runtime artifact status: `created`
+Runtime artifact status: `updated; authoritative task-scoped runtime context`
 
 Authoritative runtime context: `YES` for the bounded chart and linked-surface planning expansion only
 
@@ -14,7 +14,7 @@ Reasoning tier: `high`
 
 Problem class: `artifact / publication truth` primary, with a bounded `runtime behavior` Pressure Trend seam
 
-Execution readiness: `target-locked plan; implementation blocked pending Oliver approval`
+Execution readiness: `target-locked; Stages A/B authorized by Oliver on 2026-08-24`
 
 ## Executive summary
 
@@ -213,6 +213,10 @@ Planned migration creation:
 
 `supabase migration new add_workspace_review_unit_window_projection`
 
+Generated and path-locked, but unapplied:
+
+`supabase/migrations/20260824132718_add_workspace_review_unit_window_projection.sql`
+
 The command-generated migration path becomes the only authorized migration file and must be reported/locked before SQL editing. The runtime must not invent a timestamped migration filename.
 
 The migration will add generic projection manifest/activity storage, exact-prefix/range indexes, tenant RLS, constraints, and a security-invoker bounded reader. It must declare least-privilege Data API grants explicitly after RLS/policies because new public-schema objects may not inherit API exposure. It will not alter or remove existing Gmail artifact tables or the accepted `review_unit_id` membership column.
@@ -393,4 +397,6 @@ Required artifacts:
 
 `RETURN_TO_PM` requests a different semantic or rollout direction.
 
-Status: `Awaiting Decision`
+Stages A/B result: implemented in the isolated ACE-048 worktree. Generic, Gmail-adapter, and Pressure Trend fixtures pass; TypeScript, targeted lint, production build, and diff checks pass. Local SQL function/RLS execution proof is deferred to Stage C because the local PostgreSQL client installation has no server binary. No remote database, candidate, or publication state changed.
+
+Status: `Awaiting Decision — Apply Migration + Build One Unpublished Candidate`

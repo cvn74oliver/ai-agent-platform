@@ -27,6 +27,7 @@ import {
   materializeGmailReviewUnits,
   validateGmailReviewUnitContract,
 } from '@/lib/integrations/gmail/gmailReviewUnitContract'
+import { materializeGmailReviewUnitWindowProjections } from '@/lib/integrations/gmail/gmailReviewUnitWindowProjection'
 import {
   activityTimelineBucketKeyForTimestamp,
   activityTimelineGranularityForScope,
@@ -54,6 +55,7 @@ import {
   loadGmailPreviewIndexRowsForArtifactVersion,
   loadGmailSenderScopeRollupsForArtifactVersion,
   replaceGmailPreviewIndexRowsForArtifactVersion,
+  replaceWorkspaceReviewUnitProjectionArtifacts,
   type GmailArtifactAnalysisScope,
   type GmailArtifactPublicationRestoreState,
   type GmailClusterSummaryArtifactRow,
@@ -251,6 +253,7 @@ export type GmailSenderProjectionProgress = {
 export const GMAIL_ARTIFACT_FINALIZE_WRITE_STAGES = [
   'writing_preview_index_rows',
   'writing_seed_rows',
+  'writing_review_unit_window_projection',
   'writing_seed_headers',
   'writing_cluster_summaries',
   'writing_mailbox_intelligence_snapshots',
@@ -274,6 +277,8 @@ export type GmailArtifactFinalizeInputRowCounts = {
 export type GmailArtifactFinalizeDerivedRowCounts = {
   sender_workspace_seed_headers: number
   sender_workspace_seed_rows: number
+  review_unit_projection_manifests: number
+  review_unit_activity_buckets: number
   cluster_summaries: number
   mailbox_intelligence_snapshots: number
   mailbox_intelligence_buckets: number
@@ -805,6 +810,16 @@ function parseFinalizeCheckpoint(value: string | null): GmailArtifactFinalizeChe
                 (
                   parsed.derived_row_counts as Partial<GmailArtifactFinalizeDerivedRowCounts>
                 ).sender_workspace_seed_rows
+              ),
+              review_unit_projection_manifests: normalizeInteger(
+                (
+                  parsed.derived_row_counts as Partial<GmailArtifactFinalizeDerivedRowCounts>
+                ).review_unit_projection_manifests
+              ),
+              review_unit_activity_buckets: normalizeInteger(
+                (
+                  parsed.derived_row_counts as Partial<GmailArtifactFinalizeDerivedRowCounts>
+                ).review_unit_activity_buckets
               ),
               cluster_summaries: normalizeInteger(
                 (parsed.derived_row_counts as Partial<GmailArtifactFinalizeDerivedRowCounts>)
@@ -3491,6 +3506,8 @@ export async function finalizeGmailFullMailboxArtifacts(params: {
   row_counts: {
     sender_workspace_seed_headers: number
     sender_workspace_seed_rows: number
+    review_unit_projection_manifests: number
+    review_unit_activity_buckets: number
     sender_scope_rollups: number
     cluster_summaries: number
     mailbox_intelligence_snapshots: number
@@ -3562,9 +3579,57 @@ export async function finalizeGmailFullMailboxArtifacts(params: {
     clusterSpecs: params.checkpoint.cluster_specs,
     statsBySenderKey,
   })
+  const projectionStage = 'writing_review_unit_window_projection' as const
+  const projectionAlreadyWritten = isFinalizeWriteStageCompleted(
+    finalizeCheckpoint,
+    projectionStage
+  )
+  const reviewUnitProjection = projectionAlreadyWritten
+    ? null
+    : await (async () => {
+        if (!params.coverage.indexed_date_span_start || !params.coverage.indexed_date_span_end) {
+          throw new Error('Review-unit projection candidate requires indexed mailbox coverage bounds.')
+        }
+        const projection = await materializeGmailReviewUnitWindowProjections({
+          tenantId: params.tenantId,
+          // Gmail artifacts are tenant-scoped today. Future adapters provide their own workspace identity.
+          workspaceId: params.tenantId,
+          analysisScope: params.analysisScope,
+          artifactVersion: params.artifactVersion,
+          indexedCoverageStartAt: params.coverage.indexed_date_span_start,
+          indexedCoverageEndAt: params.coverage.indexed_date_span_end,
+          timeZone: 'UTC',
+          seedRows: derivedRows.seedRows,
+          loadMessagesForSenderKeys: (senderKeys) =>
+            loadGmailMailboxRowsForSenders({
+              supabase: params.supabase,
+              tenantId: params.tenantId,
+              senderKeys,
+            }),
+        })
+        const validationErrors = projection.validations.flatMap(
+          (validation) => validation.errors
+        )
+        if (validationErrors.length > 0) {
+          throw new Error(
+            `Review-unit window projection validation failed: ${validationErrors.join(' ')}`
+          )
+        }
+        return projection
+      })()
+  const projectionManifestCount =
+    reviewUnitProjection?.manifests.length ??
+    finalizeCheckpoint.derived_row_counts?.review_unit_projection_manifests ??
+    0
+  const projectionActivityBucketCount =
+    reviewUnitProjection?.activityBuckets.length ??
+    finalizeCheckpoint.derived_row_counts?.review_unit_activity_buckets ??
+    0
   finalizeCheckpoint.derived_row_counts = {
     sender_workspace_seed_headers: derivedRows.seedHeaders.length,
     sender_workspace_seed_rows: derivedRows.seedRows.length,
+    review_unit_projection_manifests: projectionManifestCount,
+    review_unit_activity_buckets: projectionActivityBucketCount,
     cluster_summaries: derivedRows.clusterSummaries.length,
     mailbox_intelligence_snapshots: derivedRows.snapshotRows.length,
     mailbox_intelligence_buckets: derivedRows.bucketRows.length,
@@ -3605,6 +3670,21 @@ export async function finalizeGmailFullMailboxArtifacts(params: {
         upsertGmailSenderWorkspaceSeedRows({
           supabase: params.supabase,
           rows: derivedRows.seedRows,
+        }),
+    },
+    {
+      stage: projectionStage,
+      label: 'workspace_review_unit_projection.replace_candidate',
+      run: () =>
+        replaceWorkspaceReviewUnitProjectionArtifacts({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          analysisScope: params.analysisScope,
+          artifactVersion: params.artifactVersion,
+          publishedArtifactVersion:
+            params.checkpoint.publication_restore_state?.published_version ?? null,
+          manifests: reviewUnitProjection?.manifests ?? [],
+          activityBuckets: reviewUnitProjection?.activityBuckets ?? [],
         }),
     },
     {
@@ -3667,6 +3747,8 @@ export async function finalizeGmailFullMailboxArtifacts(params: {
     row_counts: {
       sender_workspace_seed_headers: derivedRows.seedHeaders.length,
       sender_workspace_seed_rows: derivedRows.seedRows.length,
+      review_unit_projection_manifests: projectionManifestCount,
+      review_unit_activity_buckets: projectionActivityBucketCount,
       sender_scope_rollups: rollups.length,
       cluster_summaries: derivedRows.clusterSummaries.length,
       mailbox_intelligence_snapshots: derivedRows.snapshotRows.length,

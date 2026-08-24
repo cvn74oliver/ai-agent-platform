@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-24
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: AWAITING DECISION — WINDOWED REVIEW-UNIT ARTIFACT CONTRACT PLAN
+Status: AWAITING DECISION — MIGRATION APPLICATION + ONE UNPUBLISHED CANDIDATE
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Cleanup Groups checkpoint one accepted; expanded windowed review-unit artifact-contract plan propagated and awaiting Oliver approval; candidate data and publication remain unchanged
+- Execution phase: Cleanup Groups checkpoint one accepted; windowed review-unit artifact-contract Stages A/B implemented and technically checked in isolation; additive migration is unapplied and candidate/publication data remain unchanged
 - Problem class: artifact/publication truth primary — exact preset/Custom projection data is absent from the all-indexed-only candidate; bounded Pressure Trend empty-seed runtime seam is secondary
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded

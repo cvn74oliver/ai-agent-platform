@@ -15,6 +15,11 @@ import {
   resolveCleanupClusterIdentity,
   type CleanupClusterIdentitySource,
 } from '@/lib/runtime/gmailCleanupClusterIdentity'
+import type {
+  ReviewUnitActivityBucket,
+  ReviewUnitProjectionManifest,
+  ReviewUnitWindowKind,
+} from '@/lib/runtime/reviewUnitContract'
 
 export const GMAIL_ARTIFACT_ANALYSIS_SCOPE_OPTIONS = [
   '7d',
@@ -46,6 +51,43 @@ export type GmailArtifactRefreshStrategy = 'incremental' | 'full_rebuild'
 const GMAIL_ARTIFACT_PREVIEW_COUNT_PAGE_SIZE = 1000
 const GMAIL_ARTIFACT_PREVIEW_REPLACE_DELETE_SENDER_BATCH_SIZE = 100
 const GMAIL_ARTIFACT_PREVIEW_REPLACE_DELETE_ROW_LIMIT = 1000
+const REVIEW_UNIT_PROJECTION_MEMBER_LIMIT = 400
+
+export type WorkspaceReviewUnitWindowProjectionRead = {
+  artifact_version: string
+  parent_id: string
+  review_unit_id: string
+  membership_hash: string
+  projection_hash: string
+  unit_entity_total: number
+  active_entity_total: number
+  activity_total: number
+  coverage_start_at: string
+  coverage_end_at: string
+  time_zone: string
+  requested_window: {
+    kind: ReviewUnitWindowKind
+    start: string | null
+    end: string | null
+  }
+  effective_window: {
+    start: string
+    end: string
+    empty: boolean
+    clamped_start: boolean
+    clamped_end: boolean
+  }
+  members: Array<{
+    entity_id: string
+    activity_count: number
+    all_indexed_activity_count: number
+  }>
+  series: Array<{
+    resolution: 'day' | 'month' | 'quarter' | 'year'
+    bucket_start: string
+    activity_count: number
+  }>
+}
 
 export type GmailArtifactPublicationRow = {
   tenant_id: string
@@ -1797,6 +1839,8 @@ async function replaceVersionRows<T extends Record<string, unknown>>(params: {
     | 'gmail_mailbox_intelligence_snapshots'
     | 'gmail_mailbox_intelligence_buckets'
     | 'gmail_preview_index'
+    | 'workspace_review_unit_projection_manifests'
+    | 'workspace_review_unit_activity_buckets'
   tenantId: string
   analysisScope: GmailArtifactAnalysisScope
   artifactVersion: string
@@ -1845,6 +1889,8 @@ async function upsertVersionRows<T extends Record<string, unknown>>(params: {
     | 'gmail_mailbox_intelligence_snapshots'
     | 'gmail_mailbox_intelligence_buckets'
     | 'gmail_preview_index'
+    | 'workspace_review_unit_projection_manifests'
+    | 'workspace_review_unit_activity_buckets'
   rows: T[]
   onConflict: string
 }): Promise<void> {
@@ -2881,6 +2927,8 @@ export async function clearGmailArtifactBuildVersionRows(params: {
     'gmail_mailbox_intelligence_snapshots',
     'gmail_mailbox_intelligence_buckets',
     'gmail_preview_index',
+    'workspace_review_unit_activity_buckets',
+    'workspace_review_unit_projection_manifests',
   ] as const
 
   for (const table of tables) {
@@ -2894,6 +2942,229 @@ export async function clearGmailArtifactBuildVersionRows(params: {
       throw new Error(`Failed to clear ${table}: ${error.message}`)
     }
   }
+}
+
+export async function replaceWorkspaceReviewUnitProjectionArtifacts(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  artifactVersion: string
+  publishedArtifactVersion: string | null
+  manifests: ReviewUnitProjectionManifest[]
+  activityBuckets: ReviewUnitActivityBucket[]
+}): Promise<void> {
+  const tenantId = normalizeText(params.tenantId)
+  const artifactVersion = normalizeText(params.artifactVersion)
+  if (!tenantId || !artifactVersion || params.manifests.length === 0) {
+    throw new Error('Review-unit projection replacement requires a non-empty candidate artifact.')
+  }
+  if (artifactVersion === normalizeText(params.publishedArtifactVersion)) {
+    throw new Error('Published review-unit projections are immutable and cannot be replaced in place.')
+  }
+
+  const firstManifest = params.manifests[0]
+  const exactIdentity = {
+    tenant_id: tenantId,
+    workspace_type: normalizeText(firstManifest.workspaceType),
+    workspace_id: normalizeText(firstManifest.workspaceId),
+    workflow_id: normalizeText(firstManifest.workflowId),
+    decision_subject_type: normalizeText(firstManifest.decisionSubjectType),
+    analysis_scope: params.analysisScope,
+    artifact_version: artifactVersion,
+  }
+  if (Object.values(exactIdentity).some((value) => !value)) {
+    throw new Error('Review-unit projection replacement identity is incomplete.')
+  }
+
+  const assertIdentity = (row: ReviewUnitProjectionManifest | ReviewUnitActivityBucket): void => {
+    if (
+      normalizeText(row.tenantId) !== exactIdentity.tenant_id ||
+      normalizeText(row.workspaceType) !== exactIdentity.workspace_type ||
+      normalizeText(row.workspaceId) !== exactIdentity.workspace_id ||
+      normalizeText(row.workflowId) !== exactIdentity.workflow_id ||
+      normalizeText(row.decisionSubjectType) !== exactIdentity.decision_subject_type ||
+      normalizeText(row.analysisScope) !== exactIdentity.analysis_scope ||
+      normalizeText(row.artifactVersion) !== exactIdentity.artifact_version
+    ) {
+      throw new Error('Review-unit projection replacement rejected mixed artifact identity.')
+    }
+  }
+  params.manifests.forEach(assertIdentity)
+  params.activityBuckets.forEach(assertIdentity)
+
+  const timestamp = nowIso()
+  const manifestRows = params.manifests.map((manifest) => ({
+    ...exactIdentity,
+    parent_id: normalizeText(manifest.parentId),
+    review_unit_id: normalizeText(manifest.reviewUnitId),
+    adapter_id: normalizeText(manifest.adapterId),
+    adapter_schema_version: normalizeInteger(manifest.adapterSchemaVersion),
+    unit_entity_total: normalizeInteger(manifest.unitEntityTotal),
+    membership_hash: normalizeText(manifest.membershipHash),
+    all_indexed_activity_total: normalizeInteger(manifest.allIndexedActivityTotal),
+    coverage_start_at: manifest.coverage.startAt,
+    coverage_end_at: manifest.coverage.endAt,
+    projection_timezone: normalizeText(manifest.coverage.timeZone),
+    supported_resolutions: manifest.supportedResolutions,
+    projection_hash: normalizeText(manifest.projectionHash),
+    validation_status: manifest.validationStatus,
+    metadata: normalizeJsonObject(manifest.metadata),
+    created_at: timestamp,
+    updated_at: timestamp,
+  }))
+  const activityRows = params.activityBuckets.map((bucket) => ({
+    ...exactIdentity,
+    parent_id: normalizeText(bucket.parentId),
+    review_unit_id: normalizeText(bucket.reviewUnitId),
+    resolution: bucket.resolution,
+    bucket_start: bucket.bucketStart,
+    row_kind: bucket.rowKind,
+    entity_id: normalizeText(bucket.entityId),
+    activity_count: normalizeInteger(bucket.activityCount),
+    measure_payload: normalizeJsonObject(bucket.measurePayload),
+    created_at: timestamp,
+    updated_at: timestamp,
+  }))
+
+  for (const table of [
+    'workspace_review_unit_activity_buckets',
+    'workspace_review_unit_projection_manifests',
+  ] as const) {
+    await withArtifactStoreRetry({
+      label: `${table}.clear_candidate_version`,
+      run: async () => {
+        const { error } = await params.supabase
+          .from(table)
+          .delete()
+          .match(exactIdentity)
+        if (error) throw new Error(`Failed to clear ${table}: ${error.message}`)
+      },
+    })
+  }
+
+  await upsertVersionRows({
+    supabase: params.supabase,
+    table: 'workspace_review_unit_projection_manifests',
+    rows: manifestRows,
+    onConflict:
+      'tenant_id,workspace_type,workspace_id,workflow_id,decision_subject_type,analysis_scope,parent_id,artifact_version,review_unit_id',
+  })
+  await upsertVersionRows({
+    supabase: params.supabase,
+    table: 'workspace_review_unit_activity_buckets',
+    rows: activityRows,
+    onConflict:
+      'tenant_id,workspace_type,workspace_id,workflow_id,decision_subject_type,analysis_scope,parent_id,artifact_version,review_unit_id,resolution,bucket_start,row_kind,entity_id',
+  })
+}
+
+export async function readWorkspaceReviewUnitWindowProjection(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  workspaceType: string
+  workspaceId: string
+  workflowId: string
+  decisionSubjectType: string
+  analysisScope: GmailArtifactAnalysisScope
+  parentId: string
+  artifactVersion: string
+  reviewUnitId: string
+  windowKind: ReviewUnitWindowKind
+  windowStart?: string | null
+  windowEnd?: string | null
+  timeZone: string
+}): Promise<WorkspaceReviewUnitWindowProjectionRead> {
+  const { data, error } = await params.supabase.rpc(
+    'read_workspace_review_unit_window_projection',
+    {
+      p_tenant_id: params.tenantId,
+      p_workspace_type: params.workspaceType,
+      p_workspace_id: params.workspaceId,
+      p_workflow_id: params.workflowId,
+      p_decision_subject_type: params.decisionSubjectType,
+      p_analysis_scope: params.analysisScope,
+      p_parent_id: params.parentId,
+      p_artifact_version: params.artifactVersion,
+      p_review_unit_id: params.reviewUnitId,
+      p_window_kind: params.windowKind,
+      p_window_start: params.windowStart?.slice(0, 10) || null,
+      p_window_end: params.windowEnd?.slice(0, 10) || null,
+      p_time_zone: params.timeZone,
+      p_member_limit: REVIEW_UNIT_PROJECTION_MEMBER_LIMIT,
+    }
+  )
+  if (error) {
+    throw new Error(`Failed to read review-unit window projection: ${error.message}`)
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Review-unit window projection returned an invalid payload.')
+  }
+  return data as WorkspaceReviewUnitWindowProjectionRead
+}
+
+export async function validateWorkspaceReviewUnitProjectionCandidate(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  workspaceType: string
+  workspaceId: string
+  workflowId: string
+  decisionSubjectType: string
+  analysisScope: GmailArtifactAnalysisScope
+  artifactVersion: string
+  timeZone: string
+}): Promise<{ manifestCount: number; memberCount: number; activityCount: number }> {
+  const { data, error } = await params.supabase
+    .from('workspace_review_unit_projection_manifests')
+    .select('parent_id,review_unit_id,unit_entity_total,all_indexed_activity_total,membership_hash,projection_hash')
+    .match({
+      tenant_id: params.tenantId,
+      workspace_type: params.workspaceType,
+      workspace_id: params.workspaceId,
+      workflow_id: params.workflowId,
+      decision_subject_type: params.decisionSubjectType,
+      analysis_scope: params.analysisScope,
+      artifact_version: params.artifactVersion,
+    })
+    .order('parent_id', { ascending: true })
+    .order('review_unit_id', { ascending: true })
+  if (error) throw new Error(`Failed to load review-unit projection manifests: ${error.message}`)
+  const manifests = (data || []) as Array<{
+    parent_id: string
+    review_unit_id: string
+    unit_entity_total: number
+    all_indexed_activity_total: number
+    membership_hash: string
+    projection_hash: string
+  }>
+  if (manifests.length === 0) {
+    throw new Error('Candidate review-unit projection has no manifests.')
+  }
+
+  let memberCount = 0
+  let activityCount = 0
+  for (const manifest of manifests) {
+    const projection = await readWorkspaceReviewUnitWindowProjection({
+      ...params,
+      parentId: manifest.parent_id,
+      reviewUnitId: manifest.review_unit_id,
+      windowKind: 'all_indexed',
+    })
+    if (
+      projection.artifact_version !== params.artifactVersion ||
+      projection.parent_id !== manifest.parent_id ||
+      projection.review_unit_id !== manifest.review_unit_id ||
+      projection.membership_hash !== manifest.membership_hash ||
+      projection.projection_hash !== manifest.projection_hash ||
+      projection.unit_entity_total !== manifest.unit_entity_total ||
+      projection.members.length !== manifest.unit_entity_total ||
+      projection.activity_total !== Number(manifest.all_indexed_activity_total)
+    ) {
+      throw new Error(`Candidate review-unit projection validation failed for ${manifest.review_unit_id}.`)
+    }
+    memberCount += projection.unit_entity_total
+    activityCount += projection.activity_total
+  }
+  return { manifestCount: manifests.length, memberCount, activityCount }
 }
 
 export async function upsertGmailSenderWorkspaceSeedHeaders(params: {
@@ -3539,6 +3810,8 @@ export async function countGmailArtifactVersionRows(params: {
     ['gmail_cluster_summaries', 'exact'],
     ['gmail_mailbox_intelligence_snapshots', 'exact'],
     ['gmail_mailbox_intelligence_buckets', 'exact'],
+    ['workspace_review_unit_projection_manifests', 'exact'],
+    ['workspace_review_unit_activity_buckets', 'exact'],
   ] as const
 
   const counts = await Promise.all(

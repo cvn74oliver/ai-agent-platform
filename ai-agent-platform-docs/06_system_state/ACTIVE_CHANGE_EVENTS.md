@@ -194,8 +194,11 @@ Windowed review-unit artifact-contract planning expansion — 2026-08-24:
 - Separate narrow seam: Pressure Trend seed admission must reject empty/invalid/epoch coverage while preserving the accepted one-attempt-per-semantic-key request owner and zero steady repeats.
 - Frozen boundary: accepted Cleanup Groups presentation, stable child IDs, membership, counts, child-first navigation, cold-load behavior, and Decision Mode return must not change. Candidate `full-mailbox-20260823022932121`, active publication `full-mailbox-20260415024237593`, main, and every external environment remain untouched.
 - Approval contract: `ACCEPT` authorizes plan Stages A/B only—generic contract/runtime implementation, exact fixtures, an unapplied migration file, and static/build proof. Migration application and one new unpublished candidate require a second explicit Oliver decision. `REJECT`, `BLOCKED`, and `RETURN_TO_PM` preserve the non-execution state.
-- Status: `Awaiting Decision — ACE-048 Windowed Review-Unit Artifact Contract Plan`.
-- Checkpoint Status: none; approved expanded planning truth is fully propagated, no implementation state exists, and stage progression is blocked pending Oliver's plan decision.
+- Oliver decision — 2026-08-24: `ACCEPT`. Immediate same-flow execution commitment selected for Stages A/B only.
+- Stages A/B implementation result — 2026-08-24: platform-generic fixed-membership/window projection contracts, deterministic materialization and validation, crypto/tax fixtures, Gmail adapter and candidate-only generator integration, bounded storage/read seams, and the command-generated additive migration are implemented in the isolated ACE-048 worktree.
+- Technical proof: generic fixture PASS, Gmail adapter fixture PASS, Pressure Trend contract fixture PASS, TypeScript PASS, targeted ESLint PASS with four unrelated pre-existing warnings, production build PASS, and diff check PASS. Local SQL execution/RLS proof is deferred because the installed PostgreSQL toolchain lacks a server binary; the migration is unapplied and no remote database was touched.
+- Status: `Awaiting Decision — ACE-048 Migration Application + One Unpublished Candidate`.
+- Checkpoint Status: none; Stages A/B implementation and control-plane truth are synchronized. This is not an Accepted Fix, runtime/UI acceptance, Human Review gate, or Recovery Contract. Migration application, candidate generation, publication, main promotion, push, deployment, Smart Sync, and Gmail reindex remain blocked pending the next explicit decision.
 
 Decision:
 - Automata is now governed by the **Revival — Security and Rebaseline** program.

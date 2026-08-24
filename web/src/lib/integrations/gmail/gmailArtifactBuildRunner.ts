@@ -12,8 +12,14 @@ import {
   publishGmailArtifactBuild,
   snapshotGmailArtifactPublicationRestoreState,
   updateGmailArtifactBuildProgress,
+  validateWorkspaceReviewUnitProjectionCandidate,
   type GmailArtifactAnalysisScope,
 } from '@/lib/integrations/gmail/gmailArtifactStore'
+import {
+  GMAIL_REVIEW_UNIT_PROJECTION_DECISION_SUBJECT_TYPE,
+  GMAIL_REVIEW_UNIT_PROJECTION_WORKFLOW_ID,
+  GMAIL_REVIEW_UNIT_PROJECTION_WORKSPACE_TYPE,
+} from '@/lib/integrations/gmail/gmailReviewUnitWindowProjection'
 import {
   finalizeGmailFullMailboxArtifacts,
   isGmailArtifactFinalizeCompleted,
@@ -686,6 +692,51 @@ async function runGmailFullMailboxArtifactBuildAttempt(params: {
       extra: {
         row_count_error: rowCountError,
         row_counts: rowCounts,
+      },
+    })
+    if (rowCountError) {
+      throw new Error(`Candidate artifact row reconciliation failed: ${rowCountError}`)
+    }
+
+    activePhase = 'validating_review_unit_projection'
+    await updateGmailArtifactBuildProgress({
+      supabase: params.supabase,
+      jobId,
+      tenantId,
+      analysisScope,
+      artifactVersion,
+      phase: activePhase,
+      senderCheckpoint: projection.last_cursor?.sender_key || null,
+      messageCheckpoint: serializeGmailArtifactCheckpoint(projection.checkpoint),
+      clusterCheckpoint: serializeGmailArtifactFinalizeCheckpoint(finalizedCheckpoint),
+      processedSenderCount: totalProcessedSenderCount,
+      processedMessageCount: totalProcessedMessageCount,
+      processedClusterCount: totalProcessedClusterCount,
+    })
+    const projectionValidationStartedAt = Date.now()
+    const projectionValidation = await validateWorkspaceReviewUnitProjectionCandidate({
+      supabase: params.supabase,
+      tenantId,
+      workspaceType: GMAIL_REVIEW_UNIT_PROJECTION_WORKSPACE_TYPE,
+      workspaceId: tenantId,
+      workflowId: GMAIL_REVIEW_UNIT_PROJECTION_WORKFLOW_ID,
+      decisionSubjectType: GMAIL_REVIEW_UNIT_PROJECTION_DECISION_SUBJECT_TYPE,
+      analysisScope,
+      artifactVersion,
+      timeZone: 'UTC',
+    })
+    logFullBuildPhase({
+      tenantId,
+      analysisScope,
+      artifactVersion,
+      jobId,
+      attempt: params.attempt,
+      maxAttempts: params.maxAttempts,
+      phase: activePhase,
+      event: 'completed',
+      durationMs: Math.max(0, Date.now() - projectionValidationStartedAt),
+      extra: {
+        projection_validation: projectionValidation,
       },
     })
 

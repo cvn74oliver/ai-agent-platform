@@ -40,8 +40,9 @@ _Last updated: 2026-08-24 • Cleanup Groups Human Review returned to bounded pr
 - [x] Record Oliver's `RETURN_TO_PM` approval for a platform-generic artifact-contract planning expansion.
 - [x] Create authoritative runtime plan `docs/00_control_plane/runtime/ACE-048_WINDOWED_REVIEW_UNIT_ARTIFACT_CONTRACT_PM_BRIEF.md` and decide the semantics explicitly: immutable review-unit membership plus a separate windowed activity projection; expose fixed and active counts distinctly.
 - [x] Micro-propagate the new governing truth, staged migration/rebuild implications, frozen Cleanup Groups boundary, and decision gate into the ACE-048 control plane and execution dashboard.
-- [ ] Await Oliver decision on the plan. No implementation, migration application, candidate generation, publication, main promotion, push, deployment, Smart Sync, or Gmail reindex before `ACCEPT`.
-- [ ] After `ACCEPT`, execute only Stages A/B: generic projection contract, Gmail adapter, unapplied additive migration, fixtures, and static/build proof. Return for a separate migration/new-candidate authorization gate.
+- [x] Record Oliver plan decision: `ACCEPT` on 2026-08-24. Authorization is limited to Stages A/B.
+- [x] Execute Stages A/B in the isolated ACE-048 worktree: generic projection contract, Gmail adapter, unapplied additive migration, candidate-only generation validation, fixtures, TypeScript, targeted lint, production build, and diff proof. No database or publication mutation occurred.
+- [ ] Await explicit Oliver decision before applying `20260824132718_add_workspace_review_unit_window_projection.sql` and generating exactly one new unpublished candidate from existing indexed data. Reattest project/pointers first; do not publish, Smart Sync, reindex, deploy, push, or move main.
 
 ### Historical active heading retained below
 
