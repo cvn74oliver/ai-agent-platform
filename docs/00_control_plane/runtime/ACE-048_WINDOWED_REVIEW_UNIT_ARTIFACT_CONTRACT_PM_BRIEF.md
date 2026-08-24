@@ -20,7 +20,7 @@ Execution readiness: `target-locked plan; implementation blocked pending Oliver 
 
 ### What is changing
 
-Automata will separate a decision group’s stable membership from activity measured inside a selected time window. One stable review-unit identity will remain authoritative while a windowed projection supplies exact activity, active-entity, distribution, row, Decision Mode, and trend truth.
+Automata will separate a decision group’s stable membership from activity measured inside a selected time window. One stable review-unit identity will remain authoritative across rows, pagination, and Decision Mode, while a windowed projection supplies exact per-member activity, active-entity, distribution-measure, and trend truth.
 
 ### What Oliver will get
 
@@ -68,13 +68,13 @@ The projection owns:
 
 - `active_entity_total`: unique unit members with qualifying activity in the window;
 - `activity_total`: exact domain measure in the window;
-- ordered active-entity aggregates used by rows, pagination, Decision Mode, and distribution;
+- one aggregate for every fixed unit member, including explicit zero activity, used by distribution and activity annotations without replacing membership-owned rows, pagination, or Decision Mode;
 - exact time buckets for Time Context or the adapter’s equivalent trend surface.
 
 ### Visible behavior
 
 - All Indexed: `active_entity_total` may equal or be lower than `unit_entity_total`; both remain explicit.
-- Preset/Custom: rows, pagination, Decision Mode, and distribution use the same active-entity projection.
+- Preset/Custom: rows, pagination, and Decision Mode retain the fixed unit membership. Distribution retains exactly the same members and changes only their windowed activity measures; zero-activity members remain explicit.
 - Time Context/trends measure activity by members of the fixed unit over the selected window.
 - A window with no qualifying activity is a valid ready-empty projection. It must not fall back to All Indexed or another artifact.
 - The UI must label fixed membership and active-in-window truth separately; one number must never silently impersonate the other.
@@ -87,7 +87,7 @@ In scope after plan approval:
 - A Gmail adapter that maps sender keys, indexed-message timestamps, and Gmail measures into the generic contract.
 - Additive projection manifests and multi-resolution activity-bucket storage.
 - Exact bounded projection reads for All Indexed, preset, and Custom windows.
-- Review-page reconciliation across summary, sender rows, pagination, Decision Mode, Sender Distribution, and Time Context.
+- Review-page reconciliation across fixed-membership summary, sender rows, pagination, Decision Mode, all-member Sender Distribution, and Time Context.
 - Pressure Trend empty-seed rejection and coverage provenance.
 - Fixtures, static/build proof, candidate-only generation validation, and authenticated post-settle browser proof.
 
@@ -145,11 +145,11 @@ The projection response includes:
 - stable unit identity and fixed total;
 - normalized requested/effective window and coverage limit explanation;
 - active entity total and activity total;
-- ordered entity aggregates;
+- ordered all-member aggregates with explicit zero activity where applicable;
 - bounded chart series;
 - artifact version, membership hash, projection hash, and source/provenance.
 
-Page preview/detail reads then fetch only the visible page of active entity keys. Distribution derives from the same ordered aggregate set rather than initiating a competing universe.
+Page preview/detail reads fetch only the visible page of fixed membership keys. Activity is joined by the same stable subject identity. Distribution derives from the all-member aggregate set—including zero-activity members—rather than initiating a competing universe.
 
 ## Indexed read patterns and load contract
 
@@ -157,7 +157,7 @@ Required indexes begin with the complete identity prefix and add range/order fie
 
 - manifest: tenant + workspace + workflow + artifact + parent + review unit;
 - activity: tenant + workspace + workflow + artifact + parent + review unit + resolution + bucket start + entity;
-- active-entity page: the same projection prefix plus deterministic rank/entity tie-break.
+- all-member projection page: the same identity prefix plus deterministic activity rank/entity tie-break, with zero-activity members retained.
 
 Load ceilings:
 
@@ -197,12 +197,13 @@ For every parent/review unit/artifact version:
 2. Every activity entity belongs to the same review unit and artifact version.
 3. No activity entity belongs to two children where the parent contract is an exact partition.
 4. Sum of all entity All Indexed activity totals = unit All Indexed activity total.
-5. Sum of window entity activity = window projection activity total = distribution total.
-6. Unique active entities = overview active total = row/pagination total = Decision Mode queue total = distribution entity count.
-7. Time Context bucket sum = projection activity total for additive measures.
-8. Parent/child/root fixed membership reconciliation remains unchanged from the accepted candidate.
-9. Empty window projection is ready with zero active entities and zero activity; it does not inherit stale bars or rows.
-10. Requested/effective date bounds and visible latest date equal artifact coverage truth; current wall-clock time never invents coverage.
+5. Sum of window member activity = window projection activity total = distribution activity total.
+6. Fixed unit membership = overview unit total = row/pagination total = Decision Mode queue total = distribution entity count.
+7. Unique active entities = overview active total = distribution nonzero-activity count, and it is always less than or equal to fixed membership.
+8. Time Context bucket sum = projection activity total for additive measures.
+9. Parent/child/root fixed membership reconciliation remains unchanged from the accepted candidate.
+10. Empty window projection is ready with the full fixed membership, zero active entities, zero activity, explicit zero distribution values, and no stale bars.
+11. Requested/effective date bounds and visible latest date equal artifact coverage truth; current wall-clock time never invents coverage.
 
 ## Migration and rebuild implications
 
@@ -258,16 +259,16 @@ August coverage may be displayed only when the effective candidate artifact prov
 
 ### Runtime/API/UI
 
-9. `web/src/lib/runtime/gmailCleanupWorkspace.ts` — projection request/cache identity, single-flight ownership, and exact active-entity parity.
+9. `web/src/lib/runtime/gmailCleanupWorkspace.ts` — projection request/cache identity, single-flight ownership, fixed-membership parity, and separate active-entity measures.
 10. `web/src/app/api/integrations/gmail/inbox-analysis/route.ts` — parse the projection action/window identity and return structured bounded failures.
-11. `web/src/app/agents/[id]/operations/review/page.tsx` — one projection authority for overview, rows, pagination, Decision Mode, distribution, and Time Context; explicit fixed-versus-active labels.
+11. `web/src/app/agents/[id]/operations/review/page.tsx` — preserve one fixed-membership authority for overview, rows, pagination, and Decision Mode while applying one observation authority to distribution measures and Time Context; explicit fixed-versus-active labels.
 12. `web/src/app/agents/[id]/operations/intelligence/page.tsx` — narrow empty-seed rejection and provenance-safe Pressure Trend state.
 13. `web/src/components/runtime/GmailCleanupComponents.tsx` — render separate fixed-membership and window-active truth plus coverage/provenance explanation.
 
 ### Fixtures
 
 14. `web/scripts/review-unit-window-projection-contract-fixtures.mjs` — generic sender-independent crypto/tax/entity fixtures.
-15. `web/scripts/gmail-review-unit-window-projection-contract-fixtures.mjs` — Gmail adapter parity, empty window, coverage, and active-entity reconciliation.
+15. `web/scripts/gmail-review-unit-window-projection-contract-fixtures.mjs` — Gmail adapter parity, zero-activity member retention, empty window, coverage, and active-entity reconciliation.
 16. `web/scripts/gmail-pressure-trend-contract-fixtures.mjs` — empty-seed/coverage regression cases.
 17. `web/package.json` — exact fixture commands only.
 
@@ -326,7 +327,7 @@ Required review-route rows:
 - 1M -> Custom inside coverage;
 - Custom end beyond coverage, visibly clamped/explained;
 - Custom -> All Indexed cached return;
-- Decision Mode open/close on All Indexed and one narrowed active projection;
+- Decision Mode open/close on All Indexed and one narrowed observation window, with the same fixed membership denominator;
 - valid ready-empty window;
 - fresh context cold load with no warm-cache dependence.
 
@@ -334,7 +335,7 @@ Every row must prove:
 
 - stable `review_unit_id` unchanged;
 - fixed unit total, active entity total, activity total;
-- row/pagination/Decision/distribution parity;
+- fixed row/pagination/Decision/distribution membership parity plus separately reconciled active and activity measures;
 - Time Context/trend sum and visible range;
 - final settled UI, DOM/state, aligned request trace, console/overlay status, and guard-churn classification.
 
