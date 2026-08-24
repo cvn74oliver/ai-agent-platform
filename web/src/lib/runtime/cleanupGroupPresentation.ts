@@ -12,7 +12,11 @@ import {
   type CleanupCanonicalGroupDescriptor,
   type GmailCleanupGroupLane,
 } from '@/lib/runtime/gmailCleanupClusterIdentity'
-import { gmailSemanticFamilyDisplayLabel } from '@/lib/runtime/gmailSemanticPresentationPolicy'
+import {
+  gmailCleanupParentDisplayTitle,
+  gmailCleanupReviewUnitDisplayLabel,
+  gmailSemanticFamilyDisplayLabel,
+} from '@/lib/runtime/gmailSemanticPresentationPolicy'
 
 export type CleanupGroupSectionId = GmailCleanupGroupLane
 
@@ -106,6 +110,7 @@ export type CleanupGroupPublishedReviewUnit = {
   groupSharePct: number
   sourceKind: GmailCleanupGroupReviewUnit['source_kind']
   sourceKey: string
+  decompositionPath: string[]
   unitRole: GmailCleanupGroupReviewUnit['unit_role']
   basis: GmailCleanupGroupReviewUnitBasis
   semanticFamily: GmailSemanticFamily | null
@@ -120,6 +125,109 @@ export type CleanupGroupPublishedReviewUnit = {
   tone: CleanupGroupInternalPattern['tone']
   familySharePct: number
   honestyLabel: string
+}
+
+export type CleanupGroupPresentationPartitionBlueprint = {
+  id: string
+  title: string
+  whyExists: string
+  startWith: string | null
+  unitIds: string[]
+}
+
+export type CleanupGroupPresentationPartition<TUnit> = Omit<
+  CleanupGroupPresentationPartitionBlueprint,
+  'unitIds'
+> & {
+  reviewUnits: TUnit[]
+  senderCount: number
+}
+
+export type CleanupGroupPresentationPartitionResult<TUnit> = {
+  partitions: CleanupGroupPresentationPartition<TUnit>[]
+  errors: string[]
+}
+
+function normalizedHumanLabel(value: string): string {
+  return value.trim().toLocaleLowerCase().replace(/\s+/g, ' ')
+}
+
+export function findDuplicateCleanupReviewUnitLabels<TUnit extends { label: string }>(
+  reviewUnits: TUnit[]
+): string[] {
+  const counts = new Map<string, number>()
+  for (const unit of reviewUnits) {
+    const key = normalizedHumanLabel(unit.label)
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .filter(([, count]) => count > 1)
+    .map(([label]) => label)
+    .sort()
+}
+
+export function buildCleanupGroupPresentationPartitions<
+  TUnit extends { id: string; senderCount: number },
+>(params: {
+  parentId: string
+  parentSenderCount: number | null
+  reviewUnits: TUnit[]
+  blueprints: CleanupGroupPresentationPartitionBlueprint[]
+}): CleanupGroupPresentationPartitionResult<TUnit> {
+  const errors: string[] = []
+  const unitById = new Map(params.reviewUnits.map((unit) => [unit.id, unit]))
+  const assignedUnitIds = new Set<string>()
+  const partitions: CleanupGroupPresentationPartition<TUnit>[] = []
+
+  for (const blueprint of params.blueprints) {
+    const reviewUnits: TUnit[] = []
+    for (const unitId of blueprint.unitIds) {
+      const unit = unitById.get(unitId)
+      if (!unit) {
+        errors.push(`${params.parentId}: presentation group ${blueprint.id} references missing unit ${unitId}`)
+        continue
+      }
+      if (assignedUnitIds.has(unitId)) {
+        errors.push(`${params.parentId}: review unit ${unitId} appears in more than one presentation group`)
+        continue
+      }
+      assignedUnitIds.add(unitId)
+      reviewUnits.push(unit)
+    }
+    if (reviewUnits.length === 0) {
+      errors.push(`${params.parentId}: presentation group ${blueprint.id} is empty`)
+      continue
+    }
+    partitions.push({
+      id: blueprint.id,
+      title: blueprint.title,
+      whyExists: blueprint.whyExists,
+      startWith: blueprint.startWith,
+      reviewUnits,
+      senderCount: reviewUnits.reduce((sum, unit) => sum + unit.senderCount, 0),
+    })
+  }
+
+  for (const unit of params.reviewUnits) {
+    if (!assignedUnitIds.has(unit.id)) {
+      errors.push(`${params.parentId}: review unit ${unit.id} is missing from presentation groups`)
+    }
+  }
+
+  const partitionSenderCount = partitions.reduce(
+    (sum, partition) => sum + partition.senderCount,
+    0
+  )
+  if (
+    params.parentSenderCount == null ||
+    partitionSenderCount !== params.parentSenderCount
+  ) {
+    errors.push(
+      `${params.parentId}: presentation totals ${partitionSenderCount} do not equal parent total ${params.parentSenderCount ?? 'unknown'}`
+    )
+  }
+
+  return { partitions, errors }
 }
 
 const CLEANUP_GROUP_DEFAULT_REVIEW_UNIT_FAMILY_BY_CANONICAL_ID: Partial<
@@ -146,7 +254,7 @@ export type CleanupGroupSectionSummary<T> = CleanupGroupUiSection & {
 
 type CleanupGroupUiMeta = {
   sectionId: CleanupGroupSectionId
-  laneLabel: 'Action lane' | 'Backlog lane' | 'Coverage lane' | 'Secondary lane' | 'Context lane'
+  laneLabel: 'Start here' | 'Older items' | 'Review carefully' | 'Optional' | 'Reference only'
   whyExists: string
   startWith: string | null
 }
@@ -163,45 +271,45 @@ const FALLBACK_SURFACE_META: CleanupGroupSurfaceMeta = {
 
 const FALLBACK_UI_META: CleanupGroupUiMeta = {
   sectionId: 'action',
-  laneLabel: 'Action lane',
-  whyExists: 'Grouped into the current cleanup snapshot as a sender-first review pass.',
+  laneLabel: 'Start here',
+  whyExists: 'This group brings together related items for one manageable review pass.',
   startWith: null,
 }
 
 export const CLEANUP_GROUP_UI_SECTIONS: CleanupGroupUiSection[] = [
   {
     id: 'action',
-    title: 'Action',
+    title: 'Start Here',
     description:
-      'Primary workflow lane. Start here when artifact truth supports a coherent semantic parent worth opening first.',
+      'The best place to begin. These items have a clear pattern and usually offer the fastest useful progress.',
     defaultExpanded: true,
   },
   {
     id: 'backlog',
-    title: 'Backlog',
+    title: 'Work Through Older Items',
     description:
-      'Use this when you want a deliberate backlog pass. It stays top-level because workflow state matters more than one semantic family.',
+      'Use this stage to work through older or repeatedly ignored items after the clearest opportunities.',
     defaultExpanded: true,
   },
   {
     id: 'coverage',
-    title: 'Coverage',
+    title: 'Review Carefully',
     description:
-      'Safety and unresolved lanes stay visible for caution and completeness, but they are not the default place to begin.',
+      'These items are unclear, sensitive, or likely worth keeping. Review them individually instead of making a broad decision.',
     defaultExpanded: true,
   },
   {
     id: 'secondary',
-    title: 'Secondary',
+    title: 'Optional Specialized Groups',
     description:
-      'Optional exploration only. These smaller coherent clusters stay available without entering the primary decision flow.',
+      'Use these focused groups when they match the work you want to do. They are useful, but not required for the main guided flow.',
     defaultExpanded: false,
   },
   {
     id: 'context',
-    title: 'Context',
+    title: 'Reference Only',
     description:
-      'Historical coverage stays available for completeness, but it remains visually and behaviorally demoted.',
+      'Historical information stays available for understanding the full picture, but there is no decision to make here.',
     defaultExpanded: false,
   },
 ]
@@ -223,12 +331,12 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
   if (descriptor.lane === 'action') {
     return {
       sectionId: 'action',
-      laneLabel: 'Action lane',
+      laneLabel: 'Start here',
       whyExists:
-        'This is the only current semantic parent earning top-level action-lane status under artifact truth.',
+        'These senders share a clear purpose, so they are the easiest useful place to begin.',
       startWith:
         canonicalClusterId === 'semantic.marketing_subscriptions'
-          ? 'Offer campaigns first · Product updates next'
+          ? 'Deals and special offers first · Product updates next'
           : null,
     }
   }
@@ -236,21 +344,21 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
   if (descriptor.lane === 'backlog') {
     return {
       sectionId: 'backlog',
-      laneLabel: 'Backlog lane',
+      laneLabel: 'Older items',
       whyExists:
-        'This stays top-level because backlog state is the real organizing frame, not one semantic category.',
-      startWith: 'Unread first · Highest-volume backlog',
+        'These senders have been quiet or ignored for a long time, so age matters more than the type of email they send.',
+      startWith: 'The oldest and most frequently ignored items',
     }
   }
 
   if (descriptor.lane === 'coverage') {
     return {
       sectionId: 'coverage',
-      laneLabel: 'Coverage lane',
+      laneLabel: 'Review carefully',
       whyExists:
         descriptor.groupType === 'protected'
-          ? 'Protected and trusted senders stay visible here for caution, not as a default cleanup start.'
-          : 'Mixed or low-evidence senders stay visible here for coverage until stronger artifact truth exists.',
+          ? 'These senders appear important or trusted, so the system keeps them visible and avoids recommending broad cleanup.'
+          : 'The system does not yet have enough evidence for a confident recommendation, so these senders need a closer look.',
       startWith: null,
     }
   }
@@ -258,9 +366,9 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
   if (descriptor.lane === 'secondary') {
     return {
       sectionId: 'secondary',
-      laneLabel: 'Secondary lane',
+      laneLabel: 'Optional',
       whyExists:
-        'This is an optional exploration group only. It remains available without becoming an equal-weight entry point.',
+        'This is a useful focused category when it matches your goal, but you do not need to complete it to follow the main flow.',
       startWith: null,
     }
   }
@@ -268,9 +376,9 @@ function cleanupGroupUiMeta(clusterId: string): CleanupGroupUiMeta {
   if (descriptor.lane === 'context') {
     return {
       sectionId: 'context',
-      laneLabel: 'Context lane',
+      laneLabel: 'Reference only',
       whyExists:
-        'Historical coverage stays visible for completeness, but it is intentionally reduced and not treated as an active start lane.',
+        'These senders are shown only to explain historical coverage. They are already outside the active inbox and need no review action.',
       startWith: null,
     }
   }
@@ -355,6 +463,13 @@ export function getCleanupGroupWhyExists(clusterId: string): string {
 
 export function getCleanupGroupStartWith(clusterId: string): string | null {
   return cleanupGroupUiMeta(clusterId).startWith
+}
+
+export function getCleanupGroupDisplayTitle(
+  clusterId: string,
+  fallbackTitle: string
+): string {
+  return gmailCleanupParentDisplayTitle(cleanupGroupCanonicalId(clusterId), fallbackTitle)
 }
 
 export function sortCleanupGroupsForUi<T>(
@@ -750,10 +865,10 @@ function reviewUnitTargetState(senderCount: number): CleanupGroupPublishedReview
 }
 
 function reviewUnitTargetLabel(targetState: CleanupGroupPublishedReviewUnitTargetState): string {
-  if (targetState === 'oversized') return 'Blocking: above hard max'
-  if (targetState === 'near_cap') return 'Near cap'
-  if (targetState === 'under_target') return 'Small but valid'
-  return 'Target size'
+  if (targetState === 'oversized') return 'Too large to open safely'
+  if (targetState === 'near_cap') return 'Larger group'
+  if (targetState === 'under_target') return 'Small focused group'
+  return 'Manageable group'
 }
 
 function reviewUnitGuidance(params: {
@@ -809,11 +924,12 @@ export function buildCleanupGroupPublishedReviewUnits(
     const targetState = reviewUnitTargetState(senderCount)
     return {
       id: unit.unit_id,
-      label: unit.label,
+      label: gmailCleanupReviewUnitDisplayLabel({ unit }),
       senderCount,
       groupSharePct: Math.max(0, Math.min(unit.share_pct, 100)),
       sourceKind: unit.source_kind,
       sourceKey: unit.source_key,
+      decompositionPath: unit.decomposition_path || [],
       unitRole: unit.unit_role,
       basis: unitPlan.basis,
       semanticFamily,
@@ -980,13 +1096,13 @@ export function buildCleanupGroupIntentSnapshotsForUi<T>(params: {
     {
       id: 'manageable_impact',
       title: 'Highest manageable impact',
-      description: 'Best next lane when you want the strongest payoff without opening an endless pass.',
+      description: 'Best next group when you want the strongest payoff without opening an endless pass.',
       group: manageableImpact?.group || null,
     },
     {
       id: 'backlog_reduction',
-      title: 'Backlog-focused option',
-      description: 'Best next lane when you want to reduce older buildup on purpose.',
+      title: 'Older-items option',
+      description: 'Best next group when you want to reduce older buildup on purpose.',
       group: backlogReduction?.group || null,
     },
   ]

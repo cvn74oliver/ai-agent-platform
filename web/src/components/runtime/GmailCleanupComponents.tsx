@@ -5683,24 +5683,27 @@ export function GmailSharedSenderCard(props: {
   const semanticPatternLabel = sharedSenderSemanticPatternBadge(props.sender)
   const semanticSubtitle = sharedSenderSemanticSubtitle(props.sender)
   const semanticSummary = sharedSenderSemanticSummary(props.sender)
-  const senderBadges = (
-    isOverviewMode
-      ? [
+  const senderBadges = Array.from(
+    new Set(
+      (isOverviewMode
+        ? [
           sharedSenderSignalLabel(props.sender.sender_signal),
           props.sender.requires_verification
             ? 'Needs verification'
             : props.sender.protected_hint
               ? 'Protected context'
               : null,
-        ]
-      : [
+          ]
+        : [
           semanticFamilyLabel,
           semanticPatternLabel,
           sharedSenderSignalLabel(props.sender.sender_signal),
           props.sender.protected_hint ? 'Protected signals' : null,
           props.sender.requires_verification ? 'Needs verification' : null,
-        ]
-  ).filter(Boolean) as string[]
+          ]
+      ).filter(Boolean) as string[]
+    )
+  )
 
   return (
     <article className={cardShellClass}>
@@ -6138,17 +6141,21 @@ function SenderCard(props: {
   const semanticPatternLabel = sharedSenderSemanticPatternBadge(props.sender)
   const semanticSubtitle = sharedSenderSemanticSubtitle(props.sender)
   const semanticSummary = sharedSenderSemanticSummary(props.sender)
-  const senderBadges = [
-    semanticFamilyLabel,
-    semanticPatternLabel,
-    props.sender.sender_signal === 'likely_machine_generated'
-      ? 'Likely automated'
-      : props.sender.sender_signal === 'likely_human'
-        ? 'Likely human'
-        : 'Mixed signal',
-    props.sender.protected_hint ? 'Protected signals' : null,
-    props.sender.requires_verification ? 'Needs verification' : null,
-  ].filter(Boolean) as string[]
+  const senderBadges = Array.from(
+    new Set(
+      [
+        semanticFamilyLabel,
+        semanticPatternLabel,
+        props.sender.sender_signal === 'likely_machine_generated'
+          ? 'Likely automated'
+          : props.sender.sender_signal === 'likely_human'
+            ? 'Likely human'
+            : 'Mixed signal',
+        props.sender.protected_hint ? 'Protected signals' : null,
+        props.sender.requires_verification ? 'Needs verification' : null,
+      ].filter(Boolean) as string[]
+    )
+  )
   const hasDraftPolicy = props.policy !== 'undecided'
   const committedPolicy = props.committedState
     ? policyFromDestinationState(props.committedState.destinationState)

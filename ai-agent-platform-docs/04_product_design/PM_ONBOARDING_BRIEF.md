@@ -155,6 +155,13 @@ Core Gmail truth:
 - senders are the decision units
 - messages are supporting evidence
 
+Reusable decision-group grammar:
+- the framework presents four actionable stages: `Start Here`, `Work Through Older Items`, `Review Carefully`, and `Optional Specialized Groups`
+- `Reference Only` remains visible for context but is not an actionable stage
+- adapters translate those stages into domain-specific subjects and plain-language child queues; the framework does not assume that every workspace has senders or emails
+- semantic membership and counts remain engine-owned, while user-facing nouns and explanations remain adapter-owned
+- presentation groups may make a large workflow easier to scan, but they remain non-persisted containers over exact engine-owned child units and cannot alter identity, membership, or totals
+
 ## Review Standard
 
 For UI or product-facing work:

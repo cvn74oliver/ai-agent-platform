@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-23 • unpublished candidate runtime verified • Cleanup Groups Human Review checkpoint one active • publication remains gated_
+_Last updated: 2026-08-24 • Cleanup Groups Human Review returned to bounded presentation correction • publication remains gated_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -24,8 +24,19 @@ _Last updated: 2026-08-23 • unpublished candidate runtime verified • Cleanup
 - [x] Reconcile the retired retail parent into canonical System Notifications / Needs Review and re-finalize the same candidate without another mailbox scan or artifact build.
 - [x] Validate the unpublished taxonomy contract: `7` parents, all actionable parents child-complete, exact one-child membership, exact parent/root reconciliation, Context no-action, largest child `296`.
 - [x] Validate candidate counts and all `60/60` actionable child routes through the development-only artifact override; complete static/build, lifecycle, linked-count, and largest-child bounded-load proof.
-- [ ] Record Oliver's explicit Cleanup Groups Human Review checkpoint-one decision on parent/child names, intuitiveness, and navigation.
-- [ ] After checkpoint-one acceptance, integrate and verify the preserved Sender Distribution and Pressure Trend lineage on the shared `review_unit_id` before any publication decision.
+- [x] Record Oliver's Cleanup Groups Human Review checkpoint-one return: counts/groupings are valuable, but technical parent/child copy and a cold-load zero-row lifecycle defect block acceptance.
+- [x] Approve the reusable presentation contract: four actionable workflow stages (`Start Here`, `Work Through Older Items`, `Review Carefully`, `Optional Specialized Groups`) plus informational `Reference Only`; adapters supply domain child vocabulary.
+- [x] Reproduce the exact Commerce Shipping Updates cold route in a fresh authenticated browser context and capture the initial workspace request/state transition without changing the analysis window.
+- [x] Correct the cold-load request/state lifecycle so a valid child loads rows on first settled entry; reject count-contradicting cache entries and never reuse an already-aborted in-flight request.
+- [x] Replace technical Gmail-facing parent/child/support copy with plain-language adapter presentation, remove duplicate support sentences, and disambiguate remainder labels by parent scope without changing stable IDs or membership.
+- [x] Run targeted tests and post-settle Playwright cold-load, child-switch, Decision Mode close/return, count-parity, request-trace, and visible-copy proof. TypeScript and targeted lint pass; focused contract fixture passes; the full build remains previously proven and was not redundantly rerun for this bounded correction.
+- [x] Record Oliver's 2026-08-24 Human Review return: overall direction and counts are accepted as valuable, but duplicate child labels, unclear activity/volume wording, weak recommendation rationale, and the oversized protected presentation group block checkpoint-one acceptance.
+- [x] Add framework-level presentation validation for unique visible child choices, subject-aware metric wording, and bounded decision-group workloads while keeping adapter-owned domain vocabulary and persisted unit identity unchanged.
+- [x] Split the `1,867`-sender protected presentation group into exact disjoint contexts `273 / 359 / 711 / 524` from its existing child units; preserve protected membership and global `5,024` reconciliation.
+- [x] Run focused fixtures plus post-settle Playwright cold-load/switch/Decision Mode proof; the canonical chooser, four representative children, and exact Decision Mode return pass without recurring heavy requests.
+- [x] Record Oliver's explicit Cleanup Groups checkpoint-one `ACCEPT`: names, explanations, starting guidance, and bite-sized flow are accepted as usable.
+- [x] Create Recovery Contract: `CHANGELOG.md` -> `August 24, 2026 — ACE-048 Framework-First Cleanup Groups Presentation Accepted`.
+- [ ] Begin a separately bounded Sender Distribution and Pressure Trend linked-surface reconciliation on the shared `review_unit_id` before any publication decision; preserve accepted Cleanup Groups behavior unchanged.
 
 ### Historical active heading retained below
 

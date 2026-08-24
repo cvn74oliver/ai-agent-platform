@@ -1,14 +1,14 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-08-23
+Last updated: 2026-08-24
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: AWAITING DECISION — CLEANUP GROUPS HUMAN REVIEW CHECKPOINT ONE
+Status: CLEANUP GROUPS ACCEPTED — CHARTS AND LINKED-SURFACE RECONCILIATION NEXT
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: unpublished candidate built, reconciled, and runtime-verified; Cleanup Groups Human Review checkpoint one active
+- Execution phase: Cleanup Groups checkpoint one accepted; Sender Distribution and Pressure Trend linked-surface reconciliation is next; candidate data and publication remain unchanged
 - Problem class: mixed but decomposed — index freshness, stale artifact coverage, Pressure Trend bounds, and unintegrated Cleanup Groups / sender-distribution lineage
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -39,7 +39,18 @@ Status: AWAITING DECISION — CLEANUP GROUPS HUMAN REVIEW CHECKPOINT ONE
 - [x] Pass exact candidate taxonomy audit: `7` parents, every actionable parent child-complete, Context no-action, largest child `296`, all child/parent/root totals exact
 - [x] Rerun static/build correction proof and complete candidate-version Playwright on the canonical Cleanup Groups route: `60/60` child routes plus full child lifecycle PASS/HIGH
 - [x] Prove bounded largest-child load: `296` senders, one workspace plus one paginated distribution family, query concurrency `1`, zero steady polling/retry/`409`
-- [ ] Hold Cleanup Groups Human Review checkpoint one before any publication decision
+- [x] Hold Cleanup Groups Human Review checkpoint one; result returned to correction with counts/groupings preserved
+- [x] Lock four universal actionable stages plus informational Reference Only; domain adapters own child vocabulary
+- [x] Fix exact fresh-child cold load so rows settle without an analysis-window toggle
+- [x] Replace technical Gmail copy, duplicate support text, and ambiguous remainder/percentage language without changing membership
+- [x] Pass post-settle cold-load, switching, Decision Mode return, linked-count, and request-budget proof
+- [x] Record Oliver's Human Review return on duplicate labels, ambiguous metrics, recommendation rationale, and oversized protected workload
+- [x] Enforce unique visible choices and subject-aware metric wording through the generic presentation contract plus adapter vocabulary
+- [x] Split the protected presentation workload into exact disjoint contexts `273 / 359 / 711 / 524` while preserving `1,867` membership and global `5,024` parity
+- [x] Pass focused fixtures and post-settle browser correction proof, including canonical cold load, four representative child transitions, and exact Decision Mode close/return
+- [x] Return the corrected Cleanup Groups surface for focused Human Review before any publication decision
+- [x] Record Oliver's explicit checkpoint-one `ACCEPT` and Recovery Contract
+- [ ] Execute the separately bounded Sender Distribution and Pressure Trend linked-surface reconciliation without regressing accepted Cleanup Groups behavior
 
 ## Immediate Human Review return
 

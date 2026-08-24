@@ -1,3 +1,55 @@
+### August 24, 2026 — ACE-048 Framework-First Cleanup Groups Presentation Accepted
+
+Accepted invariant:
+- The platform engine owns stable child identity, mutually exclusive membership, bounded review units, exact reconciliation, and validation; domain adapters own only vocabulary and meaningful presentation grouping hints.
+- Actionable Cleanup Groups expose intuitive child choices with no broad-parent review shortcut. Reference-only context remains informational and non-actionable.
+- Human-facing labels must be unique inside each visible decision group and explain subject, recency, and supporting volume without leaking internal taxonomy terminology.
+- Presentation groups may organize existing exact children into manageable cognitive sections, but they must not change persisted unit IDs, membership, or totals.
+- A selected child must populate on the first settled load and preserve the same nonzero child workspace across Decision Mode open and close without requiring an analysis-window toggle.
+
+Source layer fixed:
+- Domain-neutral Cleanup Groups presentation contract, Gmail presentation adapter, and selected-child workspace lifecycle
+
+Root cause:
+- Internal Gmail taxonomy labels were rendered too directly, producing duplicated or technical choices and ambiguous recency/volume language.
+- One protected parent presented `1,867` senders as a single cognitive workload even though its existing exact children could be arranged into smaller meaningful contexts.
+- Cached zero-row child state and aborted in-flight request reuse could leave sender rows empty on first entry even when published child totals were valid.
+
+Touched files:
+- `web/src/lib/runtime/cleanupGroupPresentation.ts`
+- `web/src/lib/runtime/gmailSemanticPresentationPolicy.ts`
+- `web/src/lib/runtime/gmailCleanupWorkspace.ts`
+- `web/src/app/agents/[id]/operations/clusters/page.tsx`
+- `web/src/app/agents/[id]/operations/review/page.tsx`
+- `web/src/components/runtime/GmailCleanupComponents.tsx`
+- `web/scripts/gmail-review-unit-contract-fixtures.mjs`
+
+Acceptance proof:
+- Oliver explicitly returned `ACCEPT` on 2026-08-24 and confirmed the workflow is usable, the starting recommendation makes sense, and the framework-first direction is safe to proceed.
+- The root reconciles to `5,024`; the former protected workload reconciles exactly as `273 + 359 + 711 + 524 = 1,867`; every visible child label is unique within its decision group; no broad-parent review action is present.
+- Crypto-position and tax transaction/document fixtures pass through the same generic engine, proving that the contract does not require Gmail senders or email vocabulary.
+- Authenticated post-settle Playwright passed the canonical chooser, representative `28 / 205 / 170 / 239` child entries, and exact Decision Mode close/return. The `28`-sender child retained `13` visible rows after return.
+- Console errors/warnings were zero; no `409`, recurring heavy request, Smart Sync, rebuild, reindex, publication, or Supabase-wide scan occurred. The request trace remained unchanged during a final `20s` hold.
+
+Acceptance boundary:
+- This Recovery Contract accepts Cleanup Groups presentation grammar, exact presentation grouping, child-first navigation, cold child population, and Decision Mode close/return.
+- It does not accept Sender Distribution or Pressure Trend visual truth, full linked-surface parity, candidate publication, local-main promotion, commit, push, deployment, or worktree retirement.
+- Gmail remains the reference adapter only. Future domains must declare their own decision subject and vocabulary while reusing the engine-owned identity, membership, sizing, and reconciliation contract.
+
+Replay steps:
+1. Start the accepted candidate at `http://localhost:3000` with the approved unpublished artifact override and authenticate through the persisted-auth flow.
+2. Open the canonical Cleanup Groups route and wait for the settled chooser with root `5,024`, unique child labels, no broad-parent CTA, and informational Reference Only.
+3. Confirm the protected presentation contexts total `273 / 359 / 711 / 524` and reconcile to `1,867` without changing child identities.
+4. Open representative children from each protected context and confirm stable `review_unit` route identity, exact displayed totals, and nonzero sender rows on first settled load.
+5. Enter and close Decision Mode on the `28`-sender child; require the same child URL and `13` visible rows after return, with zero console errors, guard churn, or steady recurring heavy requests.
+
+Rollback guidance:
+- Revert only the scoped presentation-policy, generic presentation-contract, chooser, and selected-child lifecycle changes in a controlled branch/worktree.
+- Do not mutate or republish the semantic candidate as part of rollback; persisted child identity and membership were not changed by this accepted presentation layer.
+- Expected rollback symptoms include duplicated/technical labels, the single `1,867`-sender protected workload, ambiguous recency/volume wording, broad-parent shortcuts, or a first-load/Decision Mode return that leaves child rows empty.
+
+---
+
 ### August 15, 2026 — ACE-048 Main Contracts A/B Sender-Distribution Scope Truth Accepted
 
 Accepted invariant:

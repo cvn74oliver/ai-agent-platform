@@ -1404,6 +1404,7 @@ const GMAIL_RUNTIME_SUMMARY_STORAGE_PREFIX = 'gmail.runtime.summary.v1'
 const gmailCleanupRuntimeGlobal = globalThis as typeof globalThis & {
   __gmailInboxAnalysisClientCache?: Map<string, CachedInboxAnalysisEntry<unknown>>
   __gmailInboxAnalysisClientInflight?: Map<string, Promise<unknown>>
+  __gmailInboxAnalysisClientInflightSignals?: Map<string, AbortSignal | null>
   __gmailRuntimeSummaryClientCache?: Map<string, CachedInboxAnalysisEntry<unknown>>
   __gmailRuntimeSummaryClientInflight?: Map<string, Promise<unknown>>
 }
@@ -1419,6 +1420,14 @@ const gmailInboxAnalysisClientInflight =
   gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight || new Map<string, Promise<unknown>>()
 if (!gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight) {
   gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflight = gmailInboxAnalysisClientInflight
+}
+
+const gmailInboxAnalysisClientInflightSignals =
+  gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflightSignals ||
+  new Map<string, AbortSignal | null>()
+if (!gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflightSignals) {
+  gmailCleanupRuntimeGlobal.__gmailInboxAnalysisClientInflightSignals =
+    gmailInboxAnalysisClientInflightSignals
 }
 
 const gmailRuntimeSummaryClientCache =
@@ -1817,8 +1826,13 @@ async function requestCachedInboxAnalysis<T>(params: {
   }
 
   const inflight = gmailInboxAnalysisClientInflight.get(params.cacheKey)
-  if (inflight) {
+  const inflightSignal = gmailInboxAnalysisClientInflightSignals.get(params.cacheKey)
+  if (inflight && !inflightSignal?.aborted) {
     return (await inflight) as GmailInboxAnalysisResult<T>
+  }
+  if (inflight) {
+    gmailInboxAnalysisClientInflight.delete(params.cacheKey)
+    gmailInboxAnalysisClientInflightSignals.delete(params.cacheKey)
   }
 
   const request = (async (): Promise<GmailInboxAnalysisResult<T>> => {
@@ -1905,10 +1919,14 @@ async function requestCachedInboxAnalysis<T>(params: {
   })()
 
   gmailInboxAnalysisClientInflight.set(params.cacheKey, request as Promise<unknown>)
+  gmailInboxAnalysisClientInflightSignals.set(params.cacheKey, params.signal || null)
   try {
     return await request
   } finally {
-    gmailInboxAnalysisClientInflight.delete(params.cacheKey)
+    if (gmailInboxAnalysisClientInflight.get(params.cacheKey) === request) {
+      gmailInboxAnalysisClientInflight.delete(params.cacheKey)
+      gmailInboxAnalysisClientInflightSignals.delete(params.cacheKey)
+    }
   }
 }
 
@@ -2946,6 +2964,25 @@ export async function fetchGmailPressureTrend(params: {
   })
 }
 
+export function gmailSenderWorkspaceMatchesExpectedReviewUnitCount(params: {
+  reviewUnitId?: string | null
+  expectedReviewUnitSenderCount?: number | null
+  actualReviewUnitSenderCount: number
+}): boolean {
+  const reviewUnitId = params.reviewUnitId?.trim() || null
+  const expectedReviewUnitSenderCount =
+    typeof params.expectedReviewUnitSenderCount === 'number' &&
+    Number.isFinite(params.expectedReviewUnitSenderCount)
+      ? Math.max(0, Math.round(params.expectedReviewUnitSenderCount))
+      : null
+
+  return (
+    !reviewUnitId ||
+    expectedReviewUnitSenderCount == null ||
+    params.actualReviewUnitSenderCount === expectedReviewUnitSenderCount
+  )
+}
+
 export async function fetchGmailSenderWorkspace(params: {
   selectedCluster: GmailCleanupClusterRef
   allClusters: GmailCleanupClusterRef[]
@@ -2960,6 +2997,7 @@ export async function fetchGmailSenderWorkspace(params: {
   direction?: GmailSenderWorkspaceSortDirection
   semanticFocus?: GmailSenderWorkspaceSemanticFocus | null
   reviewUnitId?: string | null
+  expectedReviewUnitSenderCount?: number | null
   previewEvidenceSenderKey?: string | null
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
@@ -3129,6 +3167,15 @@ export async function fetchGmailSenderWorkspace(params: {
     errorMessage: 'Failed to load sender workspace.',
     signal: params.signal,
     acceptCachedData: (data) => {
+      if (
+        !gmailSenderWorkspaceMatchesExpectedReviewUnitCount({
+          reviewUnitId: params.reviewUnitId,
+          expectedReviewUnitSenderCount: params.expectedReviewUnitSenderCount,
+          actualReviewUnitSenderCount: data.pagination.total_senders,
+        })
+      ) {
+        return false
+      }
       if (
         !senderWorkspaceRequiresCanonicalTimeContextTimeline({
           analysisScope,

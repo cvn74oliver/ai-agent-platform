@@ -1,4 +1,5 @@
 import type {
+  GmailCleanupGroupReviewUnit,
   GmailSenderWorkspaceData,
   GmailSemanticFamily,
   GmailSemanticGroupPolicyMode,
@@ -107,23 +108,289 @@ export type GmailSemanticPresentationPolicy = {
 }
 
 export function gmailSemanticFamilyDisplayLabel(family: GmailSemanticFamily): string {
-  if (family === 'marketing_promotional') return 'Marketing / promotional'
-  if (family === 'commerce_transactional') return 'Commerce / shipping'
-  if (family === 'account_notification') return 'Account / service updates'
-  if (family === 'security_alert') return 'Security alerts'
-  if (family === 'social_community') return 'Social / community'
-  return 'Personal correspondence'
+  if (family === 'marketing_promotional') return 'Promotions and subscriptions'
+  if (family === 'commerce_transactional') return 'Orders, receipts, and shipping'
+  if (family === 'account_notification') return 'Account and service updates'
+  if (family === 'security_alert') return 'Login and security alerts'
+  if (family === 'social_community') return 'Social and community updates'
+  return 'Personal conversations'
 }
 
 export function gmailSemanticPatternClassDisplayLabel(
   patternClass: GmailSenderWorkspaceData['senders'][number]['semantic_pattern']['pattern_class']
 ): string {
-  if (patternClass === 'promotional_cycle') return 'Promotional cycle'
-  if (patternClass === 'transactional_cycle') return 'Transactional cycle'
-  if (patternClass === 'service_update_cycle') return 'Service / account updates'
-  if (patternClass === 'security_cycle') return 'Security alerts'
-  if (patternClass === 'social_activity_cycle') return 'Social activity'
-  return 'Human correspondence'
+  if (patternClass === 'promotional_cycle') return 'Recurring promotions and newsletters'
+  if (patternClass === 'transactional_cycle') return 'Orders, receipts, and shipping'
+  if (patternClass === 'service_update_cycle') return 'Account and service updates'
+  if (patternClass === 'security_cycle') return 'Login and security alerts'
+  if (patternClass === 'social_activity_cycle') return 'Social and community activity'
+  return 'Personal conversations'
+}
+
+const GMAIL_CLEANUP_PARENT_TITLES: Record<string, string> = {
+  'semantic.marketing_subscriptions': 'Promotions and subscriptions',
+  'structural.backlog': 'Older messages you rarely use',
+  'structural.unresolved': 'Unclear senders that need a closer look',
+  'structural.protected_trust': 'People and services you may want to keep',
+  'secondary.system_notifications': 'Account and service notifications',
+  'secondary.social_community': 'Social and community updates',
+  'context.historical': 'Older messages already outside your inbox',
+}
+
+const GMAIL_REVIEW_UNIT_LABELS: Record<string, string> = {
+  offer_campaign: 'Deals and special offers',
+  product_marketing_update: 'Product launches and updates',
+  editorial_newsletter: 'Newsletters and editorial updates',
+  marketing_promotional: 'Promotions and subscriptions',
+  commerce_transactional: 'Orders, receipts, and shipping',
+  commerce_shipping_updates: 'Orders and shipping updates',
+  invoices_receipts: 'Invoices and receipts',
+  account_notification: 'Account and service updates',
+  account_service_updates: 'Account and service updates',
+  general_updates: 'General updates',
+  alerts_security: 'Dedicated login and security alerts',
+  security_alert: 'Dedicated login and security alerts',
+  social_community: 'Social and community updates',
+  human_correspondence: 'Direct personal conversations',
+  human_personal: 'Direct personal conversations',
+  promotional_cycle: 'Recurring promotions and newsletters',
+  transactional_cycle: 'Transaction-related account updates',
+  service_update_cycle: 'Routine account and service updates',
+  security_cycle: 'Security-related account updates',
+  social_activity_cycle: 'Social and community activity',
+  human_correspondence_cycle: 'Automated messages that look personal',
+  protected_signal_override: 'Trusted based on account signals',
+  protected_legacy_protected_human_dominant: 'People you interact with often',
+  protected_legacy_protected_human_sender: 'Known individual senders',
+  too_few_safe_rows: 'Not enough evidence for a safe recommendation',
+  remainder: 'Other messages in this group',
+  spillover: 'Other messages in this group',
+}
+
+function normalizedDisplayKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+export function gmailCleanupParentDisplayTitle(
+  canonicalClusterId: string,
+  fallbackTitle: string
+): string {
+  return GMAIL_CLEANUP_PARENT_TITLES[canonicalClusterId] || fallbackTitle
+}
+
+export function gmailCleanupReviewUnitDisplayLabel(params: {
+  unit: Pick<
+    GmailCleanupGroupReviewUnit,
+    'label' | 'source_key' | 'source_kind' | 'decomposition_path'
+  >
+}): string {
+  const sourceKey = normalizedDisplayKey(params.unit.source_key)
+  const labelKey = normalizedDisplayKey(params.unit.label)
+
+  const decompositionPath = params.unit.decomposition_path || []
+  const pathValue = (dimension: string): string | null => {
+    const prefix = `${dimension}:`
+    const entry = decompositionPath.find((candidate) => candidate.startsWith(prefix))
+    return entry ? entry.slice(prefix.length) : null
+  }
+
+  if (params.unit.source_kind === 'spillover') {
+    const family = pathValue('family')
+    if (family === 'account_notification') return 'Other account and service messages'
+    if (family === 'commerce_transactional') return 'Other purchase and shipping messages'
+    if (family === 'marketing_promotional') return 'Other promotional messages'
+    return 'Other messages in this group'
+  }
+
+  if (params.unit.source_kind === 'volume_band') {
+    if (sourceKey === '1_message') return 'Received 1 email from each sender'
+    if (sourceKey === '2_5_messages') return 'Received 2–5 emails from each sender'
+    if (sourceKey === '6_20_messages') return 'Received 6–20 emails from each sender'
+    if (sourceKey === 'over_20_messages') return 'Received more than 20 emails from each sender'
+  }
+
+  if (params.unit.source_kind === 'recency_band') {
+    if (sourceKey === '0_30_days') return 'Last email from these senders was within 30 days'
+    if (sourceKey === '31_90_days') return 'Last email from these senders was 31–90 days ago'
+    if (sourceKey === '91_365_days') return 'Last email from these senders was 3–12 months ago'
+    if (sourceKey === 'over_365_days') return 'Last email from these senders was more than a year ago'
+    if (sourceKey === 'unknown') return 'Last email date is not available'
+  }
+
+  const mapped = GMAIL_REVIEW_UNIT_LABELS[sourceKey] || GMAIL_REVIEW_UNIT_LABELS[labelKey]
+  if (mapped) return mapped
+
+  const label = params.unit.label.trim()
+  if (/^non[- ]promotional spillover(?: \/ exceptions)?$/i.test(label)) {
+    return 'Other messages in this group'
+  }
+  if (/^1 supporting message$/i.test(label)) return 'Only 1 email'
+  if (/supporting messages?/i.test(label)) {
+    return label.replace(/supporting messages?/i, 'emails')
+  }
+  if (/^active in 0[–-]30 days$/i.test(label)) return 'Emailed you in the last 30 days'
+  if (/^active in 31[–-]90 days$/i.test(label)) return 'Last emailed you 1–3 months ago'
+  if (/^active in 91[–-]365 days$/i.test(label)) return 'Last emailed you 3–12 months ago'
+  if (/^(?:active|inactive) over 365 days$/i.test(label)) {
+    return 'No email from them in over a year'
+  }
+  if (/unknown/i.test(label)) return 'Activity date is not available'
+
+  return label
+    .replace(/\btoo few safe rows\b/gi, 'Not enough evidence for a safe recommendation')
+    .replace(/\balerts security\b/gi, 'Login and security alerts')
+    .replace(/\bhuman correspondence\b/gi, 'Personal conversations')
+    .replace(/\binvoices receipts\b/gi, 'Invoices and receipts')
+    .replace(/\bprotected legacy protected human dominant\b/gi, 'People you interact with often')
+    .replace(/\bprotected legacy protected human sender\b/gi, 'Known individual senders')
+    .replace(/\bprotected signal override\b/gi, 'Trusted based on account signals')
+    .replace(/\bcommerce\s*\/\s*transactional\b/gi, 'Orders, receipts, and shipping')
+    .replace(/\bcommerce transactional\b/gi, 'Orders, receipts, and shipping')
+    .replace(/\bmarketing\s*\/\s*promotional\b/gi, 'Promotions and subscriptions')
+    .replace(/\bmarketing promotional\b/gi, 'Promotions and subscriptions')
+    .replace(/\baccount\s*\/\s*(?:service updates|notification)\b/gi, 'Account and service updates')
+    .replace(/\baccount notification\b/gi, 'Account and service updates')
+    .replace(/\bhuman personal\b/gi, 'Personal conversations')
+    .replace(/\bsocial\s*\/\s*community\b/gi, 'Social and community updates')
+    .replace(/\bsocial community\b/gi, 'Social and community updates')
+    .replace(/\bnon[- ]promotional other messages\b/gi, 'Other messages outside promotions')
+    .replace(/\bcycle\b/gi, 'activity')
+    .replace(/\bspillover(?: \/ exceptions)?\b/gi, 'other messages')
+    .replace(/\bsupporting messages?\b/gi, 'emails')
+}
+
+export type GmailCleanupPresentationReviewUnit = {
+  id: string
+  sourceKey: string
+  sourceKind: GmailCleanupGroupReviewUnit['source_kind']
+  decompositionPath: string[]
+}
+
+export type GmailCleanupPresentationPartitionBlueprint = {
+  id: string
+  title: string
+  whyExists: string
+  startWith: string | null
+  unitIds: string[]
+}
+
+function gmailReviewUnitPathHas(
+  unit: GmailCleanupPresentationReviewUnit,
+  dimension: string,
+  value: string
+): boolean {
+  return unit.decompositionPath.includes(`${dimension}:${value}`)
+}
+
+function gmailProtectedPresentationPartitionId(
+  unit: GmailCleanupPresentationReviewUnit
+): 'people' | 'account_security' | 'purchases' | 'services' {
+  if (
+    unit.sourceKey === 'protected_legacy_protected_human_dominant' ||
+    unit.sourceKey === 'protected_legacy_protected_human_sender' ||
+    gmailReviewUnitPathHas(unit, 'family', 'human_personal') ||
+    gmailReviewUnitPathHas(unit, 'pattern', 'human_correspondence_cycle')
+  ) {
+    return 'people'
+  }
+
+  if (
+    gmailReviewUnitPathHas(unit, 'family', 'security_alert') ||
+    gmailReviewUnitPathHas(unit, 'pattern', 'security_cycle') ||
+    gmailReviewUnitPathHas(unit, 'pattern', 'service_update_cycle') ||
+    (gmailReviewUnitPathHas(unit, 'family', 'account_notification') &&
+      unit.sourceKey !== 'non_promotional_spillover')
+  ) {
+    return 'account_security'
+  }
+
+  if (
+    gmailReviewUnitPathHas(unit, 'family', 'commerce_transactional') &&
+    !gmailReviewUnitPathHas(unit, 'pattern', 'promotional_cycle')
+  ) {
+    return 'purchases'
+  }
+
+  return 'services'
+}
+
+export function buildGmailCleanupPresentationPartitionBlueprints(params: {
+  canonicalClusterId: string
+  reviewUnits: GmailCleanupPresentationReviewUnit[]
+}): GmailCleanupPresentationPartitionBlueprint[] | null {
+  if (params.canonicalClusterId !== 'structural.protected_trust') return null
+
+  const idsByPartition = new Map<string, string[]>([
+    ['people', []],
+    ['account_security', []],
+    ['purchases', []],
+    ['services', []],
+  ])
+
+  for (const unit of params.reviewUnits) {
+    idsByPartition.get(gmailProtectedPresentationPartitionId(unit))?.push(unit.id)
+  }
+
+  return [
+    {
+      id: 'people',
+      title: 'People you know and trust',
+      whyExists:
+        'Direct conversations and known individual senders stay together so you can protect real relationships first.',
+      startWith: 'Known people and direct conversations',
+      unitIds: idsByPartition.get('people') || [],
+    },
+    {
+      id: 'account-security',
+      title: 'Account access and service alerts',
+      whyExists:
+        'Login, security, and important service messages stay together because they can affect access to accounts you use.',
+      startWith: 'Login and security alerts',
+      unitIds: idsByPartition.get('account_security') || [],
+    },
+    {
+      id: 'purchases',
+      title: 'Purchases, receipts, and shipping',
+      whyExists:
+        'Purchase history, receipts, invoices, and delivery updates stay together so you can decide what records are still useful.',
+      startWith: 'Invoices, receipts, and active shipping updates',
+      unitIds: idsByPartition.get('purchases') || [],
+    },
+    {
+      id: 'services',
+      title: 'Subscriptions and other services',
+      whyExists:
+        'Subscriptions, promotions, social updates, and other service messages stay together for a separate keep-or-cleanup pass.',
+      startWith: 'Subscriptions and recurring service messages',
+      unitIds: idsByPartition.get('services') || [],
+    },
+  ]
+}
+
+export function gmailCleanupCopyForHumans(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null
+  return value
+    .trim()
+    .replace(/\bartifact truth\b/gi, 'the saved analysis')
+    .replace(/\bcurrent artifact\b/gi, 'current saved analysis')
+    .replace(/\bsemantic parent\b/gi, 'main category')
+    .replace(/\bsemantic family\b/gi, 'message category')
+    .replace(/\bsemantic review context\b/gi, 'How this group behaves')
+    .replace(/\bstructural review context\b/gi, 'Why this group needs care')
+    .replace(/\bbacklog review context\b/gi, 'Why these items are older')
+    .replace(/\bsemantic mix\b/gi, 'message mix')
+    .replace(/\bsubtypes?\b/gi, 'smaller categories')
+    .replace(/\baction[- ]lane\b/gi, 'recommended starting group')
+    .replace(/\bbacklog lane\b/gi, 'older-items group')
+    .replace(/\bcoverage lane\b/gi, 'careful-review group')
+    .replace(/\bstructural group\b/gi, 'careful-review group')
+    .replace(/\bdominates\s+(\d+)%/gi, 'makes up $1% of this group')
+    .replace(/\bsupporting messages?\b/gi, 'emails')
+    .replace(/\bnon[- ]promotional spillover(?: \/ exceptions)?\b/gi, 'other messages in this group')
 }
 
 function formatPercent(value: number | null | undefined): string {

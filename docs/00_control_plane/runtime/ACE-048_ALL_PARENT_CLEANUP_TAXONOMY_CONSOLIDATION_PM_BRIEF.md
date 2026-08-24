@@ -1,6 +1,6 @@
 # ACE-048 All-Parent Cleanup Taxonomy Consolidation PM Brief
 
-Status: CANDIDATE BUILD AUTHORIZED — MIGRATION AND SAFETY PROOF COMPLETE
+Status: EXECUTION ACTIVE — HUMAN REVIEW PRESENTATION CORRECTION
 Owner: Project Manager
 Governing event: ACE-048
 Mode: approved Plan -> Execution continuation
@@ -40,6 +40,62 @@ Verification checkpoint — 2026-08-23:
 - Non-Gmail fixtures prove crypto position review (`520 = 230 + 190 + 100`) and two decision subjects inside one tax workspace: transactions (`450 = 200 + 150 + 100`) and documents (`350 = 180 + 170`).
 - TypeScript, targeted lint, diff validation, and the `63/63` production build pass. No runtime route, request family, database schema, artifact, publication pointer, sync state, or mailbox data changed.
 - Framework-first condition is satisfied for the bounded extraction. Migration application and one candidate semantic build remain a separate explicit Oliver decision.
+
+## Human Review correction contract — added 2026-08-23
+
+The candidate's exact membership and reconciled counts remain valid correction evidence. Human Review did not accept the visible workflow or the cold-load lifecycle.
+
+Universal operator flow:
+
+1. `Start Here` — clearest or highest-value decisions.
+2. `Work Through Older Items` — accumulated or deferred items that still need a decision.
+3. `Review Carefully` — uncertain, sensitive, protected, or exception-heavy items.
+4. `Optional Specialized Groups` — useful domain-specific queues outside the primary flow.
+
+`Reference Only` is collapsed and informational, has no review action, and is not counted as an actionable stage. These labels are platform workflow roles. A domain adapter supplies the decision-subject noun and human child labels: Gmail may show senders and email purposes; crypto may show positions or risk events; tax may show transactions or documents; medical work may show cases or results.
+
+Locked correction scope:
+
+- Preserve stable review-unit IDs, persisted membership, exact counts, candidate version, and active publication pointer.
+- Add a presentation-only mapping from internal parent/semantic identities to plain operator copy. Internal taxonomy names may remain in data and diagnostics but must not lead the user-facing workflow.
+- Replace `cycle`, `spillover`, `dormant low-attention`, and similar implementation language with direct domain wording. Remainder units must be parent-scoped, such as `Other messages in this group`, so repeated internal patterns do not appear to be duplicate queues.
+- Explain percentages as composition, for example `93% of this group is marketing and promotion`, rather than `dominates`.
+- Deduplicate supporting-details sentences before rendering.
+- Reproduce and fix the exact cold-load defect where a valid child shows correct header/distribution totals but zero sender rows until the analysis window changes. The accepted state is one initial scoped workspace request, nonzero first-load rows, and zero recurring heavy requests after settle.
+- The previous warmed-session all-child matrix does not satisfy this cold-load defect surface. Final proof must use a fresh authenticated context on the exact failing route, followed by child switching and Decision Mode close/return.
+
+Correction proof — 2026-08-23:
+
+- The four-stage platform presentation and Gmail-specific plain-language parent/child mapping render on the candidate chooser; actionable parents have no broad-parent review CTA and Reference Only has no review action.
+- The exact first-load mechanism was twofold: a zero-row cached workspace could contradict the published child manifest, and an aborted in-flight request could be reused by the replacement render. Cache acceptance now checks the expected child count, aborted requests are not reused, and older request cleanup cannot delete a newer live request.
+- A clean authenticated browser loaded the 138-sender Invoices and receipts child with 12 visible rows, opened Decision Mode on sender 1 of 138, and returned to the same child with 12 rows. Console errors/warnings were zero; no `409`, polling loop, Smart Sync, rebuild, publication, or repeated heavy request occurred.
+- Proof artifacts: `/private/tmp/ace048-cleanup-groups-human.png`; `/private/tmp/ace048-review-unit-cold-settled.png`; `web/.playwright-cli/ace048-decision-mode-invoices-clean.png`; `web/.playwright-cli/ace048-decision-close-return-clean.png`; trace `web/.playwright-cli/traces/trace-1787484656467.trace`.
+- Human Review return — 2026-08-24: Oliver accepted the overall direction and reconciled counts, but checkpoint one remains open. Duplicate visible child names, ambiguous time/volume wording, an under-explained `Start Here` recommendation, and the `1,867`-sender protected decision group require one bounded presentation correction.
+
+Locked framework correction:
+
+- The platform presentation contract enforces unique human-facing choices inside each decision group and a cognitive workload target of roughly `500–1,000` subjects per actionable presentation group. Persisted child hard limits remain unchanged.
+- Domain adapters provide the subject noun, plain-language time/volume descriptions, and meaningful semantic split axes. The generic framework must not contain Gmail sender categories.
+- Distinct persisted units with the same base label must be disambiguated using the next meaningful decomposition dimension; no ordinal, hash, or opaque suffix is allowed.
+- The Gmail adapter may arrange the existing protected child units into four presentation groups totaling `273 + 359 + 711 + 524 = 1,867`; unit IDs, child membership, and root `5,024` reconciliation remain unchanged.
+- `Start Here` guidance must explain why the recommended group is valuable using current evidence and lower decision ambiguity, not a stale hard-coded child count.
+- Metric copy must say what happened to which subject, for example when the last item arrived and how many supporting items exist, while the core contract remains domain-neutral.
+- No artifact rebuild, Smart Sync, Gmail reindex, publication, Supabase-wide scan, main promotion, push, deploy, or lineage retirement is authorized by this correction.
+
+Correction verification — 2026-08-24:
+
+- Generic contract enforcement now rejects duplicate human-facing choices and invalid presentation partitions; the Gmail adapter remains limited to domain vocabulary and meaningful presentation grouping hints.
+- The protected presentation contexts reconcile exactly to `273 + 359 + 711 + 524 = 1,867`, with stable persisted child identities and unchanged root `5,024` truth.
+- Authenticated post-settle Playwright proves the exact chooser, four representative child routes, and the `28`-sender child Decision Mode close/return lifecycle. The child retains `13` visible rows after return, console errors/warnings are zero, and no recurring request family appears during a final `20s` hold.
+- Verifier result: `PASS / HIGH` for the bounded correction. Human Review checkpoint one remains required and no Accepted Fix or publication authority is created.
+
+Human Review closeout — 2026-08-24:
+
+- Oliver returned `ACCEPT` and confirmed that the corrected Cleanup Groups flow is usable, understandable, and safe to carry forward under the framework-first architecture.
+- Cleanup Groups presentation and first-load/Decision Mode-return behavior are accepted under Recovery Contract `CHANGELOG.md` -> `August 24, 2026 — ACE-048 Framework-First Cleanup Groups Presentation Accepted`.
+- The next work unit is Sender Distribution and Pressure Trend linked-surface reconciliation. Candidate publication and every Git/deployment promotion gate remain closed.
+
+No artifact rebuild, Smart Sync, Gmail reindex, publication, Supabase-wide scan, main promotion, push, deploy, or lineage retirement is authorized by this correction.
 
 ## Scope and feature domain
 

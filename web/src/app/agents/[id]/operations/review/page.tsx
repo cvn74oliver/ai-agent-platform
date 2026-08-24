@@ -51,6 +51,7 @@ import {
   buildCleanupGroupInternalStructure,
   buildSemanticFocusFromPublishedReviewUnit,
   findCleanupGroupPublishedReviewUnit,
+  getCleanupGroupDisplayTitle,
   getCleanupGroupLaneLabel,
   type CleanupGroupPublishedReviewUnit,
 } from '@/lib/runtime/cleanupGroupPresentation'
@@ -8798,6 +8799,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       direction: semanticFocusWorkspaceOrdering.direction,
       semanticFocus: activeSemanticSubtypeFocusRequest,
       reviewUnitId,
+      expectedReviewUnitSenderCount:
+        isDerivedReviewUnitActive && activeDerivedReviewUnit
+          ? activeDerivedReviewUnit.senderCount
+          : null,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
     }
   }, [
@@ -8876,6 +8881,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       direction: plan.direction,
       semanticFocus: plan.semanticFocus,
       reviewUnitId: plan.reviewUnitId,
+      expectedReviewUnitSenderCount: plan.expectedReviewUnitSenderCount,
       timeContextBucketLabel: plan.timeContextBucketLabel,
       requestContext: {
         source: 'operations_review_page',
@@ -9211,8 +9217,21 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       renderedSemanticSubtypeFocus &&
       semanticFocusWorkspaceState.status === 'loading'
   )
+  const isReviewUnitPageTransitionLoading = Boolean(
+    mode === 'overview' &&
+      isDerivedReviewUnitActive &&
+      semanticFocusWorkspaceState.status !== 'ready' &&
+      semanticFocusWorkspaceState.status !== 'error'
+  )
   const isSenderWorkflowInlineLoading =
-    isOverviewSenderPageTransitionLoading || isSemanticFocusPageTransitionLoading
+    isOverviewSenderPageTransitionLoading ||
+    isSemanticFocusPageTransitionLoading ||
+    isReviewUnitPageTransitionLoading
+  const focusedSenderWorkflowLabel =
+    renderedSemanticSubtypeFocus?.label ||
+    (isDerivedReviewUnitActive
+      ? activeDerivedReviewUnit?.label || activeOverviewSubset?.label || 'selected smaller group'
+      : null)
   const senderWorkflowPagerClassName = 'w-full sm:max-w-[24rem] sm:ml-auto'
   const activeWorkflowNarrowing = Boolean(
     renderedSemanticSubtypeFocus ||
@@ -12392,7 +12411,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   }
 
   if (publishedReviewUnitEntryState) {
-    const parentTitle = selectedCluster?.title || 'Selected cleanup group'
+    const parentTitle = selectedCluster
+      ? getCleanupGroupDisplayTitle(selectedCluster.clusterId, selectedCluster.title)
+      : 'Selected cleanup group'
     const operationsQuery = serializeOperationsQuery(sessionId, analysisScope)
     const cleanupGroupsHref = `/agents/${agentId}/operations/clusters${operationsQuery}`
     const routeClusterId =
@@ -12532,7 +12553,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
   const activeReviewClusterId = sharedWorkflowSubset.parentClusterId || ''
   const activeReviewClusterTitle =
-    selectedCluster?.title || missingScopedClusterName || 'Selected cleanup group'
+    selectedCluster
+      ? getCleanupGroupDisplayTitle(selectedCluster.clusterId, selectedCluster.title)
+      : missingScopedClusterName || 'Selected cleanup group'
   const sharedWorkflowSubsetRouteSubset = sharedWorkflowSubset.source.routeSubset
   const managementHref = buildManagementHref({ agentId, sessionId, analysisScope })
   const decisionHref = buildScopedReviewHref({
@@ -13544,35 +13567,35 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                 {isSenderWorkflowInlineLoading ? (
                   <SenderWorkflowRowLoadingState
                     title={
-                      renderedSemanticSubtypeFocus
-                        ? `Refreshing ${renderedSemanticSubtypeFocus.label} matches`
+                      focusedSenderWorkflowLabel
+                        ? `Loading ${focusedSenderWorkflowLabel}`
                         : `Loading matching senders from page ${requestedSenderPage} of ${overviewKnownTotalPages}`
                     }
                     detail={
-                      renderedSemanticSubtypeFocus
-                        ? 'Stay here — this focused list is updating in place while subset context and pagination stay visible.'
+                      focusedSenderWorkflowLabel
+                        ? 'Stay here — the first matching sender rows will appear as soon as this smaller group is ready. You do not need to change the analysis window.'
                         : 'This matching list is updating in place while the rest of the page stays put.'
                     }
                   />
                 ) : visibleDrilldownSenders.length === 0 ? (
                   <div className={`${insetSurfaceClass} rounded-2xl border-dashed p-5`}>
                     <p className="text-sm font-semibold text-white">
-                      {renderedSemanticSubtypeFocus
+                      {focusedSenderWorkflowLabel
                         ? semanticFocusWorkspaceState.status === 'loading'
-                          ? `Refreshing ${renderedSemanticSubtypeFocus.label} matches`
+                          ? `Loading ${focusedSenderWorkflowLabel}`
                           : semanticFocusWorkspaceState.status === 'error'
-                            ? 'Could not refresh this focused list'
-                            : `No strong matches for ${renderedSemanticSubtypeFocus.label} are on screen right now`
+                            ? 'Could not load this smaller group'
+                            : `No matching senders for ${focusedSenderWorkflowLabel} are on screen right now`
                         : 'No matching sender rows are ready on this page yet'}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-200">
-                      {renderedSemanticSubtypeFocus
+                      {focusedSenderWorkflowLabel
                         ? semanticFocusWorkspaceState.status === 'loading'
-                          ? 'Stay here — this focused list is updating in place.'
+                          ? 'Stay here — the sender list is loading. You do not need to change the analysis window.'
                           : semanticFocusWorkspaceState.status === 'error'
                             ? semanticFocusWorkspaceState.error ||
-                              'Back to full sender list when you want the broader queue again.'
-                            : 'Back to full sender list when you want the broader queue again.'
+                              'Return to Cleanup Groups and choose this smaller group again.'
+                            : 'Return to Cleanup Groups when you want to choose another smaller group.'
                         : 'This page does not include any matches for this subset yet. Go back to the full sender list when you want the wider queue.'}
                     </p>
                   </div>

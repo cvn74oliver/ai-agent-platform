@@ -1324,6 +1324,14 @@ Design intent:
 Guiding rule:
 Build tool adapters that feed the generic runtime structures instead of rebuilding custom runtime UI from scratch for each integration.
 
+Decision-group presentation follows the same boundary:
+- the platform engine owns deterministic identity, mutually exclusive membership, bounded work units, and exact count reconciliation
+- the platform presents four reusable actionable workflow roles: `Start Here`, `Work Through Older Items`, `Review Carefully`, and `Optional Specialized Groups`
+- `Reference Only` is informational and non-actionable rather than an additional work stage
+- each workspace adapter supplies the domain decision subject, evidence language, and intuitive child labels; Gmail uses senders and email purposes, while other domains may use positions, transactions, documents, cases, opportunities, or another declared subject
+- internal taxonomy vocabulary must not leak into the operator experience when a direct human label is available
+- presentation groups are cognitive navigation containers over existing exact child units, not new persisted taxonomy; an adapter may group disjoint children for clarity but may not change their stable IDs, membership, or reconciliation
+
 ### 7A) Playground Runtime Controller Refactor (March 2026)
 
 Playground runtime orchestration has been extracted out of `route.ts` into dedicated runtime modules:

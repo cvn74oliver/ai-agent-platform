@@ -13,12 +13,14 @@ import {
   type GmailMailboxIntelligenceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
+  buildCleanupGroupPresentationPartitions,
   buildCleanupGroupPublishedReviewUnits,
   buildCleanupGroupInternalStructure,
   buildCleanupGroupIntentSnapshotsForUi,
   buildCleanupGroupSectionSummariesForUi,
   buildCleanupGroupSectionsForUi,
   getCleanupGroupSection,
+  getCleanupGroupDisplayTitle,
   getCleanupGroupLaneLabel,
   getCleanupGroupSurfaceKind,
   getCleanupGroupSurfaceTier,
@@ -28,10 +30,15 @@ import {
   type CleanupGroupSurfaceKind,
   getCleanupGroupStartWith,
   getCleanupGroupWhyExists,
+  findDuplicateCleanupReviewUnitLabels,
   recommendCleanupGroupPublishedReviewUnit,
   recommendCleanupGroupForUi,
 } from '@/lib/runtime/cleanupGroupPresentation'
-import { buildGmailSemanticPresentationPolicy } from '@/lib/runtime/gmailSemanticPresentationPolicy'
+import {
+  buildGmailCleanupPresentationPartitionBlueprints,
+  buildGmailSemanticPresentationPolicy,
+  gmailCleanupCopyForHumans,
+} from '@/lib/runtime/gmailSemanticPresentationPolicy'
 import { serializeOperationsQuery } from '@/lib/runtime/operationsWorkspace'
 
 function normalizedCount(value: number | null | undefined): number | null {
@@ -42,11 +49,11 @@ function normalizedCount(value: number | null | undefined): number | null {
 function messageShareLabel(sharePct: number | null | undefined, messageCount: number | null): string {
   if (sharePct == null || !Number.isFinite(sharePct)) {
     return messageCount != null
-      ? 'Message volume from the current cleanup snapshot.'
-      : 'Impact details will appear once cleanup counts finish loading.'
+      ? 'Email volume in this group.'
+      : 'Email totals will appear once the counts finish loading.'
   }
-  if (sharePct <= 0 && (messageCount || 0) > 0) return '<1% of cleanup message volume'
-  return `${Math.round(sharePct)}% of cleanup message volume`
+  if (sharePct <= 0 && (messageCount || 0) > 0) return '<1% of cleanup email volume'
+  return `${Math.round(sharePct)}% of cleanup email volume`
 }
 
 function formatCountLabel(value: number | null | undefined, emptyLabel = '—'): string {
@@ -56,18 +63,18 @@ function formatCountLabel(value: number | null | undefined, emptyLabel = '—'):
 
 function cleanupGroupSectionMeaning(sectionId: string): string {
   if (sectionId === 'action') {
-    return 'Primary workflow lane. This is the default place to begin when artifact truth supports a strong semantic parent.'
+    return 'Begin here for the clearest, most useful first pass.'
   }
   if (sectionId === 'backlog') {
-    return 'Backlog lane for deliberate backlog reduction, not the default first move.'
+    return 'Work through older or repeatedly ignored items after the clearest groups.'
   }
   if (sectionId === 'coverage') {
-    return 'Coverage lanes stay visible for caution and completeness, not as the default place to start.'
+    return 'Slow down here because the items are unclear, sensitive, or likely worth keeping.'
   }
   if (sectionId === 'secondary') {
-    return 'Secondary groups are optional exploration only and do not enter the primary decision flow.'
+    return 'Use these focused groups when they match your goal.'
   }
-  return 'Context stays available for completeness, but it remains collapsed and behaviorally demoted.'
+  return 'Reference information only; there is no review action.'
 }
 
 function cleanupGroupNextStepInstruction(
@@ -82,17 +89,17 @@ function cleanupGroupNextStepInstruction(
   if (reason === 'small_quick_win') {
     return groupTitle
       ? `Next step: start with ${groupTitle}.`
-      : 'Next step: start with the quickest primary action lane in Sender Overview.'
+      : 'Next step: start with the clearest manageable group.'
   }
   if (reason === 'high_impact_manageable') {
     return groupTitle
       ? `Next step: open ${groupTitle} next.`
-      : 'Next step: open the biggest manageable primary action lane in Sender Overview.'
+      : 'Next step: open the highest-impact manageable group.'
   }
   if (reason === 'backlog') {
     return groupTitle
       ? `Next step: work ${groupTitle} next.`
-      : 'Next step: work the backlog lane in Sender Overview.'
+      : 'Next step: work through the older-items group.'
   }
   return 'Next step: compare the group sections below, then open Sender Overview.'
 }
@@ -127,11 +134,14 @@ function buildRenderableReviewUnits(
 
 function actionableReviewUnitsReady(params: {
   parentSenderCount: number | null
-  reviewUnits: Array<{ senderCount: number; targetState: string }>
+  reviewUnits: Array<{ label: string; senderCount: number; targetState: string }>
+  presentationErrors?: string[]
 }): boolean {
   return (
+    (params.presentationErrors?.length || 0) === 0 &&
     params.parentSenderCount != null &&
     params.reviewUnits.length > 0 &&
+    findDuplicateCleanupReviewUnitLabels(params.reviewUnits).length === 0 &&
     params.reviewUnits.every(
       (unit) => unit.senderCount > 0 && unit.targetState !== 'oversized'
     ) &&
@@ -140,28 +150,48 @@ function actionableReviewUnitsReady(params: {
   )
 }
 
+function cleanupGroupDecisionValueDetail(params: {
+  surfaceKind: CleanupGroupSurfaceKind
+  senderCount: number | null
+  messageCount: number | null
+  sharePct: number | null
+}): string | null {
+  if (params.surfaceKind !== 'semantic_parent') return null
+
+  const senderDetail =
+    params.senderCount == null ? 'a meaningful set of senders' : `${params.senderCount.toLocaleString()} senders`
+  const messageDetail =
+    params.messageCount == null ? 'a meaningful amount of email' : `${params.messageCount.toLocaleString()} emails`
+  const impactDetail =
+    params.sharePct == null || !Number.isFinite(params.sharePct)
+      ? ''
+      : `, representing ${Math.round(params.sharePct)}% of the cleanup email volume`
+
+  return `Start here because ${senderDetail} account for ${messageDetail}${impactDetail}, the messages share a comparatively consistent purpose, and the work is already divided into manageable choices. That combination offers useful progress with less ambiguity than the groups below.`
+}
+
 function cleanupGroupSurfaceRoleLabel(kind: CleanupGroupSurfaceKind): string {
-  if (kind === 'semantic_parent') return 'Semantic parent'
-  if (kind === 'backlog_parent') return 'Backlog parent'
-  if (kind === 'structural_parent') return 'Structural lane'
-  if (kind === 'historical_parent') return 'Historical coverage lane'
-  return 'Secondary artifact group'
+  if (kind === 'semantic_parent') return 'Clear category'
+  if (kind === 'backlog_parent') return 'Older items'
+  if (kind === 'structural_parent') return 'Careful review'
+  if (kind === 'historical_parent') return 'Reference only'
+  return 'Optional group'
 }
 
 function cleanupGroupSurfaceRoleDetail(kind: CleanupGroupSurfaceKind): string {
   if (kind === 'semantic_parent') {
-    return 'This parent earns direct top-level status because the current artifact shows one coherent semantic story.'
+    return 'These items share a clear purpose, so the system can offer a simple guided starting point.'
   }
   if (kind === 'backlog_parent') {
-    return 'This parent stays top-level because backlog age is the real organizing frame, not one semantic category.'
+    return 'These items belong together because they are older or repeatedly ignored, even when their subjects differ.'
   }
   if (kind === 'structural_parent') {
-    return 'This parent stays top-level for safety or coverage, while internal review units only narrow work inside the lane.'
+    return 'These items need extra care. The smaller groups make them easier to review without applying a broad decision.'
   }
   if (kind === 'historical_parent') {
-    return 'This coverage lane stays visible for completeness, but it is reduced on purpose and not framed like a normal cleanup start.'
+    return 'This history helps explain the full picture, but it does not create work for you to review.'
   }
-  return 'This artifact group still exists and can be opened, but it is no longer surfaced as an equal-weight top-level parent in this pass.'
+  return 'This focused category is available when it matches the work you want to do, but it is not required for the main guided flow.'
 }
 
 export default function OperationsClustersPage() {
@@ -259,13 +289,18 @@ export default function OperationsClustersPage() {
       })),
     [clusters]
   )
-  const renderedGroups = useMemo(
+  const sourceRenderedGroups = useMemo(
     () =>
       (resolvedIntelligence?.cleanup_groups || fallbackGroupCards)
         .map((group) => {
           const semanticPresentation = buildGmailSemanticPresentationPolicy(
             'semantic_rollup' in group ? group.semantic_rollup : null
           ).cleanupGroupCard
+          const semanticSupport =
+            gmailCleanupCopyForHumans(semanticPresentation.support) || semanticPresentation.support
+          const semanticSupplement =
+            gmailCleanupCopyForHumans(semanticPresentation.semanticSupport) ||
+            semanticPresentation.semanticSupport
           const internalStructure = buildCleanupGroupInternalStructure(
             group.cluster_id,
             'semantic_rollup' in group ? group.semantic_rollup : null
@@ -279,7 +314,10 @@ export default function OperationsClustersPage() {
 
           return {
             clusterId: group.cluster_id,
-            title: group.title,
+            presentationId: group.cluster_id,
+            isPresentationSlice: false,
+            presentationErrors: [] as string[],
+            title: getCleanupGroupDisplayTitle(group.cluster_id, group.title),
             canonicalClusterId:
               'canonical_cluster_id' in group ? group.canonical_cluster_id : group.cluster_id,
             legacyClusterIds:
@@ -295,9 +333,10 @@ export default function OperationsClustersPage() {
             whyExists: getCleanupGroupWhyExists(group.cluster_id),
             laneLabel: getCleanupGroupLaneLabel(group.cluster_id),
             startWith: getCleanupGroupStartWith(group.cluster_id),
-            whySelected: group.why_selected,
-            riskNote: group.risk_note,
-            safetyNote: group.safety_note,
+            whySelected:
+              gmailCleanupCopyForHumans(group.why_selected) || group.why_selected,
+            riskNote: gmailCleanupCopyForHumans(group.risk_note) || group.risk_note,
+            safetyNote: gmailCleanupCopyForHumans(group.safety_note) || group.safety_note,
             dominantSender: 'dominant_sender' in group ? group.dominant_sender : null,
             dominantPattern: 'dominant_pattern' in group ? group.dominant_pattern : null,
             protectedMessageCount:
@@ -308,10 +347,17 @@ export default function OperationsClustersPage() {
               'uncertain_sender_count' in group
                 ? normalizedCount(group.uncertain_sender_count)
                 : null,
-            semanticContextLabel: semanticPresentation.contextLabel,
-            semanticHeadline: semanticPresentation.headline,
-            semanticSupport: semanticPresentation.support,
-            semanticSupplement: semanticPresentation.semanticSupport,
+            semanticContextLabel:
+              gmailCleanupCopyForHumans(semanticPresentation.contextLabel) ||
+              semanticPresentation.contextLabel,
+            semanticHeadline:
+              gmailCleanupCopyForHumans(semanticPresentation.headline) ||
+              semanticPresentation.headline,
+            semanticSupport,
+            semanticSupplement:
+              semanticSupplement.toLowerCase() === semanticSupport.toLowerCase()
+                ? null
+                : semanticSupplement,
             internalStructure,
             reviewUnits,
             recommendedReviewUnit,
@@ -319,6 +365,73 @@ export default function OperationsClustersPage() {
         })
         .filter((group) => isCleanupGroupSurfacedInUi(group.clusterId)),
     [fallbackGroupCards, resolvedIntelligence?.cleanup_groups]
+  )
+  const renderedGroups = useMemo(
+    () =>
+      sourceRenderedGroups.flatMap((group) => {
+        const blueprints = buildGmailCleanupPresentationPartitionBlueprints({
+          canonicalClusterId: group.canonicalClusterId || group.clusterId,
+          reviewUnits: group.reviewUnits.map((unit) => ({
+            id: unit.id,
+            sourceKey: unit.sourceKey,
+            sourceKind: unit.sourceKind,
+            decompositionPath: unit.decompositionPath,
+          })),
+        })
+        if (!blueprints) return [group]
+
+        const partitionResult = buildCleanupGroupPresentationPartitions({
+          parentId: group.canonicalClusterId || group.clusterId,
+          parentSenderCount: group.senderCount,
+          reviewUnits: group.reviewUnits,
+          blueprints,
+        })
+        if (partitionResult.errors.length > 0) {
+          return [
+            {
+              ...group,
+              presentationErrors: partitionResult.errors,
+            },
+          ]
+        }
+
+        return partitionResult.partitions.map((partition) => {
+          const reviewUnits = partition.reviewUnits.map((unit) => ({
+            ...unit,
+            groupSharePct:
+              partition.senderCount > 0
+                ? Math.round((unit.senderCount / partition.senderCount) * 100)
+                : 0,
+          }))
+          return {
+            ...group,
+            presentationId: `${group.clusterId}::${partition.id}`,
+            isPresentationSlice: true,
+            presentationErrors: [] as string[],
+            title: partition.title,
+            senderCount: partition.senderCount,
+            messageCount: null,
+            sharePct: null,
+            whyExists: partition.whyExists,
+            startWith: partition.startWith,
+            whySelected: partition.whyExists,
+            semanticContextLabel: 'Why these items are together',
+            semanticHeadline: partition.title,
+            semanticSupport: partition.whyExists,
+            semanticSupplement: null,
+            reviewUnits,
+            recommendedReviewUnit: recommendCleanupGroupPublishedReviewUnit(reviewUnits),
+          }
+        })
+      }),
+    [sourceRenderedGroups]
+  )
+  const sourcePrimaryDecisionGroups = useMemo(
+    () =>
+      sourceRenderedGroups.filter(
+        (group) => group.sectionId !== 'secondary' && group.sectionId !== 'context'
+      ),
+    [sourceRenderedGroups]
   )
   const primaryDecisionGroups = useMemo(
     () => renderedGroups.filter((group) => group.sectionId !== 'secondary' && group.sectionId !== 'context'),
@@ -343,22 +456,22 @@ export default function OperationsClustersPage() {
   const sectionSummaries = useMemo(
     () =>
       buildCleanupGroupSectionSummariesForUi({
-        groups: primaryDecisionGroups,
+        groups: sourcePrimaryDecisionGroups,
         getClusterId: (group) => group.clusterId,
         getSenderCount: (group) => group.senderCount,
         getImpactCount: (group) => group.messageCount,
       }),
-    [primaryDecisionGroups]
+    [sourcePrimaryDecisionGroups]
   )
   const intentSnapshots = useMemo(
     () =>
       buildCleanupGroupIntentSnapshotsForUi({
-        groups: renderedGroups,
+        groups: sourceRenderedGroups,
         getClusterId: (group) => group.clusterId,
         getSenderCount: (group) => group.senderCount,
         getImpactCount: (group) => group.messageCount,
       }),
-    [renderedGroups]
+    [sourceRenderedGroups]
   )
   const latestStartedGroup = useMemo(
     () =>
@@ -404,7 +517,10 @@ export default function OperationsClustersPage() {
     startedClusterIdSet.has(group.clusterId)
   ).length
   const cleanupScopeSenderCount = useMemo(() => {
-    const groupedSenderScope = renderedGroups.reduce((total, group) => total + (group.senderCount ?? 0), 0)
+    const groupedSenderScope = sourceRenderedGroups.reduce(
+      (total, group) => total + (group.senderCount ?? 0),
+      0
+    )
     if (groupedSenderScope > 0) return groupedSenderScope
 
     const resolvedWholeMailboxSenderCount = normalizedCount(resolvedIntelligence?.whole_mailbox?.sender_count)
@@ -412,7 +528,7 @@ export default function OperationsClustersPage() {
 
     return normalizedCount(resolvedIntelligence?.cleanup_candidate_universe?.sender_count) ?? 0
   }, [
-    renderedGroups,
+    sourceRenderedGroups,
     resolvedIntelligence?.cleanup_candidate_universe?.sender_count,
     resolvedIntelligence?.whole_mailbox?.sender_count,
   ])
@@ -500,11 +616,10 @@ export default function OperationsClustersPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Cleanup Groups</p>
-            <h1 className="text-2xl font-semibold text-white">Choose the parent lane to review next</h1>
+            <h1 className="text-2xl font-semibold text-white">Choose what to review next</h1>
             <p className="max-w-3xl text-sm text-slate-200">
-              Cleanup Groups now renders a lane-first view from the current artifact: Action, Backlog,
-              and Coverage stay open by default, while Secondary and Context remain collapsed for
-              optional exploration only.
+              Start with the clearest opportunity, then work through older items and anything that
+              needs extra care. Optional specialized groups remain available when they match your goal.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -523,7 +638,7 @@ export default function OperationsClustersPage() {
                 })}
                 className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
               >
-                Choose a child unit
+                Choose a smaller group
               </Link>
             ) : (
               <a
@@ -539,37 +654,37 @@ export default function OperationsClustersPage() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="app-surface-card-nested rounded-2xl p-4">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Expanded decision lanes
+              Main review groups
             </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountLabel(mainParentCount)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
-              Action, Backlog, and Coverage stay open as the primary workflow lanes.
+              The guided stages stay open so you can see the recommended path.
             </p>
           </div>
           <div className="app-surface-card-nested rounded-2xl p-4">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Collapsed optional lanes
+              Optional and reference groups
             </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountLabel(optionalGroupCount)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
-              {formatCountLabel(secondaryGroupCount)} secondary lane{secondaryGroupCount === 1 ? '' : 's'} and{' '}
-              {formatCountLabel(contextGroupCount)} context lane{contextGroupCount === 1 ? '' : 's'} stay
-              available below without entering the primary decision flow.
+              {formatCountLabel(secondaryGroupCount)} optional group{secondaryGroupCount === 1 ? '' : 's'} and{' '}
+              {formatCountLabel(contextGroupCount)} reference group{contextGroupCount === 1 ? '' : 's'} stay
+              available below without interrupting the main guided flow.
             </p>
           </div>
           <div className="app-surface-card-nested rounded-2xl p-4">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Decision lanes with saved work
+              Groups already started
             </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountLabel(parentLanesWithSavedWorkCount)}
             </p>
             <p className="mt-2 text-xs leading-5 text-slate-200">
-              {formatCountLabel(parentLanesStillToReviewCount)} parent lanes still need a first pass.
+              {formatCountLabel(parentLanesStillToReviewCount)} main groups still need a first pass.
             </p>
           </div>
           <div className="app-surface-card-nested rounded-2xl p-4">
@@ -587,25 +702,25 @@ export default function OperationsClustersPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl">
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-300">
-                Decision-lane selection goal
+                Guided review goal
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
-                Give every expanded decision lane a first pass.
+                Give each main review group a first pass.
               </p>
               <p className="mt-2 text-sm text-slate-200">
-                Coverage here is measured against the open Action, Backlog, and Coverage lanes.
-                Secondary and Context remain available below, but they stay visually and behaviorally demoted.
+                Follow the stages in order: start with the clearest opportunity, work through older
+                items, then review sensitive or unclear items carefully. Optional groups can wait.
               </p>
             </div>
             <div className="app-surface-card-nested rounded-2xl border border-emerald-600/45 px-4 py-3 text-right">
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/80">
-                Decision lanes started
+                Main groups started
               </p>
               <p className="mt-2 text-3xl font-semibold text-white">
                 {formatCountLabel(parentLanesWithSavedWorkCount)} / {formatCountLabel(mainParentCount)}
               </p>
               <p className="mt-1 text-xs text-slate-200">
-                {formatCountLabel(parentLanesStillToReviewCount)} parent lanes still need a first pass
+                {formatCountLabel(parentLanesStillToReviewCount)} main groups still need a first pass
               </p>
             </div>
           </div>
@@ -617,8 +732,8 @@ export default function OperationsClustersPage() {
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-200">
             <span>
-              {formatCountLabel(parentLanesWithSavedWorkCount)} decision lanes started ·{' '}
-              {formatCountLabel(parentLanesStillToReviewCount)} decision lanes still need a first pass
+              {formatCountLabel(parentLanesWithSavedWorkCount)} main groups started ·{' '}
+              {formatCountLabel(parentLanesStillToReviewCount)} main groups still need a first pass
             </span>
             <span className="text-slate-300">
               {nextStepInstruction}
@@ -626,8 +741,9 @@ export default function OperationsClustersPage() {
           </div>
           {optionalGroupsWithSavedWorkCount > 0 ? (
             <p className="mt-3 text-xs leading-5 text-slate-300">
-              {formatCountLabel(optionalGroupsWithSavedWorkCount)} optional lane
-              {optionalGroupsWithSavedWorkCount === 1 ? '' : 's'} already have saved work and can
+              {formatCountLabel(optionalGroupsWithSavedWorkCount)} optional group
+              {optionalGroupsWithSavedWorkCount === 1 ? '' : 's'} already{' '}
+              {optionalGroupsWithSavedWorkCount === 1 ? 'has' : 'have'} saved work and can
               still be reopened below when needed.
             </p>
           ) : null}
@@ -648,7 +764,7 @@ export default function OperationsClustersPage() {
         <div>
           <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">Choose by intent</p>
           <p className="mt-1 text-sm text-slate-200">
-            Use a shortcut if you do not want to scan every expanded decision lane first.
+            Use a shortcut when you want the system to point you to a useful next group.
           </p>
         </div>
         <div className="grid gap-2 xl:grid-cols-3">
@@ -688,7 +804,7 @@ export default function OperationsClustersPage() {
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Impact</p>
                         <p className="mt-1 text-sm font-medium text-white">
-                          {formatCountLabel(snapshotGroup.messageCount)} messages
+                          {formatCountLabel(snapshotGroup.messageCount)} emails
                         </p>
                       </div>
                     </div>
@@ -726,7 +842,7 @@ export default function OperationsClustersPage() {
         <div className="border-t border-[var(--app-border-muted)] pt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-300">
-              Expanded-lane context: quick section-level guidance before you compare the surfaced cards.
+              A quick guide to each stage before you compare the groups below.
             </p>
             <a
               href="#cleanup-group-cards"
@@ -740,12 +856,12 @@ export default function OperationsClustersPage() {
               <div key={section.id} className="rounded-xl border border-[var(--app-border-muted)] bg-[var(--app-surface-nested)] p-3">
                 <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">{section.title}</p>
                 <p className="mt-2 text-sm font-semibold text-white">
-                  {section.groupCount.toLocaleString()} parent{section.groupCount === 1 ? '' : 's'}
+                  {section.groupCount.toLocaleString()} group{section.groupCount === 1 ? '' : 's'}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-300">{cleanupGroupSectionMeaning(section.id)}</p>
                 <p className="mt-3 text-xs text-gray-400">
                   {section.totalSenderCount.toLocaleString()} senders ·{' '}
-                  {section.totalImpactCount.toLocaleString()} messages
+                  {section.totalImpactCount.toLocaleString()} emails
                 </p>
               </div>
             ))}
@@ -771,6 +887,13 @@ export default function OperationsClustersPage() {
                     const reviewUnitsReady = actionableReviewUnitsReady({
                       parentSenderCount: group.senderCount,
                       reviewUnits: renderableReviewUnits,
+                      presentationErrors: group.presentationErrors,
+                    })
+                    const decisionValueDetail = cleanupGroupDecisionValueDetail({
+                      surfaceKind: group.surfaceKind,
+                      senderCount: group.senderCount,
+                      messageCount: group.messageCount,
+                      sharePct: group.sharePct,
                     })
                     const cardClassName = isFocused
                       ? 'border-cyan-700/60 bg-[linear-gradient(180deg,rgba(17,53,73,0.18),rgba(17,23,34,0.98))]'
@@ -783,7 +906,7 @@ export default function OperationsClustersPage() {
                             : 'border-[var(--app-border-muted)] bg-[var(--app-surface-nested)]'
 
                     return (
-                      <article key={group.clusterId} className={`rounded-2xl border p-4 ${cardClassName}`}>
+                      <article key={group.presentationId} className={`rounded-2xl border p-4 ${cardClassName}`}>
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-base font-semibold text-white">{group.title}</p>
@@ -808,39 +931,51 @@ export default function OperationsClustersPage() {
 
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                           <div className="app-surface-card-inset rounded-xl p-3">
-                            <p className="text-[10px] uppercase tracking-wide text-gray-500">Workload</p>
+                            <p className="text-[10px] uppercase tracking-wide text-gray-500">People or services</p>
                             <p className="mt-1 text-xl font-semibold text-white">
                               {group.senderCount != null ? group.senderCount.toLocaleString() : '—'}
                             </p>
-                            <p className="mt-1 text-xs text-gray-400">Sender count</p>
+                            <p className="mt-1 text-xs text-gray-400">Items to review</p>
                           </div>
-                          <div className="app-surface-card-inset rounded-xl p-3">
-                            <p className="text-[10px] uppercase tracking-wide text-gray-500">Impact</p>
-                            <p className="mt-1 text-xl font-semibold text-white">
-                              {group.messageCount != null ? group.messageCount.toLocaleString() : '—'}
-                            </p>
-                            <p className="mt-1 text-xs text-gray-400">
-                              {messageShareLabel(group.sharePct, group.messageCount)}
-                            </p>
-                          </div>
+                          {group.isPresentationSlice ? (
+                            <div className="app-surface-card-inset rounded-xl p-3">
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500">Smaller groups</p>
+                              <p className="mt-1 text-xl font-semibold text-white">
+                                {group.reviewUnits.length.toLocaleString()}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-400">Exact review choices</p>
+                            </div>
+                          ) : (
+                            <div className="app-surface-card-inset rounded-xl p-3">
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500">Emails</p>
+                              <p className="mt-1 text-xl font-semibold text-white">
+                                {group.messageCount != null ? group.messageCount.toLocaleString() : '—'}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-400">
+                                {messageShareLabel(group.sharePct, group.messageCount)}
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="mt-4 space-y-2">
                           <div className="app-surface-card-inset rounded-xl p-3">
                             <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                              Why this parent exists
+                              {decisionValueDetail ? 'Why start here' : 'Why this group exists'}
                             </p>
-                            <p className="mt-2 text-sm leading-6 text-gray-300">{group.whyExists}</p>
+                            <p className="mt-2 text-sm leading-6 text-gray-300">
+                              {decisionValueDetail || group.whyExists}
+                            </p>
                           </div>
                           {actionableParent ? (
                             <div className="app-surface-card-inset rounded-xl p-3">
                               <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                                Choose child unit
+                                Choose a smaller group
                               </p>
                               <p className="mt-2 text-sm leading-6 text-gray-200">
                                 {reviewUnitsReady
-                                  ? 'Start from one bounded published child. This actionable parent never opens as a broad sender queue.'
-                                  : 'Published child membership is unavailable, oversized, or does not reconcile to this parent, so review entry is paused.'}
+                                  ? 'Pick one manageable group below. Each sender appears in exactly one option, and the options add up to the full group.'
+                                  : 'The smaller groups are not ready or do not add up correctly, so review is paused to protect the data.'}
                               </p>
                               {renderableReviewUnits.length > 0 ? (
                                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -852,7 +987,7 @@ export default function OperationsClustersPage() {
                                           {unit.senderCount.toLocaleString()} senders
                                         </p>
                                         <p className="mt-1 text-[11px] text-cyan-200/80">
-                                          {unit.groupSharePct}% of parent · {unit.targetLabel}
+                                          {unit.groupSharePct}% of this group · {unit.targetLabel}
                                         </p>
                                       </>
                                     )
@@ -882,7 +1017,12 @@ export default function OperationsClustersPage() {
                               ) : null}
                               {!reviewUnitsReady ? (
                                 <div className="mt-3 rounded-xl border border-amber-700/35 bg-amber-950/20 px-3 py-3 text-xs leading-5 text-amber-100">
-                                  Review entry remains paused until every published child is at most 400 senders and the child total matches the parent exactly.
+                                  Review remains paused until every smaller group is manageable and all smaller-group totals match the full group exactly.
+                                  {group.presentationErrors.length > 0 ? (
+                                    <span className="mt-2 block">
+                                      The display grouping also failed its exact-membership check.
+                                    </span>
+                                  ) : null}
                                 </div>
                               ) : null}
                             </div>
@@ -911,21 +1051,19 @@ export default function OperationsClustersPage() {
                                 </p>
                               </div>
                               <div className="space-y-2 text-xs leading-5 text-gray-300">
-                                <p>Selection note: {group.whySelected}</p>
-                                <p>Safety context: {group.safetyNote}</p>
-                                <p>Review caution: {group.riskNote}</p>
+                                <p>
+                                  Why it was grouped this way:{' '}
+                                  {decisionValueDetail || group.whySelected}
+                                </p>
+                                <p>What the system is protecting: {group.safetyNote}</p>
+                                <p>What to check while reviewing: {group.riskNote}</p>
                               </div>
-                              <p className="text-xs text-gray-500">
-                                Dominant sender: {group.dominantSender || '—'} · dominant pattern:{' '}
-                                {group.dominantPattern || '—'} · uncertain senders:{' '}
-                                {group.uncertainSenderCount != null
-                                  ? group.uncertainSenderCount.toLocaleString()
-                                  : '—'}{' '}
-                                · protected messages:{' '}
-                                {group.protectedMessageCount != null
-                                  ? group.protectedMessageCount.toLocaleString()
-                                  : '—'}
-                              </p>
+                              {group.dominantSender || group.dominantPattern ? (
+                                <p className="text-xs text-gray-500">
+                                  Most visible sender: {group.dominantSender || 'Not available'} · most common pattern:{' '}
+                                  {group.dominantPattern || 'Not available'}
+                                </p>
+                              ) : null}
                             </div>
                           </details>
                         </div>
@@ -949,7 +1087,7 @@ export default function OperationsClustersPage() {
                 const isRecommended = recommendedClusterId === group.clusterId
                 return (
                   <div
-                    key={group.clusterId}
+                    key={group.presentationId}
                     className={`rounded-2xl border px-4 py-4 ${
                       isFocused || isRecommended
                         ? 'border-cyan-700/45 bg-cyan-950/10'
@@ -979,16 +1117,16 @@ export default function OperationsClustersPage() {
                       </div>
                       <div className="flex min-w-[13rem] flex-col gap-3">
                         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                          <p className="text-[10px] uppercase tracking-wide text-slate-300">Coverage</p>
+                          <p className="text-[10px] uppercase tracking-wide text-slate-300">Reference coverage</p>
                           <p className="mt-1 text-xl font-semibold text-white">
                             {formatCountLabel(group.senderCount)} senders
                           </p>
                           <p className="mt-1 text-xs text-slate-400">
-                            {formatCountLabel(group.messageCount)} messages
+                            {formatCountLabel(group.messageCount)} emails
                           </p>
                         </div>
                         <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs leading-5 text-slate-300">
-                          Informational context only. This lane has no review action.
+                          Reference information only. There is no review action here.
                         </p>
                       </div>
                     </div>
@@ -1006,10 +1144,11 @@ export default function OperationsClustersPage() {
                     const reviewUnitsReady = actionableReviewUnitsReady({
                       parentSenderCount: group.senderCount,
                       reviewUnits: renderableReviewUnits,
+                      presentationErrors: group.presentationErrors,
                     })
                     return (
                       <article
-                        key={group.clusterId}
+                        key={group.presentationId}
                         className={`rounded-xl border p-3 ${
                           isFocused || isRecommended
                             ? 'border-cyan-700/45 bg-cyan-950/10'
@@ -1064,7 +1203,7 @@ export default function OperationsClustersPage() {
                           )}
                           {!reviewUnitsReady ? (
                             <p className="text-xs leading-5 text-amber-100">
-                              Review is paused until published child membership reconciles exactly.
+                              Review is paused until all smaller-group counts add up exactly.
                             </p>
                           ) : null}
                         </div>
