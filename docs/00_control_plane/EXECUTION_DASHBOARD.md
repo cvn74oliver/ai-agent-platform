@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-25
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: STAGE C COMPLETE — AWAITING STAGE D DECISION
+Status: ACTIVE — STAGE D RUNTIME INTEGRATION + CORRECTION PROOF
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Cleanup Groups checkpoint one accepted; windowed review-unit Stage C completed with one unpublished candidate and an unchanged active publication; Stage D runtime/UI integration remains separately gated
+- Execution phase: Cleanup Groups checkpoint one accepted; windowed review-unit Stage C completed with one unpublished candidate and an unchanged active publication; Oliver accepted target-locked Stage D runtime/UI integration
 - Problem class: artifact/publication truth primary — exact preset/Custom projection data is absent from the all-indexed-only candidate; bounded Pressure Trend empty-seed runtime seam is secondary
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -59,7 +59,9 @@ Status: STAGE C COMPLETE — AWAITING STAGE D DECISION
 - [x] Reattest exact project, publication pointer, and idle lifecycle state
 - [x] Apply and verify only the additive projection migration plus its RLS initplan correction
 - [x] Build and reconcile one unpublished candidate; `5,024` root senders, `60` actionable manifests, largest child `296`, exact parity, and unchanged April publication pointer
-- [ ] Obtain Stage D approval before runtime/UI integration, candidate-route Playwright, or Human Review
+- [x] Oliver accepted Stage D runtime/UI integration on 2026-08-25
+- [ ] Wire candidate projection reads and Pressure Trend correction through the locked runtime/UI seams
+- [ ] Complete static/build and authenticated post-settle Playwright correction proof before Stage E Human Review
 
 ## Immediate Human Review return
 

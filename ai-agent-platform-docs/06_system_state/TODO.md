@@ -47,7 +47,10 @@ _Last updated: 2026-08-24 • Cleanup Groups Human Review returned to bounded pr
 - [x] Verify schema, indexes, RLS, policies, grants, and bounded projection RPC behavior; apply the additive RLS initplan optimization migration and confirm no advisor finding against the new objects.
 - [x] Start exactly one unpublished candidate build, monitor it single-flight to `completed / candidate_ready`, reconcile `5,024` senders and `60` actionable manifests, and prove the active publication pointer remains `full-mailbox-20260415024237593`.
 - [x] Stop after Stage C; no publish, Smart Sync, reindex, deploy, push, or main movement occurred.
-- [ ] Obtain the separately bounded Stage D decision, then wire candidate-version projection reads and the Pressure Trend empty-seed correction into the canonical review surfaces before Playwright and Human Review.
+- [x] Record Oliver's Stage D `ACCEPT` decision on 2026-08-25; immediate same-flow runtime/UI integration is authorized only within the locked runtime brief.
+- [ ] Wire candidate-version projection reads and the Pressure Trend empty-seed correction into the canonical review surfaces while preserving immutable child membership and bounded single-flight reads.
+- [ ] Run targeted fixtures, TypeScript/lint/build, then authenticated post-settle Playwright across cold load, window switches, Decision Mode return, linked-surface parity, Pressure Trend, console/overlay, and request-churn surfaces.
+- [ ] Stop at the Stage E verifier/Human Review decision gate; do not publish, Smart Sync, reindex, deploy, push, move main, or retire lineage.
 
 ### Historical active heading retained below
 

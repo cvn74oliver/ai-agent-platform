@@ -1,6 +1,6 @@
 # ACE-048 Windowed Review-Unit Artifact Contract — PM Brief
 
-Status: `STAGE C COMPLETE — AWAITING STAGE D DECISION`
+Status: `STAGE D ACTIVE — RUNTIME INTEGRATION + CORRECTION PROOF`
 
 Runtime artifact status: `updated; authoritative task-scoped runtime context`
 
@@ -414,4 +414,6 @@ Stage C authorization state before execution: `APPROVED — CONTROLLED MIGRATION
 
 Stage C did not produce runtime/UI acceptance and does not authorize publication. Stage D remains a separately approved runtime/UI integration and correction-proof step.
 
-Status: `STAGE C COMPLETE — AWAITING STAGE D DECISION`
+Oliver Stage D decision — 2026-08-25: `ACCEPT`. Immediate same-flow execution is authorized only for the target-locked runtime/API/review files and Pressure Trend seam above. Publication, Smart Sync, Gmail reindex, deployment, push, local-main promotion, and lineage retirement remain unauthorized.
+
+Status: `STAGE D ACTIVE — RUNTIME INTEGRATION + CORRECTION PROOF`
