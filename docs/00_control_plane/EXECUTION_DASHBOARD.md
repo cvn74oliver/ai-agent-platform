@@ -2,14 +2,14 @@
 
 Last updated: 2026-08-25
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — STAGE D RUNTIME INTEGRATION + CORRECTION PROOF
+Status: AWAITING DECISION — STAGE E VERIFIER/HUMAN REVIEW GATE
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Cleanup Groups checkpoint one accepted; windowed review-unit Stage C completed with one unpublished candidate and an unchanged active publication; Oliver accepted target-locked Stage D runtime/UI integration
-- Problem class: artifact/publication truth primary — exact preset/Custom projection data is absent from the all-indexed-only candidate; bounded Pressure Trend empty-seed runtime seam is secondary
+- Execution phase: Cleanup Groups checkpoint one accepted; Stage D chart/linked-surface integration and correction proof passed against the unpublished candidate; Stage E decision is pending
+- Problem class: runtime behavior and UI truth corrected against candidate-backed immutable membership plus bounded window projections; publication acceptance remains separately gated
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
@@ -60,8 +60,9 @@ Status: ACTIVE — STAGE D RUNTIME INTEGRATION + CORRECTION PROOF
 - [x] Apply and verify only the additive projection migration plus its RLS initplan correction
 - [x] Build and reconcile one unpublished candidate; `5,024` root senders, `60` actionable manifests, largest child `296`, exact parity, and unchanged April publication pointer
 - [x] Oliver accepted Stage D runtime/UI integration on 2026-08-25
-- [ ] Wire candidate projection reads and Pressure Trend correction through the locked runtime/UI seams
-- [ ] Complete static/build and authenticated post-settle Playwright correction proof before Stage E Human Review
+- [x] Wire candidate projection reads and Pressure Trend correction through the locked runtime/UI seams
+- [x] Complete static/build and authenticated post-settle Playwright correction proof before Stage E Human Review
+- [ ] Record the Stage E `ACCEPT` / `REJECT` / `BLOCKED` / `RETURN_TO_PM` decision; keep publication and main movement blocked until accepted
 
 ## Immediate Human Review return
 
@@ -74,7 +75,7 @@ Status: ACTIVE — STAGE D RUNTIME INTEGRATION + CORRECTION PROOF
 - [x] Bound Refresh Cleanup Analysis fallback behavior with no repeated polling or automatic rebuild
 - [x] Correct unscoped/overlay body scroll-lock ownership and restoration
 - [x] Capture post-settle correction proof plus five-row State Transition Matrix
-- [ ] Pressure Trend and protected Sender Distribution/sender rows remain open integration surfaces
+- [x] Candidate-only Pressure Trend, Sender Distribution, sender-row, Time Context, and Decision Mode parity proof completed; publication/main acceptance remains open
 - [x] Explicit guided Oliver Human Review decision: `REJECT`
 - [x] Diagnose navigation/persistent-state overwrite: stale zero-cluster session snapshot is mounted as ready before live artifact hydration
 - [x] Produce Root Cause Execution Translation: one-file transient-empty cache admission/eviction correction; preserve non-empty stable snapshot

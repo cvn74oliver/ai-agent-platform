@@ -95,7 +95,7 @@ type TimeContextChartScope =
   | 'last_day'
   | 'custom'
 type SenderOverviewWindowSelection = {
-  window: Extract<TimeContextChartScope, 'last_day' | 'custom'>
+  window: Exclude<TimeContextChartScope, 'all_indexed'>
   start: string | null
   end: string | null
 }
@@ -801,11 +801,25 @@ function dateInputValueFromIso(value: string | null | undefined, timeZone: strin
 }
 
 function senderOverviewWindowControlLabel(selection: SenderOverviewWindowSelection): string {
-  return selection.window === 'custom' ? 'Custom' : '1D'
+  if (selection.window === 'last_year') return '1Y'
+  if (selection.window === 'last_quarter') return '1Q'
+  if (selection.window === 'last_month') return '1M'
+  if (selection.window === 'last_week') return '1W'
+  if (selection.window === 'last_day') return '1D'
+  return 'Custom'
 }
 
 function normalizeSenderOverviewWindow(value: string | null): SenderOverviewWindowSelection['window'] | null {
-  if (value === 'last_day' || value === 'custom') return value
+  if (
+    value === 'last_year' ||
+    value === 'last_quarter' ||
+    value === 'last_month' ||
+    value === 'last_week' ||
+    value === 'last_day' ||
+    value === 'custom'
+  ) {
+    return value
+  }
   return null
 }
 
@@ -826,8 +840,44 @@ function senderOverviewWindowSelectionFromSearch(params: {
   }
   return {
     window,
-    start: null,
-    end: null,
+    start: params.senderOverviewStart,
+    end: params.senderOverviewEnd,
+  }
+}
+
+function senderOverviewPresetSelection(params: {
+  scope: Exclude<TimeContextChartScope, 'all_indexed' | 'custom'>
+  coverageStart: string | null | undefined
+  coverageEnd: string | null | undefined
+}): SenderOverviewWindowSelection | null {
+  const coverageStartMs = Date.parse(params.coverageStart || '')
+  const coverageEndMs = Date.parse(params.coverageEnd || '')
+  if (
+    !Number.isFinite(coverageStartMs) ||
+    !Number.isFinite(coverageEndMs) ||
+    coverageStartMs < Date.UTC(1971, 0, 1) ||
+    coverageEndMs < coverageStartMs
+  ) {
+    return null
+  }
+  const dayCount =
+    params.scope === 'last_year'
+      ? 365
+      : params.scope === 'last_quarter'
+        ? 90
+        : params.scope === 'last_month'
+          ? 30
+          : params.scope === 'last_week'
+            ? 7
+            : 1
+  const boundedStartMs = Math.max(
+    coverageStartMs,
+    coverageEndMs - Math.max(0, dayCount - 1) * 24 * 60 * 60 * 1000
+  )
+  return {
+    window: params.scope,
+    start: new Date(boundedStartMs).toISOString().slice(0, 10),
+    end: new Date(coverageEndMs).toISOString().slice(0, 10),
   }
 }
 
@@ -1078,6 +1128,7 @@ function timeContextCoverageFromTimeline(params: {
 
 function buildSenderOverviewWindowRequestKey(params: {
   clusterId: string
+  reviewUnitId?: string | null
   analysisScope: OperationsAnalysisScope
   cacheVersion: string | null
   selection: SenderOverviewWindowSelection
@@ -1085,6 +1136,7 @@ function buildSenderOverviewWindowRequestKey(params: {
 }): string {
   return [
     params.clusterId,
+    params.reviewUnitId || 'parent',
     params.analysisScope,
     params.cacheVersion || 'default',
     params.selection.window,
@@ -1157,7 +1209,7 @@ function appendSenderOverviewWindowParams(
   search.delete('sender_overview_end')
   if (!selection) return
   search.set('sender_overview_window', selection.window)
-  if (selection.window === 'custom' && selection.start && selection.end) {
+  if (selection.start && selection.end) {
     search.set('sender_overview_start', selection.start)
     search.set('sender_overview_end', selection.end)
   }
@@ -4329,6 +4381,7 @@ export default function OperationsReviewPage() {
       selectedCluster && senderOverviewWindowSelection
         ? buildSenderOverviewWindowRequestKey({
             clusterId: selectedCluster.clusterId,
+            reviewUnitId: subsetSource === 'review_unit' ? subsetValue : null,
             analysisScope: effectiveWorkflowScope,
             cacheVersion,
             selection: senderOverviewWindowSelection,
@@ -4341,6 +4394,8 @@ export default function OperationsReviewPage() {
       effectiveWorkflowScope,
       selectedCluster,
       senderOverviewWindowSelection,
+      subsetSource,
+      subsetValue,
     ]
   )
   const cachedSenderOverviewWindow = useMemo(
@@ -4350,6 +4405,7 @@ export default function OperationsReviewPage() {
             selectedCluster,
             analysisScope: effectiveWorkflowScope,
             cacheVersion,
+            reviewUnitId: subsetSource === 'review_unit' ? subsetValue : null,
             pressureWindow: senderOverviewWindowSelection.window,
             pressureStart: senderOverviewWindowSelection.start,
             pressureEnd: senderOverviewWindowSelection.end,
@@ -4363,6 +4419,8 @@ export default function OperationsReviewPage() {
       runtimeClusters,
       selectedCluster,
       senderOverviewWindowSelection,
+      subsetSource,
+      subsetValue,
     ]
   )
   const [senderOverviewWindowState, setSenderOverviewWindowState] = useState<SenderOverviewWindowState>(
@@ -4449,6 +4507,7 @@ export default function OperationsReviewPage() {
           allClusters: runtimeClusters,
           analysisScope: effectiveWorkflowScope,
           cacheVersion,
+          reviewUnitId: subsetSource === 'review_unit' ? subsetValue : null,
           pressureWindow: senderOverviewWindowSelection.window,
           pressureStart: senderOverviewWindowSelection.start,
           pressureEnd: senderOverviewWindowSelection.end,
@@ -4501,6 +4560,8 @@ export default function OperationsReviewPage() {
     selectedCluster,
     senderOverviewWindowRequestKey,
     senderOverviewWindowSelection,
+    subsetSource,
+    subsetValue,
   ])
   const cachedWorkspaceSnapshot = useMemo(() => {
     if (!selectedCluster || !cachedWorkspace) return null
@@ -5009,6 +5070,7 @@ export default function OperationsReviewPage() {
   useEffect(() => {
     if (!selectedCluster) return
     if (!senderOverviewWindowSelection) return
+    if (subsetSource === 'review_unit' && subsetValue) return
     const desiredWorkflowScope = workflowScopeForSenderOverviewWindowSelection({
       selection: senderOverviewWindowSelection,
       effectiveWorkflowScope: currentRequestedWorkflowScope || effectiveWorkflowScope,
@@ -7505,11 +7567,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const updateSenderOverviewWindowQuery = useCallback(
     (nextSelection: SenderOverviewWindowSelection | null) => {
       if (!selectedCluster) return
-      const nextWorkflowScope = workflowScopeForSenderOverviewWindowSelection({
-        selection: nextSelection,
-        effectiveWorkflowScope,
-        normalizedAnalysisScope,
-      })
+      const nextWorkflowScope =
+        subsetSource === 'review_unit'
+          ? null
+          : workflowScopeForSenderOverviewWindowSelection({
+              selection: nextSelection,
+              effectiveWorkflowScope,
+              normalizedAnalysisScope,
+            })
       navigateScopedReviewState({
         workflowScope: nextWorkflowScope,
         clusterId: selectedCluster.clusterId,
@@ -7539,6 +7604,37 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   )
   const handleTimeContextRailScopeSelect = useCallback(
     (nextScope: TimeContextChartScope) => {
+      if (subsetSource === 'review_unit' && subsetValue) {
+        if (nextScope === 'custom') return
+        if (nextScope === 'all_indexed') {
+          if (
+            senderOverviewWindowSelection == null &&
+            pendingSenderOverviewWindowSelection == null
+          ) {
+            return
+          }
+          updateSenderOverviewWindowQuery(null)
+          return
+        }
+        const nextSelection = senderOverviewPresetSelection({
+          scope: nextScope,
+          coverageStart:
+            renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox
+              .indexed_date_span_start || null,
+          coverageEnd:
+            renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox
+              .indexed_date_span_end || null,
+        })
+        if (!nextSelection) return
+        if (
+          senderOverviewWindowSelectionsMatch(senderOverviewWindowSelection, nextSelection) ||
+          senderOverviewWindowSelectionsMatch(pendingSenderOverviewWindowSelection, nextSelection)
+        ) {
+          return
+        }
+        updateSenderOverviewWindowQuery(nextSelection)
+        return
+      }
       if (nextScope === 'last_day') {
         if (
           senderOverviewWindowSelection?.window === 'last_day' ||
@@ -7593,6 +7689,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       navigateScopedReviewState,
       pendingSenderOverviewWindowSelection,
       pendingTimeContextScope,
+      renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_end,
+      renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
       selectedCluster,
       senderOverviewWindowSelection,
       subsetSource,
@@ -10345,8 +10443,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         timeZone: browserTimeZone,
       })
     }
-    if (senderOverviewWindowSelection?.window === 'last_day') {
-      return 'Showing last 24 hours'
+    if (senderOverviewWindowSelection) {
+      return `Showing ${senderOverviewWindowControlLabel(senderOverviewWindowSelection)}`
     }
     return null
   }, [activeTimeContextResolvedWindow, browserTimeZone, senderOverviewWindowSelection])
@@ -10412,6 +10510,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   )
   const handleSenderDistributionControlSelect = useCallback(
     (nextScope: TimeContextChartScope) => {
+      if (subsetSource === 'review_unit' && subsetValue) {
+        handleTimeContextRailScopeSelect(nextScope)
+        return
+      }
       if (nextScope === 'last_day') {
         if (
           senderOverviewWindowSelection?.window === 'last_day' ||
@@ -10458,6 +10560,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     [
       effectiveWorkflowScope,
       handleRailScopeSelect,
+      handleTimeContextRailScopeSelect,
       mode,
       navigateScopedReviewState,
       pendingSenderOverviewWindowSelection,

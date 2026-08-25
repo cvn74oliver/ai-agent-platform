@@ -940,7 +940,12 @@ export async function POST(req: Request) {
           ? body.preview_evidence_sender_key.trim()
           : null
       const senderOverviewWindow =
-        body?.sender_overview_window === 'last_day' || body?.sender_overview_window === 'custom'
+        body?.sender_overview_window === 'last_year' ||
+        body?.sender_overview_window === 'last_quarter' ||
+        body?.sender_overview_window === 'last_month' ||
+        body?.sender_overview_window === 'last_week' ||
+        body?.sender_overview_window === 'last_day' ||
+        body?.sender_overview_window === 'custom'
           ? body.sender_overview_window
           : null
       const senderOverviewStart =
@@ -1176,8 +1181,17 @@ export async function POST(req: Request) {
             })
           : null
       const pressureWindow =
-        body?.pressure_window === 'last_day' || body?.pressure_window === 'custom'
+        body?.pressure_window === 'last_year' ||
+        body?.pressure_window === 'last_quarter' ||
+        body?.pressure_window === 'last_month' ||
+        body?.pressure_window === 'last_week' ||
+        body?.pressure_window === 'last_day' ||
+        body?.pressure_window === 'custom'
           ? body.pressure_window
+          : null
+      const reviewUnitId =
+        typeof body?.review_unit_id === 'string' && body.review_unit_id.trim()
+          ? body.review_unit_id.trim()
           : null
       const pressureStart =
         typeof body?.pressure_start === 'string' && body.pressure_start.trim()
@@ -1208,7 +1222,7 @@ export async function POST(req: Request) {
       if (!pressureWindow) {
         logRequest(400, false, { cluster_id: selectedCluster.cluster_id, pressure_window: null })
         return NextResponse.json(
-          { error: 'pressure_window must be last_day or custom for sender_overview_window.' },
+          { error: 'pressure_window must be a preset or custom window for sender_overview_window.' },
           { status: 400 }
         )
       }
@@ -1286,6 +1300,7 @@ export async function POST(req: Request) {
               ? selectedCluster.estimated_count
               : null,
         },
+        reviewUnitId,
         pressureWindow,
         pressureStart,
         pressureEnd,
@@ -1364,7 +1379,12 @@ export async function POST(req: Request) {
           ? body.review_unit_id.trim()
           : null
       const senderOverviewWindow =
-        body?.sender_overview_window === 'last_day' || body?.sender_overview_window === 'custom'
+        body?.sender_overview_window === 'last_year' ||
+        body?.sender_overview_window === 'last_quarter' ||
+        body?.sender_overview_window === 'last_month' ||
+        body?.sender_overview_window === 'last_week' ||
+        body?.sender_overview_window === 'last_day' ||
+        body?.sender_overview_window === 'custom'
           ? body.sender_overview_window
           : null
       const senderOverviewStart =

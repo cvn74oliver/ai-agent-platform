@@ -318,6 +318,8 @@ function pressureTrendSeedDecision(params: {
   let sawWindowMismatch = false
   let sawStartMismatch = false
   let sawEndMismatch = false
+  let sawInvalidCoverage = false
+  let sawInvalidSeries = false
 
   for (const candidate of params.candidates) {
     if (!candidate?.data) continue
@@ -345,6 +347,40 @@ function pressureTrendSeedDecision(params: {
       sawTimeZoneMismatch = true
       continue
     }
+    const coverageStartMs = Date.parse(candidate.data.indexed_coverage.indexed_date_span_start || '')
+    const coverageEndMs = Date.parse(candidate.data.indexed_coverage.indexed_date_span_end || '')
+    const effectiveStartMs = Date.parse(candidate.data.window.effective_start || '')
+    const effectiveEndMs = Date.parse(candidate.data.window.effective_end || '')
+    if (
+      !Number.isFinite(coverageStartMs) ||
+      !Number.isFinite(coverageEndMs) ||
+      coverageStartMs < Date.UTC(1971, 0, 1) ||
+      coverageEndMs < coverageStartMs ||
+      !Number.isFinite(effectiveStartMs) ||
+      !Number.isFinite(effectiveEndMs) ||
+      effectiveStartMs < coverageStartMs ||
+      effectiveEndMs < effectiveStartMs ||
+      effectiveEndMs > coverageEndMs + 24 * 60 * 60 * 1000
+    ) {
+      sawInvalidCoverage = true
+      continue
+    }
+    if (
+      candidate.data.series.length === 0 ||
+      candidate.data.series.some((bucket) => {
+        const bucketStartMs = Date.parse(bucket.bucket_start_at)
+        const bucketEndMs = Date.parse(bucket.bucket_end_at)
+        return (
+          !Number.isFinite(bucketStartMs) ||
+          !Number.isFinite(bucketEndMs) ||
+          bucketStartMs < Date.UTC(1971, 0, 1) ||
+          bucketEndMs <= bucketStartMs
+        )
+      })
+    ) {
+      sawInvalidSeries = true
+      continue
+    }
 
     return {
       usable: true,
@@ -358,6 +394,12 @@ function pressureTrendSeedDecision(params: {
   }
   if (sawTimeZoneMismatch) {
     return { usable: false, reason: 'seed_time_zone_mismatch' }
+  }
+  if (sawInvalidCoverage) {
+    return { usable: false, reason: 'seed_invalid_indexed_coverage' }
+  }
+  if (sawInvalidSeries) {
+    return { usable: false, reason: 'seed_invalid_series' }
   }
   if (sawWindowMismatch) {
     return { usable: false, reason: 'seed_window_mismatch' }

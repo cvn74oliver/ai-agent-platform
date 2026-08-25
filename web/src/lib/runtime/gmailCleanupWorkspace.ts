@@ -686,6 +686,8 @@ export const GMAIL_PRESSURE_TREND_WINDOWS = [
 
 export type GmailPressureTrendWindow = (typeof GMAIL_PRESSURE_TREND_WINDOWS)[number]
 
+export type GmailSenderOverviewWindow = Exclude<GmailPressureTrendWindow, 'all_indexed'>
+
 export const GMAIL_PRESSURE_TREND_GROUPINGS = [
   'hour',
   'day',
@@ -783,7 +785,7 @@ export type GmailSenderOverviewWindowData = {
     sender_count: number
   }
   window: {
-    key: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+    key: GmailSenderOverviewWindow
     label: string
     requested_start: string | null
     requested_end: string | null
@@ -814,6 +816,42 @@ export type GmailSenderOverviewWindowData = {
     semantic_resolution_distribution: GmailSenderWorkspaceData['analytics']['semantic_resolution_distribution']
   }
   source: 'gmail_index_cache'
+}
+
+export type GmailReviewUnitWindowProjectionData = {
+  artifact_version: string
+  parent_id: string
+  review_unit_id: string
+  membership_hash: string
+  projection_hash: string
+  unit_entity_total: number
+  active_entity_total: number
+  activity_total: number
+  coverage_start_at: string
+  coverage_end_at: string
+  time_zone: string
+  requested_window: {
+    kind: 'all_indexed' | 'preset' | 'custom'
+    start: string | null
+    end: string | null
+  }
+  effective_window: {
+    start: string
+    end: string
+    empty: boolean
+    clamped_start: boolean
+    clamped_end: boolean
+  }
+  members: Array<{
+    entity_id: string
+    activity_count: number
+    all_indexed_activity_count: number
+  }>
+  series: Array<{
+    resolution: 'day' | 'month' | 'quarter' | 'year'
+    bucket_start: string
+    activity_count: number
+  }>
 }
 
 export type GmailMailboxIntelligenceData = {
@@ -948,6 +986,8 @@ export type GmailSenderWorkspaceSender = {
   sender_key: string
   sender_domain: string | null
   cleanup_group_message_count: number
+  window_activity_count?: number | null
+  all_indexed_activity_count?: number | null
   total_sender_messages: number | null
   unread_count: number
   last_activity: string | null
@@ -1073,6 +1113,7 @@ export type GmailSenderWorkspaceData = {
     direction: GmailSenderWorkspaceSortDirection
   }
   exceptions_count: number
+  review_unit_projection?: GmailReviewUnitWindowProjectionData | null
   source: 'gmail_index_cache'
 }
 
@@ -1080,6 +1121,7 @@ export type GmailSenderDistributionSender = {
   sender: string
   sender_key: string
   cleanup_group_message_count: number
+  all_indexed_cleanup_group_message_count?: number | null
   unread_count: number
   last_activity: string | null
   sender_signal: 'likely_machine_generated' | 'likely_human' | 'uncertain'
@@ -1099,6 +1141,7 @@ export type GmailSenderDistributionData = {
     sender_count: number
   }
   senders: GmailSenderDistributionSender[]
+  review_unit_projection?: GmailReviewUnitWindowProjectionData | null
   source: 'gmail_index_cache'
 }
 
@@ -2312,7 +2355,7 @@ function senderWorkspaceCacheKey(params: {
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
-  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
@@ -2372,7 +2415,7 @@ export function buildGmailSenderDistributionCacheKey(params: {
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
-  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
@@ -2407,7 +2450,8 @@ function senderOverviewWindowCacheKey(params: {
   selectedCluster: GmailCleanupClusterRef
   analysisScope: OperationsAnalysisScope
   cacheVersion: string
-  pressureWindow: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+  reviewUnitId?: string | null
+  pressureWindow: GmailSenderOverviewWindow
   pressureStart: string | null
   pressureEnd: string | null
   timeZone: string
@@ -2418,6 +2462,7 @@ function senderOverviewWindowCacheKey(params: {
     params.analysisScope,
     params.cacheVersion,
     clusterCacheSignature(params.selectedCluster),
+    params.reviewUnitId?.trim() || 'no-review-unit',
     params.pressureWindow,
     params.pressureStart || 'none',
     params.pressureEnd || 'none',
@@ -2591,7 +2636,7 @@ export function readLatestCachedGmailMailboxIntelligence(params: {
 function senderWorkspaceRequiresCanonicalTimeContextTimeline(params: {
   analysisScope: OperationsAnalysisScope
   timeContextBucketLabel?: string | null
-  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
 }): boolean {
   if (params.timeContextBucketLabel != null) return false
   if (params.senderOverviewWindow != null) return false
@@ -2682,7 +2727,7 @@ export function readCachedGmailSenderWorkspace(params: {
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
-  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
@@ -2767,7 +2812,7 @@ export function readCachedGmailSenderDistribution(params: {
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
-  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
@@ -2825,7 +2870,8 @@ export function readCachedGmailSenderOverviewWindow(params: {
   selectedCluster: GmailCleanupClusterRef
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
-  pressureWindow: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+  reviewUnitId?: string | null
+  pressureWindow: GmailSenderOverviewWindow
   pressureStart?: string | null
   pressureEnd?: string | null
   timeZone?: string | null
@@ -2846,6 +2892,7 @@ export function readCachedGmailSenderOverviewWindow(params: {
     selectedCluster: params.selectedCluster,
     analysisScope,
     cacheVersion,
+    reviewUnitId: params.reviewUnitId ?? null,
     pressureWindow: params.pressureWindow,
     pressureStart,
     pressureEnd,
@@ -3002,7 +3049,7 @@ export async function fetchGmailSenderWorkspace(params: {
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
-  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
@@ -3203,7 +3250,7 @@ export async function fetchGmailSenderDistribution(params: {
   timeContextBucketLabel?: string | null
   timeContextBucketStartAt?: string | null
   timeContextBucketEndExclusiveAt?: string | null
-  senderOverviewWindow?: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'> | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
   timeZone?: string | null
@@ -3356,7 +3403,8 @@ export async function fetchGmailSenderOverviewWindow(params: {
   allClusters: GmailCleanupClusterRef[]
   analysisScope?: OperationsAnalysisScope
   cacheVersion?: string | null
-  pressureWindow: Extract<GmailPressureTrendWindow, 'last_day' | 'custom'>
+  pressureWindow: GmailSenderOverviewWindow
+  reviewUnitId?: string | null
   pressureStart?: string | null
   pressureEnd?: string | null
   timeZone?: string | null
@@ -3382,6 +3430,7 @@ export async function fetchGmailSenderOverviewWindow(params: {
       selectedCluster: params.selectedCluster,
       analysisScope,
       cacheVersion,
+      reviewUnitId: params.reviewUnitId ?? null,
       pressureWindow: params.pressureWindow,
       pressureStart,
       pressureEnd,
@@ -3448,6 +3497,7 @@ export async function fetchGmailSenderOverviewWindow(params: {
             : undefined,
       })),
       pressure_window: params.pressureWindow,
+      review_unit_id: params.reviewUnitId?.trim() || null,
       pressure_start: pressureStart,
       pressure_end: pressureEnd,
       time_zone: timeZone,

@@ -1974,6 +1974,9 @@ function senderDistributionInterpretation(params: {
   visibleTopThreeShare: number
 }): string {
   const { item, topItem, visibleTopThreeShare } = params
+  if (item.messageCount === 0) {
+    return 'This sender keeps its stable child-group rank, but it had no supporting messages in the selected window.'
+  }
   if (item.rank === 1) {
     return visibleTopThreeShare >= 60
       ? 'This sender is leading a top-heavy current scope.'
@@ -1989,6 +1992,9 @@ function senderDistributionInterpretation(params: {
 }
 
 function senderDistributionWhatHappened(item: SenderDistributionRailItem): string {
+  if (item.messageCount === 0) {
+    return `${item.label} remains in the fixed child-group order but contributed no messages in this selected window.`
+  }
   if (item.rank === 1) {
     return `${item.label} is the largest contributor in the current scope.`
   }
@@ -2001,6 +2007,9 @@ function senderDistributionWhyItMatters(params: {
   visibleTopThreeShare: number
 }): string {
   const { item, topItem, visibleTopThreeShare } = params
+  if (item.messageCount === 0) {
+    return 'Keeping the sender visible preserves the exact child membership while making the selected-window inactivity explicit.'
+  }
   if (item.rank === 1) {
     return visibleTopThreeShare >= 60
       ? 'A large share of this group is concentrated near the top, so starting here should cut into the workload quickly.'
@@ -2018,6 +2027,9 @@ function senderDistributionWhyItMatters(params: {
 function senderDistributionWhatToDo(item: SenderDistributionRailItem, locked: boolean): string {
   if (locked) {
     return 'Keep this sender in local chart focus while you compare the neighboring bars, or clear focus to return to the default read.'
+  }
+  if (item.messageCount === 0) {
+    return 'Compare the nonzero bars in this window, or switch back to All indexed to review this sender’s full contribution.'
   }
   if (item.rank === 1) {
     return 'Start with this sender first, then compare the next few bars to see whether the group is top-heavy.'
