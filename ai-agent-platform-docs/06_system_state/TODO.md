@@ -43,10 +43,11 @@ _Last updated: 2026-08-24 • Cleanup Groups Human Review returned to bounded pr
 - [x] Record Oliver plan decision: `ACCEPT` on 2026-08-24. Authorization is limited to Stages A/B.
 - [x] Execute Stages A/B in the isolated ACE-048 worktree: generic projection contract, Gmail adapter, unapplied additive migration, candidate-only generation validation, fixtures, TypeScript, targeted lint, production build, and diff proof. No database or publication mutation occurred.
 - [x] Oliver approved Stage C on 2026-08-25: apply `20260824132718_add_workspace_review_unit_window_projection.sql` and generate exactly one new unpublished candidate from existing indexed data.
-- [ ] Reattest Supabase project `cjpjekhlvzwjwtszqpmy`, active publication pointer, and idle build/index state; then apply only the named additive migration without broad-pushing across remote migration-history drift.
-- [ ] Verify schema, indexes, RLS, policies, grants, and bounded projection RPC behavior.
-- [ ] Start exactly one unpublished candidate build, monitor it single-flight to a terminal state, reconcile candidate manifests/membership/activity, and prove the active publication pointer did not move.
-- [ ] Stop after Stage C and return the runtime/UI integration correction for its separately bounded execution decision; do not publish, Smart Sync, reindex, deploy, push, or move main.
+- [x] Reattest Supabase project `cjpjekhlvzwjwtszqpmy`, active publication pointer, and idle build/index state; then apply only the named additive migration without broad-pushing across remote migration-history drift.
+- [x] Verify schema, indexes, RLS, policies, grants, and bounded projection RPC behavior; apply the additive RLS initplan optimization migration and confirm no advisor finding against the new objects.
+- [x] Start exactly one unpublished candidate build, monitor it single-flight to `completed / candidate_ready`, reconcile `5,024` senders and `60` actionable manifests, and prove the active publication pointer remains `full-mailbox-20260415024237593`.
+- [x] Stop after Stage C; no publish, Smart Sync, reindex, deploy, push, or main movement occurred.
+- [ ] Obtain the separately bounded Stage D decision, then wire candidate-version projection reads and the Pressure Trend empty-seed correction into the canonical review surfaces before Playwright and Human Review.
 
 ### Historical active heading retained below
 

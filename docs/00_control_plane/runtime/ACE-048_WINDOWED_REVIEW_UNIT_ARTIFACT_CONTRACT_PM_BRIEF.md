@@ -1,6 +1,6 @@
 # ACE-048 Windowed Review-Unit Artifact Contract — PM Brief
 
-Status: `STAGE C ACTIVE — CONTROLLED MIGRATION + ONE UNPUBLISHED CANDIDATE`
+Status: `STAGE C COMPLETE — AWAITING STAGE D DECISION`
 
 Runtime artifact status: `updated; authoritative task-scoped runtime context`
 
@@ -401,4 +401,17 @@ Stages A/B result: implemented in the isolated ACE-048 worktree. Generic, Gmail-
 
 Oliver decision — 2026-08-25: `APPROVED`. Apply only migration `20260824132718_add_workspace_review_unit_window_projection.sql` to project `cjpjekhlvzwjwtszqpmy`, verify its schema/RLS contract, and generate exactly one unpublished candidate from existing indexed data. Publication, Smart Sync, Gmail reindex, deployment, push, local-main promotion, and lineage retirement remain unauthorized.
 
-Status: `ACTIVE — Stage C Controlled Migration + One Unpublished Candidate`
+Stage C authorization state before execution: `APPROVED — CONTROLLED MIGRATION + ONE UNPUBLISHED CANDIDATE`.
+
+## Stage C result — 2026-08-25
+
+- Applied the additive projection migration and a corrective RLS initplan optimization migration to exact project `cjpjekhlvzwjwtszqpmy`; no broad migration push was used.
+- Triggered exactly one candidate build from the existing idle `244,628`-message mailbox index. Candidate `full-mailbox-20260825031402535` reached `completed / candidate_ready`; no Smart Sync or Gmail reindex ran.
+- The active publication pointer remains `full-mailbox-20260415024237593`; `building_version` and mailbox `active_run_id` are null.
+- Reconciled `5,024` unique/root senders across `7` parents: `4,965` actionable members in `60` exact manifests plus `59` informational Context senders. Manifest/seed and parent/root parity failures are zero, duplicate within-parent memberships are zero, and the largest child is `296`.
+- Projection coverage is `2022-12-02` through `2026-08-15`; the new contract contains no epoch manifest. Authenticated same-tenant RPC reads, All Indexed, Custom, ready-empty, cross-tenant denial, grants, and final database advisors pass for the new projection objects.
+- One transient preview-index upsert recovered through the existing bounded retry; it did not trigger a second build or mailbox scan.
+
+Stage C did not produce runtime/UI acceptance and does not authorize publication. Stage D remains a separately approved runtime/UI integration and correction-proof step.
+
+Status: `STAGE C COMPLETE — AWAITING STAGE D DECISION`

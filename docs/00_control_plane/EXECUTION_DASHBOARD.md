@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-25
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACTIVE — STAGE C CONTROLLED MIGRATION + ONE UNPUBLISHED CANDIDATE
+Status: STAGE C COMPLETE — AWAITING STAGE D DECISION
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Cleanup Groups checkpoint one accepted; windowed review-unit artifact-contract Stages A/B implemented and technically checked in isolation; additive migration is unapplied and candidate/publication data remain unchanged
+- Execution phase: Cleanup Groups checkpoint one accepted; windowed review-unit Stage C completed with one unpublished candidate and an unchanged active publication; Stage D runtime/UI integration remains separately gated
 - Problem class: artifact/publication truth primary — exact preset/Custom projection data is absent from the all-indexed-only candidate; bounded Pressure Trend empty-seed runtime seam is secondary
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -56,9 +56,10 @@ Status: ACTIVE — STAGE C CONTROLLED MIGRATION + ONE UNPUBLISHED CANDIDATE
 - [x] Lock immutable review-unit membership plus separately identified window projections; fixed and active counts remain distinct
 - [x] Oliver plan decision `ACCEPT`; Stages A/B implemented and verified without remote mutation
 - [x] Oliver Stage C decision `APPROVED` on 2026-08-25; authority is limited to the named additive migration plus one unpublished candidate
-- [ ] Reattest exact project, publication pointer, and idle lifecycle state
-- [ ] Apply and verify only `20260824132718_add_workspace_review_unit_window_projection.sql`
-- [ ] Build and reconcile one unpublished candidate; prove the publication pointer remains unchanged
+- [x] Reattest exact project, publication pointer, and idle lifecycle state
+- [x] Apply and verify only the additive projection migration plus its RLS initplan correction
+- [x] Build and reconcile one unpublished candidate; `5,024` root senders, `60` actionable manifests, largest child `296`, exact parity, and unchanged April publication pointer
+- [ ] Obtain Stage D approval before runtime/UI integration, candidate-route Playwright, or Human Review
 
 ## Immediate Human Review return
 
