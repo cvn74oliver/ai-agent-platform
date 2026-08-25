@@ -1,8 +1,8 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-08-24
+Last updated: 2026-08-25
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: AWAITING DECISION — MIGRATION APPLICATION + ONE UNPUBLISHED CANDIDATE
+Status: ACTIVE — STAGE C CONTROLLED MIGRATION + ONE UNPUBLISHED CANDIDATE
 
 ## Current position
 
@@ -54,8 +54,11 @@ Status: AWAITING DECISION — MIGRATION APPLICATION + ONE UNPUBLISHED CANDIDATE
 - [x] Record Oliver's `RETURN_TO_PM` approval for a platform-generic contract plan
 - [x] Create and propagate `ACE-048_WINDOWED_REVIEW_UNIT_ARTIFACT_CONTRACT_PM_BRIEF.md`
 - [x] Lock immutable review-unit membership plus separately identified window projections; fixed and active counts remain distinct
-- [ ] Await Oliver plan decision; implementation remains blocked
-- [ ] After plan `ACCEPT`, implement Stages A/B only and return for a separate migration/new-candidate decision
+- [x] Oliver plan decision `ACCEPT`; Stages A/B implemented and verified without remote mutation
+- [x] Oliver Stage C decision `APPROVED` on 2026-08-25; authority is limited to the named additive migration plus one unpublished candidate
+- [ ] Reattest exact project, publication pointer, and idle lifecycle state
+- [ ] Apply and verify only `20260824132718_add_workspace_review_unit_window_projection.sql`
+- [ ] Build and reconcile one unpublished candidate; prove the publication pointer remains unchanged
 
 ## Immediate Human Review return
 

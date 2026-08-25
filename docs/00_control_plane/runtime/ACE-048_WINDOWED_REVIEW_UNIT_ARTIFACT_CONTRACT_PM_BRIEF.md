@@ -1,6 +1,6 @@
 # ACE-048 Windowed Review-Unit Artifact Contract — PM Brief
 
-Status: `STAGES A/B IMPLEMENTED — AWAITING MIGRATION/CANDIDATE DECISION`
+Status: `STAGE C ACTIVE — CONTROLLED MIGRATION + ONE UNPUBLISHED CANDIDATE`
 
 Runtime artifact status: `updated; authoritative task-scoped runtime context`
 
@@ -399,4 +399,6 @@ Required artifacts:
 
 Stages A/B result: implemented in the isolated ACE-048 worktree. Generic, Gmail-adapter, and Pressure Trend fixtures pass; TypeScript, targeted lint, production build, and diff checks pass. Local SQL function/RLS execution proof is deferred to Stage C because the local PostgreSQL client installation has no server binary. No remote database, candidate, or publication state changed.
 
-Status: `Awaiting Decision — Apply Migration + Build One Unpublished Candidate`
+Oliver decision — 2026-08-25: `APPROVED`. Apply only migration `20260824132718_add_workspace_review_unit_window_projection.sql` to project `cjpjekhlvzwjwtszqpmy`, verify its schema/RLS contract, and generate exactly one unpublished candidate from existing indexed data. Publication, Smart Sync, Gmail reindex, deployment, push, local-main promotion, and lineage retirement remain unauthorized.
+
+Status: `ACTIVE — Stage C Controlled Migration + One Unpublished Candidate`
