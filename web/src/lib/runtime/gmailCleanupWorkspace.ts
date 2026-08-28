@@ -736,7 +736,7 @@ export type GmailCanonicalSenderActivityTimelineBucket = {
   contract_version: GmailCanonicalTimelineContractVersion
   metric_family: 'sender_activity'
   scope_key: OperationsAnalysisScope
-  grouping: Extract<GmailPressureTrendGrouping, 'hour' | 'day' | 'week' | 'month'>
+  grouping: GmailPressureTrendGrouping
   time_zone: string
   source_dataset: 'gmail_index_rows'
   filter_contract: GmailCanonicalTimelineFilterContract
@@ -850,6 +850,7 @@ export type GmailReviewUnitWindowProjectionData = {
   series: Array<{
     resolution: 'day' | 'month' | 'quarter' | 'year'
     bucket_start: string
+    active_entity_count: number
     activity_count: number
   }>
 }
@@ -1098,7 +1099,7 @@ export type GmailSenderWorkspaceData = {
     /** @deprecated Use `semantic_provenance_distribution`. */
     category_summary_source_distribution: GmailSenderWorkspaceCategorySummarySourceDistributionEntry[]
     sender_activity_timeline: GmailCanonicalSenderActivityTimelineBucket[]
-    sender_activity_timeline_granularity: 'hour' | 'day' | 'week' | 'month'
+    sender_activity_timeline_granularity: GmailPressureTrendGrouping
     cluster_contribution: Array<{
       sender: string
       sender_key: string
@@ -2651,14 +2652,16 @@ function senderWorkspaceRequiresCanonicalTimeContextTimeline(params: {
 function senderWorkspaceTimelineScopeContract(
   analysisScope: OperationsAnalysisScope
 ): {
-  grouping: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
+  groupings: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity'][]
   bucketCount: number | null
 } | null {
-  if (analysisScope === 'all_indexed') return { grouping: 'month', bucketCount: null }
-  if (analysisScope === '365d') return { grouping: 'month', bucketCount: 12 }
-  if (analysisScope === '90d') return { grouping: 'week', bucketCount: 13 }
-  if (analysisScope === '30d') return { grouping: 'day', bucketCount: 30 }
-  if (analysisScope === '7d') return { grouping: 'day', bucketCount: 7 }
+  if (analysisScope === 'all_indexed') {
+    return { groupings: ['month', 'quarter', 'year'], bucketCount: null }
+  }
+  if (analysisScope === '365d') return { groupings: ['month'], bucketCount: 12 }
+  if (analysisScope === '90d') return { groupings: ['week'], bucketCount: 13 }
+  if (analysisScope === '30d') return { groupings: ['day'], bucketCount: 30 }
+  if (analysisScope === '7d') return { groupings: ['day'], bucketCount: 7 }
   return null
 }
 
@@ -2674,7 +2677,11 @@ export function senderWorkspaceHasCanonicalTimeContextTimeline(params: {
     ? params.workspace.analytics.sender_activity_timeline
     : []
   if (items.length === 0) return false
-  if (params.workspace.analytics?.sender_activity_timeline_granularity !== scopeContract.grouping) {
+  if (
+    !scopeContract.groupings.includes(
+      params.workspace.analytics?.sender_activity_timeline_granularity
+    )
+  ) {
     return false
   }
   if (scopeContract.bucketCount != null && items.length !== scopeContract.bucketCount) {
@@ -2686,7 +2693,7 @@ export function senderWorkspaceHasCanonicalTimeContextTimeline(params: {
     if (item.contract_version !== GMAIL_CANONICAL_TIMELINE_CONTRACT_VERSION) return false
     if (item.metric_family !== 'sender_activity') return false
     if (!item.time_zone || !item.grouping) return false
-    if (item.grouping !== scopeContract.grouping) return false
+    if (!scopeContract.groupings.includes(item.grouping)) return false
     const bucketStartMs =
       typeof item.bucket_start_iso === 'string' ? Date.parse(item.bucket_start_iso) : Number.NaN
     const bucketEndExclusiveMs =

@@ -844,7 +844,10 @@ function clearCachedMailboxIndexHealth() {
 
 const OperationsRuntimeContext = createContext<ContextValue | null>(null)
 
-const STORAGE_PREFIX = 'operations.runtime.snapshot.v2'
+// Review-unit membership is artifact-versioned runtime truth. Bump the
+// persisted snapshot contract whenever an older projection can reject a valid
+// materialized child before the current runtime snapshot is mounted.
+const STORAGE_PREFIX = 'operations.runtime.snapshot.v3'
 const MAILBOX_INDEX_HEALTH_STORAGE_KEY = 'operations.mailbox-index.health.v1'
 const MAILBOX_INDEX_HEALTH_CACHE_TTL_MS = 15 * 1000
 const MAILBOX_INDEX_ACTIVE_POLL_INTERVAL_MS = 10 * 1000

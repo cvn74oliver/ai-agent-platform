@@ -85,6 +85,7 @@ export type WorkspaceReviewUnitWindowProjectionRead = {
   series: Array<{
     resolution: 'day' | 'month' | 'quarter' | 'year'
     bucket_start: string
+    active_entity_count: number
     activity_count: number
   }>
 }
@@ -433,6 +434,7 @@ export type GmailPublishedSenderWorkspaceFocusedArtifactRead = {
   preview_index_rows: GmailPreviewIndexRow[]
   preview_fetch_strategy?: 'message_id' | 'sender_key'
   focused_total_senders: number
+  focused_active_total_senders?: number
   focused_sender_keys?: string[]
   focused_capability_available: boolean
   focused_request_valid?: boolean
@@ -4193,6 +4195,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
   sort: GmailSenderWorkspaceSort
   direction: GmailSenderWorkspaceSortDirection
   includeFocusedSenderKeys?: boolean
+  activeSenderKeys?: string[]
 }): Promise<GmailPublishedSenderWorkspaceFocusedArtifactRead> {
   const headerRead = await loadPublishedSenderWorkspaceArtifactHeaders(params)
   if (!headerRead.publication || !headerRead.artifact_version || !headerRead.selected_header) {
@@ -4252,68 +4255,105 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
       `Published review-unit manifest mismatch for ${reviewUnitId}: expected ${manifestEntry.senderCount}, found ${focusedTotalSenders}.`
     )
   }
-  let focusedSenderKeys: string[] | undefined
-  if (params.includeFocusedSenderKeys === true) {
-    const { data: focusedSenderKeyData, error: focusedSenderKeyError } = await params.supabase
+  const activeSenderKeys =
+    params.activeSenderKeys === undefined ? null : uniqueStrings(params.activeSenderKeys)
+  if (activeSenderKeys && activeSenderKeys.length > REVIEW_UNIT_PROJECTION_MEMBER_LIMIT) {
+    throw new Error('Review-unit active membership exceeded the bounded projection limit.')
+  }
+  const focusedActiveTotalSenders = activeSenderKeys?.length ?? focusedTotalSenders
+  if (activeSenderKeys && activeSenderKeys.length > 0) {
+    const { count: activeCount, error: activeCountError } = await params.supabase
       .from('gmail_sender_workspace_seed_rows')
-      .select('sender_key')
+      .select('sender_key', { count: 'exact', head: true })
       .eq('tenant_id', params.tenantId)
       .eq('analysis_scope', params.analysisScope)
       .eq('artifact_version', headerRead.artifact_version)
       .eq('cluster_id', resolvedClusterId)
       .eq('review_unit_id', reviewUnitId)
-      .order('default_rank', { ascending: true })
-      .order('sender_key', { ascending: true })
-      .range(0, Math.max(0, focusedTotalSenders - 1))
-    if (focusedSenderKeyError) {
+      .in('sender_key', activeSenderKeys)
+    if (activeCountError) {
       throw new Error(
-        `Failed to load materialized Gmail review-unit sender keys: ${focusedSenderKeyError.message}`
+        `Failed to validate materialized Gmail review-unit active membership: ${activeCountError.message}`
       )
     }
-    focusedSenderKeys = uniqueStrings(
-      (focusedSenderKeyData || []).map((row) =>
-        typeof row.sender_key === 'string' ? row.sender_key.trim() : ''
-      )
-    )
-    if (focusedSenderKeys.length !== focusedTotalSenders) {
+    if (activeCount !== activeSenderKeys.length) {
       throw new Error(
-        `Published review-unit sender-key mismatch for ${reviewUnitId}: expected ${focusedTotalSenders}, found ${focusedSenderKeys.length}.`
+        `Published review-unit active membership mismatch for ${reviewUnitId}: expected ${activeSenderKeys.length}, found ${activeCount || 0}.`
       )
+    }
+  }
+  let focusedSenderKeys: string[] | undefined
+  if (params.includeFocusedSenderKeys === true) {
+    if (activeSenderKeys) {
+      focusedSenderKeys = [...activeSenderKeys]
+    } else {
+      const { data: focusedSenderKeyData, error: focusedSenderKeyError } = await params.supabase
+        .from('gmail_sender_workspace_seed_rows')
+        .select('sender_key')
+        .eq('tenant_id', params.tenantId)
+        .eq('analysis_scope', params.analysisScope)
+        .eq('artifact_version', headerRead.artifact_version)
+        .eq('cluster_id', resolvedClusterId)
+        .eq('review_unit_id', reviewUnitId)
+        .order('default_rank', { ascending: true })
+        .order('sender_key', { ascending: true })
+        .range(0, Math.max(0, focusedTotalSenders - 1))
+      if (focusedSenderKeyError) {
+        throw new Error(
+          `Failed to load materialized Gmail review-unit sender keys: ${focusedSenderKeyError.message}`
+        )
+      }
+      focusedSenderKeys = uniqueStrings(
+        (focusedSenderKeyData || []).map((row) =>
+          typeof row.sender_key === 'string' ? row.sender_key.trim() : ''
+        )
+      )
+      if (focusedSenderKeys.length !== focusedTotalSenders) {
+        throw new Error(
+          `Published review-unit sender-key mismatch for ${reviewUnitId}: expected ${focusedTotalSenders}, found ${focusedSenderKeys.length}.`
+        )
+      }
     }
   }
   const normalizedPageSize = Math.min(
     GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT,
     Math.max(1, normalizeInteger(params.pageSize))
   )
-  const totalPages = Math.max(1, Math.ceil(focusedTotalSenders / normalizedPageSize))
+  const totalPages = Math.max(1, Math.ceil(focusedActiveTotalSenders / normalizedPageSize))
   const normalizedPage = Math.min(Math.max(1, normalizeInteger(params.page)), totalPages)
   const rangeStart = (normalizedPage - 1) * normalizedPageSize
   const rangeEnd = rangeStart + normalizedPageSize - 1
   const primarySortColumn = focusedSemanticSortColumn(params.sort)
-  let seedRowsQuery = params.supabase
-    .from('gmail_sender_workspace_seed_rows')
-    .select('*')
-    .eq('tenant_id', params.tenantId)
-    .eq('analysis_scope', params.analysisScope)
-    .eq('artifact_version', headerRead.artifact_version)
-    .eq('cluster_id', resolvedClusterId)
-    .eq('review_unit_id', reviewUnitId)
-  seedRowsQuery =
-    params.sort === 'last_activity'
-      ? seedRowsQuery.order(primarySortColumn, {
-          ascending: params.direction === 'asc',
-          nullsFirst: params.direction === 'asc',
-        })
-      : seedRowsQuery.order(primarySortColumn, { ascending: params.direction === 'asc' })
-  if (primarySortColumn !== 'sender_key') {
-    seedRowsQuery = seedRowsQuery.order('sender_key', { ascending: true })
+  let seedRows: GmailSenderWorkspaceSeedRow[] = []
+  if (focusedActiveTotalSenders > 0) {
+    let seedRowsQuery = params.supabase
+      .from('gmail_sender_workspace_seed_rows')
+      .select('*')
+      .eq('tenant_id', params.tenantId)
+      .eq('analysis_scope', params.analysisScope)
+      .eq('artifact_version', headerRead.artifact_version)
+      .eq('cluster_id', resolvedClusterId)
+      .eq('review_unit_id', reviewUnitId)
+    if (activeSenderKeys) seedRowsQuery = seedRowsQuery.in('sender_key', activeSenderKeys)
+    seedRowsQuery =
+      params.sort === 'last_activity'
+        ? seedRowsQuery.order(primarySortColumn, {
+            ascending: params.direction === 'asc',
+            nullsFirst: params.direction === 'asc',
+          })
+        : seedRowsQuery.order(primarySortColumn, { ascending: params.direction === 'asc' })
+    if (primarySortColumn !== 'sender_key') {
+      seedRowsQuery = seedRowsQuery.order('sender_key', { ascending: true })
+    }
+    seedRowsQuery = seedRowsQuery
+      .order('default_rank', { ascending: true })
+      .range(rangeStart, rangeEnd)
+    const { data: seedRowData, error: seedRowError } = await seedRowsQuery
+    if (seedRowError) {
+      throw new Error(`Failed to load materialized Gmail review-unit page: ${seedRowError.message}`)
+    }
+    seedRows = (seedRowData || []) as GmailSenderWorkspaceSeedRow[]
   }
-  seedRowsQuery = seedRowsQuery.order('default_rank', { ascending: true }).range(rangeStart, rangeEnd)
-  const { data: seedRowData, error: seedRowError } = await seedRowsQuery
-  if (seedRowError) {
-    throw new Error(`Failed to load materialized Gmail review-unit page: ${seedRowError.message}`)
-  }
-  const seedRows = (seedRowData || []) as GmailSenderWorkspaceSeedRow[]
   const previewRows = await loadPreviewIndexRowsBySenderKeys({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -4338,6 +4378,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
     review_unit_id: reviewUnitId,
     seed_rows: seedRows.length,
     focused_sender_keys: focusedSenderKeys?.length || 0,
+    focused_active_total_senders: focusedActiveTotalSenders,
     preview_rows: previewRows.length,
     actual_returned_rows: actualReturnedRowCount,
     query_concurrency: 1,
@@ -4348,6 +4389,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage(pa
     preview_index_rows: previewRows,
     preview_fetch_strategy: 'sender_key',
     focused_total_senders: focusedTotalSenders,
+    focused_active_total_senders: focusedActiveTotalSenders,
     focused_sender_keys: focusedSenderKeys,
     focused_capability_available: true,
     focused_request_valid: true,

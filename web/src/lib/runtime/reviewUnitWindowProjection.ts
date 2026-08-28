@@ -30,6 +30,11 @@ export type ReviewUnitProjectionAccumulator = {
   finalize: () => ReviewUnitProjectionMaterialization
 }
 
+export type ReviewUnitWindowWorkingSetMember = {
+  entityId: string
+  activityCount: number
+}
+
 type ActivityAggregate = {
   activityCount: number
   measurePayload: Record<string, number>
@@ -237,6 +242,38 @@ export function resolveReviewUnitWindow(params: {
     clampedEnd: effectiveEndMs !== requestedEndMs,
     empty,
   }
+}
+
+/**
+ * Resolves the decision-working set without mutating immutable review-unit membership.
+ * All Indexed retains the complete published unit. Narrower windows contain only entities
+ * with activity in the resolved interval. This contract is platform-generic: Gmail senders,
+ * portfolio positions, tax transactions, or any other decision subject use the same rule.
+ */
+export function resolveReviewUnitWindowWorkingEntityIds(params: {
+  windowKind: ReviewUnitWindowRequest['kind']
+  unitEntityTotal: number
+  activeEntityTotal: number
+  members: ReviewUnitWindowWorkingSetMember[]
+}): string[] {
+  const unitEntityTotal = normalizeCount(params.unitEntityTotal)
+  const activeEntityTotal = normalizeCount(params.activeEntityTotal)
+  const memberIds = params.members.map((member) => normalizeText(member.entityId))
+  const uniqueMemberIds = new Set(memberIds)
+  if (
+    memberIds.some((entityId) => !entityId) ||
+    uniqueMemberIds.size !== memberIds.length ||
+    memberIds.length !== unitEntityTotal
+  ) {
+    throw new Error('Review-unit window members do not equal fixed review-unit membership.')
+  }
+  const activeEntityIds = params.members
+    .filter((member) => normalizeCount(member.activityCount) > 0)
+    .map((member) => normalizeText(member.entityId))
+  if (activeEntityIds.length !== activeEntityTotal) {
+    throw new Error('Review-unit active entity total does not match window activity membership.')
+  }
+  return params.windowKind === 'all_indexed' ? memberIds : activeEntityIds
 }
 
 function rowIdentity(identity: ReviewUnitProjectionIdentity) {

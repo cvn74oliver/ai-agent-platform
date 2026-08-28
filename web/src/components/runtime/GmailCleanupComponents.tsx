@@ -1786,7 +1786,7 @@ function senderTimeContextInterpretation(params: {
 }): string {
   const { item, previous, peak, latest } = params
   if (item.count === 0) {
-    return 'No active senders were visible here.'
+    return 'No activity was visible here.'
   }
   if (peak && latest && item.label === peak.label && item.label === latest.label) {
     return 'This group is still sitting at its visible high point.'
@@ -1821,32 +1821,32 @@ function senderTimeContextWhatHappened(params: {
 }): string {
   const { item, previous, peak, latest } = params
   if (item.count === 0) {
-    return `No active senders landed in ${item.label}, so this part of the timeline does not add fresh workload.`
+    return `No supporting activity landed in ${item.label}, so this part of the timeline does not add fresh workload.`
   }
   if (!previous) {
-    return `${item.label} is the first visible checkpoint in this timeline, with ${item.count.toLocaleString()} active senders.`
+    return `${item.label} is the first visible checkpoint in this timeline, with ${item.count.toLocaleString()} supporting messages.`
   }
   const delta = item.count - previous.count
   if (peak && latest && item.label === peak.label && item.label === latest.label) {
-    return `${item.label} is both the latest and strongest visible window, with ${item.count.toLocaleString()} active senders still driving this group.`
+    return `${item.label} is both the latest and strongest visible window, with ${item.count.toLocaleString()} supporting messages still driving this group.`
   }
   if (peak && item.label === peak.label) {
-    return `${item.label} is the visible peak at ${item.count.toLocaleString()} active senders, up ${Math.max(delta, 0).toLocaleString()} from the prior period.`
+    return `${item.label} is the visible peak at ${item.count.toLocaleString()} supporting messages, up ${Math.max(delta, 0).toLocaleString()} from the prior period.`
   }
   if (latest && item.label === latest.label) {
     if (delta > 0) {
-      return `${item.label} is the latest visible period and activity is climbing again, up ${delta.toLocaleString()} senders from ${previous.label}.`
+      return `${item.label} is the latest visible period and activity is climbing again, up ${delta.toLocaleString()} messages from ${previous.label}.`
     }
     if (delta < 0) {
-      return `${item.label} is the latest visible period and activity has eased by ${Math.abs(delta).toLocaleString()} senders since ${previous.label}.`
+      return `${item.label} is the latest visible period and activity has eased by ${Math.abs(delta).toLocaleString()} messages since ${previous.label}.`
     }
     return `${item.label} matches ${previous.label}, so the recent pace is holding steady.`
   }
   if (delta > 0) {
-    return `${item.label} sits above ${previous.label} by ${delta.toLocaleString()} active senders, showing a stronger burst of activity in that window.`
+    return `${item.label} sits above ${previous.label} by ${delta.toLocaleString()} messages, showing a stronger burst of activity in that window.`
   }
   if (delta < 0) {
-    return `${item.label} sits below ${previous.label} by ${Math.abs(delta).toLocaleString()} active senders, showing a lighter window than the period before it.`
+    return `${item.label} sits below ${previous.label} by ${Math.abs(delta).toLocaleString()} messages, showing a lighter window than the period before it.`
   }
   return `${item.label} matches ${previous.label}, so activity stayed even across both visible periods.`
 }
@@ -1866,20 +1866,20 @@ function senderTimeContextWhyItMatters(params: {
   if (peak && latest && item.label === peak.label) {
     const difference = Math.max(peak.count - latest.count, 0)
     return difference > 0
-      ? `This is where the heaviest buildup happened. The latest visible period is ${difference.toLocaleString()} senders lower, so the group now mixes live work with residue from that spike.`
+      ? `This is where the heaviest buildup happened. The latest visible period is ${difference.toLocaleString()} messages lower, so the group now mixes live work with residue from that spike.`
       : 'This peak is still representative of the current workload.'
   }
   if (latest && item.label === latest.label) {
     if (peak && peak.count > item.count) {
-      return `Current activity is ${Math.abs(peak.count - item.count).toLocaleString()} senders below the visible peak, so part of today’s review load comes from earlier accumulation.`
+      return `Current activity is ${Math.abs(peak.count - item.count).toLocaleString()} messages below the visible peak, so part of today’s review load comes from earlier accumulation.`
     }
     return 'Current activity is still close to the top of the visible range, so the workload remains active.'
   }
   if (latest && item.count > latest.count) {
-    return `This period was heavier than the current one by ${Math.abs(item.count - latest.count).toLocaleString()} senders, which points to stronger historical buildup than the group is carrying right now.`
+    return `This period was heavier than the current one by ${Math.abs(item.count - latest.count).toLocaleString()} messages, which points to stronger historical buildup than the group is carrying right now.`
   }
   if (latest && item.count < latest.count) {
-    return `The current period now runs ${Math.abs(latest.count - item.count).toLocaleString()} senders above this one, so pressure is still active rather than purely historical.`
+    return `The current period now runs ${Math.abs(latest.count - item.count).toLocaleString()} messages above this one, so pressure is still active rather than purely historical.`
   }
   return 'This period helps separate a stable stretch of activity from the stronger spikes nearby.'
 }
@@ -2137,6 +2137,7 @@ export function SenderDistributionPlaceholderRail(props: {
 export function SenderDistributionAnalysisRail(props: {
   items: SenderDistributionRailItem[]
   totalRankedSenders: number
+  fixedGroupSenderTotal?: number | null
   focusedSenderKey: string | null
   pendingSenderKey?: string | null
   authoritativeContext?: {
@@ -2469,11 +2470,21 @@ export function SenderDistributionAnalysisRail(props: {
                     </div>
                   ) : null}
                 </div>
-                <span className="rounded-full border border-cyan-700/45 bg-cyan-950/20 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
-                  {`${props.totalRankedSenders.toLocaleString()} ranked sender${
-                    props.totalRankedSenders === 1 ? '' : 's'
-                  }`}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="rounded-full border border-cyan-700/45 bg-cyan-950/20 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">
+                    {`${props.totalRankedSenders.toLocaleString()} active sender${
+                      props.totalRankedSenders === 1 ? '' : 's'
+                    }`}
+                  </span>
+                  {props.fixedGroupSenderTotal != null &&
+                  props.fixedGroupSenderTotal !== props.totalRankedSenders ? (
+                    <span className="text-[10px] text-slate-400">
+                      {`${props.fixedGroupSenderTotal.toLocaleString()} sender${
+                        props.fixedGroupSenderTotal === 1 ? '' : 's'
+                      } in this fixed review group`}
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <div ref={chartViewportRef} className="relative mt-4 w-full">
@@ -3061,7 +3072,9 @@ export function SenderTimeContextAnalysisRail(props: {
     } | null
   }
 }) {
-  const usesCanonicalSenderPartition = Boolean(props.scopeControls?.activeScope)
+  // Time Context is a recurring-observation projection: bar height preserves
+  // every activity occurrence, while selection resolves the distinct subjects
+  // behind that activity without inventing an exclusive timeline partition.
   const formatTimelineBucketLabel = (
     label: string,
     granularity: 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year',
@@ -3192,6 +3205,10 @@ export function SenderTimeContextAnalysisRail(props: {
       typeof item.messageCount === 'number' && Number.isFinite(item.messageCount)
         ? Math.max(0, item.messageCount)
         : null,
+    activityCount:
+      typeof item.messageCount === 'number' && Number.isFinite(item.messageCount)
+        ? Math.max(0, item.messageCount)
+        : Math.max(0, item.count),
     key: `${item.label}-${index}`,
     compactLabel: formatTimelineBucketLabel(item.label, props.granularity, 'axis'),
     detailLabel: formatTimelineBucketSpanLabel(item),
@@ -3201,10 +3218,10 @@ export function SenderTimeContextAnalysisRail(props: {
     activeScope === 'last_day' || activeScope === 'last_week' || activeScope === 'last_month'
   const usesCompressedTimeline = activeScope === 'custom'
   const hiddenInactiveItems = usesCompressedTimeline
-    ? rawChartItems.filter((item) => item.count === 0)
+    ? rawChartItems.filter((item) => item.activityCount === 0)
     : []
   const chartItems = usesCompressedTimeline
-    ? rawChartItems.filter((item) => item.count > 0)
+    ? rawChartItems.filter((item) => item.activityCount > 0)
     : rawChartItems
   const hiddenInactiveBucketCount = hiddenInactiveItems.length
   const hiddenInactiveBucketUnitLabel = timeContextBucketUnitLabel(
@@ -3213,7 +3230,10 @@ export function SenderTimeContextAnalysisRail(props: {
   )
   const peakItem = chartItems
     .slice()
-    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))[0] || null
+    .sort(
+      (left, right) =>
+        right.activityCount - left.activityCount || left.label.localeCompare(right.label)
+    )[0] || null
   const latestItem = chartItems[chartItems.length - 1] || null
   const activeBucketMode = props.bucketSelection?.mode || 'workflow_narrowing'
   const activeBucketLabel = props.bucketSelection?.activeLabel || null
@@ -3225,7 +3245,10 @@ export function SenderTimeContextAnalysisRail(props: {
   const bucketSelectionDisabledReason = props.bucketSelection?.disabledReason || null
   const bucketSelectionNotice = props.bucketSelection?.notice || null
   const defaultFocusedItem =
-    hasMeaningfullyDistinctActivityPeak(peakItem, latestItem) && peakItem
+    hasMeaningfullyDistinctActivityPeak(
+      peakItem ? { ...peakItem, count: peakItem.activityCount } : null,
+      latestItem ? { ...latestItem, count: latestItem.activityCount } : null
+    ) && peakItem
       ? peakItem
       : latestItem || chartItems[0] || null
   const [hoveredInteraction, setHoveredInteraction] = useState<{
@@ -3237,7 +3260,7 @@ export function SenderTimeContextAnalysisRail(props: {
   })
   const chartViewportRef = useRef<HTMLDivElement | null>(null)
   const [chartViewportWidth, setChartViewportWidth] = useState(0)
-  const max = maxChartValue(chartItems.map((item) => item.count))
+  const max = maxChartValue(chartItems.map((item) => item.activityCount))
   const chartHeight = 272
   const paddingLeft = 56
   const paddingRight = 36
@@ -3308,38 +3331,76 @@ export function SenderTimeContextAnalysisRail(props: {
   const activeInterpretation =
     anchoredItem
       ? senderTimeContextInterpretation({
-          item: { ...anchoredItem, label: anchoredItem.detailLabel },
+          item: {
+            ...anchoredItem,
+            label: anchoredItem.detailLabel,
+            count: anchoredItem.activityCount,
+          },
           previous: previousAnchoredItem
-            ? { ...previousAnchoredItem, label: previousAnchoredItem.detailLabel }
+            ? {
+                ...previousAnchoredItem,
+                label: previousAnchoredItem.detailLabel,
+                count: previousAnchoredItem.activityCount,
+              }
             : null,
-          peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
-          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+          peak: peakItem
+            ? { ...peakItem, label: peakItem.detailLabel, count: peakItem.activityCount }
+            : null,
+          latest: latestItem
+            ? { ...latestItem, label: latestItem.detailLabel, count: latestItem.activityCount }
+            : null,
         })
       : 'No visible activity is available yet.'
   const whatHappened =
     anchoredItem
       ? senderTimeContextWhatHappened({
-          item: { ...anchoredItem, label: anchoredItem.detailLabel },
+          item: {
+            ...anchoredItem,
+            label: anchoredItem.detailLabel,
+            count: anchoredItem.activityCount,
+          },
           previous: previousAnchoredItem
-            ? { ...previousAnchoredItem, label: previousAnchoredItem.detailLabel }
+            ? {
+                ...previousAnchoredItem,
+                label: previousAnchoredItem.detailLabel,
+                count: previousAnchoredItem.activityCount,
+              }
             : null,
-          peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
-          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+          peak: peakItem
+            ? { ...peakItem, label: peakItem.detailLabel, count: peakItem.activityCount }
+            : null,
+          latest: latestItem
+            ? { ...latestItem, label: latestItem.detailLabel, count: latestItem.activityCount }
+            : null,
         })
       : 'No visible activity is available yet.'
   const whyItMatters =
     anchoredItem
       ? senderTimeContextWhyItMatters({
-          item: { ...anchoredItem, label: anchoredItem.detailLabel },
-          peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
-          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+          item: {
+            ...anchoredItem,
+            label: anchoredItem.detailLabel,
+            count: anchoredItem.activityCount,
+          },
+          peak: peakItem
+            ? { ...peakItem, label: peakItem.detailLabel, count: peakItem.activityCount }
+            : null,
+          latest: latestItem
+            ? { ...latestItem, label: latestItem.detailLabel, count: latestItem.activityCount }
+            : null,
         })
       : 'The cleanup group needs visible timeline data before this rail can explain the workload.'
   const whatToDo =
     anchoredItem
       ? senderTimeContextWhatToDo({
-          item: { ...anchoredItem, label: anchoredItem.detailLabel },
-          latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+          item: {
+            ...anchoredItem,
+            label: anchoredItem.detailLabel,
+            count: anchoredItem.activityCount,
+          },
+          latest: latestItem
+            ? { ...latestItem, label: latestItem.detailLabel, count: latestItem.activityCount }
+            : null,
           nextActionDetail: props.nextAction.detail,
         })
       : props.nextAction.detail
@@ -3357,7 +3418,7 @@ export function SenderTimeContextAnalysisRail(props: {
     chartItems.length > 0
       ? usesFixedDailySlots
         ? Math.max(Math.min(slotWidth - gap, slotWidth), 2)
-        : Math.max(18, slotWidth - gap)
+        : Math.max(Math.min(slotWidth - gap, slotWidth), Math.min(slotWidth, 2))
       : chartInnerWidth
   const minimumAxisLabelSpacingPx =
     props.granularity === 'month' ? 86 : chartItems.length > 20 ? 62 : 46
@@ -3370,7 +3431,10 @@ export function SenderTimeContextAnalysisRail(props: {
   const baseBars = chartItems.map((item, index) => {
     const slotX = paddingLeft + index * slotWidth
     const x = slotX + Math.max(slotWidth - barWidth, 0) / 2
-    const height = item.count > 0 ? Math.max(18, (item.count / max) * chartInnerHeight) : 0
+    const height =
+      item.activityCount > 0
+        ? Math.max(18, (item.activityCount / max) * chartInnerHeight)
+        : 0
     const y = chartHeight - paddingBottom - height
     return {
       ...item,
@@ -3380,7 +3444,7 @@ export function SenderTimeContextAnalysisRail(props: {
       y,
       width: barWidth,
       height,
-      isZeroValue: item.count === 0,
+      isZeroValue: item.activityCount === 0,
     }
   })
   const axisLabelIndexes = new Set<number>()
@@ -3434,7 +3498,9 @@ export function SenderTimeContextAnalysisRail(props: {
       ? chartItems[chartItems.findIndex((item) => item.key === hoveredItem.key) - 1] || null
       : null
   const hoverDelta =
-    hoveredItem && hoverPreviousItem ? hoveredItem.count - hoverPreviousItem.count : null
+    hoveredItem && hoverPreviousItem
+      ? hoveredItem.activityCount - hoverPreviousItem.activityCount
+      : null
   const hoverCardWidth = 248
   const hoverCardLeft = hoveredBar
     ? Math.min(
@@ -3484,28 +3550,9 @@ export function SenderTimeContextAnalysisRail(props: {
     props.workflowContext?.label?.trim() || 'Workflow context'
   const workflowContextDetail =
     props.workflowContext?.detail?.trim() || null
-  const bucketUnitLabel =
-    timeContextBucketUnitLabel(props.granularity)
+  const bucketUnitLabel = 'period'
   const bucketMeaningLead =
-    usesCanonicalSenderPartition
-      ? props.granularity === 'hour'
-        ? 'Each hourly bar counts the scoped senders whose canonical sender timestamp falls inside that exact UTC hour, so the full 24-hour sum must equal the overlapping day in 1W.'
-        : props.granularity === 'month'
-          ? 'Each monthly bar aggregates the same canonical sender-time fact table, so overlapping dates must reconcile with the daily and weekly views.'
-          : props.granularity === 'week'
-            ? 'Each weekly bar aggregates the same canonical sender-time fact table, so the same dates must match the daily and monthly views.'
-            : 'Each daily bar reads from the same canonical sender-time fact table, so overlapping dates must match any overlapping hourly, weekly, or monthly view.'
-      : props.granularity === 'hour'
-      ? 'Each hourly bar counts distinct senders from this cleanup group with at least one indexed message in that hour.'
-      : props.granularity === 'month'
-        ? 'Each monthly bar counts distinct senders from this cleanup group with at least one indexed message in that month.'
-        : props.granularity === 'week'
-          ? 'Each weekly bar counts distinct senders from this cleanup group with at least one indexed message in that week.'
-          : props.granularity === 'quarter'
-            ? 'Each quarterly bar counts distinct senders from this cleanup group with at least one indexed message in that quarter.'
-            : props.granularity === 'year'
-              ? 'Each yearly bar counts distinct senders from this cleanup group with at least one indexed message in that year.'
-              : 'Each daily bar counts distinct senders from this cleanup group with at least one indexed message on that day.'
+    'Each bar shows total activity inside that exact period. In this email workspace, activity means supporting messages. One sender can contribute several messages in one period or appear across several periods.'
   const metricSupportingMessages =
     anchoredItem &&
     typeof anchoredItem.messageCount === 'number' &&
@@ -3514,34 +3561,23 @@ export function SenderTimeContextAnalysisRail(props: {
       : null
   const metricTruthNote = anchoredItem
     ? activeBucketMode === 'chart_only_focus'
-      ? usesCanonicalSenderPartition
-        ? `${anchoredItem.count.toLocaleString()} scoped senders fall inside ${anchoredItem.detailLabel} under the shared canonical sender-time rule.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'} This focus stays local to the chart while the active workflow window below remains unchanged.`
-        : `${anchoredItem.count.toLocaleString()} distinct senders have at least one indexed message in ${anchoredItem.detailLabel}.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}, not distinct senders.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'} This focus stays local to the chart while the active workflow window below remains unchanged.`
+      ? `${metricSupportingMessages != null ? `${metricSupportingMessages.toLocaleString()} supporting messages came from ` : 'Activity came from '}${anchoredItem.count.toLocaleString()} distinct senders in ${anchoredItem.detailLabel}. This focus stays local to the chart while the active workflow below remains unchanged.`
       : workflowSenderUniverseTotal > 0
       ? anchoredItem.count === workflowSenderUniverseTotal
-        ? usesCanonicalSenderPartition
-          ? `${anchoredItem.count.toLocaleString()} scoped senders fall inside ${anchoredItem.detailLabel}, which matches the full sender universe in the current workflow scope.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
-          : `${anchoredItem.count.toLocaleString()} distinct senders have at least one indexed message in ${anchoredItem.detailLabel}, which matches the full sender universe in the current workflow scope.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}, not distinct senders.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
-        : usesCanonicalSenderPartition
-          ? `${anchoredItem.count.toLocaleString()} scoped senders fall inside ${anchoredItem.detailLabel}. The current workflow scope still contains ${workflowSenderUniverseTotal.toLocaleString()} total senders, and this ${bucketUnitLabel} is one additive slice of that canonical sender-time distribution.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
-          : `${anchoredItem.count.toLocaleString()} distinct senders have at least one indexed message in ${anchoredItem.detailLabel}. The current workflow scope still contains ${workflowSenderUniverseTotal.toLocaleString()} total senders, so this ${bucketUnitLabel} is one non-additive slice of that sender universe.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}, not distinct senders.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
-      : usesCanonicalSenderPartition
-        ? `${anchoredItem.count.toLocaleString()} scoped senders fall inside ${anchoredItem.detailLabel}.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
-        : `${anchoredItem.count.toLocaleString()} distinct senders have at least one indexed message in ${anchoredItem.detailLabel}.${metricSupportingMessages != null ? ` ${metricSupportingMessages.toLocaleString()} supporting messages counts emails from those same senders in that ${bucketUnitLabel}, not distinct senders.` : ' Supporting-message totals are not bucketized for this view, so the sender count is the authoritative bucket truth here.'}`
+        ? `${metricSupportingMessages != null ? `${metricSupportingMessages.toLocaleString()} supporting messages came from ` : 'Activity came from '}${anchoredItem.count.toLocaleString()} distinct senders in ${anchoredItem.detailLabel}. Those senders match the full current workflow scope.`
+        : `${metricSupportingMessages != null ? `${metricSupportingMessages.toLocaleString()} supporting messages came from ` : 'Activity came from '}${anchoredItem.count.toLocaleString()} distinct senders in ${anchoredItem.detailLabel}. The current workflow contains ${workflowSenderUniverseTotal.toLocaleString()} unique senders; clicking this ${bucketUnitLabel} reviews only the senders active here.`
+      : `${metricSupportingMessages != null ? `${metricSupportingMessages.toLocaleString()} supporting messages came from ` : 'Activity came from '}${anchoredItem.count.toLocaleString()} distinct senders in ${anchoredItem.detailLabel}.`
     : 'No visible bucket is available yet.'
   const workflowContextNote =
     activeBucketMode === 'chart_only_focus' && anchoredItem && workflowContextTotal > 0
-      ? usesCanonicalSenderPartition
-        ? `${workflowContextLabel}: the sender workflow below currently shows ${workflowContextTotal.toLocaleString()} senders in the active workflow window. ${anchoredItem.detailLabel} is one additive ${bucketUnitLabel} bucket inside that unchanged canonical sender-time distribution.`
-        : `${workflowContextLabel}: the sender workflow below currently shows ${workflowContextTotal.toLocaleString()} senders in the active workflow window. ${anchoredItem.detailLabel} is one non-additive ${bucketUnitLabel} slice inside that unchanged workflow context.`
+      ? `${workflowContextLabel}: the workflow below currently shows ${workflowContextTotal.toLocaleString()} unique senders. ${anchoredItem.detailLabel} is an activity view inside that unchanged workflow context.`
       : null
   const compressedTimelineDisclosure =
     usesCompressedTimeline && hiddenInactiveBucketCount > 0
       ? `${timeContextChartScopeControlLabel(activeScope || 'custom')} hides ${hiddenInactiveBucketCount.toLocaleString()} inactive ${hiddenInactiveBucketUnitLabel} in this Time Context view so visible activity periods flow continuously. Hover and lower-card readouts still use the original raw bucket truth for each visible period.`
       : null
-  const scopeSemanticsDisclosure = usesCanonicalSenderPartition
-    ? 'All Time Context scopes bucket the same canonical sender-time fact table. Different scope buttons only change the visible window or aggregation level, so overlapping dates must reconcile.'
-    : null
+  const scopeSemanticsDisclosure =
+    'All Time Context scopes read the same canonical subject-activity facts. Scope buttons change only the visible window or aggregation level, so overlapping dates reconcile while repeated activity remains visible.'
   const compressedTimelineEmptyStateDetail =
     usesCompressedTimeline
       ? hiddenInactiveBucketCount > 0
@@ -3552,7 +3588,7 @@ export function SenderTimeContextAnalysisRail(props: {
   return (
     <SenderOverviewAnalysisRailShell
       modeLabel="Time Context"
-      description="Inspect when this cleanup group was most active while keeping workflow truth explicit. Workflow shortcuts and explicit 1D/Custom windows still set the shared scope, while bar clicks keep Time Context in local chart focus only."
+      description="Inspect when this group was most active. Window controls change the shared workflow, and selecting a bar narrows the workflow to that exact period."
       activeRangeLabel={props.scopeControls?.activeRangeLabel}
       tabStrip={props.tabStrip}
       scopeStatus={props.scopeStatus}
@@ -3621,7 +3657,9 @@ export function SenderTimeContextAnalysisRail(props: {
                   {`${activeBucketItem.detailLabel} anchors the lower readout.`}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-cyan-100/75">
-                  This focus is local to Time Context. The surrounding bars stay visible, the chart keeps the same scope, and the workflow below stays unchanged.
+                  {activeBucketMode === 'workflow_narrowing'
+                    ? 'The surrounding bars stay visible while the workflow below narrows to this exact period.'
+                    : 'This focus is local to Time Context. The surrounding bars stay visible, the chart keeps the same scope, and the workflow below stays unchanged.'}
                 </p>
               </div>
               {props.bucketSelection?.onToggleBucket ? (
@@ -3632,12 +3670,14 @@ export function SenderTimeContextAnalysisRail(props: {
                       label: activeBucketItem.label,
                       count: activeBucketItem.count,
                       messageCount: activeBucketItem.messageCount,
+                      bucketStartIso: activeBucketItem.bucketStartIso,
+                      bucketEndExclusiveIso: activeBucketItem.bucketEndExclusiveIso,
                     })
                   }
                   className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
                   data-time-context-clear-focus="true"
                 >
-                  Clear focus
+                  {activeBucketMode === 'workflow_narrowing' ? 'Clear period' : 'Clear focus'}
                 </button>
               ) : null}
             </div>
@@ -3704,18 +3744,18 @@ export function SenderTimeContextAnalysisRail(props: {
                 {bucketMeaningLead}
               </p>
               <p className="mt-1 text-xs leading-5 text-slate-300/85">
-                Focused bucket details below separate bucket senders, supporting messages from those
-                same senders, and any broader workflow-context sender universe called out for comparison.
+                Focused bucket details below separate total activity from the unique senders who
+                produced it. Clicking a bar reviews each of those senders once and keeps their
+                individual message volume visible in the list.
               </p>
               <p className="mt-1 text-xs leading-5 text-slate-300/85">
-                {usesCanonicalSenderPartition
-                  ? `Each sender is assigned to exactly one canonical ${bucketUnitLabel} span using the shared timestamp-in-span rule, so overlapping dates reconcile across hourly, daily, weekly, and monthly views. Supporting-message totals still count emails, not distinct senders.`
-                  : `The same sender can appear in multiple ${timeContextBucketUnitLabel(props.granularity, 2)}, so bucket counts are non-additive and do not sum to the workflow-scope sender total. When supporting-message totals are bucketized, they count emails, not distinct senders.`}
+                A sender may contribute activity in more than one period. Activity bars are additive
+                across non-overlapping periods, while unique sender counts are not because the same
+                sender may appear again later.
               </p>
               <p className="mt-1 text-xs leading-5 text-slate-300/85">
-                {usesCanonicalSenderPartition
-                  ? 'Read each bucket as the subset of scoped senders whose canonical timestamp falls inside that exact bucket span, then compare the same dates across scopes as different projections of one shared timeline.'
-                  : 'Read one bucket against the focused-bucket truth below. Do not add visible bars together and compare that sum to the workflow sender total.'}
+                Read bar height as activity volume. Use the focused details to see how many unique
+                senders created that activity, then click the bar to inspect those senders.
               </p>
               {scopeSemanticsDisclosure ? (
                 <p className="mt-1 text-xs leading-5 text-slate-300/85">
@@ -3735,36 +3775,52 @@ export function SenderTimeContextAnalysisRail(props: {
                   <p className="mt-1 text-sm font-semibold text-white">{hoveredItem.detailLabel}</p>
                   <div className="mt-2 space-y-1.5 text-xs">
                     <div className="flex items-center justify-between gap-3">
+                      <span className="text-gray-500">Supporting messages</span>
+                      <span className="font-medium text-white">
+                        {hoveredItem.activityCount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
                       <span className="text-gray-500">Active senders</span>
                       <span className="font-medium text-white">{hoveredItem.count.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-500">Supporting messages</span>
+                      <span className="text-gray-500">Previous messages</span>
                       <span className="font-medium text-white">
-                        {hoveredItem.messageCount != null
-                          ? hoveredItem.messageCount.toLocaleString()
-                          : 'Not bucketized'}
+                        {hoverPreviousItem
+                          ? hoverPreviousItem.activityCount.toLocaleString()
+                          : 'No prior period'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-500">Previous bucket</span>
-                      <span className="font-medium text-white">
-                        {hoverPreviousItem ? hoverPreviousItem.count.toLocaleString() : 'No prior period'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-500">Change</span>
+                      <span className="text-gray-500">Message change</span>
                       <span className="font-medium text-white">{formatSignedCount(hoverDelta)}</span>
                     </div>
                   </div>
                   <p className="mt-3 border-t border-cyan-950/50 pt-2 text-[11px] leading-5 text-gray-100">
                     {senderTimeContextInterpretation({
-                      item: { ...hoveredItem, label: hoveredItem.detailLabel },
+                      item: {
+                        ...hoveredItem,
+                        label: hoveredItem.detailLabel,
+                        count: hoveredItem.activityCount,
+                      },
                       previous: hoverPreviousItem
-                        ? { ...hoverPreviousItem, label: hoverPreviousItem.detailLabel }
+                        ? {
+                            ...hoverPreviousItem,
+                            label: hoverPreviousItem.detailLabel,
+                            count: hoverPreviousItem.activityCount,
+                          }
                         : null,
-                      peak: peakItem ? { ...peakItem, label: peakItem.detailLabel } : null,
-                      latest: latestItem ? { ...latestItem, label: latestItem.detailLabel } : null,
+                      peak: peakItem
+                        ? { ...peakItem, label: peakItem.detailLabel, count: peakItem.activityCount }
+                        : null,
+                      latest: latestItem
+                        ? {
+                            ...latestItem,
+                            label: latestItem.detailLabel,
+                            count: latestItem.activityCount,
+                          }
+                        : null,
                     })}
                   </p>
                 </div>
@@ -3819,7 +3875,9 @@ export function SenderTimeContextAnalysisRail(props: {
                     bucketSelectionDisabledReason == null &&
                     bar.count > 0
                   const bucketInteractionLabel =
-                    'Press to focus this bucket in the lower readout.'
+                    activeBucketMode === 'workflow_narrowing'
+                      ? 'Press to narrow the workflow to this exact period.'
+                      : 'Press to focus this bucket in the lower readout.'
                   const interactionX = usesFixedDailySlots ? bar.slotX : bar.x
                   const interactionWidth = usesFixedDailySlots ? bar.slotWidth : bar.width
                   const slotCenterX = interactionX + interactionWidth / 2
@@ -3835,7 +3893,7 @@ export function SenderTimeContextAnalysisRail(props: {
                   const markerInset = usesFixedDailySlots
                     ? Math.min(Math.max(interactionWidth * 0.18, 1), 3)
                     : 2
-                  const bucketAriaLabel = `${bar.detailLabel}. ${bar.count.toLocaleString()} active senders.${
+                  const bucketAriaLabel = `${bar.detailLabel}. ${bar.activityCount.toLocaleString()} supporting messages from ${bar.count.toLocaleString()} active senders.${
                     bar.count === 0
                       ? ' Bucket selection is unavailable because this bucket is empty.'
                       : bucketSelectionDisabledReason
@@ -3945,6 +4003,7 @@ export function SenderTimeContextAnalysisRail(props: {
                             data-time-context-zero-slot="true"
                             data-time-context-bucket-label={bar.detailLabel}
                             data-time-context-bucket-count={bar.count}
+                            data-time-context-bucket-activity-count={bar.activityCount}
                             data-time-context-bucket-message-count={
                               bar.messageCount != null ? bar.messageCount : ''
                             }
@@ -3984,6 +4043,8 @@ export function SenderTimeContextAnalysisRail(props: {
                                     label: bar.label,
                                     count: bar.count,
                                     messageCount: bar.messageCount,
+                                    bucketStartIso: bar.bucketStartIso,
+                                    bucketEndExclusiveIso: bar.bucketEndExclusiveIso,
                                   })
                                 : undefined
                             }
@@ -3995,6 +4056,8 @@ export function SenderTimeContextAnalysisRail(props: {
                                 label: bar.label,
                                 count: bar.count,
                                 messageCount: bar.messageCount,
+                                bucketStartIso: bar.bucketStartIso,
+                                bucketEndExclusiveIso: bar.bucketEndExclusiveIso,
                               })
                             }}
                           />
@@ -4070,6 +4133,7 @@ export function SenderTimeContextAnalysisRail(props: {
                               fill="rgba(0,0,0,0.001)"
                               data-time-context-bucket-label={bar.detailLabel}
                               data-time-context-bucket-count={bar.count}
+                              data-time-context-bucket-activity-count={bar.activityCount}
                               data-time-context-bucket-message-count={
                                 bar.messageCount != null ? bar.messageCount : ''
                               }
@@ -4109,6 +4173,8 @@ export function SenderTimeContextAnalysisRail(props: {
                                       label: bar.label,
                                       count: bar.count,
                                       messageCount: bar.messageCount,
+                                      bucketStartIso: bar.bucketStartIso,
+                                      bucketEndExclusiveIso: bar.bucketEndExclusiveIso,
                                     })
                                   : undefined
                               }
@@ -4120,6 +4186,8 @@ export function SenderTimeContextAnalysisRail(props: {
                                   label: bar.label,
                                   count: bar.count,
                                   messageCount: bar.messageCount,
+                                  bucketStartIso: bar.bucketStartIso,
+                                  bucketEndExclusiveIso: bar.bucketEndExclusiveIso,
                                 })
                               }}
                             />
@@ -4136,6 +4204,9 @@ export function SenderTimeContextAnalysisRail(props: {
                             }
                             data-time-context-bucket-count={
                               usesFixedDailySlots ? undefined : bar.count
+                            }
+                            data-time-context-bucket-activity-count={
+                              usesFixedDailySlots ? undefined : bar.activityCount
                             }
                             data-time-context-bucket-message-count={
                               usesFixedDailySlots
@@ -4226,6 +4297,8 @@ export function SenderTimeContextAnalysisRail(props: {
                                       label: bar.label,
                                       count: bar.count,
                                       messageCount: bar.messageCount,
+                                      bucketStartIso: bar.bucketStartIso,
+                                      bucketEndExclusiveIso: bar.bucketEndExclusiveIso,
                                     })
                                   : undefined
                             }
@@ -4234,10 +4307,12 @@ export function SenderTimeContextAnalysisRail(props: {
                               if (event.key !== 'Enter' && event.key !== ' ') return
                               event.preventDefault()
                               props.bucketSelection?.onToggleBucket?.({
-                                label: bar.label,
-                                count: bar.count,
-                                messageCount: bar.messageCount,
-                              })
+                                    label: bar.label,
+                                    count: bar.count,
+                                    messageCount: bar.messageCount,
+                                    bucketStartIso: bar.bucketStartIso,
+                                    bucketEndExclusiveIso: bar.bucketEndExclusiveIso,
+                                  })
                             }}
                           />
                         </>
@@ -4335,8 +4410,8 @@ export function SenderTimeContextAnalysisRail(props: {
               </div>
               <p>
                 {usesCompressedTimeline
-                  ? 'Visible bars stay sender-based, inactive periods are disclosed above, and supporting messages are called out separately below.'
-                  : 'Bucket bars stay sender-based; supporting messages are called out separately below.'}
+                  ? 'Bar height shows supporting-message activity. Inactive periods are disclosed above; hover shows the distinct senders behind each bar.'
+                  : 'Bar height shows supporting-message activity. Hover shows the distinct senders behind each bar; click reviews those senders.'}
               </p>
             </div>
           </>
@@ -4401,25 +4476,24 @@ export function SenderTimeContextAnalysisRail(props: {
             >
               <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
                 <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
-                  Active senders in this bucket
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white" data-time-context-active-senders="true">
-                  {anchoredItem ? anchoredItem.count.toLocaleString() : '—'}
-                </p>
-              </div>
-              <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
                   Supporting messages in this bucket
                 </p>
                 <p
                   className="mt-1 text-sm font-semibold text-white"
                   data-time-context-supporting-messages="true"
                 >
-                  {anchoredItem
-                    ? metricSupportingMessages != null
-                      ? metricSupportingMessages.toLocaleString()
-                      : 'Not bucketized'
-                    : '—'}
+                  {anchoredItem ? anchoredItem.activityCount.toLocaleString() : '—'}
+                </p>
+              </div>
+              <div className={`${neutralNestedSurfaceClass} rounded-2xl p-3`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                  Active senders in this bucket
+                </p>
+                <p
+                  className="mt-1 text-sm font-semibold text-white"
+                  data-time-context-active-senders="true"
+                >
+                  {anchoredItem ? anchoredItem.count.toLocaleString() : '—'}
                 </p>
               </div>
               {activeBucketMode === 'chart_only_focus' ? null : (

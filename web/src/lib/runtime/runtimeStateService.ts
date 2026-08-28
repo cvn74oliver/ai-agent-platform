@@ -371,17 +371,28 @@ function runtimeMailboxArtifactCacheKey(params: {
   tenantId: string
   analysisScope: OperationsAnalysisScope
 }): string {
-  return [params.tenantId, params.analysisScope].join('::')
+  const developmentArtifactVersion =
+    process.env.NODE_ENV === 'development'
+      ? runtimeArtifactText(process.env.GMAIL_ARTIFACT_VERSION_OVERRIDE)
+      : ''
+
+  return [
+    params.tenantId,
+    params.analysisScope,
+    developmentArtifactVersion || 'published',
+  ].join('::')
 }
 
 function runtimeMailboxIntelligenceCacheKey(params: {
   tenantId: string
   analysisScope: OperationsAnalysisScope
+  artifactVersion: string | null
   clusters: RuntimeCleanupArtifactClusterInput[]
 }): string {
   return [
     params.tenantId,
     params.analysisScope,
+    params.artifactVersion || 'unversioned',
     ...params.clusters.map((cluster) => cluster.cluster_id),
   ].join('::')
 }
@@ -452,6 +463,7 @@ async function readCachedRuntimeMailboxIntelligence(params: {
   const cacheKey = runtimeMailboxIntelligenceCacheKey({
     tenantId: params.tenantId,
     analysisScope: params.analysisScope,
+    artifactVersion: params.artifactRead?.artifact_version ?? null,
     clusters: params.clusters,
   })
   const now = Date.now()

@@ -402,20 +402,12 @@ function OperationsWorkspaceShellInner(props: {
     props.pathname.includes('/operations/review') &&
     typeof props.clusterId === 'string' &&
     props.clusterId.trim().length > 0
-  const normalizedReviewWorkflowScope =
-    reviewSupportsDetachedScope && reviewWorkflowScope
-      ? normalizeOperationsAnalysisScope(reviewWorkflowScope)
-      : null
-  const detachedReviewWorkflowScope =
-    normalizedReviewWorkflowScope && normalizedReviewWorkflowScope !== props.analysisScope
-      ? normalizedReviewWorkflowScope
-      : null
-  const visibleAnalysisScope = detachedReviewWorkflowScope || props.analysisScope
+  const visibleAnalysisScope = props.analysisScope
   const analysisWindowControlLabel = reviewSupportsDetachedScope
-    ? 'Workflow scope'
+    ? 'Indexed coverage'
     : 'Analysis window'
   const analysisWindowHelperText = reviewSupportsDetachedScope
-    ? 'This control changes the baseline sender workflow on this review page. Time Context can then apply narrower workflow windows like 1D and Custom inside that baseline scope.'
+    ? 'This is the published data available to this review. Use Workflow window in the Analysis Rail below to narrow the work.'
     : 'This control changes the discovery window used for cleanup analysis.'
   const reviewHref = useCallback(
     (mode: string) => {
@@ -713,27 +705,6 @@ function OperationsWorkspaceShellInner(props: {
 
   const updateAnalysisScope = async (nextScope: OperationsAnalysisScope) => {
     const normalizedNext = normalizeOperationsAnalysisScope(nextScope)
-    if (reviewSupportsDetachedScope) {
-      if (normalizedNext === visibleAnalysisScope) return
-      setScopeUpdating(true)
-      setRegenerationStatusNote(
-        normalizedNext === props.analysisScope
-          ? `Workflow scope reset to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
-          : `Workflow scope set to ${analysisScopeLabel(normalizedNext)}. Reusing cached scoped review data.`
-      )
-      const nextSearch = new URLSearchParams(searchParams.toString())
-      if (normalizedNext === props.analysisScope) {
-        nextSearch.delete('workflow_scope')
-      } else {
-        nextSearch.set('workflow_scope', normalizedNext)
-      }
-      const nextQuery = nextSearch.toString()
-      router.replace(nextQuery ? `${props.pathname}?${nextQuery}` : props.pathname)
-      setTimeout(() => {
-        setScopeUpdating(false)
-      }, 150)
-      return
-    }
     if (normalizedNext === props.analysisScope) return
     setScopeUpdating(true)
     setRegenerationStatusNote(`Analysis window set to ${analysisScopeLabel(normalizedNext)}. Applying scoped refresh…`)
@@ -1440,22 +1411,31 @@ function OperationsWorkspaceShellInner(props: {
               {analysisWindowControlLabel}
             </p>
             <p className="text-[10px] leading-5 text-slate-300">{analysisWindowHelperText}</p>
-            <select
-              value={visibleAnalysisScope}
-              onChange={(event) =>
-                void updateAnalysisScope(
-                  normalizeOperationsAnalysisScope(event.target.value)
-                )
-              }
-              disabled={scopeUpdating}
-              className={railInputClass}
-            >
-              {OPERATIONS_ANALYSIS_SCOPE_OPTIONS.map((scope) => (
-                <option key={scope} value={scope}>
-                  {analysisScopeControlLabel(scope)}
-                </option>
-              ))}
-            </select>
+            {reviewSupportsDetachedScope ? (
+              <div
+                data-testid="review-indexed-coverage"
+                className={`${railInputClass} flex items-center`}
+              >
+                {analysisScopeControlLabel(visibleAnalysisScope)}
+              </div>
+            ) : (
+              <select
+                value={visibleAnalysisScope}
+                onChange={(event) =>
+                  void updateAnalysisScope(
+                    normalizeOperationsAnalysisScope(event.target.value)
+                  )
+                }
+                disabled={scopeUpdating}
+                className={railInputClass}
+              >
+                {OPERATIONS_ANALYSIS_SCOPE_OPTIONS.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {analysisScopeControlLabel(scope)}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               onClick={() => void regenerateClusters()}
@@ -1528,17 +1508,10 @@ function OperationsWorkspaceShellInner(props: {
               {runtime.manualMailboxReindexStarting ? 'Starting full mailbox reindex…' : 'Run full mailbox reindex'}
             </button>
             <p className="text-[10px] text-slate-300">
-              {reviewSupportsDetachedScope ? 'Workflow scope view' : 'View'}:{' '}
+              {reviewSupportsDetachedScope ? 'Published coverage' : 'View'}:{' '}
               {analysisScopeLabel(visibleAnalysisScope)} · Last refresh:{' '}
               {runtime.loadedAt ? new Date(runtime.loadedAt).toLocaleTimeString() : '—'}
             </p>
-            {detachedReviewWorkflowScope ? (
-              <p className="text-[10px] text-slate-300">
-                Runtime baseline: {analysisScopeLabel(props.analysisScope)} · Workflow scope
-                switching stays inside the current review page while chart compare windows stay
-                separate in Time Context.
-              </p>
-            ) : null}
             <p className="text-[10px] text-slate-300">
               Effective discovery window:{' '}
               {effectiveDiscoveryWindow === 'all_indexed'
@@ -1755,9 +1728,16 @@ export default function OperationsWorkspaceShell({ agentId, children }: Props) {
     pathname.includes('/operations/review') && typeof clusterId === 'string' && clusterId.trim()
       ? clusterId.trim()
       : null
+  const runtimeScopeKey = [
+    agentId,
+    sessionId || 'none',
+    analysisScope,
+    preferredClusterId || 'none',
+  ].join('::')
 
   return (
     <OperationsRuntimeProvider
+      key={runtimeScopeKey}
       agentId={agentId}
       sessionId={sessionId}
       analysisScope={analysisScope}

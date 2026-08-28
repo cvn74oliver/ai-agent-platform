@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   materializeReviewUnitWindowProjection,
   resolveReviewUnitWindow,
+  resolveReviewUnitWindowWorkingEntityIds,
 } from '../src/lib/runtime/reviewUnitWindowProjection.ts'
 
 const coverage = {
@@ -61,12 +62,59 @@ assert.equal(cryptoProjection.validation.activeEntityTotal, 2)
 assert.equal(cryptoProjection.validation.allIndexedActivityTotal, 6)
 assert.equal(cryptoProjection.validation.dailyActivityTotal, 6)
 assert.equal(cryptoProjection.validation.monthlyActivityTotal, 6)
+const cryptoMarchFirstUnitRow = cryptoProjection.activityBuckets.find(
+  (row) =>
+    row.resolution === 'day' &&
+    row.rowKind === 'unit' &&
+    row.bucketStart === '2026-03-01'
+)
+const cryptoMarchFirstEntityRows = cryptoProjection.activityBuckets.filter(
+  (row) =>
+    row.resolution === 'day' &&
+    row.rowKind === 'entity' &&
+    row.bucketStart === '2026-03-01'
+)
+assert.equal(cryptoMarchFirstUnitRow?.activityCount, 4)
+assert.equal(cryptoMarchFirstEntityRows.length, 2)
 const cryptoAllIndexedRows = cryptoProjection.activityBuckets.filter(
   (row) => row.resolution === 'all_indexed' && row.rowKind === 'entity'
 )
 assert.equal(cryptoAllIndexedRows.length, 4)
 assert.equal(cryptoAllIndexedRows.find((row) => row.entityId === 'cash')?.activityCount, 0)
 assert.equal(cryptoAllIndexedRows.find((row) => row.entityId === 'sol')?.activityCount, 0)
+
+const workingSetMembers = cryptoAllIndexedRows.map((row) => ({
+  entityId: row.entityId,
+  activityCount: row.activityCount,
+}))
+assert.deepEqual(
+  resolveReviewUnitWindowWorkingEntityIds({
+    windowKind: 'all_indexed',
+    unitEntityTotal: 4,
+    activeEntityTotal: 2,
+    members: workingSetMembers,
+  }),
+  ['btc', 'cash', 'eth', 'sol']
+)
+assert.deepEqual(
+  resolveReviewUnitWindowWorkingEntityIds({
+    windowKind: 'preset',
+    unitEntityTotal: 4,
+    activeEntityTotal: 2,
+    members: workingSetMembers,
+  }),
+  ['btc', 'eth']
+)
+assert.throws(
+  () =>
+    resolveReviewUnitWindowWorkingEntityIds({
+      windowKind: 'preset',
+      unitEntityTotal: 4,
+      activeEntityTotal: 3,
+      members: workingSetMembers,
+    }),
+  /active entity total/
+)
 
 const cryptoStableAgain = materializeReviewUnitWindowProjection({
   identity: identity(),
@@ -178,7 +226,9 @@ console.log(
       crypto: {
         fixed_members: cryptoProjection.manifest.unitEntityTotal,
         active_members: cryptoProjection.validation.activeEntityTotal,
-        activity_total: cryptoProjection.validation.allIndexedActivityTotal,
+      activity_total: cryptoProjection.validation.allIndexedActivityTotal,
+      march_first_activity: cryptoMarchFirstUnitRow?.activityCount,
+      march_first_active_members: cryptoMarchFirstEntityRows.length,
       },
       tax: {
         fixed_members: taxProjection.manifest.unitEntityTotal,
@@ -186,6 +236,9 @@ console.log(
       },
       stable_membership_and_projection_hashes: true,
       zero_activity_members_retained: true,
+      all_indexed_working_set_retains_fixed_membership: true,
+      narrowed_working_set_excludes_zero_activity_members: true,
+      active_membership_mismatch_fails_closed: true,
       custom_bounds_clamped_to_coverage: true,
       ready_empty_window_supported: true,
       cross_membership_activity_fails_closed: true,

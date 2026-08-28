@@ -80,6 +80,7 @@ import {
   gmailPressureTrendArtifactBucketFamilyCandidates,
   gmailPressureTrendExpectedGroupingForWindow,
 } from '@/lib/integrations/gmail/gmailPressureTrendArtifacts'
+import { resolveReviewUnitWindowWorkingEntityIds } from '@/lib/runtime/reviewUnitWindowProjection'
 import {
   DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
   GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
@@ -2301,6 +2302,59 @@ function halfOpenDateToInclusiveEnd(value: string | null): string | null {
   return new Date(parsed - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
 
+function resolveReviewUnitProjectionRequest(params: {
+  reviewUnitId?: string | null
+  timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
+  senderOverviewWindow?: GmailSenderOverviewWindow | null
+  senderOverviewStart?: string | null
+  senderOverviewEnd?: string | null
+}): {
+  window: GmailSenderOverviewWindow | null
+  start: string | null
+  end: string | null
+} | null {
+  const timeContextBucketLabel = normalizeTimeContextBucketLabel(
+    params.timeContextBucketLabel
+  )
+  if (!timeContextBucketLabel) {
+    return {
+      window: normalizeSenderOverviewWindow(params.senderOverviewWindow),
+      start: artifactNullableText(params.senderOverviewStart),
+      end: artifactNullableText(params.senderOverviewEnd),
+    }
+  }
+
+  const reviewUnitId = artifactText(params.reviewUnitId)
+  const bucketStartAt = normalizeTimeContextBucketIso(params.timeContextBucketStartAt)
+  const bucketEndExclusiveAt = normalizeTimeContextBucketIso(
+    params.timeContextBucketEndExclusiveAt
+  )
+  const bucketStartMs = bucketStartAt ? Date.parse(bucketStartAt) : Number.NaN
+  const bucketEndExclusiveMs = bucketEndExclusiveAt
+    ? Date.parse(bucketEndExclusiveAt)
+    : Number.NaN
+  const start = bucketStartAt?.slice(0, 10) || null
+  const end = halfOpenDateToInclusiveEnd(bucketEndExclusiveAt)
+  if (
+    !reviewUnitId ||
+    !start ||
+    !end ||
+    !Number.isFinite(bucketStartMs) ||
+    !Number.isFinite(bucketEndExclusiveMs) ||
+    bucketEndExclusiveMs <= bucketStartMs
+  ) {
+    return null
+  }
+
+  return {
+    window: 'custom',
+    start,
+    end,
+  }
+}
+
 async function loadCachedReviewUnitWindowProjection(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -2363,6 +2417,77 @@ async function loadCachedReviewUnitWindowProjection(params: {
     promise,
   })
   return promise
+}
+
+function reviewUnitProjectionTimeline(
+  projection: GmailReviewUnitWindowProjectionData,
+  analysisScope: GmailAnalysisScope
+): {
+  items: GmailSenderWorkspaceData['analytics']['sender_activity_timeline']
+  granularity: GmailSenderWorkspaceData['analytics']['sender_activity_timeline_granularity']
+} {
+  const granularity = projection.series[0]?.resolution || 'day'
+  if (projection.series.some((bucket) => bucket.resolution !== granularity)) {
+    throw new Error('Review-unit projection mixes incompatible chart resolutions.')
+  }
+
+  const items = projection.series.map((bucket) => {
+    const bucketStart = new Date(`${bucket.bucket_start.slice(0, 10)}T00:00:00Z`)
+    if (!Number.isFinite(bucketStart.getTime())) {
+      throw new Error('Review-unit projection contains an invalid bucket start.')
+    }
+    const bucketEnd = new Date(bucketStart.getTime())
+    if (bucket.resolution === 'year') bucketEnd.setUTCFullYear(bucketEnd.getUTCFullYear() + 1)
+    else if (bucket.resolution === 'quarter') bucketEnd.setUTCMonth(bucketEnd.getUTCMonth() + 3)
+    else if (bucket.resolution === 'month') bucketEnd.setUTCMonth(bucketEnd.getUTCMonth() + 1)
+    else bucketEnd.setUTCDate(bucketEnd.getUTCDate() + 1)
+
+    const activeEntityCount = artifactInteger(bucket.active_entity_count)
+    if (activeEntityCount > projection.unit_entity_total) {
+      throw new Error('Review-unit projection bucket exceeds fixed child membership.')
+    }
+
+    const label =
+      bucket.resolution === 'year'
+        ? new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'UTC' }).format(bucketStart)
+        : bucket.resolution === 'quarter'
+          ? `Q${Math.floor(bucketStart.getUTCMonth() / 3) + 1} ${bucketStart.getUTCFullYear()}`
+          : bucket.resolution === 'month'
+            ? new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'UTC',
+              }).format(bucketStart)
+            : new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                day: 'numeric',
+                timeZone: 'UTC',
+              }).format(bucketStart)
+
+    return {
+      label,
+      count: activeEntityCount,
+      sender_count: activeEntityCount,
+      message_count: artifactInteger(bucket.activity_count),
+      bucket_start_iso: bucketStart.toISOString(),
+      bucket_end_exclusive_iso: bucketEnd.toISOString(),
+      contract_version: 'ace046_phase3_timeline_v1' as const,
+      metric_family: 'sender_activity' as const,
+      scope_key: normalizeMailboxProfileScope(analysisScope),
+      grouping: bucket.resolution,
+      time_zone: projection.time_zone || 'UTC',
+      source_dataset: 'gmail_index_rows' as const,
+      filter_contract: {
+        source_dataset: 'gmail_index_rows' as const,
+        time_zone: projection.time_zone || 'UTC',
+        coverage_start_at: projection.coverage_start_at,
+        coverage_end_at: projection.coverage_end_at,
+        allowed_sender_key_count: projection.unit_entity_total,
+      },
+    }
+  })
+
+  return { items, granularity }
 }
 
 function artifactBoolean(value: unknown): boolean {
@@ -2497,6 +2622,9 @@ async function loadSenderDistributionFromArtifact(params: {
   senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
+  timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
 }): Promise<GmailArtifactSuccess<GmailSenderDistributionData> | ReturnType<typeof fail>> {
   const availabilityFailure = await loadPublishedArtifactAvailabilityFailure(params)
   if (availabilityFailure) return availabilityFailure
@@ -2536,6 +2664,12 @@ async function loadSenderDistributionFromArtifact(params: {
   }
   const resolvedClusterId = artifactText(headerRead.selected_header.cluster_id) || artifactSelectedClusterId
   if (params.reviewUnitId) {
+    const projectionRequest = resolveReviewUnitProjectionRequest(params)
+    if (!projectionRequest) {
+      return fail(409, 'The selected Time Context period has invalid projection bounds.', {
+        reason: 'invalid_time_context_bucket_bounds',
+      })
+    }
     const exactSeedRows: GmailSenderWorkspaceSeedRow[] = []
     let exactRead = await loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage({
       supabase: params.supabase,
@@ -2593,9 +2727,9 @@ async function loadSenderDistributionFromArtifact(params: {
           parentId: resolvedClusterId,
           artifactVersion,
           reviewUnitId: params.reviewUnitId,
-          window: params.senderOverviewWindow ?? null,
-          start: params.senderOverviewStart,
-          end: params.senderOverviewEnd,
+          window: projectionRequest.window,
+          start: projectionRequest.start,
+          end: projectionRequest.end,
         })
       } catch (error) {
         console.warn('[integrations/gmail/review-unit-projection]', {
@@ -2615,6 +2749,27 @@ async function loadSenderDistributionFromArtifact(params: {
       const projectionMembers = new Map(
         projection.members.map((member) => [member.entity_id, member] as const)
       )
+      let workingEntityIds: string[]
+      try {
+        workingEntityIds = resolveReviewUnitWindowWorkingEntityIds({
+          windowKind: projection.requested_window.kind,
+          unitEntityTotal: projection.unit_entity_total,
+          activeEntityTotal: projection.active_entity_total,
+          members: projection.members.map((member) => ({
+            entityId: member.entity_id,
+            activityCount: member.activity_count,
+          })),
+        })
+      } catch (error) {
+        console.warn('[integrations/gmail/review-unit-projection]', {
+          action: 'resolve_sender_distribution_working_set',
+          error: error instanceof Error ? error.message : 'unknown_working_set_error',
+        })
+        return fail(409, 'The selected review-unit projection has inconsistent window membership.', {
+          reason: 'review_unit_projection_membership_mismatch',
+        })
+      }
+      const workingEntityIdSet = new Set(workingEntityIds)
       if (
         projection.unit_entity_total !== exactSenderCount ||
         exactSeedRows.some((row) => !projectionMembers.has(row.sender_key))
@@ -2623,15 +2778,22 @@ async function loadSenderDistributionFromArtifact(params: {
           reason: 'review_unit_projection_membership_mismatch',
         })
       }
-      const distributionSenders = exactSeedRows.map((row) => {
-        const sender = materializeArtifactSenderDistributionSender(row)
-        const member = projectionMembers.get(row.sender_key)
-        return {
-          ...sender,
-          cleanup_group_message_count: member?.activity_count ?? 0,
-          all_indexed_cleanup_group_message_count: member?.all_indexed_activity_count ?? 0,
-        }
-      })
+      const distributionSenders = exactSeedRows
+        .filter((row) => workingEntityIdSet.has(row.sender_key))
+        .map((row) => {
+          const sender = materializeArtifactSenderDistributionSender(row)
+          const member = projectionMembers.get(row.sender_key)
+          return {
+            ...sender,
+            cleanup_group_message_count: member?.activity_count ?? 0,
+            all_indexed_cleanup_group_message_count: member?.all_indexed_activity_count ?? 0,
+          }
+        })
+      if (distributionSenders.length !== workingEntityIds.length) {
+        return fail(409, 'The selected review-unit working set could not be reconciled.', {
+          reason: 'review_unit_projection_membership_mismatch',
+        })
+      }
       return {
         ok: true,
         publication: headerRead.publication,
@@ -2646,7 +2808,7 @@ async function loadSenderDistributionFromArtifact(params: {
             title: params.selectedCluster.title,
             query: params.selectedCluster.query,
             message_count: projection.activity_total,
-            sender_count: projection.unit_entity_total,
+            sender_count: workingEntityIds.length,
           },
           senders: distributionSenders,
           review_unit_projection: projection,
@@ -5102,6 +5264,9 @@ async function loadSenderWorkspaceFromArtifact(params: {
   senderOverviewWindow?: GmailSenderOverviewWindow | null
   senderOverviewStart?: string | null
   senderOverviewEnd?: string | null
+  timeContextBucketLabel?: string | null
+  timeContextBucketStartAt?: string | null
+  timeContextBucketEndExclusiveAt?: string | null
   includeClusterSenderKeys?: boolean
   previewEvidenceSenderKey?: string | null
   timeZone?: string | null
@@ -5147,7 +5312,7 @@ async function loadSenderWorkspaceFromArtifact(params: {
     const artifactReadStartedAt = Date.now()
     let focusedSemanticArtifactPageRead = false
     let focusedReviewUnitArtifactPageRead = false
-    const artifactRead = focusedReviewUnitArtifactPageRequested
+    let artifactRead = focusedReviewUnitArtifactPageRequested
       ? await (async () => {
           const reviewUnitRead = await loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage({
             supabase: params.supabase,
@@ -5219,7 +5384,7 @@ async function loadSenderWorkspaceFromArtifact(params: {
             page: params.page,
             pageSize: params.pageSize,
           })
-    const artifactReadMs = Math.max(0, Date.now() - artifactReadStartedAt)
+    let artifactReadMs = Math.max(0, Date.now() - artifactReadStartedAt)
 
     if (
       focusedReviewUnitArtifactPageRead &&
@@ -5248,16 +5413,16 @@ async function loadSenderWorkspaceFromArtifact(params: {
         publishedVersion: artifactRead.publication?.published_version ?? null,
       })
     }
-    const initialArtifactRowCount =
-      artifactRead.headers.length +
-      artifactRead.seed_rows.length +
-      artifactRead.preview_index_rows.length
-    const initialArtifactBudgetFailure = firstPaintArtifactBudgetFailure(initialArtifactRowCount)
-    if (initialArtifactBudgetFailure) return initialArtifactBudgetFailure
-
     const clusterTotalSenders = artifactInteger(artifactRead.selected_header.sender_count)
     let reviewUnitProjection: GmailReviewUnitWindowProjectionData | null = null
+    let reviewUnitWorkingEntityIds: string[] | null = null
     if (focusedReviewUnitArtifactPageRead && reviewUnitId && artifactRead.artifact_version) {
+      const projectionRequest = resolveReviewUnitProjectionRequest(params)
+      if (!projectionRequest) {
+        return fail(409, 'The selected Time Context period has invalid projection bounds.', {
+          reason: 'invalid_time_context_bucket_bounds',
+        })
+      }
       reviewUnitProjection = await loadCachedReviewUnitWindowProjection({
         supabase: params.supabase,
         tenantId: params.tenantId,
@@ -5265,11 +5430,70 @@ async function loadSenderWorkspaceFromArtifact(params: {
         parentId: artifactText(artifactRead.selected_header.cluster_id) || artifactSelectedClusterId,
         artifactVersion: artifactRead.artifact_version,
         reviewUnitId,
-        window: params.senderOverviewWindow ?? null,
-        start: params.senderOverviewStart,
-        end: params.senderOverviewEnd,
+        window: projectionRequest.window,
+        start: projectionRequest.start,
+        end: projectionRequest.end,
+      })
+      try {
+        reviewUnitWorkingEntityIds = resolveReviewUnitWindowWorkingEntityIds({
+          windowKind: reviewUnitProjection.requested_window.kind,
+          unitEntityTotal: reviewUnitProjection.unit_entity_total,
+          activeEntityTotal: reviewUnitProjection.active_entity_total,
+          members: reviewUnitProjection.members.map((member) => ({
+            entityId: member.entity_id,
+            activityCount: member.activity_count,
+          })),
+        })
+      } catch (error) {
+        console.warn('[integrations/gmail/review-unit-projection]', {
+          action: 'resolve_sender_workspace_working_set',
+          error: error instanceof Error ? error.message : 'unknown_working_set_error',
+        })
+        return fail(409, 'The selected review-unit projection has inconsistent window membership.', {
+          reason: 'review_unit_projection_membership_mismatch',
+        })
+      }
+      if (reviewUnitProjection.requested_window.kind !== 'all_indexed') {
+        const activeReadStartedAt = Date.now()
+        artifactRead = await loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+          selectedClusterId: artifactSelectedClusterId,
+          page: params.page,
+          pageSize: params.pageSize,
+          reviewUnitId,
+          sort: params.sort,
+          direction: params.direction,
+          includeFocusedSenderKeys: params.includeClusterSenderKeys === true,
+          activeSenderKeys: reviewUnitWorkingEntityIds,
+        })
+        artifactReadMs += Math.max(0, Date.now() - activeReadStartedAt)
+        if (
+          !('focused_request_valid' in artifactRead) ||
+          artifactRead.focused_request_valid !== true
+        ) {
+          return fail(409, 'The selected cleanup child is stale or unavailable.', {
+            reason: 'invalid_review_unit_id',
+            retryAfterMs: null,
+          })
+        }
+      }
+    }
+
+    if (!artifactRead.publication || !artifactRead.selected_header) {
+      return fail(409, 'The selected review-unit artifact became unavailable during window resolution.', {
+        reason: 'missing_published_artifact',
+        retryAfterMs: null,
       })
     }
+
+    const initialArtifactRowCount =
+      artifactRead.headers.length +
+      artifactRead.seed_rows.length +
+      artifactRead.preview_index_rows.length
+    const initialArtifactBudgetFailure = firstPaintArtifactBudgetFailure(initialArtifactRowCount)
+    if (initialArtifactBudgetFailure) return initialArtifactBudgetFailure
 
     const clusterSenderKeysStartedAt = Date.now()
     const clusterSenderKeys =
@@ -5426,14 +5650,21 @@ async function loadSenderWorkspaceFromArtifact(params: {
       typeof artifactRead.focused_total_senders === 'number'
         ? artifactRead.focused_total_senders
         : null
+    const focusedActiveTotalSenders =
+      focusedReviewUnitArtifactPageRead &&
+      'focused_active_total_senders' in artifactRead &&
+      typeof artifactRead.focused_active_total_senders === 'number'
+        ? artifactRead.focused_active_total_senders
+        : null
     const totalSenders = defaultBoundedArtifactPageRead
       ? clusterTotalSenders
       : focusedSemanticArtifactPageRead
-        ? focusedTotalSenders ?? filteredSenders.length
+        ? focusedActiveTotalSenders ?? focusedTotalSenders ?? filteredSenders.length
         : filteredSenders.length
     if (
       reviewUnitProjection &&
-      (reviewUnitProjection.unit_entity_total !== totalSenders ||
+      (reviewUnitProjection.unit_entity_total !== focusedTotalSenders ||
+        reviewUnitWorkingEntityIds?.length !== totalSenders ||
         (clusterSenderKeys && clusterSenderKeys.some((senderKey) => !projectionMembers.has(senderKey))))
     ) {
       return fail(409, 'The selected review-unit projection does not match its fixed membership.', {
@@ -5450,6 +5681,10 @@ async function loadSenderWorkspaceFromArtifact(params: {
       (sum, header) => sum + artifactInteger(header.message_count),
       0
     )
+    const focusedReviewUnitTimeContextTimeline =
+      reviewUnitProjection?.requested_window.kind === 'all_indexed'
+        ? reviewUnitProjectionTimeline(reviewUnitProjection, params.analysisScope)
+        : null
     const persistedArtifactTimeContextTimeline = hasCanonicalPersistedSenderActivityTimeline({
       analysisScope: params.analysisScope,
       items: parsedTimelineHeaderAnalytics.sender_activity_timeline,
@@ -5464,7 +5699,8 @@ async function loadSenderWorkspaceFromArtifact(params: {
       : null
     // Runtime reads never reconstruct missing timeline truth from gmail_messages.
     // A canonical persisted timeline is served as-is; otherwise the field remains unavailable.
-    const resolvedLaneATimeContextTimeline = persistedArtifactTimeContextTimeline
+    const resolvedLaneATimeContextTimeline =
+      focusedReviewUnitTimeContextTimeline || persistedArtifactTimeContextTimeline
 
     console.info(
       `${GMAIL_SENDER_WORKSPACE_ARTIFACT_LOG_PREFIX} ${JSON.stringify({
@@ -5555,7 +5791,7 @@ async function loadSenderWorkspaceFromArtifact(params: {
           message_count:
             reviewUnitProjection?.activity_total ??
             artifactInteger(artifactRead.selected_header.message_count),
-          sender_count: reviewUnitProjection?.unit_entity_total ?? clusterTotalSenders,
+          sender_count: reviewUnitProjection ? totalSenders : clusterTotalSenders,
           share_pct: artifactInteger(artifactRead.selected_header.share_pct),
           surface_tier: parsedHeaderAnalytics.cleanup_group_surface_tier || null,
           surface_kind: parsedHeaderAnalytics.cleanup_group_surface_kind || null,
@@ -7495,6 +7731,9 @@ export async function loadGmailSenderOverviewWindowForTenant(params: {
         })
       }
       const grouping = projection.series[0]?.resolution || 'day'
+      const projectionResolutions = new Set(
+        projection.series.map((bucket) => bucket.resolution)
+      )
       const groupingKey: GmailSenderOverviewWindowData['grouping']['key'] = grouping
       const allIndexedActivityTotal = projection.members.reduce(
         (sum, member) => sum + artifactInteger(member.all_indexed_activity_count),
@@ -7533,7 +7772,7 @@ export async function loadGmailSenderOverviewWindowForTenant(params: {
                   }).format(bucketStart)
         return {
           label,
-          count: artifactInteger(bucket.activity_count),
+          count: artifactInteger(bucket.active_entity_count),
           message_count: artifactInteger(bucket.activity_count),
           bucket_start_at: bucketStart.toISOString(),
           bucket_end_at: bucketEnd.toISOString(),
@@ -7567,7 +7806,10 @@ export async function loadGmailSenderOverviewWindowForTenant(params: {
           },
           grouping: {
             key: groupingKey,
-            label: pressureTrendArtifactGroupingLabel(groupingKey),
+            label:
+              projectionResolutions.size > 1
+                ? 'Calendar-period bars'
+                : pressureTrendArtifactGroupingLabel(groupingKey),
           },
           indexed_coverage: {
             indexed_total_rows: allIndexedActivityTotal,
@@ -7973,7 +8215,19 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
     analysisScope
   )
 
-  if (timeContextBucketLabel || (senderOverviewWindow && !params.reviewUnitId)) {
+  const reviewUnitProjectionRequest = resolveReviewUnitProjectionRequest({
+    reviewUnitId: params.reviewUnitId,
+    timeContextBucketLabel,
+    timeContextBucketStartAt,
+    timeContextBucketEndExclusiveAt,
+    senderOverviewWindow,
+    senderOverviewStart: params.senderOverviewStart,
+    senderOverviewEnd: params.senderOverviewEnd,
+  })
+  if (
+    (timeContextBucketLabel && !reviewUnitProjectionRequest) ||
+    (senderOverviewWindow && !params.reviewUnitId)
+  ) {
     return loadTimeContextProjectionUnavailable({
       supabase: params.supabase,
       tenantId: params.tenantId,
@@ -8001,6 +8255,9 @@ export async function loadGmailSenderWorkspaceForTenant(params: {
       senderOverviewWindow,
       senderOverviewStart: params.senderOverviewStart ?? null,
       senderOverviewEnd: params.senderOverviewEnd ?? null,
+      timeContextBucketLabel,
+      timeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt,
       includeClusterSenderKeys: params.includeClusterSenderKeys === true,
       previewEvidenceSenderKey: params.previewEvidenceSenderKey ?? null,
       timeZone: requestTimeZone,
@@ -8724,9 +8981,23 @@ export async function loadGmailSenderDistributionForTenant(params: {
   const semanticFocus = normalizeSenderWorkspaceSemanticFocus(params.semanticFocus)
   const reviewUnitId = artifactText(params.reviewUnitId)
   const senderOverviewWindow = normalizeSenderOverviewWindow(params.senderOverviewWindow)
+  const timeContextBucketLabel = normalizeTimeContextBucketLabel(params.timeContextBucketLabel)
+  const timeContextBucketStartAt = normalizeTimeContextBucketIso(params.timeContextBucketStartAt)
+  const timeContextBucketEndExclusiveAt = normalizeTimeContextBucketIso(
+    params.timeContextBucketEndExclusiveAt
+  )
+  const reviewUnitProjectionRequest = resolveReviewUnitProjectionRequest({
+    reviewUnitId,
+    timeContextBucketLabel,
+    timeContextBucketStartAt,
+    timeContextBucketEndExclusiveAt,
+    senderOverviewWindow,
+    senderOverviewStart: params.senderOverviewStart,
+    senderOverviewEnd: params.senderOverviewEnd,
+  })
 
   if (
-    normalizeTimeContextBucketLabel(params.timeContextBucketLabel) ||
+    (timeContextBucketLabel && !reviewUnitProjectionRequest) ||
     (senderOverviewWindow && !reviewUnitId)
   ) {
     return loadTimeContextProjectionUnavailable({
@@ -8747,6 +9018,9 @@ export async function loadGmailSenderDistributionForTenant(params: {
       senderOverviewWindow,
       senderOverviewStart: params.senderOverviewStart,
       senderOverviewEnd: params.senderOverviewEnd,
+      timeContextBucketLabel,
+      timeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt,
     })
   }
 
@@ -8769,6 +9043,9 @@ export async function loadGmailSenderDistributionForTenant(params: {
       senderOverviewWindow,
       senderOverviewStart: params.senderOverviewStart,
       senderOverviewEnd: params.senderOverviewEnd,
+      timeContextBucketLabel,
+      timeContextBucketStartAt,
+      timeContextBucketEndExclusiveAt,
     })
   }
 
