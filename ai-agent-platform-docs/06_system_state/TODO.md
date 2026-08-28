@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-25 • Stage D chart and linked-surface correction proof complete • Stage E decision and publication remain gated_
+_Last updated: 2026-08-28 • Stage D-R3 verifier accepted; focused Human Review pending_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -50,7 +50,36 @@ _Last updated: 2026-08-25 • Stage D chart and linked-surface correction proof 
 - [x] Record Oliver's Stage D `ACCEPT` decision on 2026-08-25; immediate same-flow runtime/UI integration is authorized only within the locked runtime brief.
 - [x] Wire candidate-version projection reads and the Pressure Trend empty-seed correction into the canonical review surfaces while preserving immutable child membership and bounded single-flight reads.
 - [x] Run targeted fixtures, TypeScript/lint/build, then authenticated post-settle Playwright across cold load, window switches, Decision Mode return, linked-surface parity, Pressure Trend, console/overlay, and request-churn surfaces.
-- [ ] Stop at the Stage E verifier/Human Review decision gate; do not publish, Smart Sync, reindex, deploy, push, move main, or retire lineage.
+- [x] Record Stage E Human Review decision: `REJECT` — preset/Custom windows retained the full fixed membership as empty Sender Distribution ranks instead of filtering the active working set.
+- [x] Lock root cause and correction plan: preserve immutable membership for taxonomy/audit, but drive overview totals, rows, pagination, Decision Mode, and Sender Distribution from nonzero projection members for narrowed windows.
+- [x] Oliver approved Stage D-R immediate same-flow implementation on 2026-08-27; no migration or candidate rebuild is authorized.
+- [x] Implement the bounded active-working-set runtime correction and separate fixed group size from active-window size visibly.
+- [x] Re-run post-settle Playwright across All Indexed, `1Y`, `1Q`, `1M`, `1W`, `1D`, Custom, ready-empty, All Indexed restore, Decision Mode return, linked count parity, dynamic Pressure Trend coverage, and request churn.
+- [x] Record Human Review RETURN on child transition identity and child/parent title congruency; preserve the accepted active-window count correction.
+- [x] Lock Stage D-R2 root cause: chooser cache precedence can differ from Review validation truth, and the Review hero always selects the parent presentation title.
+- [x] Oliver approved immediate same-flow Stage D-R2 correction on 2026-08-27; no rebuild, migration, taxonomy, chart, publication, or mailbox mutation is authorized.
+- [x] Make chooser link identity and Review validation consume one authoritative artifact/intelligence snapshot; render child H1 plus explicit parent context.
+- [x] Run targeted static checks and authenticated post-settle Playwright for all `13` Start Here children, representative other children, actual chooser click-through, narrowed `1M` parity, and Decision Mode close/return.
+- [x] Record Human Review `ACCEPT` for Stage D-R2 child-entry/title/return behavior and linked Sender Distribution window behavior.
+- [x] Propagate the approved Stage D-R3 contract: one domain-neutral observation authority, unique subjects per interval, separate supporting-activity measure, and workflow-driving Time Context bar selection.
+- [x] Correct Time Context active-control state, preserve canonical interval bounds, and align the rail to the selected published child workspace.
+- [x] Diagnose the remaining metric contradiction on the authenticated canonical route: the live projection RPC returns summed bucket activity but no distinct active-subject count.
+- [x] Oliver `ACCEPT` recorded on 2026-08-28 for one additive bounded projection read-contract migration exposing `active_entity_count` separately from `activity_count`; no rebuild, reindex, sync, publication, or broad scan.
+- [x] Wire the approved generic subject/activity fields through the adapter and Time Context; make bar selection narrow the same shared workflow consumed by rows, Sender Distribution, and Decision Mode.
+- [x] Run targeted fixtures/static checks, production build, and authenticated post-settle Playwright for cold load, timeframe switch loop, bar click, linked-surface parity, Decision Mode close/return, Clear period, console truth, request trace, and final visible UI.
+- [x] Record Stage D-R3 Human Review RETURN: preserve distinct-subject filtering, but make additive observation/activity volume the primary Time Context bar measure.
+- [x] Record Oliver approval for the bounded activity-volume presentation correction; no migration, rebuild, publication, sync, reindex, deployment, push, main movement, or lineage retirement is authorized.
+- [x] Render Time Context bars, peak/latest/delta reads, and accessible labels from `activity_count`; show `active_entity_count` separately and keep bar-click workflow narrowing subject-distinct.
+- [x] Run targeted fixtures/static checks and exact weekly post-settle Playwright proving activity-volume bars, `messages from senders` clarity, distinct-subject narrowing, linked-surface parity, switch/clear behavior, console truth, request trace, and no guard churn.
+- [x] Enter a new explicit Human Review decision gate before Accepted Fix capture or any publication/main/deployment decision.
+- [x] Record Stage D-R3 Human Review RETURN: retain the activity-volume chart and distinct-subject narrowing, but reject the page's competing Operations Workspace and Analysis Rail timeframe authorities.
+- [x] Trace and target-lock the two window controls through URL state, runtime context, workspace requests, and linked Review/Decision consumers; reproduce the exact legacy upper-scope plus lower-window conflict without triggering sync, rebuild, publication, or broad scans.
+- [x] Obtain Oliver approval for the Stage D-R4 single-authority plan: the Analysis Rail owns the mutable workflow window and the Operations Workspace shows read-only indexed coverage on Review/Decision surfaces.
+- [x] Implement legacy URL canonicalization and prove `1W -> 1M -> All Indexed -> 1W` plus Decision Mode close/return parity across Overview, Sender Distribution, Time Context, rows, and pagination.
+- [x] Complete narrow Stage D-R4 Human Review; Oliver returned `ACCEPT` on 2026-08-28.
+- [x] Record Recovery Contract: `CHANGELOG.md` -> `August 28, 2026 — ACE-048 Unified Analysis Window and Linked Chart Truth Accepted`.
+- [ ] Begin a new bounded Git/worktree consolidation preflight: refresh the lineage ledger against live heads, preserve and intentionally commit the accepted integration candidate, exclude auth/generated/nested-worktree residue, and produce the exact merge/promotion/rollback packet. Do not merge, move local `main`, retire worktrees/branches, push, or deploy before separate approval and merged-candidate verification.
+- [ ] After an accepted merged baseline, repair the separate Decision Mode evidence-snippet `412`, then verify Decision Mode before beginning the Management-page work unit.
 
 ### Historical active heading retained below
 

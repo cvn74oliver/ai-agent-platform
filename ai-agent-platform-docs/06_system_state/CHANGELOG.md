@@ -1,3 +1,77 @@
+### August 28, 2026 — ACE-048 Unified Analysis Window and Linked Chart Truth Accepted
+
+Accepted invariant:
+- Review and Decision surfaces expose exactly one mutable workflow-window authority. The Analysis Rail owns that window; indexed/artifact coverage remains read-only provenance.
+- Sender Overview, Sender Distribution, Time Context, sender rows, pagination, and Decision Mode consume the same selected review unit and workflow window.
+- Time Context bars show additive activity volume, while distinct decision-subject counts remain separately visible and drive workflow narrowing.
+- Pressure Trend, Sender Distribution, and Time Context are projections of the same canonical indexed/artifact-backed observation truth; coverage bounds are derived from the active tenant/workspace rather than hard-coded dates.
+
+Source layer fixed:
+- Review/Decision workflow-window authority, linked analysis projections, Time Context metric grammar, and route-state canonicalization
+
+Root cause:
+- The Operations Workspace scope selector and Analysis Rail timeframe selector could independently mutate workflow state, producing contradictory highlights, URL parameters, totals, loading states, and linked-surface results.
+- Time Context initially conflated additive activity volume with unique decision-subject counts, obscuring repeated activity from the same subject.
+
+Acceptance proof:
+- Oliver explicitly returned `ACCEPT` on 2026-08-28 and confirmed Cleanup Groups, Sender Distribution, Time Context, and Pressure Trend are accepted as the completed analysis surface.
+- Authenticated post-settle Playwright proved legacy-conflict cold-load canonicalization and the `1W -> 1M -> All Indexed -> 1W` switch loop across URL state, selected control, Overview totals, Sender Distribution, Time Context, sender rows, pagination, and Decision Mode.
+- The accepted weekly fixture reconciled `10` unique workflow senders with `15` supporting messages; Aug 12 showed `5` messages from `4` senders, then narrowed rows, Sender Distribution, and Decision Mode to the same `4`-sender set.
+- Each changed window key issued one bounded sender-workspace request and one sender-distribution request. No polling, repeated heavy requests, `409` guard churn, Smart Sync, rebuild, reindex, publication, or broad scan occurred.
+
+Acceptance boundary:
+- This Recovery Contract accepts the ACE-048 Cleanup Groups and linked analysis surface through Stage D-R4.
+- A separate Decision Mode evidence-snippet request still returns `412`; it does not alter the accepted queue, chart, count, or close/return behavior and remains a bounded post-consolidation repair.
+- This acceptance does not authorize commit, merge, local-main promotion, push, deployment, publication, worktree/branch deletion, or lineage retirement. Those remain separate gated consolidation steps.
+
+Replay steps:
+1. Open an exact published child Review route and require the upper coverage block to be read-only while the Analysis Rail is the sole mutable workflow-window control.
+2. Exercise `1W -> 1M -> All Indexed -> 1W`; require URL, selected control, Overview totals, Sender Distribution, Time Context, rows, pagination, and Decision Mode to remain aligned after settle.
+3. Select a Time Context bucket and require additive activity volume to remain visible while the narrowed workflow uses the bucket's distinct decision subjects.
+4. Enter and close Decision Mode; require return to the same child/window/bucket identity with nonzero rows.
+5. Confirm bounded single-flight reads, zero recurring heavy polling, zero `409` churn, and no navigation-triggered mutation.
+
+Rollback guidance:
+- Revert only the Stage D-R3 activity-volume presentation and Stage D-R4 single-window-authority seams from the eventual intentional integration commit.
+- Do not revert immutable review-unit membership, the accepted Cleanup Groups presentation contract, the active artifact pointer, or previously accepted Sender Distribution child-transition behavior.
+
+---
+
+### August 27, 2026 — ACE-048 Child Transition and Windowed Sender Distribution Accepted
+
+Accepted invariant:
+- A published child link and its Review workspace resolve against one trusted artifact identity, the selected child label owns the Review title, and parent context remains supporting context rather than replacing the child identity.
+- A selected workflow window filters overview totals, sender rows, pagination, Decision Mode, and Sender Distribution to the same active decision-subject set while immutable review-unit membership remains the audit/taxonomy denominator.
+
+Source layer fixed:
+- Cleanup Groups child-link identity, Review child-title presentation, active-window workflow set, and Sender Distribution projection
+
+Root cause:
+- Chooser emission and Review validation could select different runtime snapshots, causing valid child clicks to bounce back to the chooser.
+- Review rendered the parent presentation title as H1 even when a valid child unit was selected.
+- Narrowed windows originally retained inactive fixed members as empty Sender Distribution rank slots instead of using the active working set.
+
+Acceptance proof:
+- Oliver explicitly accepted the child-entry/title/return behavior and reported that Sender Distribution now matches across timeframe selections.
+- All `13/13` Start Here child routes settled without chooser bounce; representative older/protected children rendered child H1 plus parent context.
+- The newsletters fixture reconciled fixed `53` with active `22` on `1M` across overview, rows, Sender Distribution, and Decision Mode; closing Decision Mode returned to the same child/window with nonzero rows.
+- Targeted fixtures and diff checks passed; request traces showed bounded single-flight reads, zero `409`, zero raw Gmail-message reads, and zero recurring heavy polling after settle.
+
+Acceptance boundary:
+- This contract accepts child transition/title/return behavior and Sender Distribution active-window behavior only.
+- Time Context selection, bucket-click behavior, metric semantics, and shared-observation parity remain active under Stage D-R3.
+- It does not authorize publication, rebuild, migration, Smart Sync, Gmail reindex, deployment, push, main movement, or lineage retirement.
+
+Replay steps:
+1. Open Cleanup Groups at the canonical authenticated route and click representative children, including Start Here, older-item, and protected groups.
+2. Require the canonical Review route to persist, child title to render as H1, and parent to remain visible as context.
+3. Select a narrowed workflow window and require overview totals, rows, Sender Distribution, and Decision Mode to use the same active count.
+4. Close Decision Mode and require the same child/window URL plus nonzero rows.
+5. Confirm no recurring heavy requests, guard churn, build, sync, reindex, or publication mutation.
+
+Rollback:
+- Revert the Stage D-R / D-R2 runtime seams to the preserved pre-correction branch state; immutable artifact membership and the active publication pointer remain unchanged.
+
 ### August 24, 2026 — ACE-048 Framework-First Cleanup Groups Presentation Accepted
 
 Accepted invariant:

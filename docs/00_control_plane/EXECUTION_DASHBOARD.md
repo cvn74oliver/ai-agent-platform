@@ -1,15 +1,15 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-08-25
+Last updated: 2026-08-28
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: AWAITING DECISION — STAGE E VERIFIER/HUMAN REVIEW GATE
+Status: STAGE D-R4 HUMAN-ACCEPTED / CONSOLIDATION PREFLIGHT NEXT
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Cleanup Groups checkpoint one accepted; Stage D chart/linked-surface integration and correction proof passed against the unpublished candidate; Stage E decision is pending
-- Problem class: runtime behavior and UI truth corrected against candidate-backed immutable membership plus bounded window projections; publication acceptance remains separately gated
+- Execution phase: Cleanup Groups and the linked Stage D-R4 analysis surface are Human-accepted; the next bounded work unit is Git/worktree consolidation preflight
+- Problem class: mixed runtime behavior and shared route/state authority; target-locked correction verified
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
@@ -62,7 +62,28 @@ Status: AWAITING DECISION — STAGE E VERIFIER/HUMAN REVIEW GATE
 - [x] Oliver accepted Stage D runtime/UI integration on 2026-08-25
 - [x] Wire candidate projection reads and Pressure Trend correction through the locked runtime/UI seams
 - [x] Complete static/build and authenticated post-settle Playwright correction proof before Stage E Human Review
-- [ ] Record the Stage E `ACCEPT` / `REJECT` / `BLOCKED` / `RETURN_TO_PM` decision; keep publication and main movement blocked until accepted
+- [x] Record Stage E Human Review `REJECT`: all windows retained `278` rank slots, including zero-activity members
+- [x] Lock Stage D-R correction: narrowed windows use the exact nonzero active set across overview, rows, pagination, Decision Mode, and Sender Distribution; All Indexed keeps full membership
+- [x] Obtain Oliver approval for Stage D-R immediate same-flow implementation on 2026-08-27
+- [x] Implement Stage D-R without rebuild/migration and complete the full preset/Custom linked-surface proof matrix
+- [x] Record Stage D-R Human Review RETURN: preserve windowed count parity, repair `Start Here` child transition identity and child-first Sender Overview titles
+- [x] Obtain Oliver approval for bounded Stage D-R2 immediate same-flow correction
+- [x] Implement and verify Stage D-R2 across all `13` Start Here children, representative other children, actual chooser click-through, preserved `1M` parity, and Decision Mode close/return
+- [x] Align Time Context to the selected child, converge timeframe highlight state, preserve canonical bucket bounds, and prove the remaining contradiction is not UI-only
+- [x] Lock the remaining root cause: the bounded projection RPC exposes summed activity but not distinct active subjects per interval
+- [x] Record Oliver `ACCEPT` on 2026-08-28 for the additive generic projection read-contract correction; keep publication, rebuild, sync, reindex, deployment, push, and main movement blocked
+- [x] Apply the one additive bounded RPC correction and preserve separate active-subject and supporting-activity measures
+- [x] Pass fixtures, lint, diff check, production build, and authenticated post-settle linked-surface Playwright proof with `98` bucket subjects, `1,629` supporting activities, Decision Mode close/return, Clear restore, and no `409` churn
+- [x] Record Stage D-R3 Human Review RETURN and revised activity-volume bar contract
+- [x] Obtain Oliver approval for the bounded Time Context presentation correction
+- [x] Implement and verify activity-volume bars with separate distinct-subject context and subject-distinct workflow narrowing
+- [x] Enter the new explicit Stage D-R3 Human Review decision gate before Accepted Fix capture or any publication/main/deployment decision
+- [x] Record Stage D-R3 Human Review RETURN on competing Operations Workspace and Analysis Rail timeframe authorities
+- [x] Trace both window controls through route/runtime/backend ownership and reproduce the conflicting legacy upper scope plus lower workflow window
+- [x] Lock the Analysis Rail as the sole mutable Review/Decision workflow-window authority and retain upper indexed coverage as read-only provenance
+- [x] Implement and verify canonical URL cleanup, linked-surface parity, window switch loop, and Decision Mode close/return
+- [x] Record Stage D-R4 Human Review `ACCEPT` and Recovery Contract
+- [ ] Refresh live lineage, intentionally commit the accepted integration candidate, and prepare the exact merge/promotion/rollback packet; no merge or retirement before approval
 
 ## Immediate Human Review return
 

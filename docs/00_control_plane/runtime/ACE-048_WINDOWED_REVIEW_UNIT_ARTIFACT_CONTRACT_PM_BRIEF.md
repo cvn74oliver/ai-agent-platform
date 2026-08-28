@@ -1,6 +1,6 @@
 # ACE-048 Windowed Review-Unit Artifact Contract — PM Brief
 
-Status: `STAGE D ACTIVE — RUNTIME INTEGRATION + CORRECTION PROOF`
+Status: `STAGE D-R APPROVED AND ACTIVE`
 
 Runtime artifact status: `updated; authoritative task-scoped runtime context`
 
@@ -14,17 +14,17 @@ Reasoning tier: `high`
 
 Problem class: `artifact / publication truth` primary, with a bounded `runtime behavior` Pressure Trend seam
 
-Execution readiness: `target-locked; Stages A/B authorized by Oliver on 2026-08-24`
+Execution readiness: `target-locked and execution-ready; Oliver approved immediate same-flow implementation on 2026-08-27`
 
 ## Executive summary
 
 ### What is changing
 
-Automata will separate a decision group’s stable membership from activity measured inside a selected time window. One stable review-unit identity will remain authoritative across rows, pagination, and Decision Mode, while a windowed projection supplies exact per-member activity, active-entity, distribution-measure, and trend truth.
+Automata will keep a decision group’s stable semantic identity and full membership for taxonomy/reconciliation, while each selected time window creates the current active working set: only unit members with qualifying activity in that window appear in rows, pagination, Decision Mode, and Sender Distribution.
 
 ### What Oliver will get
 
-All Indexed, preset windows, and Custom will reconcile visibly. The interface will show both the fixed size of the selected decision group and how many of its entities were active in the chosen window, without changing child names, IDs, or accepted Cleanup Groups navigation.
+All Indexed, preset windows, and Custom will reconcile visibly. The interface will show the fixed size of the selected decision group separately from the smaller active-in-window working set. A one-day window will not retain inactive members as empty rank slots, and every linked workflow surface will use the same active set.
 
 ### Why it matters
 
@@ -36,7 +36,7 @@ Create a platform-generic artifact contract in which any Automata decision subje
 
 - immutable review-unit membership for one artifact version;
 - exact activity projections for All Indexed, preset, and Custom windows;
-- one projection identity shared by overview totals, entity rows, Decision Mode, distribution, time context, and trends;
+- one projection identity shared by active-window overview totals, entity rows, pagination, Decision Mode, distribution, time context, and trends;
 - bounded indexed reads with no runtime artifact generation or source-wide scan.
 
 The separate Pressure Trend correction must reject an empty or invalid initial seed so the existing one-attempt-per-semantic-key request can load the materialized bucket family.
@@ -68,15 +68,16 @@ The projection owns:
 
 - `active_entity_total`: unique unit members with qualifying activity in the window;
 - `activity_total`: exact domain measure in the window;
-- one aggregate for every fixed unit member, including explicit zero activity, used by distribution and activity annotations without replacing membership-owned rows, pagination, or Decision Mode;
+- one aggregate for every fixed unit member, including explicit zero activity for audit/reconciliation; the visible active working set excludes zero-activity members for non-All-Indexed workflow windows;
 - exact time buckets for Time Context or the adapter’s equivalent trend surface.
 
 ### Visible behavior
 
-- All Indexed: `active_entity_total` may equal or be lower than `unit_entity_total`; both remain explicit.
-- Preset/Custom: rows, pagination, and Decision Mode retain the fixed unit membership. Distribution retains exactly the same members and changes only their windowed activity measures; zero-activity members remain explicit.
+- All Indexed: the working set is the full fixed unit membership; `unit_entity_total` remains the chooser/reconciliation count.
+- Preset/Custom: rows, pagination, Decision Mode, and Sender Distribution use the exact active working set: fixed unit members whose projection `activity_count > 0` in the selected window.
+- Zero-activity members remain materialized in projection truth for completeness, but they do not render as workflow rows or empty Sender Distribution rank slots in a narrowed window.
 - Time Context/trends measure activity by members of the fixed unit over the selected window.
-- A window with no qualifying activity is a valid ready-empty projection. It must not fall back to All Indexed or another artifact.
+- A window with no qualifying activity is a valid ready-empty workflow: zero rows, zero ranked entities, zero Decision Mode queue, and no fallback to All Indexed or another artifact.
 - The UI must label fixed membership and active-in-window truth separately; one number must never silently impersonate the other.
 
 ## Feature domain and scope
@@ -87,7 +88,7 @@ In scope after plan approval:
 - A Gmail adapter that maps sender keys, indexed-message timestamps, and Gmail measures into the generic contract.
 - Additive projection manifests and multi-resolution activity-bucket storage.
 - Exact bounded projection reads for All Indexed, preset, and Custom windows.
-- Review-page reconciliation across fixed-membership summary, sender rows, pagination, Decision Mode, all-member Sender Distribution, and Time Context.
+- Review-page reconciliation across fixed-membership context plus active-window sender rows, pagination, Decision Mode, Sender Distribution, and Time Context.
 - Pressure Trend empty-seed rejection and coverage provenance.
 - Fixtures, static/build proof, candidate-only generation validation, and authenticated post-settle browser proof.
 
@@ -149,7 +150,7 @@ The projection response includes:
 - bounded chart series;
 - artifact version, membership hash, projection hash, and source/provenance.
 
-Page preview/detail reads fetch only the visible page of fixed membership keys. Activity is joined by the same stable subject identity. Distribution derives from the all-member aggregate set—including zero-activity members—rather than initiating a competing universe.
+Page preview/detail reads fetch only the visible page of the current working-set keys. Activity is joined by the same stable subject identity. The projection’s complete membership aggregates remain the audit source, while the active working set is deterministically derived from nonzero window activity without initiating a competing query universe.
 
 ## Indexed read patterns and load contract
 
@@ -198,11 +199,11 @@ For every parent/review unit/artifact version:
 3. No activity entity belongs to two children where the parent contract is an exact partition.
 4. Sum of all entity All Indexed activity totals = unit All Indexed activity total.
 5. Sum of window member activity = window projection activity total = distribution activity total.
-6. Fixed unit membership = overview unit total = row/pagination total = Decision Mode queue total = distribution entity count.
-7. Unique active entities = overview active total = distribution nonzero-activity count, and it is always less than or equal to fixed membership.
+6. All Indexed: fixed unit membership = overview working total = row/pagination total = Decision Mode queue total = distribution entity count.
+7. Preset/Custom: unique active entities = overview working total = row/pagination total = Decision Mode queue total = distribution entity count; this total is always less than or equal to fixed membership.
 8. Time Context bucket sum = projection activity total for additive measures.
 9. Parent/child/root fixed membership reconciliation remains unchanged from the accepted candidate.
-10. Empty window projection is ready with the full fixed membership, zero active entities, zero activity, explicit zero distribution values, and no stale bars.
+10. Empty window projection is ready with fixed membership still reported as context, but zero active entities, zero workflow rows, zero Decision Mode queue, zero ranked distribution entities, zero activity, and no stale bars.
 11. Requested/effective date bounds and visible latest date equal artifact coverage truth; current wall-clock time never invents coverage.
 
 ## Migration and rebuild implications
@@ -272,7 +273,7 @@ August coverage may be displayed only when the effective candidate artifact prov
 ### Fixtures
 
 14. `web/scripts/review-unit-window-projection-contract-fixtures.mjs` — generic sender-independent crypto/tax/entity fixtures.
-15. `web/scripts/gmail-review-unit-window-projection-contract-fixtures.mjs` — Gmail adapter parity, zero-activity member retention, empty window, coverage, and active-entity reconciliation.
+15. `web/scripts/gmail-review-unit-window-projection-contract-fixtures.mjs` — Gmail adapter parity, zero-activity audit retention plus active-working-set exclusion, empty window, coverage, and active-entity reconciliation.
 16. `web/scripts/gmail-pressure-trend-contract-fixtures.mjs` — empty-seed/coverage regression cases.
 17. `web/package.json` — exact fixture commands only.
 
@@ -318,6 +319,117 @@ Decision gate: Oliver must separately authorize migration application and one ne
 - Stop at `Status: Awaiting Decision` with `ACCEPT`, `REJECT`, `BLOCKED`, or `RETURN_TO_PM`.
 - Publication, main promotion, push, deployment, and lineage retirement remain separate decisions.
 
+### Stage D-R — Human Review correction plan (approved and active)
+
+- Oliver decision — 2026-08-27: `APPROVED`. Immediate same-flow implementation is authorized only for this bounded runtime correction and its verification matrix.
+
+- Preserve immutable `review_unit_id`, full membership aggregates, projection manifests, and candidate data unchanged.
+- Derive one `active_working_set` from projection members whose `activity_count > 0` whenever a preset or Custom window is selected.
+- Make overview workflow totals, sender rows, pagination, Decision Mode, and Sender Distribution consume that exact ordered active set; All Indexed continues to consume full membership.
+- Label both truths plainly, for example `278 senders in this group` and `N active in this window`.
+- Keep a ready-empty projection honest: `0` active, no phantom ranks/rows, and no fallback.
+- Confirm Pressure Trend lower and upper bounds come from the active tenant/workspace artifact or indexed-coverage provenance; no shared hardcoded date is allowed.
+- Add no migration, candidate rebuild, Supabase-wide scan, polling, Smart Sync, Gmail reindex, or publication mutation.
+- Required correction proof: cold All Indexed, every preset (`1Y`, `1Q`, `1M`, `1W`, `1D`), Custom, ready-empty, switch back to All Indexed, Decision Mode open/close, cross-surface count parity, dynamic coverage bounds, request trace, and final visible screenshots.
+
+### Stage D-R correction and proof checkpoint — 2026-08-27
+
+- The runtime now separates immutable review-unit membership from the active workflow set. Narrowed windows use only persisted unit members with positive projection activity; All Indexed still uses full fixed membership.
+- The canonical candidate child proves fixed membership `53` while active workflow truth changes to `39` (`1Y`), `23` (`1Q`), `22` (`1M`), `10` (`1W`), `0` (`1D` ready-empty), and `17` (Custom Aug 1–15). All Indexed restores `53`.
+- Overview totals, rows, pagination, Sender Distribution, Time Context, and Decision Mode consume the same active ordered set. Decision Mode on `1W` shows `5 of 10`; closing returns to the same `10`-sender workspace.
+- Pressure Trend All Indexed is dynamically bounded to the active candidate coverage (`2022-12-23` through `2026-08-15` in the rendered quarterly view) and no longer exposes a `1970` origin.
+- Generic and Gmail projection fixtures, diff check, targeted ESLint with zero errors, and the `63/63` production build pass. Browser proof settled with zero console errors, no polling, no `409`, and no recurring heavy requests.
+- Candidate `full-mailbox-20260825031402535` remains unpublished. No migration, rebuild, Smart Sync, Gmail reindex, publication, deployment, push, main movement, or lineage retirement occurred.
+- Status: `Awaiting Decision`. Stage D-R is implemented and correction-proof complete but is not an Accepted Fix until the renewed decision gate records `ACCEPT`, `REJECT`, `BLOCKED`, or `RETURN_TO_PM`.
+
+### Stage D-R2 — child transition and title correction (approved and active)
+
+- Human Review retained the Stage D-R active-window result but returned the child-entry surface: `Start Here` children can be rejected as stale and sent back to Cleanup Groups, and successful child workspaces render the parent presentation title as H1.
+- Problem class: mixed runtime behavior plus UI grammar/rendering, with both mechanisms target-locked.
+- Runtime correction: when current trusted runtime mailbox intelligence exists, Cleanup Groups must derive child cards/IDs from that same snapshot; cached/latest-stable intelligence is absence fallback only. Review continues to fail closed for malformed/stale IDs and must never silently open the broad parent.
+- UI correction: a valid selected published review unit owns the Sender Overview H1. The parent presentation group remains visible as supporting `Inside ...` context. Legacy/broad reads retain the parent title.
+- Load contract: no new endpoint, poller, build, projection request, sync, scan, or recurring request. Normal settled request count is unchanged.
+- Locked files: `web/src/app/agents/[id]/operations/clusters/page.tsx`, `web/src/app/agents/[id]/operations/review/page.tsx`, and narrow contract tests/fixtures only.
+- Accepted proof: all `Start Here` children open and remain on their canonical Review route; representative older/protected children show child H1 plus correct parent context; back/forward and chooser return preserve identity; `1M` remains filtered and linked counts remain equal.
+- Explicit exclusions: taxonomy, artifact membership, counts, window semantics, Sender Distribution/Pressure Trend algorithms, migration, rebuild, publication, Smart Sync, Gmail reindex, deployment, push, main movement, and lineage retirement.
+
+### Stage D-R2 correction and proof checkpoint — 2026-08-27
+
+- All `13/13` Start Here child routes settle on their canonical Review identity without redirecting to Cleanup Groups. Representative older/protected children render the selected child label as H1 with the correct parent shown as `Inside ...` context.
+- An actual chooser click opens `Deals and special offers` and settles at `262` active senders. The canonical newsletters child shows fixed membership `53`, narrows to `22` active senders on `1M`, preserves `22` across overview, pagination, Sender Distribution, and Decision Mode, and closes back to the same child/window with the overlay removed.
+- Generic/Gmail/window fixtures PASS; targeted ESLint reports `0` errors / `19` warnings; `git diff --check` PASS. The settled request trace shows one bounded workspace and one bounded distribution family per changed key, query concurrency `1`, zero raw Gmail-message reads, zero `409`, and no recurring heavy polling.
+- Human-visible proof bundle: `/private/tmp/ace048-d-r2-before-start-here-click.jpg`, `/private/tmp/ace048-d-r2-after-start-here-click.jpg`, `/private/tmp/ace048-d-r2-before-window.jpg`, `/private/tmp/ace048-d-r2-after-1m-parity.jpg`, `/private/tmp/ace048-d-r2-after-decision-mode.jpg`, and `/private/tmp/ace048-d-r2-after-close-return-v2.jpg`.
+- Candidate `full-mailbox-20260825031402535` remains unpublished. No migration, rebuild, Smart Sync, Gmail reindex, publication, deployment, push, main movement, or lineage retirement occurred.
+- Status: `Awaiting Decision`. Stage D-R2 is implemented and correction-proof complete but is not an Accepted Fix until Human Review records `ACCEPT`, `REJECT`, `BLOCKED`, or `RETURN_TO_PM`.
+
+### Stage D-R3 — shared-observation Time Context correction (approved and active)
+
+- Executive summary — what is changing: Time Context will use one active timeframe state, preserve each bar's canonical interval identity, and drive the same workflow that Sender Distribution, sender rows, and Decision Mode use. Bars will be labeled as unique decision subjects active in the interval, with supporting activity shown separately.
+- What the operator will get: the selected timeframe chip visibly matches the rendered data; clicking a non-empty bar narrows the workflow to that exact period; counts remain understandable even when the same subject appears in more than one time bucket; and all three analytical lenses read the same observation authority.
+- Why it matters: the operator can trust Time Context as another view of the same decision universe instead of a visually plausible but independently computed chart.
+- Objective: correct Time Context state convergence, canonical interval-bound propagation, workflow-driving bar selection, and metric copy without changing taxonomy, immutable child membership, or artifact publication.
+- Feature domain: domain-neutral observation projections. Gmail supplies sender/message vocabulary only; the engine contract is decision subjects plus timestamped observations and measures.
+- Mode: `transitional_self_verification`. Reasoning level: `high`.
+- Problem class: mixed runtime behavior and shared observation truth, with mechanisms target-locked.
+- Locked files: `web/src/app/agents/[id]/operations/review/page.tsx`, `web/src/components/runtime/GmailCleanupComponents.tsx`, and narrow existing contract fixtures. Storage/projection files may be touched only if direct inspection proves the persisted contract itself is missing required interval identity.
+- Shared-observation contract: for the same artifact, review unit, and timeframe, Time Context, Sender Distribution, sender rows, Decision Mode, and Pressure Trend projections derive from the same canonical subject-observation facts. A bucket count is distinct subjects active in that exact interval; supporting activity is a separate count; subjects may recur across buckets, so bucket counts are not additive across time.
+- Runtime/load contract: no polling. A changed timeframe or bucket key may cause one bounded projection/workspace family plus at most one bounded detail family; settled steady state is zero recurring heavy reads. Navigation may not trigger build, sync, reindex, publication, or a Supabase-wide scan.
+- Accepted defect surfaces: authenticated cold Time Context; All Indexed -> `1Y` -> `1W` -> `1D` -> All Indexed switch loop; a non-empty bar click; linked overview, rows, Sender Distribution, and Decision Mode parity; and Pressure Trend coverage/provenance consistency.
+- Regression protections: Sender Distribution accepted behavior remains unchanged; immutable review-unit membership and chooser reconciliation remain unchanged; invalid/missing interval bounds fail safely without broad-parent fallback; ready-empty windows remain honest; no date or coverage bound is hardcoded per user.
+- Verification expectations: targeted contract/static/build proof followed by post-settle Playwright screenshots, DOM/state evidence, request traces, console/overlay checks, guard-churn classification, final visible UI inspection, and a State Transition Matrix.
+- Status: `APPROVED AND ACTIVE`.
+
+### Stage D-R3 diagnostic checkpoint — 2026-08-27
+
+- Implemented correction: the selected published review unit now owns the Time Context rail source, one timeframe state owns the highlighted control, and canonical interval bounds survive the presentation path. Generic/Gmail/window fixtures PASS and targeted lint has zero errors.
+- Authenticated post-settle evidence: the canonical child route settled as `Promotions and subscriptions` with `239` All Indexed subjects; Time Context no longer displayed the prior unavailable/loading contradiction. Switching to `1Y` visibly selected `1Y` and narrowed the shared workflow to `125` subjects.
+- Accepted failure evidence: the All Indexed monthly peak displayed `343` active subjects inside the `239`-subject child, and `1Y` displayed a `1,629`-subject bucket inside the `125`-subject workflow. These are activity totals, not distinct subjects.
+- Mechanism: the materialized projection stores per-subject bucket rows, but `read_workspace_review_unit_window_projection` aggregates and returns only `activity_count`. The generic runtime therefore lacks an authoritative `active_entity_count` field for each interval.
+- Required correction: one additive bounded read-contract migration must return `active_entity_count` separately from `activity_count`; the adapter and UI must preserve both meanings; Time Context bars use unique subjects and supporting activity remains an explicit secondary measure. No semantic rebuild, Gmail reindex, Smart Sync, publication, or broad scan is required.
+- Decision result — 2026-08-28: Oliver recorded `ACCEPT`. Immediate same-flow execution is authorized for one additive bounded projection read-contract migration plus the target-locked generic adapter/Time Context wiring and verification. No semantic rebuild, Gmail reindex, Smart Sync, artifact publication, broad scan, deployment, push, main movement, or lineage retirement is authorized.
+
+### Stage D-R3 Human Review return — activity-volume Time Context correction (verified; decision pending)
+
+- What is changing: Time Context bars will show additive observation/activity volume over time. Each bucket will separately show how many distinct decision subjects produced that activity. Clicking a bucket continues to narrow the workflow to those distinct subjects.
+- What the operator will get: repeated activity remains visible instead of being collapsed away. In Gmail vocabulary, a bar can truthfully say `5 messages from 4 senders`; the workflow below shows those `4` senders once each and preserves their individual message volumes.
+- Why it matters: Time Context answers when and how much activity happened, while Sender Distribution answers which decision subjects are present and how their workload is distributed. Both lenses read one canonical fact set without pretending that unlike measures must have the same total.
+- Objective: replace only the primary Time Context visual measure and its explanatory grammar while preserving the accepted timeframe state, canonical interval bounds, distinct-subject narrowing, immutable review-unit identity, and linked workflow behavior.
+- Problem class: mixed metric semantics and UI grammar over shared observation truth; target-locked and execution-ready.
+- Locked files: `web/src/components/runtime/GmailCleanupComponents.tsx` plus the narrow existing Time Context/projection contract fixture. `review/page.tsx` may be touched only if inspection proves it owns presentation mapping needed for the same contract.
+- Metric contract: `activity_count` is the additive primary bar measure; `active_entity_count` is the distinct-subject secondary measure and filtering denominator. The same subject may contribute observations in multiple disjoint time buckets. Summing activity bars is valid for the visible window; summing distinct-subject counts across bars does not yield the unique workflow total.
+- Interaction contract: bar selection uses canonical interval identity and materialized distinct subject membership. Sender Overview, sender rows, pagination, Sender Distribution, and Decision Mode remain unique-subject surfaces; rows show each selected subject once with its supporting activity volume.
+- Framework contract: engine vocabulary remains decision subjects plus timestamped observations. Domain adapters provide operator language such as sender/message, asset/trade, client/transaction, or patient/encounter.
+- Runtime/load contract: no new endpoint, poller, migration, candidate build, sync, reindex, publication, or broad scan. One bounded workspace/projection family may run for a changed timeframe/bucket key, followed by at most one bounded detail family; settled steady state is zero recurring heavy requests.
+- Accepted defect surface: the exact weekly `Newsletters and editorial updates` child route where the workflow has `10` unique senders, daily subject appearances can exceed `10`, and Aug 12 carries `5` messages from `4` senders. The corrected chart must render activity volume, show both measures clearly, narrow to `4` unique senders on Aug 12, and restore the `10`-sender weekly workflow on Clear.
+- Regression protections: Sender Distribution remains sender-distinct; existing distinct-subject projection and narrowing remain unchanged; timeframe highlighting and canonical interval bounds remain accepted; Pressure Trend continues to derive dynamically from the same canonical observation facts; no hardcoded dates or Gmail-specific engine semantics.
+- Verification expectations: targeted contract/static checks, then authenticated post-settle Playwright on cold weekly load, Aug 12 hover/click, linked workflow/rows/Distribution/Decision Mode parity, Clear restore, timeframe switch loop, console/overlay inspection, request trace, guard-churn report, visible before/after artifacts, and a State Transition Matrix.
+- Oliver decision — 2026-08-28: `APPROVED`. Immediate same-flow execution is authorized within this bounded correction.
+- Implementation result — 2026-08-28: additive activity volume now owns the chart and primary bucket read; distinct subjects remain separately visible and continue to own workflow narrowing. The generic fixture proves four activities from two decision subjects.
+- Verifier result: `ACCEPT / HIGH`. On the exact weekly accepted route, the settled workflow shows `10` unique senders and `15` messages; Aug 12 shows `5` messages from `4` senders and narrows Overview, rows, Sender Distribution, and Decision Mode to the same `4` subjects. Close preserves the bucket, and the timeframe switch loop restores the weekly state.
+- Proof bundle: `/private/tmp/ace048-time-context-activity-proof/`. Ready-state, visible screenshots, DOM/state, and request evidence are captured post-settle.
+- Residual evidence: one non-interfering Decision Mode snippet-hydration `412`; no `409` churn, no recurring settled requests, and no navigation-triggered mutation or heavy scan.
+- Status: `VERIFIER ACCEPTED / AWAITING HUMAN REVIEW DECISION`. Accepted Fix capture and every publication/main/deployment action remain blocked.
+
+### Stage D-R4 — dual-window authority deconfliction (Human-accepted)
+
+- What is changing: the Review page must expose one mutable workflow timeframe, not independent left-rail and Analysis Rail filters that can contradict each other.
+- What the operator will get: one obvious timeframe choice whose selected state, URL, totals, Time Context, Sender Distribution, rows, pagination, and Decision Mode always move together. Indexed/artifact coverage remains understandable provenance rather than a second workflow filter.
+- Why it matters: users cannot trust a chart or sender queue when two controls can silently select different datasets.
+- Objective: make the Analysis Rail the only mutable Review/Decision workflow-window owner, render upper indexed coverage as read-only provenance, and canonicalize legacy conflicting route state without losing the chosen lower window.
+- Feature domain: platform-generic decision-subject workflows and time-window projections. Gmail supplies only presentation vocabulary.
+- Mode: `transitional_self_verification`. Reasoning level: `high`.
+- Problem class: mixed runtime behavior and shared route/state authority; `target-locked / correction verified`.
+- Locked targets: the Review/Decision branch in `OperationsWorkspaceShell.tsx` and review-route workflow-window canonicalization in `operations/review/page.tsx`.
+- Runtime/load contract: each changed workflow-window key may issue one bounded sender-workspace request and one sender-distribution request. Time Context derives from the same scoped facts. No polling, rebuild, Smart Sync, reindex, publication, migration, broad scan, or repeated refresh loop is allowed.
+- Regression protections: retain Stage D-R3 activity-volume bars, distinct-subject bucket narrowing, immutable review-unit membership, child title/route identity, dynamic indexed coverage, and zero settled heavy polling.
+- Implementation result — 2026-08-28: Review and Decision surfaces now show read-only upper indexed coverage and one lower mutable Workflow window. Legacy `workflow_scope` is used only as a compatibility input when no lower selection exists and is then removed from review-unit URLs.
+- Verifier result: `ACCEPT / HIGH`. Authenticated post-settle Playwright proved conflict cold-load canonicalization, `1W -> 1M -> All Indexed -> 1W`, Overview/Distribution/Time Context/row parity, and Decision Mode close/return preservation. Targeted lint, TypeScript, and review-unit projection contracts passed.
+- Proof artifacts: `.playwright-cli/ace048-dual-filter-*` in the ACE-048 integration worktree, with the original Oliver screenshots retained as before-state evidence.
+- Guard/load result: one sender-workspace and one sender-distribution request per changed key; no polling, repeated heavy requests, `409` churn, or navigation-triggered mutation. A separate evidence-snippet `412` remains outside this correction.
+- Human Review decision — 2026-08-28: `ACCEPT`. Oliver accepted Cleanup Groups, Sender Distribution, activity-volume Time Context with distinct-subject narrowing, dynamic Pressure Trend coverage, and the single workflow-window behavior as the completed analysis milestone.
+- Recovery Contract: `CHANGELOG.md` -> `August 28, 2026 — ACE-048 Unified Analysis Window and Linked Chart Truth Accepted`.
+- Execution readiness: ACCEPTED FIX CAPTURED. The next distinct work unit is Git/worktree consolidation preflight. Commit, merge, local-main promotion, worktree/branch retirement, push, deployment, publication, rebuild, sync, and reindex remain separately gated.
+
 ## Accepted defect and proof surfaces
 
 Canonical runtime origin: `http://localhost:3000`
@@ -331,7 +443,7 @@ Required review-route rows:
 - 1M -> Custom inside coverage;
 - Custom end beyond coverage, visibly clamped/explained;
 - Custom -> All Indexed cached return;
-- Decision Mode open/close on All Indexed and one narrowed observation window, with the same fixed membership denominator;
+- Decision Mode open/close on All Indexed and one narrowed observation window, with the narrowed window using the active-entity denominator while retaining the same stable review-unit identity;
 - valid ready-empty window;
 - fresh context cold load with no warm-cache dependence.
 
