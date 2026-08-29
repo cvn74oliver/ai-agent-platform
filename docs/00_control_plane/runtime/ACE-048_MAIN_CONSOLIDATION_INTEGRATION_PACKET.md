@@ -1,6 +1,6 @@
 # ACE-048 Main Consolidation Integration Packet
 
-Status: local `main` consolidated at `7866368`; residual old-artifact browser proof open; no remote publication or retirement authorized
+Status: local `main` consolidated at `7866368` and Human-accepted; no remote publication or retirement authorized
 Governing change: ACE-048 Cleanup Taxonomy and Worktree Consolidation
 Execution mode: `transitional_self_verification`
 Problem class: Git/source-lineage integration of a Human-accepted mixed runtime and UI candidate
@@ -66,6 +66,14 @@ This packet does not authorize:
 5. Update control-plane closeout, lineage ledger, and this packet as one intentional documentation unit.
 6. Stop before remote push, deployment, or worktree retirement.
 
+## Human acceptance evidence
+
+- Oliver completed the residual exact-route compatibility check on 2026-08-30 and accepted the local-main consolidation.
+- Supplied full-page captures show the same published Editorial/content child at its full `76`-sender unit and at a narrowed `25`-sender workflow with populated rows and window-aligned analysis state.
+- Evidence paths:
+  - `/Users/olivercarlin/Downloads/screencapture-localhost-3000-agents-d256b48e-5acf-4b3d-af22-003d52e7e582-operations-review-2026-08-30-05_36_27.png`
+  - `/Users/olivercarlin/Downloads/screencapture-localhost-3000-agents-d256b48e-5acf-4b3d-af22-003d52e7e582-operations-review-2026-08-30-05_37_21.png`
+
 ## Remaining remote publication gate
 
 Before remote publication, the remaining pass must prove:
@@ -74,11 +82,11 @@ Before remote publication, the remaining pass must prove:
 - no unmerged paths exist;
 - local `main` remains the validated consolidation identity and `origin/main` remains the locked remote baseline, or this packet is refreshed for drift;
 - every unique preserved lineage is either reachable from the candidate, intentionally superseded, or explicitly retained as historical evidence;
-- accepted test artifacts correspond to the exact local-main commit and the residual old-artifact `1M` browser check passes;
+- accepted test artifacts correspond to the exact local-main source commit and the 2026-08-30 old-artifact compatibility Human Review remains the accepted visible baseline;
 - rollback refs remain available;
 - the chosen Git operation is non-destructive and does not replay superseded hot-file variants.
 
-The canonical accepted route must be reverified from local `main` before any push, deployment, or worktree retirement decision.
+The canonical accepted route is Human-accepted on local `main`. Any later push or deployment still requires an exact non-force operation decision and post-operation verification; worktree retirement remains a separate named-target decision.
 
 ## Rollback contract
 

@@ -1,9 +1,9 @@
 # ACE-048 Worktree Lineage Ledger
 
-Status: preserved and classified; accepted source consolidated on local `main`; remote publication and retirement pending
+Status: preserved and classified; accepted source consolidated and Human-accepted on local `main`; remote publication and retirement pending
 Governing change: ACE-048 Cleanup Taxonomy and Worktree Consolidation
 Execution mode: `transitional_self_verification`
-Destination: local `main` consolidated; remote publication only after residual verification and Human Review
+Destination: local `main` consolidated and Human-accepted; remote publication and exact retirement targets require separate approval
 
 ## Preservation rules
 
@@ -83,7 +83,7 @@ The following are explicitly excluded from recovery commits and integration:
 
 | Branch | HEAD | Checkout state / role |
 | --- | --- | --- |
-| `main` | Source through `7866368c97a6ca8d241a9541f6f83570df2017f4`; this documentation checkpoint advances HEAD | Consolidated local destination; `20` commits ahead of untouched `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`. |
+| `main` | Source through `7866368c97a6ca8d241a9541f6f83570df2017f4`; the acceptance documentation checkpoint advances HEAD | Consolidated local destination; `21` commits ahead of untouched `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`. |
 | `codex/ace-048-main-preconsolidation` | `22148cef9fc15e82730f19ef2f35eb3829763931` | Preserved root rollback checkout. |
 | `codex/ace-048-observation-contract-plan` | `54e237f4b6e72cc0279e34ad931637073d669162` | Preserved Human-accepted candidate checkpoint; retained without force-moving the branch. |
 | `codex/ace-048-cleanup-consolidation` | `96a9be5f881d17618cb3edd2159bb47cdf685b64` | Earlier clean consolidation checkpoint. |
@@ -95,6 +95,13 @@ The following are explicitly excluded from recovery commits and integration:
 
 The accepted candidate checkpoint and local-main consolidation identity are fixed above. The final documentation commit will advance local `main` once more without changing the preserved candidate branch or remote baseline.
 
+## Fresh retirement preflight (August 30, 2026)
+
+- Clean checkouts: `codex/ace-048-cleanup-consolidation`, `codex/archive/ace-048-95b7-claude-handoff`, `codex/ace-048-observation-contract-plan`, and `codex/ace-048-marketing-integration`.
+- Checkouts `33ad`, `7865`, and `a985` contain no new unstaged product/control-plane source. Their dirty state is limited to deleted saved-auth files and untracked generated Playwright proof under the already excluded paths above.
+- Every checkout has a named branch at the exact HEAD recorded in the live identity table. Removing a checkout can therefore retain its branch lineage, but the three dirty checkouts require an explicit decision to discard excluded generated/auth residue.
+- The preflight is read-only. No worktree, branch, generated artifact, or authentication file was removed.
+
 ## Retirement status
 
-No branch or worktree is approved for retirement. Retirement requires proven integration of every unique seam plus Oliver approval.
+No branch or worktree is approved for retirement. Local-main Human acceptance was recorded on 2026-08-30, but retirement still requires a fresh reachability/uniqueness audit plus Oliver approval naming each exact target.

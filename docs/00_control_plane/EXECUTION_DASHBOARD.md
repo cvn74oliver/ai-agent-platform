@@ -1,14 +1,14 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: LOCAL MAIN CONSOLIDATED / RESIDUAL OLD-ARTIFACT BROWSER PROOF OPEN / NO PUSH
+Status: LOCAL MAIN CONSOLIDATION HUMAN-ACCEPTED / REMOTE + RETIREMENT DECISIONS OPEN / NO PUSH
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: accepted Cleanup Groups and linked analysis source are consolidated on local `main`; one old-artifact `1M` compatibility check remains before final consolidation acceptance
+- Execution phase: accepted Cleanup Groups and linked analysis source are consolidated and Human-accepted on local `main`; remote push/deployment and exact lineage retirement remain separately gated
 - Problem class: mixed runtime behavior and shared route/state authority; target-locked correction verified
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -84,7 +84,7 @@ Status: LOCAL MAIN CONSOLIDATED / RESIDUAL OLD-ARTIFACT BROWSER PROOF OPEN / NO 
 - [x] Implement and verify canonical URL cleanup, linked-surface parity, window switch loop, and Decision Mode close/return
 - [x] Record Stage D-R4 Human Review `ACCEPT` and Recovery Contract
 - [x] Refresh live lineage, preserve every recovery ref, commit the accepted integration source on local `main` at `7866368c97a6ca8d241a9541f6f83570df2017f4`, and update the exact integration/rollback packet
-- [ ] Verify the exact published child route after selecting `1M`: Overview must not remain at the full `76` senders and Sender Distribution must match the narrowed count
+- [x] Verify the exact published child route after selecting `1M`; Oliver accepted the 2026-08-30 check, with supplied captures showing the full `76`-sender unit and narrowed `25`-sender workflow with populated rows and aligned analysis state
 - [ ] After proof and Human acceptance, decide non-force remote push/deployment and exact worktree/branch retirement through separate gates
 
 ## Immediate Human Review return

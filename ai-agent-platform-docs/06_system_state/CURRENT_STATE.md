@@ -1,6 +1,6 @@
 # CURRENT_STATE — AI Agent Platform
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 Project Manager: Automata Control Plane active (current implementation environment: Codex; Claude turnover deferred)
 
 ---
@@ -11,7 +11,9 @@ Project Manager: Automata Control Plane active (current implementation environme
 
 - `ACE-048` is the sole active revival/stabilization authority; `ACE-049` is queued/inactive.
 - Codex remains the active Project Manager and stabilization lead. Claude turnover is **DEFERRED**; the Claude files are prepared, dormant continuity assets and are not an active assignment.
-- Local `main` now contains the intentionally consolidated ACE-048 source through `7866368c97a6ca8d241a9541f6f83570df2017f4` and, after this documentation checkpoint, is `20` commits ahead of the untouched `origin/main` baseline `64632b3faa0736cdf15534b4465cdef8a404a4e8`. The governed pre-consolidation recovery branch remains `codex/ace-048-main-preconsolidation` at `22148cef9fc15e82730f19ef2f35eb3829763931`; all archive and integration branches/worktrees remain preserved.
+- Local-main consolidation Human Review is **ACCEPTED** as of 2026-08-30. Oliver confirmed the exact published Editorial/content child behaves correctly after the residual window check; the supplied captures show the full unit at `76` senders and the narrowed workflow at `25` senders with populated rows and window-aligned analysis state. This closes the residual old-artifact compatibility gate.
+- The accepted consolidation remains local only. `origin/main`, GitHub, deployment, artifact publication, Gmail/index state, Supabase data, and every preserved branch/worktree remain unchanged. Remote push/deployment and exact worktree/branch retirement require separate explicit decisions.
+- Local `main` now contains the intentionally consolidated ACE-048 source through `7866368c97a6ca8d241a9541f6f83570df2017f4` and, after the 2026-08-30 acceptance checkpoint, is `21` commits ahead of the untouched `origin/main` baseline `64632b3faa0736cdf15534b4465cdef8a404a4e8`. The governed pre-consolidation recovery branch remains `codex/ace-048-main-preconsolidation` at `22148cef9fc15e82730f19ef2f35eb3829763931`; all archive and integration branches/worktrees remain preserved.
 - Retained worktrees are main, the isolated integration candidate, and detached `33ad`, `7865`, `95b7`, and `a985`; every unique dirty lineage has a named recovery branch. No deletion is authorized.
 - The prior published-artifact/cached-blank and Decision Mode corrections are not accepted. Human Review exposed a new active runtime incident: Mailbox Intelligence Pressure Trend retried the same failed inbox-analysis request without bound after authentication was missing. Execution mode remains `transitional_self_verification`.
 - Exact authenticated localhost correction proof now passes for the bounded defect surface: Mailbox Intelligence hydrates automatically, Cleanup Groups renders the preserved semantic lanes, unscoped Decision Mode remains scrollable, and a valid protected overlay locks and restores body scrolling on backdrop close.

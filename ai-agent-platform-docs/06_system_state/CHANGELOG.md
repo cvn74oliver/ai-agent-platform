@@ -1,3 +1,37 @@
+### August 30, 2026 — ACE-048 Local Main Consolidation Accepted
+
+Accepted invariant:
+- The Human-accepted Cleanup Groups, Sender Distribution, Time Context, and Pressure Trend implementation is intentionally consolidated on local `main` while the untouched remote baseline and every recovery lineage remain preserved.
+- The published Editorial/content child may narrow its active workflow window without retaining the full-unit count or losing populated sender rows.
+
+Source layer fixed:
+- Local-main source consolidation and old-publication workflow-window compatibility
+
+Acceptance proof:
+- Oliver explicitly accepted the residual exact-route check on 2026-08-30 after performing the requested verification.
+- The supplied captures show the same published Editorial/content child at the full `76`-sender unit and at a narrowed `25`-sender workflow, with populated sender rows and analysis state aligned to the selected window.
+- Prior accepted-fix proof remains applicable: contract fixtures, TypeScript, targeted lint, diff checks, the `63`-route production build, and post-settle authenticated browser verification passed before consolidation.
+
+Recovery identity:
+- Accepted source integration commit: `7866368c97a6ca8d241a9541f6f83570df2017f4`.
+- Pre-consolidation rollback branch: `codex/ace-048-main-preconsolidation` at `22148cef9fc15e82730f19ef2f35eb3829763931`.
+- Untouched remote baseline: `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`.
+- All archive and integration branches/worktrees remain preserved pending a separate exact-target retirement decision.
+
+Acceptance boundary:
+- This Recovery Contract accepts the local-main consolidation and closes the residual old-artifact compatibility gate.
+- It does not authorize a GitHub push, deployment, artifact publication/rebuild, Smart Sync, Gmail reindex/backfill, Supabase mutation, or branch/worktree deletion.
+- The Decision Mode evidence-detail `412` remains a separate bounded runtime repair before Management work.
+
+Replay steps:
+1. Open the canonical published Editorial/content child route on the intended local-main server.
+2. Confirm All Indexed shows the full `76`-sender unit and populated rows.
+3. Select a narrowed window and require Overview, analysis state, sender rows, pagination, Sender Distribution, and Decision Mode to use the same active sender set.
+4. Restore All Indexed and require the `76`-sender unit to return without stale narrowed state.
+5. Confirm no navigation-triggered build, sync, reindex, publication, recurring heavy polling, or `409` churn.
+
+---
+
 ### August 29, 2026 — ACE-048 Local Main Consolidation Checkpoint (Verification Open)
 
 Checkpoint truth:
