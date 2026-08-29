@@ -1,3 +1,22 @@
+### August 29, 2026 — ACE-048 Local Main Consolidation Checkpoint (Verification Open)
+
+Checkpoint truth:
+- Local `main` now contains the intentionally integrated ACE-048 source through `7866368c97a6ca8d241a9541f6f83570df2017f4` and, after this documentation checkpoint, is `20` commits ahead of untouched `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`.
+- The final source commit contains only eight validated analysis/runtime files. Saved authentication state, generated browser output, environment/secrets, and `.codex/worktrees/` metadata were excluded.
+- All recovery branches and worktrees remain available; none was deleted or retired.
+
+Verification evidence:
+- Gmail cleanup assignment, Pressure Trend, review-unit, and window-projection contract fixtures pass.
+- TypeScript, targeted ESLint with no errors, `git diff --check`, and the `63`-route production build pass.
+- The remaining old-artifact `1M` cache-admission correction is statically covered, but final browser proof is blocked by the desktop browser security policy.
+
+Open acceptance boundary:
+- This is a consolidation checkpoint, not a Recovery Contract and not an Accepted Fix.
+- Before consolidation closeout, the canonical published Editorial/content child must show a narrowed `1M` Overview count instead of retaining the full `76`, with Sender Distribution matching that narrowed count.
+- No push, deployment, artifact publication/rebuild, sync, reindex, or branch/worktree retirement is authorized by this checkpoint.
+
+---
+
 ### August 28, 2026 — ACE-048 Unified Analysis Window and Linked Chart Truth Accepted
 
 Accepted invariant:

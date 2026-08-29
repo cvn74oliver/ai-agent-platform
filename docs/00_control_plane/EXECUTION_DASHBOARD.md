@@ -1,14 +1,14 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-08-28
+Last updated: 2026-08-29
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: STAGE D-R4 HUMAN-ACCEPTED / CONSOLIDATION PREFLIGHT NEXT
+Status: LOCAL MAIN CONSOLIDATED / RESIDUAL OLD-ARTIFACT BROWSER PROOF OPEN / NO PUSH
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Cleanup Groups and the linked Stage D-R4 analysis surface are Human-accepted; the next bounded work unit is Git/worktree consolidation preflight
+- Execution phase: accepted Cleanup Groups and linked analysis source are consolidated on local `main`; one old-artifact `1M` compatibility check remains before final consolidation acceptance
 - Problem class: mixed runtime behavior and shared route/state authority; target-locked correction verified
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -83,7 +83,9 @@ Status: STAGE D-R4 HUMAN-ACCEPTED / CONSOLIDATION PREFLIGHT NEXT
 - [x] Lock the Analysis Rail as the sole mutable Review/Decision workflow-window authority and retain upper indexed coverage as read-only provenance
 - [x] Implement and verify canonical URL cleanup, linked-surface parity, window switch loop, and Decision Mode close/return
 - [x] Record Stage D-R4 Human Review `ACCEPT` and Recovery Contract
-- [ ] Refresh live lineage, intentionally commit the accepted integration candidate, and prepare the exact merge/promotion/rollback packet; no merge or retirement before approval
+- [x] Refresh live lineage, preserve every recovery ref, commit the accepted integration source on local `main` at `7866368c97a6ca8d241a9541f6f83570df2017f4`, and update the exact integration/rollback packet
+- [ ] Verify the exact published child route after selecting `1M`: Overview must not remain at the full `76` senders and Sender Distribution must match the narrowed count
+- [ ] After proof and Human acceptance, decide non-force remote push/deployment and exact worktree/branch retirement through separate gates
 
 ## Immediate Human Review return
 

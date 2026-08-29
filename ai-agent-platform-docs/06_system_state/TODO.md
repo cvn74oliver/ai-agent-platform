@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-28 • Stage D-R3 verifier accepted; focused Human Review pending_
+_Last updated: 2026-08-29 • Local-main consolidation committed; residual old-artifact browser proof open_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -78,7 +78,9 @@ _Last updated: 2026-08-28 • Stage D-R3 verifier accepted; focused Human Review
 - [x] Implement legacy URL canonicalization and prove `1W -> 1M -> All Indexed -> 1W` plus Decision Mode close/return parity across Overview, Sender Distribution, Time Context, rows, and pagination.
 - [x] Complete narrow Stage D-R4 Human Review; Oliver returned `ACCEPT` on 2026-08-28.
 - [x] Record Recovery Contract: `CHANGELOG.md` -> `August 28, 2026 — ACE-048 Unified Analysis Window and Linked Chart Truth Accepted`.
-- [ ] Begin a new bounded Git/worktree consolidation preflight: refresh the lineage ledger against live heads, preserve and intentionally commit the accepted integration candidate, exclude auth/generated/nested-worktree residue, and produce the exact merge/promotion/rollback packet. Do not merge, move local `main`, retire worktrees/branches, push, or deploy before separate approval and merged-candidate verification.
+- [x] Refresh live lineage, preserve every recovery ref, intentionally commit the accepted source integration on local `main` at `7866368c97a6ca8d241a9541f6f83570df2017f4`, exclude auth/generated/nested-worktree residue, and update the integration/rollback packet. `origin/main` remains unchanged.
+- [ ] Complete the exact-route old-artifact compatibility check: on the published Editorial/content child, select `1M` and confirm Overview no longer remains at the full `76` senders and Sender Distribution matches the narrowed workflow count. Desktop browser automation is security-blocked, so this is the only narrow Oliver verification assist requested.
+- [ ] After that proof is accepted, decide remote push/deployment and exact worktree/branch retirement separately. Keep the Decision Mode evidence-detail `412` as the next bounded runtime repair after consolidation acceptance.
 - [ ] After an accepted merged baseline, repair the separate Decision Mode evidence-snippet `412`, then verify Decision Mode before beginning the Management-page work unit.
 
 ### Historical active heading retained below

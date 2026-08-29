@@ -1,6 +1,6 @@
 # ACE-048 Main Consolidation Integration Packet
 
-Status: accepted source preserved; documentation closeout in progress; no `main` movement authorized
+Status: local `main` consolidated at `7866368`; residual old-artifact browser proof open; no remote publication or retirement authorized
 Governing change: ACE-048 Cleanup Taxonomy and Worktree Consolidation
 Execution mode: `transitional_self_verification`
 Problem class: Git/source-lineage integration of a Human-accepted mixed runtime and UI candidate
@@ -9,24 +9,25 @@ Problem class: Git/source-lineage integration of a Human-accepted mixed runtime 
 
 ### What is changing
 
-The accepted Cleanup Groups, Sender Distribution, Time Context, and Pressure Trend implementation is being preserved as an intentional candidate branch with complete lineage and rollback records.
+The accepted Cleanup Groups, Sender Distribution, Time Context, and Pressure Trend implementation is preserved on local `main` with complete lineage and rollback records.
 
 ### What the operator will get
 
-A single, reviewable candidate that can later be promoted to local `main` without losing the months of work preserved in the older worktrees.
+A single local-main baseline containing the accepted work, while every older worktree remains available until final verification and an explicit retirement decision.
 
 ### Why it matters
 
-This separates source preservation from promotion. The accepted app remains recoverable while `main`, GitHub, Vercel, Supabase, Gmail, and the published artifact stay unchanged until their own approval gates.
+This separates local source consolidation from remote publication. The accepted app remains recoverable while GitHub, Vercel, Supabase, Gmail, and the published artifact stay unchanged until their own approval gates.
 
 ## Locked identities
 
 - Destination ref: local `main`
-- Destination baseline: `64632b3faa0736cdf15534b4465cdef8a404a4e8`
+- Local-main consolidation commit: `7866368c97a6ca8d241a9541f6f83570df2017f4`
+- Destination pre-consolidation baseline: `64632b3faa0736cdf15534b4465cdef8a404a4e8`
 - Remote baseline: `origin/main` at `64632b3faa0736cdf15534b4465cdef8a404a4e8`
 - Promotion source branch: `codex/ace-048-observation-contract-plan`
-- Accepted product-source commit: `a4144dee3fc0002b4667ff379e8e56805a1b8362`
-- Promotion source commit: the clean branch HEAD reattested at the separate promotion gate
+- Accepted candidate ancestry checkpoint: `54e237f4b6e72cc0279e34ad931637073d669162`
+- Final eight-file compatibility commit: `7866368c97a6ca8d241a9541f6f83570df2017f4`
 - Merge base with destination: `64632b3faa0736cdf15534b4465cdef8a404a4e8`
 - Rollback branch: `codex/ace-048-main-preconsolidation` at `22148cef9fc15e82730f19ef2f35eb3829763931`
 - Earlier consolidation checkpoint: `codex/ace-048-cleanup-consolidation` at `96a9be5f881d17618cb3edd2159bb47cdf685b64`
@@ -47,8 +48,6 @@ This separates source preservation from promotion. The accepted app remains reco
 
 This packet does not authorize:
 
-- merging, rebasing, cherry-picking, or fast-forwarding `main`;
-- changing the root checkout branch;
 - pushing any branch or commit;
 - deploying or promoting a Vercel deployment;
 - applying a Supabase migration;
@@ -58,28 +57,28 @@ This packet does not authorize:
 - committing generated browser output, authentication state, secrets, environment files, or `.codex/worktrees/` metadata;
 - repairing the separately observed Decision Mode evidence-detail HTTP `412` defect.
 
-## Candidate preservation sequence
+## Completed local consolidation sequence
 
 1. Inspect the entire accepted diff and confirm excluded paths are absent.
 2. Run targeted static, contract, type, and build checks without changing runtime or external data.
-3. Commit product source plus the unapplied migration source as one intentional code unit.
-4. Commit control-plane closeout, lineage ledger, and this packet as one intentional documentation unit.
-5. Record the resulting exact candidate commit and re-prove ancestry from `main`.
-6. Stop and present the exact local-main promotion method for separate approval.
+3. Preserve the accepted candidate ancestry on local `main` without replaying superseded hot-file variants.
+4. Commit the final eight-file analysis compatibility correction as `7866368c97a6ca8d241a9541f6f83570df2017f4`.
+5. Update control-plane closeout, lineage ledger, and this packet as one intentional documentation unit.
+6. Stop before remote push, deployment, or worktree retirement.
 
-## Later promotion gate
+## Remaining remote publication gate
 
-Before local `main` can move, the promotion pass must prove:
+Before remote publication, the remaining pass must prove:
 
-- candidate worktree is clean;
+- the tracked local-main index is clean apart from explicitly excluded untracked generated/tooling residue;
 - no unmerged paths exist;
-- `main` and `origin/main` still equal the locked destination baseline, or the packet is refreshed for any drift;
+- local `main` remains the validated consolidation identity and `origin/main` remains the locked remote baseline, or this packet is refreshed for drift;
 - every unique preserved lineage is either reachable from the candidate, intentionally superseded, or explicitly retained as historical evidence;
-- accepted test and browser artifacts correspond to the exact candidate commit;
+- accepted test artifacts correspond to the exact local-main commit and the residual old-artifact `1M` browser check passes;
 - rollback refs remain available;
 - the chosen Git operation is non-destructive and does not replay superseded hot-file variants.
 
-After local `main` moves, the app must be started from `main` and the canonical accepted route must be reverified before any push, deployment, or worktree retirement decision.
+The canonical accepted route must be reverified from local `main` before any push, deployment, or worktree retirement decision.
 
 ## Rollback contract
 

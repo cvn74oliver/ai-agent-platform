@@ -1,9 +1,9 @@
 # ACE-048 Worktree Lineage Ledger
 
-Status: preserved and classified; Human-accepted integration candidate awaiting intentional source preservation
+Status: preserved and classified; accepted source consolidated on local `main`; remote publication and retirement pending
 Governing change: ACE-048 Cleanup Taxonomy and Worktree Consolidation
 Execution mode: `transitional_self_verification`
-Destination: local `main`, only after integration verification and Human Review
+Destination: local `main` consolidated; remote publication only after residual verification and Human Review
 
 ## Preservation rules
 
@@ -17,14 +17,14 @@ Destination: local `main`, only after integration verification and Human Review
 
 | Checkout / branch | Starting HEAD | Dirty source identity | Classification | Preservation / integration disposition |
 | --- | --- | --- | --- | --- |
-| Root preserved checkout | `22148cef9fc15e82730f19ef2f35eb3829763931` | Governed pre-consolidation hybrid with ACE-048 runtime corrections, transferred Marketing child rendering, Pressure Trend/runtime safeguards, and the all-parent execution brief | Required rollback baseline | Preserved on `codex/ace-048-main-preconsolidation`. Local `main` and `origin/main` remain unchanged at `64632b3faa0736cdf15534b4465cdef8a404a4e8`. |
+| Root preserved checkout | `22148cef9fc15e82730f19ef2f35eb3829763931` | Governed pre-consolidation hybrid with ACE-048 runtime corrections, transferred Marketing child rendering, Pressure Trend/runtime safeguards, and the all-parent execution brief | Required rollback baseline | Preserved on `codex/ace-048-main-preconsolidation`. Local `main` has since consolidated through `7866368c97a6ca8d241a9541f6f83570df2017f4`; `origin/main` remains unchanged at `64632b3faa0736cdf15534b4465cdef8a404a4e8`. |
 | `codex/ace-048-marketing-integration` worktree | `9ddad214263113c964ba90c3ba2a6c967c956277` | Preserved five-file Marketing integration candidate | Partly duplicate; resolved through later generic review-unit integration | Keep as lineage evidence until Oliver separately approves retirement. Do not replay this branch wholesale over the accepted candidate. |
 | Detached `33ad` worktree | `cce016bcf2ccc30d712ac65f104a111e056b3caf` | Broad runtime/artifact candidate: artifact store, workspace contract, mailbox-index/inbox-analysis routes, runtime context/state, Review lifecycle, and docs | Unique lifecycle seams; required for manual comparison | Preserved on `codex/archive/ace-048-33ad-runtime-candidate` at `6e10e27`. Authentication state and generated output were excluded; only validated lifecycle/read seams informed the candidate. |
 | Detached `7865` worktree | `cce016bcf2ccc30d712ac65f104a111e056b3caf` | Three-file intermediate runtime candidate plus a distinct control-plane snapshot | Code duplicate; documentation unique | Preserved as `codex/archive/ace-048-7865-intermediate` at `99cbac6`. Integrate the shared code at most once; retain its documentation only as lineage evidence. |
 | Detached `a985` worktree | `cce016bcf2ccc30d712ac65f104a111e056b3caf` | Same three-file product code as `7865`, plus a different control-plane snapshot | Code duplicate; documentation unique | Preserved as `codex/archive/ace-048-a985-intermediate` at `e50f527`. Integrate the shared code at most once; retain its documentation only as lineage evidence. |
 | Detached `95b7` worktree | `cce016bcf2ccc30d712ac65f104a111e056b3caf` | Claude-transition and control-plane documentation lineage; no product source changes | Unique but superseded for current execution | Preserved on `codex/archive/ace-048-95b7-claude-handoff` at `65e3ed9`. Do not integrate successor-transition framing into the active Codex execution unless separately approved. |
 | Prior clean integration checkpoint | `96a9be5f881d17618cb3edd2159bb47cdf685b64` | Manual seam integration of all-parent review-unit identity, lifecycle correction, generic chooser, bounded runtime reads, and Pressure Trend coverage bounds | Required preserved checkpoint | Preserved on `codex/ace-048-cleanup-consolidation`. Superseded for promotion by the later Human-accepted observation-contract candidate, but retained for rollback and ancestry evidence. |
-| Human-accepted integration candidate | Product source preserved at `a4144dee3fc0002b4667ff379e8e56805a1b8362`; documentation closeout follows on the same branch | Cleanup taxonomy, review-unit membership, unified workflow-window behavior, Sender Distribution, Time Context, Pressure Trend parity, and accepted control-plane closeout | Required promotion candidate | Active on `codex/ace-048-observation-contract-plan`. Its merge base with `main` is exactly `64632b3faa0736cdf15534b4465cdef8a404a4e8`. Reattest the branch HEAD at the separate promotion gate before any `main` movement. |
+| Human-accepted integration candidate | Candidate ancestry preserved through `54e237f4b6e72cc0279e34ad931637073d669162`; final compatibility correction committed on local `main` at `7866368c97a6ca8d241a9541f6f83570df2017f4` | Cleanup taxonomy, review-unit membership, unified workflow-window behavior, Sender Distribution, Time Context, Pressure Trend parity, and accepted control-plane closeout | Integrated locally; branch retained as lineage | `codex/ace-048-observation-contract-plan` remains at the preserved candidate checkpoint and was not force-moved. Local `main` contains the consolidated result; remote publication remains gated. |
 
 ## Exact comparison evidence
 
@@ -77,15 +77,15 @@ The following are explicitly excluded from recovery commits and integration:
 - The active candidate working diff contains no generated Playwright output, saved authentication state, `.env` file, secret, or `.codex/worktrees/` metadata.
 - The additive Supabase migration file is source lineage only in this preservation pass; this pass does not apply, reapply, or otherwise mutate live Supabase state.
 - Decision Mode evidence-detail HTTP `412` behavior remains a separately bounded post-consolidation repair. It does not invalidate the accepted cleanup/chart source preservation, and it must not be silently folded into the merge pass.
-- Local `main`, `origin/main`, GitHub, Vercel, the active artifact pointer, Gmail index state, and live Supabase state remain outside this preservation step.
+- Local `main` contains the accepted consolidation. `origin/main`, GitHub, Vercel, the active artifact pointer, Gmail index state, and live Supabase state remain outside this preservation step.
 
-## Live branch and checkout identity (August 28, 2026)
+## Live branch and checkout identity (August 29, 2026)
 
 | Branch | HEAD | Checkout state / role |
 | --- | --- | --- |
-| `main` | `64632b3faa0736cdf15534b4465cdef8a404a4e8` | Unchanged destination ref; tracks `origin/main` at the same commit. |
+| `main` | Source through `7866368c97a6ca8d241a9541f6f83570df2017f4`; this documentation checkpoint advances HEAD | Consolidated local destination; `20` commits ahead of untouched `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`. |
 | `codex/ace-048-main-preconsolidation` | `22148cef9fc15e82730f19ef2f35eb3829763931` | Preserved root rollback checkout. |
-| `codex/ace-048-observation-contract-plan` | Product source at `a4144dee3fc0002b4667ff379e8e56805a1b8362`; final branch HEAD reattested after documentation commit | Active Human-accepted integration candidate. |
+| `codex/ace-048-observation-contract-plan` | `54e237f4b6e72cc0279e34ad931637073d669162` | Preserved Human-accepted candidate checkpoint; retained without force-moving the branch. |
 | `codex/ace-048-cleanup-consolidation` | `96a9be5f881d17618cb3edd2159bb47cdf685b64` | Earlier clean consolidation checkpoint. |
 | `codex/ace-048-marketing-integration` | `9ddad214263113c964ba90c3ba2a6c967c956277` | Preserved Marketing-source lineage. |
 | `codex/archive/ace-048-33ad-runtime-candidate` | `6e10e27abf2f3170b81001a92a38c27bbfdf481f` | Preserved unique runtime/artifact lifecycle lineage. |
@@ -93,7 +93,7 @@ The following are explicitly excluded from recovery commits and integration:
 | `codex/archive/ace-048-a985-intermediate` | `e50f527bb624eaa94bcbd2cff00bc9536406fef3` | Preserved intermediate duplicate-code/document lineage. |
 | `codex/archive/ace-048-95b7-claude-handoff` | `65e3ed96288029c61aae59c2b28e58635c5986e6` | Preserved superseded Claude-transition documentation lineage. |
 
-The accepted product-source identity is fixed above. The exact promotion-source branch HEAD must be reattested immediately before the separately approved local-main operation because a commit cannot contain its own hash.
+The accepted candidate checkpoint and local-main consolidation identity are fixed above. The final documentation commit will advance local `main` once more without changing the preserved candidate branch or remote baseline.
 
 ## Retirement status
 
