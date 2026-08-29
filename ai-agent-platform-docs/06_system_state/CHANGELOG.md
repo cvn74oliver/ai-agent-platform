@@ -16,7 +16,8 @@ Recovery identity:
 - Accepted source integration commit: `7866368c97a6ca8d241a9541f6f83570df2017f4`.
 - Pre-consolidation rollback branch: `codex/ace-048-main-preconsolidation` at `22148cef9fc15e82730f19ef2f35eb3829763931`.
 - Untouched remote baseline: `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`.
-- All archive and integration branches/worktrees remain preserved pending a separate exact-target retirement decision.
+- All named archive and integration branches remain preserved. The seven obsolete worktree checkouts were retired on 2026-08-30 after exact-target approval; local `main` is the sole remaining checkout.
+- The removed clean checkouts are fully recoverable from their named branches. Discarded dirty residue in `33ad`, `7865`, and `a985` was limited to excluded generated Playwright output and saved-auth state and is intentionally not recoverable from Git.
 
 Acceptance boundary:
 - This Recovery Contract accepts the local-main consolidation and closes the residual old-artifact compatibility gate.

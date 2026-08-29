@@ -80,7 +80,8 @@ _Last updated: 2026-08-30 • Local-main consolidation Human-accepted; remote an
 - [x] Record Recovery Contract: `CHANGELOG.md` -> `August 28, 2026 — ACE-048 Unified Analysis Window and Linked Chart Truth Accepted`.
 - [x] Refresh live lineage, preserve every recovery ref, intentionally commit the accepted source integration on local `main` at `7866368c97a6ca8d241a9541f6f83570df2017f4`, exclude auth/generated/nested-worktree residue, and update the integration/rollback packet. `origin/main` remains unchanged.
 - [x] Complete the exact-route old-artifact compatibility check. Oliver confirmed the requested behavior on 2026-08-30; supplied captures show the published Editorial/content child at full `76` and narrowed `25` workflow senders with populated rows and aligned analysis state.
-- [ ] Decide remote push/deployment and exact worktree/branch retirement separately from the accepted local consolidation. Keep every recovery ref and checkout until Oliver approves exact retirement targets. Keep the Decision Mode evidence-detail `412` as the next bounded runtime repair after consolidation acceptance.
+- [x] Retire the seven obsolete ACE-048 worktree checkouts after exact-target approval; retain every named recovery branch and discard only excluded generated Playwright/auth residue from `33ad`, `7865`, and `a985`.
+- [ ] Decide non-force remote push/deployment separately. Any recovery-branch deletion remains separately gated. Keep the Decision Mode evidence-detail `412` as the next bounded runtime repair after consolidation acceptance.
 - [ ] After an accepted merged baseline, repair the separate Decision Mode evidence-snippet `412`, then verify Decision Mode before beginning the Management-page work unit.
 
 ### Historical active heading retained below

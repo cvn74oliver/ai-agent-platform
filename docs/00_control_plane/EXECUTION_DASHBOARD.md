@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-30
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: LOCAL MAIN CONSOLIDATION HUMAN-ACCEPTED / REMOTE + RETIREMENT DECISIONS OPEN / NO PUSH
+Status: LOCAL MAIN HUMAN-ACCEPTED / OBSOLETE WORKTREES RETIRED / REMOTE DECISION OPEN / NO PUSH
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: accepted Cleanup Groups and linked analysis source are consolidated and Human-accepted on local `main`; remote push/deployment and exact lineage retirement remain separately gated
+- Execution phase: accepted Cleanup Groups and linked analysis source are consolidated and Human-accepted on local `main`; obsolete worktrees are retired with recovery branches preserved; remote push/deployment remains separately gated
 - Problem class: mixed runtime behavior and shared route/state authority; target-locked correction verified
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -85,7 +85,8 @@ Status: LOCAL MAIN CONSOLIDATION HUMAN-ACCEPTED / REMOTE + RETIREMENT DECISIONS 
 - [x] Record Stage D-R4 Human Review `ACCEPT` and Recovery Contract
 - [x] Refresh live lineage, preserve every recovery ref, commit the accepted integration source on local `main` at `7866368c97a6ca8d241a9541f6f83570df2017f4`, and update the exact integration/rollback packet
 - [x] Verify the exact published child route after selecting `1M`; Oliver accepted the 2026-08-30 check, with supplied captures showing the full `76`-sender unit and narrowed `25`-sender workflow with populated rows and aligned analysis state
-- [ ] After proof and Human acceptance, decide non-force remote push/deployment and exact worktree/branch retirement through separate gates
+- [x] Retire all seven obsolete ACE-048 worktree checkouts after exact-target approval; preserve every named recovery branch
+- [ ] Decide non-force remote push/deployment separately; keep recovery-branch deletion behind a later exact-target gate
 
 ## Immediate Human Review return
 

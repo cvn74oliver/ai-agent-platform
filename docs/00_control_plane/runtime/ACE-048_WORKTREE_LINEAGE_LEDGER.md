@@ -1,9 +1,9 @@
 # ACE-048 Worktree Lineage Ledger
 
-Status: preserved and classified; accepted source consolidated and Human-accepted on local `main`; remote publication and retirement pending
+Status: accepted source consolidated and Human-accepted on local `main`; obsolete worktrees retired; recovery branches preserved
 Governing change: ACE-048 Cleanup Taxonomy and Worktree Consolidation
 Execution mode: `transitional_self_verification`
-Destination: local `main` consolidated and Human-accepted; remote publication and exact retirement targets require separate approval
+Destination: local `main` is the sole remaining checkout; remote publication and any recovery-branch deletion require separate approval
 
 ## Preservation rules
 
@@ -83,7 +83,7 @@ The following are explicitly excluded from recovery commits and integration:
 
 | Branch | HEAD | Checkout state / role |
 | --- | --- | --- |
-| `main` | Source through `7866368c97a6ca8d241a9541f6f83570df2017f4`; the acceptance documentation checkpoint advances HEAD | Consolidated local destination; `21` commits ahead of untouched `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`. |
+| `main` | Source through `7866368c97a6ca8d241a9541f6f83570df2017f4`; the retirement documentation checkpoint advances HEAD | Consolidated local destination; `22` commits ahead of untouched `origin/main@64632b3faa0736cdf15534b4465cdef8a404a4e8`. |
 | `codex/ace-048-main-preconsolidation` | `22148cef9fc15e82730f19ef2f35eb3829763931` | Preserved root rollback checkout. |
 | `codex/ace-048-observation-contract-plan` | `54e237f4b6e72cc0279e34ad931637073d669162` | Preserved Human-accepted candidate checkpoint; retained without force-moving the branch. |
 | `codex/ace-048-cleanup-consolidation` | `96a9be5f881d17618cb3edd2159bb47cdf685b64` | Earlier clean consolidation checkpoint. |
@@ -104,4 +104,6 @@ The accepted candidate checkpoint and local-main consolidation identity are fixe
 
 ## Retirement status
 
-No branch or worktree is approved for retirement. Local-main Human acceptance was recorded on 2026-08-30, but retirement still requires a fresh reachability/uniqueness audit plus Oliver approval naming each exact target.
+Oliver approved the exact worktree-retirement recommendation on 2026-08-30. All seven obsolete checkouts were removed through `git worktree remove`; the three dirty generated/auth-only checkouts required the approved forced removal. Local `main` is the sole remaining worktree.
+
+Every named recovery branch remains intact at its reattested HEAD. No branch deletion is authorized; any later branch retirement requires a new exact-target decision.

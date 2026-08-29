@@ -1,6 +1,6 @@
 # ACE-048 Main Consolidation Integration Packet
 
-Status: local `main` consolidated at `7866368` and Human-accepted; no remote publication or retirement authorized
+Status: local `main` consolidated at `7866368` and Human-accepted; obsolete worktrees retired; no remote publication or branch deletion authorized
 Governing change: ACE-048 Cleanup Taxonomy and Worktree Consolidation
 Execution mode: `transitional_self_verification`
 Problem class: Git/source-lineage integration of a Human-accepted mixed runtime and UI candidate
@@ -98,11 +98,13 @@ If the later local-main promotion fails verification:
 - record the failed promotion evidence before attempting a correction;
 - do not delete any checkout while the failure is unresolved.
 
-## Retirement gate
+## Worktree retirement result
 
-No branch or worktree is approved for deletion. Retirement requires:
+Oliver approved the exact worktree-retirement recommendation on 2026-08-30. The seven obsolete checkouts were removed while every named recovery branch was retained. The dirty residue discarded with `33ad`, `7865`, and `a985` was limited to excluded generated Playwright output and saved-auth state; no product/control-plane source was discarded.
+
+No recovery branch is approved for deletion. Branch retirement requires:
 
 - verified local-main integration;
 - proof that no unique source or document lineage remains unreachable;
 - accepted post-promotion runtime verification;
-- explicit Oliver approval naming the exact branches/worktrees to retire.
+- explicit Oliver approval naming the exact branches to retire.
