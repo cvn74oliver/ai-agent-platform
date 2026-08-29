@@ -11,6 +11,7 @@ import {
 } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
 import {
+  buildGmailReviewUnitTimeContextChart,
   buildGmailSenderDistributionCacheKey,
   buildGmailCleanupWorkflowClusterPayload,
   fetchGmailDecisionManagementSummary,
@@ -23,6 +24,7 @@ import {
   readCachedGmailSenderOverviewWindow,
   readCachedGmailSenderWorkspace,
   readLatestCachedGmailMailboxIntelligence,
+  resolveGmailSenderDistributionAuthorityKeys,
   type GmailCleanupClusterRef,
   type GmailDestinationExecutionState,
   type GmailDestinationState,
@@ -296,6 +298,7 @@ const TIME_CONTEXT_VISIBLE_CHART_SCOPES: readonly TimeContextChartScope[] = [
 type WorkspaceSnapshot = {
   data: GmailSenderWorkspaceData
   clusterId: string
+  reviewUnitId: string | null
   analysisScope: OperationsAnalysisScope
   mode: ReviewMode
   source: WorkspaceSnapshotSource
@@ -2446,6 +2449,7 @@ function senderVisibleProofCoverageNote(params: {
 function buildWorkspaceSnapshot(params: {
   data: GmailSenderWorkspaceData
   clusterId: string
+  reviewUnitId?: string | null
   analysisScope: OperationsAnalysisScope
   mode: ReviewMode
   source: WorkspaceSnapshotSource
@@ -2460,6 +2464,7 @@ function buildWorkspaceSnapshot(params: {
   return {
     data: params.data,
     clusterId: params.clusterId,
+    reviewUnitId: params.reviewUnitId?.trim() || null,
     analysisScope: params.analysisScope,
     mode: params.mode,
     source: params.source,
@@ -2530,6 +2535,7 @@ function normalizeTimeContextBucketIso(value: unknown): string | null {
 function workspaceSnapshotRequestKey(snapshot: WorkspaceSnapshot): string {
   return [
     snapshot.clusterId,
+    snapshot.reviewUnitId || 'no-review-unit',
     snapshot.analysisScope,
     snapshot.mode,
     normalizeWorkspaceCacheVersion(snapshot.cacheVersion),
@@ -3176,6 +3182,7 @@ function requiresScopedTimeContextTimeline(params: {
 function workspaceSnapshotMatchesRequest(params: {
   snapshot: WorkspaceSnapshot | null | undefined
   clusterId: string
+  reviewUnitId?: string | null
   analysisScope: OperationsAnalysisScope
   mode: ReviewMode
   cacheVersion: string | null
@@ -3190,6 +3197,8 @@ function workspaceSnapshotMatchesRequest(params: {
   return Boolean(
     params.snapshot &&
       params.snapshot.clusterId === params.clusterId &&
+      (params.reviewUnitId === undefined ||
+        params.snapshot.reviewUnitId === (params.reviewUnitId?.trim() || null)) &&
       params.snapshot.analysisScope === params.analysisScope &&
       params.snapshot.mode === params.mode &&
       (params.allowStaleCacheVersion === true ||
@@ -3422,6 +3431,7 @@ function workspacePageHasRenderableRowsOrTrulyEmpty(
 function workspaceSnapshotSatisfiesCurrentMode(params: {
   snapshot: WorkspaceSnapshot | null | undefined
   clusterId: string
+  reviewUnitId?: string | null
   analysisScope: OperationsAnalysisScope
   mode: ReviewMode
   cacheVersion: string | null
@@ -3438,6 +3448,7 @@ function workspaceSnapshotSatisfiesCurrentMode(params: {
     !workspaceSnapshotMatchesRequest({
       snapshot,
       clusterId: params.clusterId,
+      reviewUnitId: params.reviewUnitId,
       analysisScope: params.analysisScope,
       mode: params.mode,
       cacheVersion: params.cacheVersion,
@@ -4600,10 +4611,10 @@ export default function OperationsReviewPage() {
   })
   const senderOverviewWindowRequestKey = useMemo(
     () =>
-      selectedCluster && senderOverviewWindowSelection
+      selectedCluster && senderOverviewWindowSelection && subsetSource !== 'review_unit'
         ? buildSenderOverviewWindowRequestKey({
             clusterId: selectedCluster.clusterId,
-            reviewUnitId: subsetSource === 'review_unit' ? subsetValue : null,
+            reviewUnitId: null,
             analysisScope: effectiveWorkflowScope,
             cacheVersion,
             selection: senderOverviewWindowSelection,
@@ -4622,12 +4633,12 @@ export default function OperationsReviewPage() {
   )
   const cachedSenderOverviewWindow = useMemo(
     () =>
-      selectedCluster && senderOverviewWindowSelection
+      selectedCluster && senderOverviewWindowSelection && subsetSource !== 'review_unit'
         ? readCachedGmailSenderOverviewWindow({
             selectedCluster,
             analysisScope: effectiveWorkflowScope,
             cacheVersion,
-            reviewUnitId: subsetSource === 'review_unit' ? subsetValue : null,
+            reviewUnitId: null,
             pressureWindow: senderOverviewWindowSelection.window,
             pressureStart: senderOverviewWindowSelection.start,
             pressureEnd: senderOverviewWindowSelection.end,
@@ -4674,6 +4685,7 @@ export default function OperationsReviewPage() {
         mode === 'decision'
           ? DECISION_QUEUE_WORKSPACE_PAGE_SIZE
           : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
@@ -4689,6 +4701,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
@@ -4789,6 +4802,7 @@ export default function OperationsReviewPage() {
     return buildWorkspaceSnapshot({
       data: cachedWorkspace,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: normalizedAnalysisScope,
       mode,
       source: 'cache',
@@ -4807,6 +4821,7 @@ export default function OperationsReviewPage() {
     decisionPreviewEvidenceSenderKey,
     mode,
     normalizedAnalysisScope,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -4823,6 +4838,7 @@ export default function OperationsReviewPage() {
       includeClusterSenderKeys: true,
       page: 1,
       pageSize: DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
@@ -4836,6 +4852,7 @@ export default function OperationsReviewPage() {
     browserTimeZone,
     cacheVersion,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -4850,6 +4867,7 @@ export default function OperationsReviewPage() {
     return buildWorkspaceSnapshot({
       data: cachedDecisionWorkspace,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: normalizedAnalysisScope,
       mode: 'decision',
       source: 'cache',
@@ -4865,6 +4883,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     cachedDecisionWorkspace,
     normalizedAnalysisScope,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -4884,6 +4903,7 @@ export default function OperationsReviewPage() {
         mode === 'decision'
           ? DECISION_QUEUE_WORKSPACE_PAGE_SIZE
           : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
@@ -4899,6 +4919,7 @@ export default function OperationsReviewPage() {
     decisionPreviewEvidenceSenderKey,
     effectiveWorkflowScope,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
@@ -4912,6 +4933,7 @@ export default function OperationsReviewPage() {
     return buildWorkspaceSnapshot({
       data: workflowCachedWorkspace,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: effectiveWorkflowScope,
       mode,
       source: 'cache',
@@ -4929,6 +4951,7 @@ export default function OperationsReviewPage() {
     decisionPreviewEvidenceSenderKey,
     effectiveWorkflowScope,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -4946,6 +4969,7 @@ export default function OperationsReviewPage() {
       includeClusterSenderKeys: true,
       page: 1,
       pageSize: DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
@@ -4959,6 +4983,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     effectiveWorkflowScope,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -4973,6 +4998,7 @@ export default function OperationsReviewPage() {
     return buildWorkspaceSnapshot({
       data: workflowCachedDecisionWorkspace,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: effectiveWorkflowScope,
       mode: 'decision',
       source: 'cache',
@@ -4987,6 +5013,7 @@ export default function OperationsReviewPage() {
     browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
@@ -4999,6 +5026,7 @@ export default function OperationsReviewPage() {
     return workspaceSnapshotSatisfiesCurrentMode({
       snapshot: workflowCachedWorkspaceSnapshot,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: effectiveWorkflowScope,
       mode,
       cacheVersion,
@@ -5014,6 +5042,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     effectiveWorkflowScope,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
     senderOverviewWindowSelection,
@@ -5381,6 +5410,7 @@ export default function OperationsReviewPage() {
     return workspaceSnapshotMatchesRequest({
       snapshot: workspaceState.snapshot,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: effectiveWorkflowScope,
       mode,
       cacheVersion,
@@ -5395,6 +5425,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     effectiveWorkflowScope,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     senderOverviewWindowSelection,
     selectedCluster,
@@ -5405,6 +5436,7 @@ export default function OperationsReviewPage() {
     return workspaceSnapshotSatisfiesCurrentMode({
       snapshot: workspaceState.snapshot,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: effectiveWorkflowScope,
       mode,
       cacheVersion,
@@ -5420,6 +5452,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     effectiveWorkflowScope,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedSenderPage,
     requestedTimeContextBucketLabel,
     senderOverviewWindowSelection,
@@ -5663,15 +5696,12 @@ export default function OperationsReviewPage() {
     workflowCachedWorkspaceSnapshot,
   ])
   const workspaceRequestKey = useMemo(() => {
-    if (
-      !selectedCluster ||
-      publishedReviewUnitEntryState ||
-      publishedReviewUnitEntryRequestedUnit
-    ) {
+    if (!selectedCluster || publishedReviewUnitEntryState) {
       return null
     }
     return buildWorkspaceRequestKey({
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: effectiveWorkflowScope,
       mode,
       cacheVersion,
@@ -5691,7 +5721,7 @@ export default function OperationsReviewPage() {
     requestedTimeContextBucketLabel,
     requestedTimeContextBucketStartAt,
     requestedTimeContextBucketEndExclusiveAt,
-    publishedReviewUnitEntryRequestedUnit,
+    publishedReviewUnitEntryRequestedUnit?.id,
     publishedReviewUnitEntryState,
     selectedCluster,
     senderOverviewWindowSelection,
@@ -5953,6 +5983,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         workspaceSnapshotSatisfiesCurrentMode({
           snapshot,
           clusterId: selectedCluster.clusterId,
+          reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
           analysisScope: effectiveWorkflowScope,
           mode: 'decision',
           cacheVersion,
@@ -5969,6 +6000,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     decisionTargetPage,
     effectiveWorkflowScope,
     mode,
+    publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
     senderOverviewWindowSelection,
     selectedCluster,
@@ -6003,6 +6035,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   ])
   const workspaceFetchPlan = useMemo<WorkspaceFetchPlan | null>(() => {
     if (!workspaceRequestKey || !selectedCluster) return null
+    if (subsetSource === 'review_unit' && publishedReviewUnitEntryRequestedUnit) {
+      return null
+    }
     if (mode === 'overview') {
       if (!shouldFetchOverviewCoverageBackfill && passiveReadyWorkspaceSnapshot) return null
     } else if (!shouldFetchDecisionWorkspacePage) {
@@ -6057,6 +6092,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     senderOverviewWindowSelection,
     selectedCluster,
     shouldHoldContinuityShell,
+    subsetSource,
     workflowCachedReadyWorkspaceSnapshot,
     workspaceRequestKey,
   ])
@@ -6389,6 +6425,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       workspaceSnapshotSatisfiesCurrentMode({
         snapshot: currentReadyWorkspaceSnapshot,
         clusterId: plan.selectedCluster.clusterId,
+        reviewUnitId: plan.reviewUnitId,
         analysisScope: plan.normalizedAnalysisScope,
         mode: plan.mode,
         cacheVersion: plan.cacheVersion,
@@ -6482,6 +6519,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         const snapshot = buildWorkspaceSnapshot({
           data: cachedData,
           clusterId: plan.selectedCluster.clusterId,
+          reviewUnitId: plan.reviewUnitId,
           analysisScope: plan.normalizedAnalysisScope,
           mode: plan.mode,
           source: 'cache',
@@ -6496,6 +6534,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         return workspaceSnapshotSatisfiesCurrentMode({
           snapshot,
           clusterId: plan.selectedCluster.clusterId,
+          reviewUnitId: plan.reviewUnitId,
           analysisScope: plan.normalizedAnalysisScope,
           mode: plan.mode,
           cacheVersion: plan.cacheVersion,
@@ -6560,6 +6599,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               workspaceSnapshotSatisfiesCurrentMode({
                 snapshot: current.snapshot,
                 clusterId: plan.selectedCluster.clusterId,
+                reviewUnitId: plan.reviewUnitId,
                 analysisScope: plan.normalizedAnalysisScope,
                 mode: plan.mode,
                 cacheVersion: plan.cacheVersion,
@@ -6575,6 +6615,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               workspaceSnapshotSatisfiesCurrentMode({
                 snapshot: plan.seedSnapshot,
                 clusterId: plan.selectedCluster.clusterId,
+                reviewUnitId: plan.reviewUnitId,
                 analysisScope: plan.normalizedAnalysisScope,
                 mode: plan.mode,
                 cacheVersion: plan.cacheVersion,
@@ -6611,6 +6652,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       const nextSnapshot = buildWorkspaceSnapshot({
         data: result.data,
         clusterId: plan.selectedCluster.clusterId,
+        reviewUnitId: plan.reviewUnitId,
         analysisScope: plan.normalizedAnalysisScope,
         mode: plan.mode,
         source: 'network',
@@ -6626,6 +6668,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         !workspaceSnapshotSatisfiesCurrentMode({
           snapshot: nextSnapshot,
           clusterId: plan.selectedCluster.clusterId,
+          reviewUnitId: plan.reviewUnitId,
           analysisScope: plan.normalizedAnalysisScope,
           mode: plan.mode,
           cacheVersion: plan.cacheVersion,
@@ -6870,11 +6913,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   ])
   const overviewShellWorkspaceSnapshot = useMemo(() => {
     if (shouldHoldContinuityShell) return continuityOverviewWorkspaceSnapshot
-    return scopedOverviewShellWorkspaceSnapshot
+    if (scopedOverviewShellWorkspaceSnapshot) return scopedOverviewShellWorkspaceSnapshot
+    if (subsetSource === 'review_unit') return overviewWorkspaceSnapshot
+    return null
   }, [
     continuityOverviewWorkspaceSnapshot,
+    overviewWorkspaceSnapshot,
     scopedOverviewShellWorkspaceSnapshot,
     shouldHoldContinuityShell,
+    subsetSource,
   ])
   const overviewHeaderWorkspaceSnapshot = useMemo(() => {
     if (shouldHoldContinuityShell) return continuityOverviewWorkspaceSnapshot
@@ -7179,7 +7226,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   ])
   const displayOverviewWorkspace = hydratedOverviewPageWorkspace
   const workflowOverviewWorkspace = workspace
-  const overviewShellWorkspace = hydratedOverviewShellWorkspace
+  const overviewShellWorkspace =
+    hydratedOverviewShellWorkspace ||
+    (subsetSource === 'review_unit' ? semanticFocusWorkspace : null)
   const overviewCoverageWorkspace = hydratedOverviewCoverageWorkspace
   const workflowCoverageWorkspace = hydratedWorkflowCoverageWorkspace
   const authoritativeBucketWorkflowWorkspace = useMemo(
@@ -7825,7 +7874,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   )
   const updateSenderOverviewWindowQuery = useCallback(
     (nextSelection: SenderOverviewWindowSelection | null) => {
-      if (!selectedCluster) return
+      const nextClusterId =
+        selectedCluster?.clusterId || requestedClusterId || rawRequestedClusterId
+      if (!nextClusterId) return
       const nextWorkflowScope =
         subsetSource === 'review_unit'
           ? null
@@ -7836,7 +7887,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
             })
       navigateScopedReviewState({
         workflowScope: nextWorkflowScope,
-        clusterId: selectedCluster.clusterId,
+        clusterId: nextClusterId,
         subsetSource,
         subsetValue,
         senderPage: searchParams.get('sender_page') != null ? requestedSenderPage : null,
@@ -7855,7 +7906,9 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       navigateScopedReviewState,
       normalizedAnalysisScope,
       requestedDecisionSenderKey,
+      requestedClusterId,
       requestedSenderPage,
+      rawRequestedClusterId,
       searchParams,
       selectedCluster,
       subsetSource,
@@ -7876,16 +7929,16 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           updateSenderOverviewWindowQuery(null)
           return
         }
-        const nextSelection = senderOverviewPresetSelection({
-          scope: nextScope,
-          coverageStart:
-            renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox
-              .indexed_date_span_start || null,
-          coverageEnd:
-            renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox
-              .indexed_date_span_end || null,
-        })
-        if (!nextSelection) return
+        // Published review-unit projections own their coverage bounds. Older
+        // mailbox-intelligence headers may omit those bounds even when the
+        // exact child projection is ready, so the control must persist the
+        // preset identity and let the shared projection resolver clamp it to
+        // the child's actual indexed history.
+        const nextSelection: SenderOverviewWindowSelection = {
+          window: nextScope,
+          start: null,
+          end: null,
+        }
         if (
           senderOverviewWindowSelectionsMatch(senderOverviewWindowSelection, nextSelection) ||
           senderOverviewWindowSelectionsMatch(pendingSenderOverviewWindowSelection, nextSelection)
@@ -7950,8 +8003,6 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       navigateScopedReviewState,
       pendingSenderOverviewWindowSelection,
       pendingTimeContextScope,
-      renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_end,
-      renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
       selectedCluster,
       senderOverviewWindowSelection,
       subsetSource,
@@ -7994,7 +8045,13 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   ])
   const activeTimeContextVisibleSeries = useMemo(() => {
     if (senderOverviewWindowSelection) {
-      return displayedSenderOverviewWindowData?.series || []
+      return (
+        displayedSenderOverviewWindowData?.series ||
+        authoritativeTimeContextRailWorkspace?.analytics.sender_activity_timeline.map((item) => ({
+          label: item.label,
+        })) ||
+        []
+      )
     }
 
     return (
@@ -8333,6 +8390,26 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           scopeStatus: {
             label: 'Workflow window',
             detail: `${workflowScopeLabel} stays as the current workflow boundary while the live workflow below narrows to this window.`,
+            tone: 'comparing' as const,
+          },
+        }
+      }
+
+      if (canonicalTimeContextRailChart && canonicalTimeContextRailChart.metrics) {
+        return {
+          granularity: canonicalTimeContextRailChart.granularity,
+          items: canonicalTimeContextRailChart.items,
+          overallActivity: canonicalTimeContextRailChart.metrics.overallActivity,
+          activityMix: canonicalTimeContextRailChart.metrics.activityMix,
+          patternSignal: canonicalTimeContextRailChart.metrics.patternSignal,
+          nextAction: canonicalTimeContextRailChart.metrics.nextAction,
+          bodyOverride: null,
+          workflowSenderUniverseTotal: canonicalTimeContextRailChart.workflowSenderUniverseTotal,
+          sourceLabel: canonicalTimeContextRailChart.sourceLabel,
+          state: canonicalTimeContextRailChart.state,
+          scopeStatus: {
+            label: 'Workflow window',
+            detail: `${workflowScopeLabel} stays as the current workflow boundary while the selected child workspace supplies the active window.`,
             tone: 'comparing' as const,
           },
         }
@@ -10370,6 +10447,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }
   }, [senderDistributionLifecycleKey])
   const senderDistributionData = senderDistributionWorkspaceState.data
+  const activeReviewUnitProjection =
+    semanticFocusWorkspace?.review_unit_projection ||
+    senderDistributionData?.review_unit_projection ||
+    null
+  const reviewUnitTimeContextChart = useMemo(
+    () => buildGmailReviewUnitTimeContextChart(activeReviewUnitProjection),
+    [activeReviewUnitProjection]
+  )
   const senderDistributionSenderLookup = useMemo(() => {
     const lookup = new Map<string, GmailSenderDistributionData['senders'][number]>()
     for (const sender of senderDistributionData?.senders || []) {
@@ -10386,11 +10471,13 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     [senderDistributionData?.senders]
   )
   const senderDistributionAuthoritativeWorkflowSenderKeys =
-    activeOverviewSubset?.source === 'review_unit' &&
-    senderDistributionWorkspaceState.status === 'ready' &&
-    senderDistributionData?.review_unit_projection != null
-      ? senderDistributionBroadSenderKeys
-      : authoritativeWorkflowSenderKeys
+    resolveGmailSenderDistributionAuthorityKeys({
+      reviewUnitActive: activeOverviewSubset?.source === 'review_unit',
+      responseReady:
+        senderDistributionWorkspaceState.status === 'ready' && senderDistributionData != null,
+      responseSenderKeys: senderDistributionBroadSenderKeys,
+      fallbackSenderKeys: authoritativeWorkflowSenderKeys,
+    })
   const senderDistributionEmptyScopedSubset =
     senderDistributionWorkspaceState.status === 'ready' &&
     senderDistributionData != null &&
@@ -10524,15 +10611,19 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   )
   const stableOverviewSummary = lastCompleteOverviewSummaryRef.current
   const publishedReviewUnitSummaryActive = activeOverviewSubset?.source === 'review_unit'
+  const publishedReviewUnitProjectionSenderKeys = useMemo(
+    () => (activeReviewUnitProjection?.members || []).map((member) => member.entity_id),
+    [activeReviewUnitProjection?.members]
+  )
   const publishedReviewUnitDistributionReady = Boolean(
     publishedReviewUnitSummaryActive &&
-      senderDistributionReviewUnitId &&
-      senderDistributionWorkspaceState.status === 'ready' &&
-      senderDistributionData &&
-      senderDistributionBroadSenderKeys.length === activeOverviewSubset.chartCount
+      activeReviewUnitProjection &&
+      activeReviewUnitProjection.review_unit_id === activeDerivedReviewUnit?.id &&
+      activeReviewUnitProjection.active_entity_total === activeOverviewSubset.chartCount &&
+      publishedReviewUnitProjectionSenderKeys.length === activeOverviewSubset.chartCount
   )
   const publishedReviewUnitManagedCount = publishedReviewUnitDistributionReady
-    ? senderDistributionBroadSenderKeys.reduce(
+    ? publishedReviewUnitProjectionSenderKeys.reduce(
         (count, senderKey) => count + (managedBySender[senderKey] ? 1 : 0),
         0
       )
@@ -10567,7 +10658,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const renderedTopSummarySupportingMessageCount =
     publishedReviewUnitSummaryActive
       ? publishedReviewUnitDistributionReady
-        ? senderDistributionBroadMessageTotal
+        ? activeReviewUnitProjection?.activity_total ?? null
         : null
       : topSummarySupportingMessageCount ?? stableOverviewSummary?.supportingMessageCount ?? null
   const renderedTopSummaryCoverageIsLoading =
@@ -10589,8 +10680,59 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           ? `Next step: review the ${publishedReviewUnitRemainingCount.toLocaleString()} senders that still need a decision in this unit.`
           : 'Next step: every sender in this published review unit is already covered.'
       : stableOverviewSummary?.goalFollowUp || topSummaryGoalFollowUp
+  const effectiveTimeContextRailDisplay = useMemo(() => {
+    if (!reviewUnitTimeContextChart) return activeRailDisplay
+
+    const activeEntityTotal = reviewUnitTimeContextChart.workflowEntityTotal
+    const activityTotal = reviewUnitTimeContextChart.activityTotal
+    const workflowScopeLabel = analysisScopeControlLabel(effectiveWorkflowScope)
+    const activeWindowLabel = senderOverviewWindowSelection
+      ? senderOverviewWindowControlLabel(senderOverviewWindowSelection)
+      : workflowScopeLabel
+
+    return {
+      ...activeRailDisplay,
+      granularity: reviewUnitTimeContextChart.granularity,
+      items: reviewUnitTimeContextChart.items,
+      overallActivity: {
+        value: `${activityTotal.toLocaleString()} supporting message${activityTotal === 1 ? '' : 's'}`,
+        detail: `${activeWindowLabel} records every activity instance from the selected review unit.`,
+      },
+      activityMix: {
+        value: `${activeEntityTotal.toLocaleString()} active ${activeEntityTotal === 1 ? 'sender' : 'senders'}`,
+        detail:
+          'Each chart bar separates distinct senders from their supporting-message volume so repeated activity remains visible.',
+      },
+      patternSignal: {
+        value: 'Published review-unit membership',
+        detail:
+          'Time Context and Sender Distribution are reading the same persisted child membership and active window.',
+      },
+      nextAction: {
+        title: 'Inspect a period of activity',
+        detail:
+          'Select a non-empty bar to narrow the sender workflow, Sender Distribution, and Decision Mode to that exact period.',
+      },
+      bodyOverride: null,
+      workflowSenderUniverseTotal: activeEntityTotal,
+      sourceLabel: 'workflow_workspace' as const,
+      state: 'ready' as const,
+      scopeStatus: {
+        label: senderOverviewWindowSelection ? 'Workflow window' : 'Aligned to review unit',
+        detail: senderOverviewWindowSelection
+          ? `${activeWindowLabel} is driving Time Context, Sender Distribution, the sender workflow, and Decision Mode together.`
+          : 'The selected review unit is driving Time Context, Sender Distribution, the sender workflow, and Decision Mode together.',
+        tone: senderOverviewWindowSelection ? ('comparing' as const) : ('aligned' as const),
+      },
+    }
+  }, [
+    activeRailDisplay,
+    effectiveWorkflowScope,
+    reviewUnitTimeContextChart,
+    senderOverviewWindowSelection,
+  ])
   const renderedTimeContextWorkflowSenderUniverseTotal =
-    activeRailDisplay.workflowSenderUniverseTotal
+    effectiveTimeContextRailDisplay.workflowSenderUniverseTotal
   const renderedTimeContextWorkflowContext = senderOverviewWindowSelection
     ? {
         total: sharedWorkflowSubset.resolvedSenderCount,
@@ -10598,30 +10740,33 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         detail: `${analysisScopeControlLabel(effectiveWorkflowScope)} stays the current workflow boundary. This active workflow window is what narrows the sender workflow below.`,
       }
     : null
-  const renderedTimeContextNextAction = activeRailDisplay.nextAction
+  const renderedTimeContextNextAction = effectiveTimeContextRailDisplay.nextAction
   const activeTimeContextWorkflowTimeline = useMemo(() => {
-    if (!canonicalTimeContextRailChart) return null
-    const granularity = canonicalTimeContextRailChart.granularity
-    const items = canonicalTimeContextRailChart.items.map((item) => ({
+    if (effectiveTimeContextRailDisplay.items.length === 0) return null
+    const granularity = effectiveTimeContextRailDisplay.granularity
+    const items = effectiveTimeContextRailDisplay.items.map((item) => ({
       label: item.label,
       count: item.count,
       bucketStartIso: normalizeTimeContextBucketIso(item.bucketStartIso),
       bucketEndExclusiveIso: normalizeTimeContextBucketIso(item.bucketEndExclusiveIso),
     }))
     return items.length > 0 ? { granularity, items } : null
-  }, [canonicalTimeContextRailChart])
+  }, [effectiveTimeContextRailDisplay.granularity, effectiveTimeContextRailDisplay.items])
   const activeTimeContextIndexedCoverage = useMemo(() => {
     if (displayedSenderOverviewWindowData?.indexed_coverage) {
       return displayedSenderOverviewWindowData.indexed_coverage
     }
+    if (reviewUnitTimeContextChart) {
+      return {
+        indexed_total_rows: reviewUnitTimeContextChart.activityTotal,
+        indexed_inbox_rows: 0,
+        indexed_date_span_start: reviewUnitTimeContextChart.coverageStartIso,
+        indexed_date_span_end: reviewUnitTimeContextChart.coverageEndIso,
+      }
+    }
     if (
       activeTimeContextWorkflowTimeline &&
-      senderOverviewWindowSelection == null &&
-      authoritativeTimeContextRailWorkspace &&
-      workspaceHasCanonicalTimeContextTimeline(
-        authoritativeTimeContextRailWorkspace,
-        effectiveWorkflowScope
-      )
+      senderOverviewWindowSelection == null
     ) {
       const coverageFromTimeline = timeContextCoverageFromTimeline({
         granularity: activeTimeContextWorkflowTimeline.granularity,
@@ -10644,11 +10789,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }
   }, [
     activeTimeContextWorkflowTimeline,
-    authoritativeTimeContextRailWorkspace,
     displayedSenderOverviewWindowData?.indexed_coverage,
-    effectiveWorkflowScope,
     renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_end,
     renderRuntimeData?.runtime_mailbox_intelligence?.whole_mailbox.indexed_date_span_start,
+    reviewUnitTimeContextChart,
     senderOverviewWindowSelection,
   ])
   const activeTimeContextResolvedWindow = useMemo(() => {
@@ -10664,12 +10808,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     }
     if (
       senderOverviewWindowSelection == null &&
-      activeTimeContextWorkflowTimeline &&
-      authoritativeTimeContextRailWorkspace &&
-      workspaceHasCanonicalTimeContextTimeline(
-        authoritativeTimeContextRailWorkspace,
-        effectiveWorkflowScope
-      )
+      activeTimeContextWorkflowTimeline
     ) {
       const resolvedFromTimeline = timeContextResolvedWindowFromTimeline({
         granularity: activeTimeContextWorkflowTimeline.granularity,
@@ -10718,7 +10857,6 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     activeTimeContextChartScope,
     activeTimeContextIndexedCoverage,
     activeTimeContextWorkflowTimeline,
-    authoritativeTimeContextRailWorkspace,
     browserTimeZone,
     displayedSenderOverviewWindowData,
     effectiveWorkflowScope,
@@ -11017,11 +11155,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           : 'incomplete_scope'
   const activeSharedAnalysisRailSource =
     activeSharedAnalysisRailTab === 'time_context'
-      ? activeRailDisplay.sourceLabel
+      ? effectiveTimeContextRailDisplay.sourceLabel
       : 'sender_distribution'
   const activeSharedAnalysisRailState =
     activeSharedAnalysisRailTab === 'time_context'
-      ? activeRailDisplay.state
+      ? effectiveTimeContextRailDisplay.state
       : senderDistributionRailState
   const decisionEligibleSenderKeys = useMemo(
     () => authoritativeWorkflowSenderKeys.filter((senderKey) => !managedBySender[senderKey]),
@@ -11191,6 +11329,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     return workspaceSnapshotMatchesRequest({
       snapshot: decisionReadyWorkspaceSnapshot,
       clusterId: selectedCluster.clusterId,
+      reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       analysisScope: effectiveWorkflowScope,
       mode: 'decision',
       cacheVersion,
@@ -11474,13 +11613,16 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     workspaceState.status,
   ])
   const timeContextBucketInteractionDisabledReason = useMemo(() => {
-    if (activeRailDisplay.state !== 'ready' || activeRailDisplay.bodyOverride) {
+    if (
+      effectiveTimeContextRailDisplay.state !== 'ready' ||
+      effectiveTimeContextRailDisplay.bodyOverride
+    ) {
       return 'the chart is not parity-ready for the current workflow scope'
     }
     return null
   }, [
-    activeRailDisplay.bodyOverride,
-    activeRailDisplay.state,
+    effectiveTimeContextRailDisplay.bodyOverride,
+    effectiveTimeContextRailDisplay.state,
   ])
   const handleTimeContextBucketToggle = useCallback(
     (item: {
@@ -13612,15 +13754,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           >
             {activeSharedAnalysisRailTab === 'time_context' ? (
               <SenderTimeContextAnalysisRail
-                granularity={activeRailDisplay.granularity}
-                items={activeRailDisplay.items}
-                overallActivity={activeRailDisplay.overallActivity}
-                activityMix={activeRailDisplay.activityMix}
-                patternSignal={activeRailDisplay.patternSignal}
+                granularity={effectiveTimeContextRailDisplay.granularity}
+                items={effectiveTimeContextRailDisplay.items}
+                overallActivity={effectiveTimeContextRailDisplay.overallActivity}
+                activityMix={effectiveTimeContextRailDisplay.activityMix}
+                patternSignal={effectiveTimeContextRailDisplay.patternSignal}
                 nextAction={renderedTimeContextNextAction}
                 workflowContext={renderedTimeContextWorkflowContext}
                 workflowSenderUniverseTotal={renderedTimeContextWorkflowSenderUniverseTotal}
-                scopeStatus={activeRailDisplay.scopeStatus}
+                scopeStatus={effectiveTimeContextRailDisplay.scopeStatus}
                 scopeControls={{
                   activeScope: activeTimeContextChartScope,
                   pendingScope: pendingTimeContextChartScope,
@@ -13640,7 +13782,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                   />
                 }
                 isUpdating={pendingTimeContextScope != null || senderOverviewWindowLoading}
-                bodyOverride={activeRailDisplay.bodyOverride}
+                bodyOverride={effectiveTimeContextRailDisplay.bodyOverride}
                 bucketSelection={{
                   activeLabel: renderedTimeContextBucketLabel,
                   mode: timeContextBucketInteractionMode,

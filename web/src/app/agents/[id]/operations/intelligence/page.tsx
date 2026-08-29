@@ -302,6 +302,55 @@ function pressureTrendSelectionsMatch(
   return left.window === right.window && left.start === right.start && left.end === right.end
 }
 
+function isUsableCachedPressureTrend(params: {
+  data: GmailPressureTrendData | null
+  selection: PressureTrendSelection
+  timeZone: string
+}): params is {
+  data: GmailPressureTrendData
+  selection: PressureTrendSelection
+  timeZone: string
+} {
+  const data = params.data
+  if (!data || data.source !== 'gmail_index_cache') return false
+  if (data.window.key !== params.selection.window) return false
+  if ((data.window.requested_start || null) !== params.selection.start) return false
+  if ((data.window.requested_end || null) !== params.selection.end) return false
+  if (data.time_zone !== params.timeZone) return false
+
+  const coverageStartMs = Date.parse(data.indexed_coverage.indexed_date_span_start || '')
+  const coverageEndMs = Date.parse(data.indexed_coverage.indexed_date_span_end || '')
+  const effectiveStartMs = Date.parse(data.window.effective_start || '')
+  const effectiveEndMs = Date.parse(data.window.effective_end || '')
+  if (
+    !Number.isFinite(coverageStartMs) ||
+    !Number.isFinite(coverageEndMs) ||
+    coverageStartMs < Date.UTC(1971, 0, 1) ||
+    coverageEndMs < coverageStartMs ||
+    !Number.isFinite(effectiveStartMs) ||
+    !Number.isFinite(effectiveEndMs) ||
+    effectiveStartMs < coverageStartMs ||
+    effectiveEndMs < effectiveStartMs ||
+    effectiveEndMs > coverageEndMs + 24 * 60 * 60 * 1000
+  ) {
+    return false
+  }
+
+  return (
+    data.series.length > 0 &&
+    data.series.every((bucket) => {
+      const bucketStartMs = Date.parse(bucket.bucket_start_at)
+      const bucketEndMs = Date.parse(bucket.bucket_end_at)
+      return (
+        Number.isFinite(bucketStartMs) &&
+        Number.isFinite(bucketEndMs) &&
+        bucketStartMs >= Date.UTC(1971, 0, 1) &&
+        bucketEndMs > bucketStartMs
+      )
+    })
+  )
+}
+
 function pressureTrendSeedDecision(params: {
   candidates: Array<PressureTrendSeedCandidate | null>
   selection: PressureTrendSelection
@@ -1008,6 +1057,17 @@ export default function OperationsIntelligencePage() {
         : null,
     [browserTimeZone, cacheVersion, clusters, pressureTrendSelection]
   )
+  const usableCachedPressureTrend = useMemo(
+    () =>
+      isUsableCachedPressureTrend({
+        data: cachedPressureTrend,
+        selection: pressureTrendSelection,
+        timeZone: browserTimeZone,
+      })
+        ? cachedPressureTrend
+        : null,
+    [browserTimeZone, cachedPressureTrend, pressureTrendSelection]
+  )
   const pressureTrendRequestKey = useMemo(
     () =>
       buildPressureTrendRequestKey({
@@ -1102,7 +1162,7 @@ export default function OperationsIntelligencePage() {
   })
   const pressureTrendInitialPaintLogRef = useRef<string | null>(null)
   const isPressureTrendInitialPaintPhase =
-    pressureTrendState.status === 'idle' && !cachedPressureTrend
+    pressureTrendState.status === 'idle' && !usableCachedPressureTrend
   const resolvedIntelligence =
     cachedIntelligence ||
     trustedRuntimeIntelligence ||
@@ -1111,8 +1171,8 @@ export default function OperationsIntelligencePage() {
       : latestStableIntelligence)
   const resolvedPressureTrendState = useMemo<PressureTrendLoadState>(
     () => {
-      if (cachedPressureTrend) {
-        return readyPressureTrendState(cachedPressureTrend, pressureTrendRequestKey)
+      if (usableCachedPressureTrend) {
+        return readyPressureTrendState(usableCachedPressureTrend, pressureTrendRequestKey)
       }
       const seedDecision = pressureTrendSeedDecision({
         candidates: [
@@ -1149,7 +1209,7 @@ export default function OperationsIntelligencePage() {
     [
       browserTimeZone,
       cachedIntelligence,
-      cachedPressureTrend,
+      usableCachedPressureTrend,
       defaultPressureTrendSelection,
       pressureTrendRequestKey,
       pressureTrendSelection,
@@ -1239,7 +1299,7 @@ export default function OperationsIntelligencePage() {
   ])
   const canRequestPressureTrend =
     clusters.length > 0 &&
-    !cachedPressureTrend &&
+    !usableCachedPressureTrend &&
     Boolean(resolvedIntelligence) &&
     !(isPressureTrendInitialPaintPhase && initialPressureTrendSeedDecision.usable)
 

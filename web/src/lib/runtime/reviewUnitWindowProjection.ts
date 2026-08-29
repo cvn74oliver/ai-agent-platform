@@ -35,6 +35,24 @@ export type ReviewUnitWindowWorkingSetMember = {
   activityCount: number
 }
 
+export type ReviewUnitWindowProjectionRead = {
+  window: ReviewUnitWindowResolution
+  unitEntityTotal: number
+  activeEntityTotal: number
+  activityTotal: number
+  members: Array<{
+    entityId: string
+    activityCount: number
+    allIndexedActivityCount: number
+  }>
+  series: Array<{
+    resolution: 'day' | 'year'
+    bucketStart: string
+    activeEntityCount: number
+    activityCount: number
+  }>
+}
+
 type ActivityAggregate = {
   activityCount: number
   measurePayload: Record<string, number>
@@ -241,6 +259,156 @@ export function resolveReviewUnitWindow(params: {
     clampedStart: effectiveStartMs !== requestedStartMs,
     clampedEnd: effectiveEndMs !== requestedEndMs,
     empty,
+  }
+}
+
+function incrementCalendarKey(value: string, resolution: 'day' | 'year'): string {
+  const parsed = Date.parse(`${value.slice(0, 10)}T00:00:00Z`)
+  if (!Number.isFinite(parsed)) {
+    throw new Error('Review-unit projection contains an invalid calendar bucket.')
+  }
+  const next = new Date(parsed)
+  if (resolution === 'year') next.setUTCFullYear(next.getUTCFullYear() + 1)
+  else next.setUTCDate(next.getUTCDate() + 1)
+  return resolution === 'year'
+    ? `${String(next.getUTCFullYear()).padStart(4, '0')}-01-01`
+    : next.toISOString().slice(0, 10)
+}
+
+function localCalendarKey(
+  timestamp: number,
+  timeZone: string,
+  resolution: 'day' | 'year'
+): string {
+  const parts = localDateParts(timestamp, timeZone)
+  return resolution === 'year'
+    ? `${String(parts.year).padStart(4, '0')}-01-01`
+    : dateKey(parts)
+}
+
+/**
+ * Reads an immutable review-unit materialization through one resolved workflow window.
+ * The result is adapter-neutral: email senders, portfolio positions, tax records, or any
+ * other decision subject all use the same fixed-membership and activity-projection rules.
+ */
+export function readReviewUnitWindowProjectionMaterialization(params: {
+  materialization: ReviewUnitProjectionMaterialization
+  request: ReviewUnitWindowRequest
+}): ReviewUnitWindowProjectionRead {
+  const { manifest, activityBuckets } = params.materialization
+  const validation = validateReviewUnitWindowProjection({ manifest, activityBuckets })
+  if (validation.errors.length > 0) {
+    throw new Error(`Review-unit projection is invalid: ${validation.errors.join(' ')}`)
+  }
+  const window = resolveReviewUnitWindow({
+    request: params.request,
+    coverage: manifest.coverage,
+  })
+  const allIndexedRows = activityBuckets.filter(
+    (row) => row.resolution === 'all_indexed' && row.rowKind === 'entity'
+  )
+  const allIndexedActivityByEntity = new Map(
+    allIndexedRows.map((row) => [row.entityId, normalizeCount(row.activityCount)] as const)
+  )
+  if (
+    allIndexedRows.length !== manifest.unitEntityTotal ||
+    allIndexedActivityByEntity.size !== manifest.unitEntityTotal
+  ) {
+    throw new Error('Review-unit projection fixed membership is incomplete.')
+  }
+
+  const resolution = params.request.kind === 'all_indexed' ? 'year' : 'day'
+  const effectiveStartMs = Date.parse(window.effectiveStartAt)
+  const effectiveEndMs = Date.parse(window.effectiveEndAt)
+  if (!Number.isFinite(effectiveStartMs) || !Number.isFinite(effectiveEndMs)) {
+    throw new Error('Review-unit projection resolved invalid effective bounds.')
+  }
+  const startKey = localCalendarKey(effectiveStartMs, manifest.coverage.timeZone, resolution)
+  const finalKey = window.empty
+    ? null
+    : localCalendarKey(
+        Math.max(effectiveStartMs, effectiveEndMs - 1),
+        manifest.coverage.timeZone,
+        resolution
+      )
+  const selectedEntityRows =
+    params.request.kind === 'all_indexed'
+      ? allIndexedRows
+      : activityBuckets.filter(
+          (row) =>
+            row.resolution === 'day' &&
+            row.rowKind === 'entity' &&
+            finalKey != null &&
+            row.bucketStart >= startKey &&
+            row.bucketStart <= finalKey
+        )
+  const activityByEntity = new Map<string, number>()
+  for (const row of selectedEntityRows) {
+    activityByEntity.set(
+      row.entityId,
+      (activityByEntity.get(row.entityId) || 0) + normalizeCount(row.activityCount)
+    )
+  }
+  const members = allIndexedRows
+    .map((row) => ({
+      entityId: row.entityId,
+      activityCount:
+        params.request.kind === 'all_indexed'
+          ? normalizeCount(row.activityCount)
+          : activityByEntity.get(row.entityId) || 0,
+      allIndexedActivityCount: allIndexedActivityByEntity.get(row.entityId) || 0,
+    }))
+    .sort(
+      (left, right) =>
+        right.activityCount - left.activityCount || left.entityId.localeCompare(right.entityId)
+    )
+  const activeEntityTotal = members.filter((member) => member.activityCount > 0).length
+  const activityTotal = members.reduce((sum, member) => sum + member.activityCount, 0)
+
+  const seriesRows = activityBuckets.filter(
+    (row) =>
+      row.resolution === resolution &&
+      row.rowKind === 'entity' &&
+      finalKey != null &&
+      row.bucketStart >= startKey &&
+      row.bucketStart <= finalKey
+  )
+  const seriesByBucket = new Map<
+    string,
+    { activeEntityIds: Set<string>; activityCount: number }
+  >()
+  for (const row of seriesRows) {
+    const aggregate = seriesByBucket.get(row.bucketStart) || {
+      activeEntityIds: new Set<string>(),
+      activityCount: 0,
+    }
+    if (row.activityCount > 0) aggregate.activeEntityIds.add(row.entityId)
+    aggregate.activityCount += normalizeCount(row.activityCount)
+    seriesByBucket.set(row.bucketStart, aggregate)
+  }
+  const series: ReviewUnitWindowProjectionRead['series'] = []
+  if (finalKey != null) {
+    for (let key = startKey; key <= finalKey; key = incrementCalendarKey(key, resolution)) {
+      const aggregate = seriesByBucket.get(key)
+      series.push({
+        resolution,
+        bucketStart: key,
+        activeEntityCount: aggregate?.activeEntityIds.size || 0,
+        activityCount: aggregate?.activityCount || 0,
+      })
+    }
+  }
+  if (series.reduce((sum, bucket) => sum + bucket.activityCount, 0) !== activityTotal) {
+    throw new Error('Review-unit projection series does not reconcile with window activity.')
+  }
+
+  return {
+    window,
+    unitEntityTotal: manifest.unitEntityTotal,
+    activeEntityTotal,
+    activityTotal,
+    members,
+    series,
   }
 }
 

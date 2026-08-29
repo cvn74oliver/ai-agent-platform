@@ -4046,6 +4046,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
   semanticFocus: GmailSenderWorkspaceSemanticFocus
   sort: GmailSenderWorkspaceSort
   direction: GmailSenderWorkspaceSortDirection
+  activeSenderKeys?: string[]
 }): Promise<GmailPublishedSenderWorkspaceFocusedArtifactRead> {
   const headerRead = await loadPublishedSenderWorkspaceArtifactHeaders(params)
   if (!headerRead.publication || !headerRead.artifact_version || !headerRead.selected_header) {
@@ -4094,11 +4095,39 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
   }
 
   const focusedTotalSenders = typeof count === 'number' ? Math.max(0, count) : 0
+  const activeSenderKeys =
+    params.activeSenderKeys === undefined ? null : uniqueStrings(params.activeSenderKeys)
+  if (activeSenderKeys && activeSenderKeys.length > REVIEW_UNIT_PROJECTION_MEMBER_LIMIT) {
+    throw new Error('Focused semantic active membership exceeded the bounded projection limit.')
+  }
+  const focusedActiveTotalSenders = activeSenderKeys?.length ?? focusedTotalSenders
+  if (activeSenderKeys && activeSenderKeys.length > 0) {
+    let activeCountQuery = params.supabase
+      .from('gmail_sender_workspace_seed_rows')
+      .select('sender_key', { count: 'exact', head: true })
+      .eq('tenant_id', params.tenantId)
+      .eq('analysis_scope', params.analysisScope)
+      .eq('artifact_version', headerRead.artifact_version)
+      .eq('cluster_id', normalizeText(headerRead.resolved_cluster_id || params.selectedClusterId))
+      .in('sender_key', activeSenderKeys)
+    activeCountQuery = applyFocusedSemanticFilters(activeCountQuery, params.semanticFocus)
+    const { count: activeCount, error: activeCountError } = await activeCountQuery
+    if (activeCountError) {
+      throw new Error(
+        `Failed to validate focused semantic active membership: ${activeCountError.message}`
+      )
+    }
+    if (activeCount !== activeSenderKeys.length) {
+      throw new Error(
+        `Focused semantic active membership mismatch: expected ${activeSenderKeys.length}, found ${activeCount || 0}.`
+      )
+    }
+  }
   const normalizedPageSize = Math.min(
     GMAIL_ARTIFACT_RUNTIME_SEED_PAGE_ROW_LIMIT,
     Math.max(1, normalizeInteger(params.pageSize))
   )
-  const totalPages = Math.max(1, Math.ceil(focusedTotalSenders / normalizedPageSize))
+  const totalPages = Math.max(1, Math.ceil(focusedActiveTotalSenders / normalizedPageSize))
   const normalizedPage = Math.min(Math.max(1, normalizeInteger(params.page)), totalPages)
   const rangeStart = (normalizedPage - 1) * normalizedPageSize
   const rangeEnd = rangeStart + normalizedPageSize - 1
@@ -4110,37 +4139,41 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
     family: 'focused_sender_workspace_page_seed_rows',
   })
 
-  let seedRowsQuery = params.supabase
-    .from('gmail_sender_workspace_seed_rows')
-    .select('*')
-    .eq('tenant_id', params.tenantId)
-    .eq('analysis_scope', params.analysisScope)
-    .eq('artifact_version', headerRead.artifact_version)
-    .eq('cluster_id', normalizeText(headerRead.resolved_cluster_id || params.selectedClusterId))
-  seedRowsQuery = applyFocusedSemanticFilters(seedRowsQuery, params.semanticFocus)
+  let seedRows: GmailSenderWorkspaceSeedRow[] = []
+  if (focusedActiveTotalSenders > 0) {
+    let seedRowsQuery = params.supabase
+      .from('gmail_sender_workspace_seed_rows')
+      .select('*')
+      .eq('tenant_id', params.tenantId)
+      .eq('analysis_scope', params.analysisScope)
+      .eq('artifact_version', headerRead.artifact_version)
+      .eq('cluster_id', normalizeText(headerRead.resolved_cluster_id || params.selectedClusterId))
+    seedRowsQuery = applyFocusedSemanticFilters(seedRowsQuery, params.semanticFocus)
+    if (activeSenderKeys) seedRowsQuery = seedRowsQuery.in('sender_key', activeSenderKeys)
+    seedRowsQuery =
+      params.sort === 'last_activity'
+        ? seedRowsQuery.order(primarySortColumn, {
+            ascending: params.direction === 'asc',
+            nullsFirst: params.direction === 'asc',
+          })
+        : seedRowsQuery.order(primarySortColumn, {
+            ascending: params.direction === 'asc',
+          })
+    if (primarySortColumn !== 'sender_key') {
+      seedRowsQuery = seedRowsQuery.order('sender_key', { ascending: true })
+    }
+    seedRowsQuery = seedRowsQuery
+      .order('default_rank', { ascending: true })
+      .range(rangeStart, rangeEnd)
 
-  seedRowsQuery =
-    params.sort === 'last_activity'
-      ? seedRowsQuery.order(primarySortColumn, {
-          ascending: params.direction === 'asc',
-          nullsFirst: params.direction === 'asc',
-        })
-      : seedRowsQuery.order(primarySortColumn, {
-          ascending: params.direction === 'asc',
-        })
-  if (primarySortColumn !== 'sender_key') {
-    seedRowsQuery = seedRowsQuery.order('sender_key', { ascending: true })
+    const { data: seedRowData, error: seedRowError } = await seedRowsQuery
+    if (seedRowError) {
+      throw new Error(
+        `Failed to load gmail_sender_workspace_seed_rows focused semantic page: ${seedRowError.message}`
+      )
+    }
+    seedRows = (seedRowData || []) as GmailSenderWorkspaceSeedRow[]
   }
-  seedRowsQuery = seedRowsQuery.order('default_rank', { ascending: true }).range(rangeStart, rangeEnd)
-
-  const { data: seedRowData, error: seedRowError } = await seedRowsQuery
-  if (seedRowError) {
-    throw new Error(
-      `Failed to load gmail_sender_workspace_seed_rows focused semantic page: ${seedRowError.message}`
-    )
-  }
-
-  const seedRows = (seedRowData || []) as GmailSenderWorkspaceSeedRow[]
   const previewFetchStrategy = 'sender_key' as const
   const maximumPreviewRows =
     uniqueStrings(seedRows.map((row) => row.sender_key)).length *
@@ -4170,6 +4203,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
     header_rows: headerRead.headers.length,
     seed_rows: seedRows.length,
     preview_rows: previewRows.length,
+    focused_active_total_senders: focusedActiveTotalSenders,
     actual_returned_rows: actualReturnedRowCount,
     query_concurrency: 1,
   })
@@ -4180,6 +4214,7 @@ export async function loadPublishedGmailSenderWorkspaceArtifactFocusedPage(param
     preview_index_rows: previewRows,
     preview_fetch_strategy: previewFetchStrategy,
     focused_total_senders: focusedTotalSenders,
+    focused_active_total_senders: focusedActiveTotalSenders,
     focused_capability_available: true,
   }
 }

@@ -855,6 +855,108 @@ export type GmailReviewUnitWindowProjectionData = {
   }>
 }
 
+export type GmailReviewUnitTimeContextChart = {
+  granularity: GmailReviewUnitWindowProjectionData['series'][number]['resolution']
+  items: Array<{
+    label: string
+    count: number
+    messageCount: number
+    contractVersion: 'ace046_phase3_timeline_v1'
+    metricFamily: 'sender_activity'
+    timeZone: string
+    bucketStartIso: string
+    bucketEndExclusiveIso: string
+  }>
+  workflowEntityTotal: number
+  activityTotal: number
+  coverageStartIso: string
+  coverageEndIso: string
+}
+
+function reviewUnitProjectionInteger(value: unknown): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? Math.max(0, Math.round(numeric)) : 0
+}
+
+/**
+ * Converts the platform-level entity/activity projection into the current Time Context chart
+ * contract. The projection is persisted with the review unit, so normal reads never rebuild
+ * membership or scan the backing source.
+ */
+export function buildGmailReviewUnitTimeContextChart(
+  projection: GmailReviewUnitWindowProjectionData | null | undefined
+): GmailReviewUnitTimeContextChart | null {
+  if (!projection || projection.series.length === 0) return null
+
+  const granularity = projection.series[0]?.resolution
+  if (!granularity || projection.series.some((bucket) => bucket.resolution !== granularity)) {
+    return null
+  }
+
+  const unitEntityTotal = reviewUnitProjectionInteger(projection.unit_entity_total)
+  const activeEntityTotal = reviewUnitProjectionInteger(projection.active_entity_total)
+  const activityTotal = reviewUnitProjectionInteger(projection.activity_total)
+  if (activeEntityTotal > unitEntityTotal) return null
+
+  const coverageStartMs = Date.parse(projection.coverage_start_at)
+  const coverageEndMs = Date.parse(projection.coverage_end_at)
+  if (!Number.isFinite(coverageStartMs) || !Number.isFinite(coverageEndMs)) return null
+
+  const timeZone = projection.time_zone || 'UTC'
+  const items = projection.series.map((bucket) => {
+    const datePart = bucket.bucket_start.slice(0, 10)
+    const bucketStart = new Date(`${datePart}T00:00:00.000Z`)
+    if (!Number.isFinite(bucketStart.getTime())) return null
+
+    const bucketEnd = new Date(bucketStart.getTime())
+    if (bucket.resolution === 'year') bucketEnd.setUTCFullYear(bucketEnd.getUTCFullYear() + 1)
+    else if (bucket.resolution === 'quarter') bucketEnd.setUTCMonth(bucketEnd.getUTCMonth() + 3)
+    else if (bucket.resolution === 'month') bucketEnd.setUTCMonth(bucketEnd.getUTCMonth() + 1)
+    else bucketEnd.setUTCDate(bucketEnd.getUTCDate() + 1)
+
+    const activeEntityCount = reviewUnitProjectionInteger(bucket.active_entity_count)
+    if (activeEntityCount > unitEntityTotal) return null
+
+    const label =
+      bucket.resolution === 'year'
+        ? new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'UTC' }).format(bucketStart)
+        : bucket.resolution === 'quarter'
+          ? `Q${Math.floor(bucketStart.getUTCMonth() / 3) + 1} ${bucketStart.getUTCFullYear()}`
+          : bucket.resolution === 'month'
+            ? new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'UTC',
+              }).format(bucketStart)
+            : new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                day: 'numeric',
+                timeZone: 'UTC',
+              }).format(bucketStart)
+
+    return {
+      label,
+      count: activeEntityCount,
+      messageCount: reviewUnitProjectionInteger(bucket.activity_count),
+      contractVersion: 'ace046_phase3_timeline_v1' as const,
+      metricFamily: 'sender_activity' as const,
+      timeZone,
+      bucketStartIso: bucketStart.toISOString(),
+      bucketEndExclusiveIso: bucketEnd.toISOString(),
+    }
+  })
+  if (items.some((item) => item == null)) return null
+
+  return {
+    granularity,
+    items: items as GmailReviewUnitTimeContextChart['items'],
+    workflowEntityTotal: activeEntityTotal,
+    activityTotal,
+    coverageStartIso: new Date(coverageStartMs).toISOString(),
+    coverageEndIso: new Date(coverageEndMs).toISOString(),
+  }
+}
+
 export type GmailMailboxIntelligenceData = {
   analysis_scope: OperationsAnalysisScope
   scope_ladder: GmailScopeLadderCounts
@@ -1144,6 +1246,18 @@ export type GmailSenderDistributionData = {
   senders: GmailSenderDistributionSender[]
   review_unit_projection?: GmailReviewUnitWindowProjectionData | null
   source: 'gmail_index_cache'
+}
+
+export function resolveGmailSenderDistributionAuthorityKeys(params: {
+  reviewUnitActive: boolean
+  responseReady: boolean
+  responseSenderKeys: string[]
+  fallbackSenderKeys: string[]
+}): string[] {
+  if (params.reviewUnitActive && params.responseReady) {
+    return params.responseSenderKeys
+  }
+  return params.fallbackSenderKeys
 }
 
 export type GmailConfirmationPreviewGroup = {
@@ -3022,6 +3136,8 @@ export function gmailSenderWorkspaceMatchesExpectedReviewUnitCount(params: {
   reviewUnitId?: string | null
   expectedReviewUnitSenderCount?: number | null
   actualReviewUnitSenderCount: number
+  reviewUnitProjection?: GmailReviewUnitWindowProjectionData | null
+  requiresWindowProjection?: boolean
 }): boolean {
   const reviewUnitId = params.reviewUnitId?.trim() || null
   const expectedReviewUnitSenderCount =
@@ -3030,10 +3146,20 @@ export function gmailSenderWorkspaceMatchesExpectedReviewUnitCount(params: {
       ? Math.max(0, Math.round(params.expectedReviewUnitSenderCount))
       : null
 
+  if (!reviewUnitId || expectedReviewUnitSenderCount == null) return true
+
+  const projection = params.reviewUnitProjection ?? null
+  if (!projection) {
+    return (
+      params.requiresWindowProjection !== true &&
+      params.actualReviewUnitSenderCount === expectedReviewUnitSenderCount
+    )
+  }
+
   return (
-    !reviewUnitId ||
-    expectedReviewUnitSenderCount == null ||
-    params.actualReviewUnitSenderCount === expectedReviewUnitSenderCount
+    projection.review_unit_id === reviewUnitId &&
+    projection.unit_entity_total === expectedReviewUnitSenderCount &&
+    projection.active_entity_total === params.actualReviewUnitSenderCount
   )
 }
 
@@ -3226,6 +3352,15 @@ export async function fetchGmailSenderWorkspace(params: {
           reviewUnitId: params.reviewUnitId,
           expectedReviewUnitSenderCount: params.expectedReviewUnitSenderCount,
           actualReviewUnitSenderCount: data.pagination.total_senders,
+          reviewUnitProjection: data.review_unit_projection,
+          requiresWindowProjection:
+            params.senderOverviewWindow != null ||
+            senderOverviewStart != null ||
+            senderOverviewEnd != null ||
+            (typeof params.timeContextBucketStartAt === 'string' &&
+              params.timeContextBucketStartAt.trim().length > 0) ||
+            (typeof params.timeContextBucketEndExclusiveAt === 'string' &&
+              params.timeContextBucketEndExclusiveAt.trim().length > 0),
         })
       ) {
         return false

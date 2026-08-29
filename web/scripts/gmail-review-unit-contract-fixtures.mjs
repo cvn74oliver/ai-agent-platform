@@ -15,7 +15,11 @@ import {
   gmailCleanupCopyForHumans,
   gmailCleanupReviewUnitDisplayLabel,
 } from '../src/lib/runtime/gmailSemanticPresentationPolicy.ts'
-import { gmailSenderWorkspaceMatchesExpectedReviewUnitCount } from '../src/lib/runtime/gmailCleanupWorkspace.ts'
+import {
+  buildGmailReviewUnitTimeContextChart,
+  gmailSenderWorkspaceMatchesExpectedReviewUnitCount,
+  resolveGmailSenderDistributionAuthorityKeys,
+} from '../src/lib/runtime/gmailCleanupWorkspace.ts'
 
 const CUTOFF = '2026-04-12T23:59:59.000Z'
 
@@ -96,6 +100,173 @@ assert.equal(
     actualReviewUnitSenderCount: 39,
   }),
   true
+)
+const windowedReviewUnitProjection = {
+  artifact_version: 'fixture-v1',
+  parent_id: 'parent:example',
+  review_unit_id: 'review-unit:example',
+  membership_hash: 'membership-hash',
+  projection_hash: 'projection-hash',
+  unit_entity_total: 39,
+  active_entity_total: 12,
+  activity_total: 17,
+  coverage_start_at: '2026-01-01T00:00:00.000Z',
+  coverage_end_at: '2026-04-01T00:00:00.000Z',
+  time_zone: 'UTC',
+  requested_window: { kind: 'preset', start: null, end: null },
+  effective_window: {
+    start: '2026-03-01T00:00:00.000Z',
+    end: '2026-04-01T00:00:00.000Z',
+    empty: false,
+    clamped_start: false,
+    clamped_end: false,
+  },
+  members: [],
+  series: [],
+}
+assert.equal(
+  gmailSenderWorkspaceMatchesExpectedReviewUnitCount({
+    reviewUnitId: 'review-unit:example',
+    expectedReviewUnitSenderCount: 39,
+    actualReviewUnitSenderCount: 39,
+    requiresWindowProjection: true,
+  }),
+  false
+)
+assert.equal(
+  gmailSenderWorkspaceMatchesExpectedReviewUnitCount({
+    reviewUnitId: 'review-unit:example',
+    expectedReviewUnitSenderCount: 39,
+    actualReviewUnitSenderCount: 12,
+    reviewUnitProjection: windowedReviewUnitProjection,
+    requiresWindowProjection: true,
+  }),
+  true
+)
+assert.equal(
+  gmailSenderWorkspaceMatchesExpectedReviewUnitCount({
+    reviewUnitId: 'review-unit:example',
+    expectedReviewUnitSenderCount: 39,
+    actualReviewUnitSenderCount: 39,
+    reviewUnitProjection: windowedReviewUnitProjection,
+    requiresWindowProjection: true,
+  }),
+  false
+)
+assert.deepEqual(
+  resolveGmailSenderDistributionAuthorityKeys({
+    reviewUnitActive: true,
+    responseReady: true,
+    responseSenderKeys: ['sender-1', 'sender-2', 'sender-3'],
+    fallbackSenderKeys: ['sender-1'],
+  }),
+  ['sender-1', 'sender-2', 'sender-3']
+)
+assert.deepEqual(
+  resolveGmailSenderDistributionAuthorityKeys({
+    reviewUnitActive: true,
+    responseReady: false,
+    responseSenderKeys: ['stale-sender'],
+    fallbackSenderKeys: ['page-sender'],
+  }),
+  ['page-sender']
+)
+assert.deepEqual(
+  resolveGmailSenderDistributionAuthorityKeys({
+    reviewUnitActive: false,
+    responseReady: true,
+    responseSenderKeys: ['broad-response-sender'],
+    fallbackSenderKeys: ['workflow-sender'],
+  }),
+  ['workflow-sender']
+)
+
+const reviewUnitTimeContextChart = buildGmailReviewUnitTimeContextChart({
+  artifact_version: 'fixture-v1',
+  parent_id: 'semantic.marketing_subscriptions',
+  review_unit_id: 'family:marketing_candidate_editorial_content',
+  membership_hash: 'membership-hash',
+  projection_hash: 'projection-hash',
+  unit_entity_total: 3,
+  active_entity_total: 2,
+  activity_total: 5,
+  coverage_start_at: '2026-04-01T00:00:00.000Z',
+  coverage_end_at: '2026-04-02T23:59:59.999Z',
+  time_zone: 'UTC',
+  requested_window: { kind: 'all_indexed', start: null, end: null },
+  effective_window: {
+    start: '2026-04-01T00:00:00.000Z',
+    end: '2026-04-02T23:59:59.999Z',
+    empty: false,
+    clamped_start: false,
+    clamped_end: false,
+  },
+  members: [
+    { entity_id: 'sender-1', activity_count: 3, all_indexed_activity_count: 3 },
+    { entity_id: 'sender-2', activity_count: 2, all_indexed_activity_count: 2 },
+  ],
+  series: [
+    {
+      resolution: 'day',
+      bucket_start: '2026-04-01',
+      active_entity_count: 1,
+      activity_count: 3,
+    },
+    {
+      resolution: 'day',
+      bucket_start: '2026-04-02',
+      active_entity_count: 2,
+      activity_count: 2,
+    },
+  ],
+})
+assert.equal(reviewUnitTimeContextChart?.granularity, 'day')
+assert.equal(reviewUnitTimeContextChart?.workflowEntityTotal, 2)
+assert.equal(reviewUnitTimeContextChart?.activityTotal, 5)
+assert.deepEqual(
+  reviewUnitTimeContextChart?.items.map((item) => ({
+    label: item.label,
+    count: item.count,
+    messageCount: item.messageCount,
+  })),
+  [
+    { label: 'Apr 1', count: 1, messageCount: 3 },
+    { label: 'Apr 2', count: 2, messageCount: 2 },
+  ]
+)
+assert.equal(
+  buildGmailReviewUnitTimeContextChart({
+    ...reviewUnitTimeContextChart,
+    artifact_version: 'fixture-v1',
+    parent_id: 'semantic.marketing_subscriptions',
+    review_unit_id: 'family:marketing_candidate_editorial_content',
+    membership_hash: 'membership-hash',
+    projection_hash: 'projection-hash',
+    unit_entity_total: 3,
+    active_entity_total: 2,
+    activity_total: 5,
+    coverage_start_at: '2026-04-01T00:00:00.000Z',
+    coverage_end_at: '2026-04-02T23:59:59.999Z',
+    time_zone: 'UTC',
+    requested_window: { kind: 'all_indexed', start: null, end: null },
+    effective_window: {
+      start: '2026-04-01T00:00:00.000Z',
+      end: '2026-04-02T23:59:59.999Z',
+      empty: false,
+      clamped_start: false,
+      clamped_end: false,
+    },
+    members: [],
+    series: [
+      {
+        resolution: 'day',
+        bucket_start: '2026-04-01',
+        active_entity_count: 4,
+        activity_count: 5,
+      },
+    ],
+  }),
+  null
 )
 
 function seeds(count, options = {}) {

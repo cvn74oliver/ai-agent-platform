@@ -70,6 +70,7 @@ import {
   GMAIL_REVIEW_UNIT_PROJECTION_DECISION_SUBJECT_TYPE,
   GMAIL_REVIEW_UNIT_PROJECTION_WORKFLOW_ID,
   GMAIL_REVIEW_UNIT_PROJECTION_WORKSPACE_TYPE,
+  materializeGmailReviewUnitWindowProjections,
 } from '@/lib/integrations/gmail/gmailReviewUnitWindowProjection'
 import {
   buildCleanupGroupFutureCanonicalPublishIdentity,
@@ -80,7 +81,11 @@ import {
   gmailPressureTrendArtifactBucketFamilyCandidates,
   gmailPressureTrendExpectedGroupingForWindow,
 } from '@/lib/integrations/gmail/gmailPressureTrendArtifacts'
-import { resolveReviewUnitWindowWorkingEntityIds } from '@/lib/runtime/reviewUnitWindowProjection'
+import {
+  readReviewUnitWindowProjectionMaterialization,
+  resolveReviewUnitWindowWorkingEntityIds,
+  type ReviewUnitProjectionMaterialization,
+} from '@/lib/runtime/reviewUnitWindowProjection'
 import {
   DEFAULT_GMAIL_SENDER_OVERVIEW_WORKSPACE_PAGE_SIZE,
   GMAIL_DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
@@ -231,11 +236,22 @@ type ParentSenderUniverseCacheEntry = {
 
 const GMAIL_DERIVED_WORKSPACE_CACHE_TTL_MS = 1000 * 60 * 10
 const GMAIL_REVIEW_UNIT_PROJECTION_CACHE_TTL_MS = 1000 * 60 * 10
+const GMAIL_LEGACY_REVIEW_UNIT_ACTIVITY_ROW_LIMIT = 25_000
+const GMAIL_LEGACY_REVIEW_UNIT_ACTIVITY_PAGE_SIZE = 1000
+const GMAIL_LEGACY_REVIEW_UNIT_SENDER_BATCH_SIZE = 50
+const GMAIL_LEGACY_REVIEW_UNIT_SEED_PAGE_SIZE = 200
 const gmailReviewUnitProjectionCache = new Map<
   string,
   {
     expiresAtMs: number
     promise: Promise<WorkspaceReviewUnitWindowProjectionRead>
+  }
+>()
+const gmailLegacyReviewUnitProjectionCache = new Map<
+  string,
+  {
+    expiresAtMs: number
+    promise: Promise<ReviewUnitProjectionMaterialization>
   }
 >()
 const GMAIL_SENDER_WORKSPACE_FAST_PATH_PAGE_SIZE = 5000
@@ -2419,6 +2435,338 @@ async function loadCachedReviewUnitWindowProjection(params: {
   return promise
 }
 
+async function loadCachedLegacyReviewUnitProjectionMaterialization(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailAnalysisScope
+  parentId: string
+  artifactVersion: string
+  reviewUnitId: string
+  seedRows: GmailSenderWorkspaceSeedRow[]
+}): Promise<ReviewUnitProjectionMaterialization> {
+  const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
+  const parentId = artifactText(params.parentId)
+  const artifactVersion = artifactText(params.artifactVersion)
+  const reviewUnitId = artifactText(params.reviewUnitId)
+  const senderKeys = params.seedRows
+    .map((row) => artifactText(row.sender_key).toLowerCase())
+    .filter(Boolean)
+    .sort()
+  const uniqueSenderKeys = new Set(senderKeys)
+  if (
+    !parentId ||
+    !artifactVersion ||
+    !reviewUnitId ||
+    senderKeys.length === 0 ||
+    senderKeys.length > MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE ||
+    uniqueSenderKeys.size !== senderKeys.length
+  ) {
+    throw new Error('Legacy review-unit projection requires exact bounded membership.')
+  }
+
+  const expectedActivityRows = params.seedRows.reduce(
+    (sum, row) => sum + artifactInteger(row.cleanup_group_message_count),
+    0
+  )
+  if (expectedActivityRows > GMAIL_LEGACY_REVIEW_UNIT_ACTIVITY_ROW_LIMIT) {
+    throw new Error('Legacy review-unit activity exceeds the bounded compatibility budget.')
+  }
+
+  const key = [
+    params.tenantId,
+    analysisScope,
+    parentId,
+    artifactVersion,
+    reviewUnitId,
+    senderKeys.join('\u0000'),
+  ].join('::')
+  const cached = gmailLegacyReviewUnitProjectionCache.get(key)
+  if (cached && cached.expiresAtMs > Date.now()) return cached.promise
+
+  const promise = (async () => {
+    const coverage = await loadGmailMailboxIndexCoverageForTenant({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+    })
+    if (!coverage.indexed_date_span_start || !coverage.indexed_date_span_end) {
+      throw new Error('Indexed coverage is unavailable for legacy review-unit projection.')
+    }
+
+    let loadedActivityRows = 0
+    const bundle = await materializeGmailReviewUnitWindowProjections({
+      tenantId: params.tenantId,
+      workspaceId: params.tenantId,
+      analysisScope,
+      artifactVersion,
+      indexedCoverageStartAt: coverage.indexed_date_span_start,
+      indexedCoverageEndAt: coverage.indexed_date_span_end,
+      timeZone: 'UTC',
+      seedRows: senderKeys.map((senderKey) => ({
+        tenant_id: params.tenantId,
+        analysis_scope: analysisScope,
+        cluster_id: parentId,
+        artifact_version: artifactVersion,
+        review_unit_id: reviewUnitId,
+        sender_key: senderKey,
+      })),
+      senderBatchSize: GMAIL_LEGACY_REVIEW_UNIT_SENDER_BATCH_SIZE,
+      loadMessagesForSenderKeys: async (batchSenderKeys) => {
+        const rows: Array<{
+          message_id: string
+          sender: string | null
+          internal_date_ms: number | null
+          date: string | null
+          is_in_inbox: boolean | null
+          is_unread: boolean | null
+          is_starred: boolean | null
+          is_important: boolean | null
+        }> = []
+        for (let offset = 0; ; offset += GMAIL_LEGACY_REVIEW_UNIT_ACTIVITY_PAGE_SIZE) {
+          const { data, error } = await params.supabase
+            .from('gmail_messages')
+            .select(
+              'message_id,sender,internal_date_ms,date,is_in_inbox,is_unread,is_starred,is_important'
+            )
+            .eq('tenant_id', params.tenantId)
+            .in('sender', batchSenderKeys)
+            .not('internal_date_ms', 'is', null)
+            .gt('internal_date_ms', 0)
+            .order('internal_date_ms', { ascending: true })
+            .order('message_id', { ascending: true })
+            .range(offset, offset + GMAIL_LEGACY_REVIEW_UNIT_ACTIVITY_PAGE_SIZE - 1)
+          if (error) {
+            throw new Error(`Failed to read bounded legacy review-unit activity: ${error.message}`)
+          }
+          const batch = Array.isArray(data) ? (data as typeof rows) : []
+          loadedActivityRows += batch.length
+          if (loadedActivityRows > GMAIL_LEGACY_REVIEW_UNIT_ACTIVITY_ROW_LIMIT) {
+            throw new Error('Legacy review-unit activity exceeded its runtime row limit.')
+          }
+          rows.push(...batch)
+          if (batch.length < GMAIL_LEGACY_REVIEW_UNIT_ACTIVITY_PAGE_SIZE) break
+        }
+        return rows.map((row) => ({
+          sender_key: artifactText(row.sender).toLowerCase(),
+          internal_date_ms: row.internal_date_ms,
+          date: row.date,
+          is_in_inbox: row.is_in_inbox === true,
+          is_unread: row.is_unread === true,
+          is_starred: row.is_starred === true,
+          is_important: row.is_important === true,
+        }))
+      },
+    })
+    const manifest = bundle.manifests.find(
+      (entry) => entry.parentId === parentId && entry.reviewUnitId === reviewUnitId
+    )
+    const validation = bundle.validations.find(
+      (entry) => entry.unitEntityTotal === senderKeys.length && entry.errors.length === 0
+    )
+    if (!manifest || !validation || bundle.manifests.length !== 1 || bundle.validations.length !== 1) {
+      throw new Error('Legacy review-unit projection did not materialize one exact unit.')
+    }
+    const activityBuckets = bundle.activityBuckets.filter(
+      (entry) => entry.parentId === parentId && entry.reviewUnitId === reviewUnitId
+    )
+    return { manifest, activityBuckets, validation }
+  })().catch((error) => {
+    gmailLegacyReviewUnitProjectionCache.delete(key)
+    throw error
+  })
+
+  gmailLegacyReviewUnitProjectionCache.set(key, {
+    expiresAtMs: Date.now() + GMAIL_REVIEW_UNIT_PROJECTION_CACHE_TTL_MS,
+    promise,
+  })
+  return promise
+}
+
+async function loadLegacyReviewUnitWindowProjection(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailAnalysisScope
+  parentId: string
+  artifactVersion: string
+  reviewUnitId: string
+  seedRows: GmailSenderWorkspaceSeedRow[]
+  window: GmailSenderOverviewWindow | null
+  start: string | null
+  end: string | null
+}): Promise<GmailReviewUnitWindowProjectionData> {
+  const kind = reviewUnitProjectionWindowKind(params.window)
+  const explicitHalfOpenEnd = inclusiveDateToHalfOpenEnd(params.end)
+  if (kind === 'custom' && (!params.start || !params.end || !explicitHalfOpenEnd)) {
+    throw new Error('Legacy Custom review-unit window requires explicit valid bounds.')
+  }
+
+  const materialization = await loadCachedLegacyReviewUnitProjectionMaterialization(params)
+  let requestedStartAt: string | null = null
+  let requestedEndAt: string | null = null
+  if (kind !== 'all_indexed') {
+    if (params.start && params.end && explicitHalfOpenEnd) {
+      requestedStartAt = `${params.start.slice(0, 10)}T00:00:00.000Z`
+      requestedEndAt = `${explicitHalfOpenEnd.slice(0, 10)}T00:00:00.000Z`
+    } else if (kind === 'preset') {
+      const coverageEndMs = Date.parse(materialization.manifest.coverage.endAt)
+      const presetDays =
+        params.window === 'last_year'
+          ? 365
+          : params.window === 'last_quarter'
+            ? 92
+            : params.window === 'last_month'
+              ? 31
+              : params.window === 'last_week'
+                ? 7
+                : params.window === 'last_day'
+                  ? 1
+                  : null
+      if (!Number.isFinite(coverageEndMs) || presetDays == null) {
+        throw new Error('Legacy review-unit preset window could not resolve indexed coverage bounds.')
+      }
+      requestedStartAt = new Date(coverageEndMs - presetDays * 24 * 60 * 60 * 1000).toISOString()
+      requestedEndAt = materialization.manifest.coverage.endAt
+    }
+  }
+  const read = readReviewUnitWindowProjectionMaterialization({
+    materialization,
+    request: {
+      kind,
+      presetKey: kind === 'preset' ? params.window : null,
+      requestedStartAt,
+      requestedEndAt,
+      timeZone: materialization.manifest.coverage.timeZone,
+    },
+  })
+  const manifest = materialization.manifest
+  return {
+    artifact_version: manifest.artifactVersion,
+    parent_id: manifest.parentId,
+    review_unit_id: manifest.reviewUnitId,
+    membership_hash: manifest.membershipHash,
+    projection_hash: manifest.projectionHash,
+    unit_entity_total: read.unitEntityTotal,
+    active_entity_total: read.activeEntityTotal,
+    activity_total: read.activityTotal,
+    coverage_start_at: manifest.coverage.startAt,
+    coverage_end_at: manifest.coverage.endAt,
+    time_zone: manifest.coverage.timeZone,
+    requested_window: {
+      kind,
+      start: requestedStartAt?.slice(0, 10) || null,
+      end: requestedEndAt?.slice(0, 10) || null,
+    },
+    effective_window: {
+      start: read.window.effectiveStartAt,
+      end: read.window.effectiveEndAt,
+      empty: read.window.empty,
+      clamped_start: read.window.clampedStart,
+      clamped_end: read.window.clampedEnd,
+    },
+    members: read.members.map((member) => ({
+      entity_id: member.entityId,
+      activity_count: member.activityCount,
+      all_indexed_activity_count: member.allIndexedActivityCount,
+    })),
+    series: read.series.map((bucket) => ({
+      resolution: bucket.resolution,
+      bucket_start: bucket.bucketStart,
+      active_entity_count: bucket.activeEntityCount,
+      activity_count: bucket.activityCount,
+    })),
+  }
+}
+
+async function loadExactReviewUnitSeedRowsForLegacyProjection(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailAnalysisScope
+  selectedClusterId: string
+  reviewUnitId: string
+}): Promise<GmailSenderWorkspaceSeedRow[]> {
+  const exactRead = await loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+    selectedClusterId: params.selectedClusterId,
+    page: 1,
+    pageSize: MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE,
+    reviewUnitId: params.reviewUnitId,
+    sort: 'message_count',
+    direction: 'desc',
+  })
+  if (
+    !exactRead.focused_capability_available ||
+    exactRead.focused_request_valid !== true
+  ) {
+    throw new Error('The selected review unit is stale or unavailable for this artifact.')
+  }
+  const exactSenderCount = exactRead.focused_total_senders
+  if (
+    exactSenderCount < 1 ||
+    exactSenderCount > MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE ||
+    exactRead.seed_rows.length !== exactSenderCount
+  ) {
+    throw new Error('Legacy review-unit membership is incomplete or exceeds its bounded limit.')
+  }
+  const senderKeys = new Set(
+    exactRead.seed_rows.map((row) => artifactText(row.sender_key).toLowerCase()).filter(Boolean)
+  )
+  if (senderKeys.size !== exactSenderCount) {
+    throw new Error('Legacy review-unit membership contains missing or duplicate entity IDs.')
+  }
+  return exactRead.seed_rows
+}
+
+async function loadExactSemanticFocusSeedRowsForLegacyProjection(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailAnalysisScope
+  selectedClusterId: string
+  semanticFocus: GmailSenderWorkspaceSemanticFocus
+  expectedSenderCount: number
+}): Promise<GmailSenderWorkspaceSeedRow[]> {
+  if (
+    params.expectedSenderCount < 1 ||
+    params.expectedSenderCount > MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE
+  ) {
+    throw new Error('Legacy semantic review-unit membership exceeds its bounded limit.')
+  }
+  const totalPages = Math.ceil(
+    params.expectedSenderCount / GMAIL_LEGACY_REVIEW_UNIT_SEED_PAGE_SIZE
+  )
+  const seedRows: GmailSenderWorkspaceSeedRow[] = []
+  for (let page = 1; page <= totalPages; page += 1) {
+    const focusedRead = await loadPublishedGmailSenderWorkspaceArtifactFocusedPage({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+      analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+      selectedClusterId: params.selectedClusterId,
+      page,
+      pageSize: GMAIL_LEGACY_REVIEW_UNIT_SEED_PAGE_SIZE,
+      semanticFocus: params.semanticFocus,
+      sort: 'message_count',
+      direction: 'desc',
+    })
+    if (
+      !focusedRead.focused_capability_available ||
+      focusedRead.focused_total_senders !== params.expectedSenderCount
+    ) {
+      throw new Error('Legacy semantic review-unit membership changed during its bounded read.')
+    }
+    seedRows.push(...focusedRead.seed_rows)
+  }
+  const senderKeys = new Set(
+    seedRows.map((row) => artifactText(row.sender_key).toLowerCase()).filter(Boolean)
+  )
+  if (
+    seedRows.length !== params.expectedSenderCount ||
+    senderKeys.size !== params.expectedSenderCount
+  ) {
+    throw new Error('Legacy semantic review-unit membership is incomplete or duplicated.')
+  }
+  return seedRows
+}
+
 function reviewUnitProjectionTimeline(
   projection: GmailReviewUnitWindowProjectionData,
   analysisScope: GmailAnalysisScope
@@ -2731,20 +3079,54 @@ async function loadSenderDistributionFromArtifact(params: {
           start: projectionRequest.start,
           end: projectionRequest.end,
         })
-      } catch (error) {
-        console.warn('[integrations/gmail/review-unit-projection]', {
-          action: 'sender_distribution',
+      } catch (persistedProjectionError) {
+        console.warn('[integrations/gmail/review-unit-projection-compatibility]', {
+          action: 'fallback_to_bounded_materialization',
           analysis_scope: params.analysisScope,
           parent_id: resolvedClusterId,
           artifact_version: artifactVersion,
           review_unit_id: params.reviewUnitId,
           window: params.senderOverviewWindow ?? 'all_indexed',
-          error: error instanceof Error ? error.message : 'unknown_projection_error',
+          persisted_projection_error:
+            persistedProjectionError instanceof Error
+              ? persistedProjectionError.message
+              : 'unknown_projection_error',
         })
-        return fail(503, 'The selected review-unit window is unavailable.', {
-          reason: 'review_unit_projection_unavailable',
-          retryAfterMs: null,
-        })
+        try {
+          projection = await loadLegacyReviewUnitWindowProjection({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            analysisScope: params.analysisScope,
+            parentId: resolvedClusterId,
+            artifactVersion,
+            reviewUnitId: params.reviewUnitId,
+            seedRows: exactSeedRows,
+            window: projectionRequest.window,
+            start: projectionRequest.start,
+            end: projectionRequest.end,
+          })
+        } catch (compatibilityProjectionError) {
+          console.warn('[integrations/gmail/review-unit-projection]', {
+            action: 'sender_distribution',
+            analysis_scope: params.analysisScope,
+            parent_id: resolvedClusterId,
+            artifact_version: artifactVersion,
+            review_unit_id: params.reviewUnitId,
+            window: params.senderOverviewWindow ?? 'all_indexed',
+            persisted_projection_error:
+              persistedProjectionError instanceof Error
+                ? persistedProjectionError.message
+                : 'unknown_projection_error',
+            compatibility_projection_error:
+              compatibilityProjectionError instanceof Error
+                ? compatibilityProjectionError.message
+                : 'unknown_projection_error',
+          })
+          return fail(503, 'The selected review-unit window is unavailable.', {
+            reason: 'review_unit_projection_unavailable',
+            retryAfterMs: null,
+          })
+        }
       }
       const projectionMembers = new Map(
         projection.members.map((member) => [member.entity_id, member] as const)
@@ -2862,6 +3244,117 @@ async function loadSenderDistributionFromArtifact(params: {
   const filteredRows = seedRows.filter((row) =>
     senderDistributionSeedRowMatchesSemanticFocus(row, params.semanticFocus)
   )
+  if (params.reviewUnitId) {
+    const projectionRequest = resolveReviewUnitProjectionRequest(params)
+    if (!projectionRequest || !params.semanticFocus || filteredRows.length === 0) {
+      return fail(409, 'The selected review unit is stale or invalid for this artifact.', {
+        reason: 'invalid_review_unit_id',
+      })
+    }
+
+    let projection: GmailReviewUnitWindowProjectionData
+    try {
+      projection = await loadLegacyReviewUnitWindowProjection({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: params.analysisScope,
+        parentId: resolvedClusterId,
+        artifactVersion,
+        reviewUnitId: params.reviewUnitId,
+        seedRows: filteredRows,
+        window: projectionRequest.window,
+        start: projectionRequest.start,
+        end: projectionRequest.end,
+      })
+    } catch (error) {
+      console.warn('[integrations/gmail/legacy-review-unit-projection]', {
+        action: 'sender_distribution',
+        analysis_scope: params.analysisScope,
+        parent_id: resolvedClusterId,
+        artifact_version: artifactVersion,
+        review_unit_id: params.reviewUnitId,
+        window: params.senderOverviewWindow ?? 'all_indexed',
+        error: error instanceof Error ? error.message : 'unknown_projection_error',
+      })
+      return fail(503, 'The selected review-unit window is unavailable.', {
+        reason: 'review_unit_projection_unavailable',
+        retryAfterMs: null,
+      })
+    }
+
+    const projectionMembers = new Map(
+      projection.members.map((member) => [member.entity_id, member] as const)
+    )
+    let workingEntityIds: string[]
+    try {
+      workingEntityIds = resolveReviewUnitWindowWorkingEntityIds({
+        windowKind: projection.requested_window.kind,
+        unitEntityTotal: projection.unit_entity_total,
+        activeEntityTotal: projection.active_entity_total,
+        members: projection.members.map((member) => ({
+          entityId: member.entity_id,
+          activityCount: member.activity_count,
+        })),
+      })
+    } catch (error) {
+      console.warn('[integrations/gmail/legacy-review-unit-projection]', {
+        action: 'resolve_sender_distribution_working_set',
+        error: error instanceof Error ? error.message : 'unknown_working_set_error',
+      })
+      return fail(409, 'The selected review-unit projection has inconsistent window membership.', {
+        reason: 'review_unit_projection_membership_mismatch',
+      })
+    }
+
+    const workingEntityIdSet = new Set(workingEntityIds)
+    if (
+      projection.unit_entity_total !== filteredRows.length ||
+      filteredRows.some((row) => !projectionMembers.has(row.sender_key))
+    ) {
+      return fail(409, 'The selected review-unit projection does not match its fixed membership.', {
+        reason: 'review_unit_projection_membership_mismatch',
+      })
+    }
+
+    const legacyDistributionSenders = filteredRows
+      .filter((row) => workingEntityIdSet.has(row.sender_key))
+      .map((row) => {
+        const sender = materializeArtifactSenderDistributionSender(row)
+        const member = projectionMembers.get(row.sender_key)
+        return {
+          ...sender,
+          cleanup_group_message_count: member?.activity_count ?? 0,
+          all_indexed_cleanup_group_message_count: member?.all_indexed_activity_count ?? 0,
+        }
+      })
+    if (legacyDistributionSenders.length !== workingEntityIds.length) {
+      return fail(409, 'The selected review-unit working set could not be reconciled.', {
+        reason: 'review_unit_projection_membership_mismatch',
+      })
+    }
+
+    return {
+      ok: true,
+      publication: headerRead.publication,
+      data: {
+        analysis_scope: normalizeMailboxProfileScope(params.analysisScope),
+        selected_cluster: {
+          cluster_id: params.selectedCluster.cluster_id,
+          canonical_cluster_id:
+            params.selectedCluster.canonical_cluster_id || params.selectedCluster.cluster_id,
+          legacy_cluster_ids: params.selectedCluster.legacy_cluster_ids || [],
+          cluster_type: params.selectedCluster.cluster_type,
+          title: params.selectedCluster.title,
+          query: params.selectedCluster.query,
+          message_count: projection.activity_total,
+          sender_count: workingEntityIds.length,
+        },
+        senders: legacyDistributionSenders,
+        review_unit_projection: projection,
+        source: 'gmail_index_cache',
+      },
+    }
+  }
   const distributionSenders = filteredRows.map((row) =>
     materializeArtifactSenderDistributionSender(row)
   )
@@ -5312,6 +5805,8 @@ async function loadSenderWorkspaceFromArtifact(params: {
     const artifactReadStartedAt = Date.now()
     let focusedSemanticArtifactPageRead = false
     let focusedReviewUnitArtifactPageRead = false
+    let legacyReviewUnitArtifactPageRead = false
+    let legacyReviewUnitExactSeedRows: GmailSenderWorkspaceSeedRow[] | null = null
     let artifactRead = focusedReviewUnitArtifactPageRequested
       ? await (async () => {
           const reviewUnitRead = await loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage({
@@ -5413,27 +5908,144 @@ async function loadSenderWorkspaceFromArtifact(params: {
         publishedVersion: artifactRead.publication?.published_version ?? null,
       })
     }
+    if (reviewUnitId && !focusedReviewUnitArtifactPageRead) {
+      if (!semanticFocus || !focusedSemanticArtifactPageRead) {
+        return fail(409, 'This older cleanup artifact requires an exact child identity.', {
+          reason: 'legacy_review_unit_focus_required',
+          retryAfterMs: null,
+        })
+      }
+      const legacyAnalytics = parseArtifactAnalytics(artifactRead.selected_header)
+      const legacyManifestEntry =
+        legacyAnalytics.semantic_rollup?.review_unit_plan?.units.find(
+          (unit) => unit.unit_id === reviewUnitId
+        ) || null
+      const legacyFocusedTotal =
+        'focused_total_senders' in artifactRead &&
+        typeof artifactRead.focused_total_senders === 'number'
+          ? artifactRead.focused_total_senders
+          : null
+      if (
+        !legacyManifestEntry ||
+        legacyManifestEntry.sender_count < 1 ||
+        legacyManifestEntry.sender_count > MAX_GMAIL_SENDER_WORKSPACE_PAGE_SIZE ||
+        legacyManifestEntry.sender_count !== legacyFocusedTotal
+      ) {
+        return fail(409, 'The selected cleanup child does not match the published artifact.', {
+          reason: 'legacy_review_unit_manifest_mismatch',
+          retryAfterMs: null,
+        })
+      }
+      try {
+        legacyReviewUnitExactSeedRows =
+          await loadExactSemanticFocusSeedRowsForLegacyProjection({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            analysisScope: params.analysisScope,
+            selectedClusterId: artifactSelectedClusterId,
+            semanticFocus,
+            expectedSenderCount: legacyManifestEntry.sender_count,
+          })
+        legacyReviewUnitArtifactPageRead = true
+      } catch (error) {
+        console.warn('[integrations/gmail/legacy-review-unit-membership]', {
+          action: 'sender_workspace',
+          analysis_scope: params.analysisScope,
+          review_unit_id: reviewUnitId,
+          error: error instanceof Error ? error.message : 'unknown_membership_error',
+        })
+        return fail(503, 'The selected cleanup child membership is unavailable.', {
+          reason: 'legacy_review_unit_membership_unavailable',
+          retryAfterMs: null,
+        })
+      }
+    }
     const clusterTotalSenders = artifactInteger(artifactRead.selected_header.sender_count)
     let reviewUnitProjection: GmailReviewUnitWindowProjectionData | null = null
     let reviewUnitWorkingEntityIds: string[] | null = null
-    if (focusedReviewUnitArtifactPageRead && reviewUnitId && artifactRead.artifact_version) {
+    if (
+      (focusedReviewUnitArtifactPageRead || legacyReviewUnitArtifactPageRead) &&
+      reviewUnitId &&
+      artifactRead.artifact_version
+    ) {
       const projectionRequest = resolveReviewUnitProjectionRequest(params)
       if (!projectionRequest) {
         return fail(409, 'The selected Time Context period has invalid projection bounds.', {
           reason: 'invalid_time_context_bucket_bounds',
         })
       }
-      reviewUnitProjection = await loadCachedReviewUnitWindowProjection({
-        supabase: params.supabase,
-        tenantId: params.tenantId,
-        analysisScope: params.analysisScope,
-        parentId: artifactText(artifactRead.selected_header.cluster_id) || artifactSelectedClusterId,
-        artifactVersion: artifactRead.artifact_version,
-        reviewUnitId,
-        window: projectionRequest.window,
-        start: projectionRequest.start,
-        end: projectionRequest.end,
-      })
+      const projectionParentId =
+        artifactText(artifactRead.selected_header.cluster_id) || artifactSelectedClusterId
+      try {
+        reviewUnitProjection = await loadCachedReviewUnitWindowProjection({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          analysisScope: params.analysisScope,
+          parentId: projectionParentId,
+          artifactVersion: artifactRead.artifact_version,
+          reviewUnitId,
+          window: projectionRequest.window,
+          start: projectionRequest.start,
+          end: projectionRequest.end,
+        })
+      } catch (persistedProjectionError) {
+        console.warn('[integrations/gmail/review-unit-projection-compatibility]', {
+          action: 'sender_workspace_fallback_to_bounded_materialization',
+          analysis_scope: params.analysisScope,
+          parent_id: projectionParentId,
+          artifact_version: artifactRead.artifact_version,
+          review_unit_id: reviewUnitId,
+          window: params.senderOverviewWindow ?? 'all_indexed',
+          persisted_projection_error:
+            persistedProjectionError instanceof Error
+              ? persistedProjectionError.message
+              : 'unknown_projection_error',
+        })
+        try {
+          const exactSeedRows = legacyReviewUnitArtifactPageRead
+            ? legacyReviewUnitExactSeedRows || []
+            : await loadExactReviewUnitSeedRowsForLegacyProjection({
+                supabase: params.supabase,
+                tenantId: params.tenantId,
+                analysisScope: params.analysisScope,
+                selectedClusterId: artifactSelectedClusterId,
+                reviewUnitId,
+              })
+          reviewUnitProjection = await loadLegacyReviewUnitWindowProjection({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            analysisScope: params.analysisScope,
+            parentId: projectionParentId,
+            artifactVersion: artifactRead.artifact_version,
+            reviewUnitId,
+            seedRows: exactSeedRows,
+            window: projectionRequest.window,
+            start: projectionRequest.start,
+            end: projectionRequest.end,
+          })
+        } catch (compatibilityProjectionError) {
+          console.warn('[integrations/gmail/review-unit-projection]', {
+            action: 'sender_workspace',
+            analysis_scope: params.analysisScope,
+            parent_id: projectionParentId,
+            artifact_version: artifactRead.artifact_version,
+            review_unit_id: reviewUnitId,
+            window: params.senderOverviewWindow ?? 'all_indexed',
+            persisted_projection_error:
+              persistedProjectionError instanceof Error
+                ? persistedProjectionError.message
+                : 'unknown_projection_error',
+            compatibility_projection_error:
+              compatibilityProjectionError instanceof Error
+                ? compatibilityProjectionError.message
+                : 'unknown_projection_error',
+          })
+          return fail(503, 'The selected review-unit window is unavailable.', {
+            reason: 'review_unit_projection_unavailable',
+            retryAfterMs: null,
+          })
+        }
+      }
       try {
         reviewUnitWorkingEntityIds = resolveReviewUnitWindowWorkingEntityIds({
           windowKind: reviewUnitProjection.requested_window.kind,
@@ -5455,23 +6067,54 @@ async function loadSenderWorkspaceFromArtifact(params: {
       }
       if (reviewUnitProjection.requested_window.kind !== 'all_indexed') {
         const activeReadStartedAt = Date.now()
-        artifactRead = await loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage({
-          supabase: params.supabase,
-          tenantId: params.tenantId,
-          analysisScope: normalizeMailboxProfileScope(params.analysisScope),
-          selectedClusterId: artifactSelectedClusterId,
-          page: params.page,
-          pageSize: params.pageSize,
-          reviewUnitId,
-          sort: params.sort,
-          direction: params.direction,
-          includeFocusedSenderKeys: params.includeClusterSenderKeys === true,
-          activeSenderKeys: reviewUnitWorkingEntityIds,
-        })
+        const legacySemanticFocus = legacyReviewUnitArtifactPageRead ? semanticFocus : null
+        if (legacyReviewUnitArtifactPageRead && !legacySemanticFocus) {
+          return fail(409, 'This older cleanup artifact requires an exact child identity.', {
+            reason: 'legacy_review_unit_focus_required',
+            retryAfterMs: null,
+          })
+        }
+        artifactRead = legacyReviewUnitArtifactPageRead
+          ? await loadPublishedGmailSenderWorkspaceArtifactFocusedPage({
+              supabase: params.supabase,
+              tenantId: params.tenantId,
+              analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+              selectedClusterId: artifactSelectedClusterId,
+              page: params.page,
+              pageSize: params.pageSize,
+              semanticFocus: legacySemanticFocus as GmailSenderWorkspaceSemanticFocus,
+              sort: params.sort,
+              direction: params.direction,
+              activeSenderKeys: reviewUnitWorkingEntityIds,
+            })
+          : await loadPublishedGmailSenderWorkspaceArtifactReviewUnitPage({
+              supabase: params.supabase,
+              tenantId: params.tenantId,
+              analysisScope: normalizeMailboxProfileScope(params.analysisScope),
+              selectedClusterId: artifactSelectedClusterId,
+              page: params.page,
+              pageSize: params.pageSize,
+              reviewUnitId,
+              sort: params.sort,
+              direction: params.direction,
+              includeFocusedSenderKeys: params.includeClusterSenderKeys === true,
+              activeSenderKeys: reviewUnitWorkingEntityIds,
+            })
         artifactReadMs += Math.max(0, Date.now() - activeReadStartedAt)
         if (
-          !('focused_request_valid' in artifactRead) ||
-          artifactRead.focused_request_valid !== true
+          legacyReviewUnitArtifactPageRead &&
+          (!('focused_capability_available' in artifactRead) ||
+            artifactRead.focused_capability_available !== true)
+        ) {
+          return fail(409, 'The selected cleanup child is stale or unavailable.', {
+            reason: 'invalid_review_unit_id',
+            retryAfterMs: null,
+          })
+        }
+        if (
+          !legacyReviewUnitArtifactPageRead &&
+          (!('focused_request_valid' in artifactRead) ||
+            artifactRead.focused_request_valid !== true)
         ) {
           return fail(409, 'The selected cleanup child is stale or unavailable.', {
             reason: 'invalid_review_unit_id',
@@ -5498,6 +6141,9 @@ async function loadSenderWorkspaceFromArtifact(params: {
     const clusterSenderKeysStartedAt = Date.now()
     const clusterSenderKeys =
       params.includeClusterSenderKeys === true &&
+      reviewUnitWorkingEntityIds
+        ? reviewUnitWorkingEntityIds
+        : params.includeClusterSenderKeys === true &&
       focusedReviewUnitArtifactPageRead &&
       'focused_sender_keys' in artifactRead &&
       Array.isArray(artifactRead.focused_sender_keys)
@@ -5651,7 +6297,7 @@ async function loadSenderWorkspaceFromArtifact(params: {
         ? artifactRead.focused_total_senders
         : null
     const focusedActiveTotalSenders =
-      focusedReviewUnitArtifactPageRead &&
+      (focusedReviewUnitArtifactPageRead || legacyReviewUnitArtifactPageRead) &&
       'focused_active_total_senders' in artifactRead &&
       typeof artifactRead.focused_active_total_senders === 'number'
         ? artifactRead.focused_active_total_senders
@@ -5716,9 +6362,11 @@ async function loadSenderWorkspaceFromArtifact(params: {
           ? 'bounded_default_page'
           : focusedReviewUnitArtifactPageRead
             ? 'focused_review_unit_page'
-          : focusedSemanticArtifactPageRead
-            ? 'focused_semantic_page'
-            : 'full_cluster_materialization',
+            : legacyReviewUnitArtifactPageRead
+              ? 'legacy_focused_review_unit_page'
+              : focusedSemanticArtifactPageRead
+                ? 'focused_semantic_page'
+                : 'full_cluster_materialization',
         header_count: artifactRead.headers.length,
         seed_row_count: artifactRead.seed_rows.length,
         preview_row_count: artifactRead.preview_index_rows.length,
@@ -6768,6 +7416,77 @@ function parseArtifactPressureTrendSeries(
   return items
 }
 
+const LEGACY_ARTIFACT_MINIMUM_REAL_ACTIVITY_MS = Date.UTC(1971, 0, 1)
+
+export function normalizePublishedPressureTrendSeries(params: {
+  series: GmailPressureTrendData['series']
+  indexedDateSpanStart?: string | null
+  indexedDateSpanEnd?: string | null
+}): {
+  series: GmailPressureTrendData['series']
+  indexedDateSpanStart: string | null
+  indexedDateSpanEnd: string | null
+} {
+  const validSeries = params.series
+    .filter((entry) => {
+      const startMs = artifactDateMs(entry.bucket_start_at)
+      const endMs = artifactDateMs(entry.bucket_end_at)
+      return startMs != null && endMs != null && endMs > startMs
+    })
+    .sort(
+      (left, right) =>
+        (artifactDateMs(left.bucket_start_at) || 0) -
+        (artifactDateMs(right.bucket_start_at) || 0)
+    )
+
+  const declaredStartMs = artifactDateMs(params.indexedDateSpanStart)
+  const declaredEndMs = artifactDateMs(params.indexedDateSpanEnd)
+  const firstMeaningfulBucket = validSeries.find(
+    (entry) =>
+      entry.count > 0 &&
+      (artifactDateMs(entry.bucket_start_at) || 0) >= LEGACY_ARTIFACT_MINIMUM_REAL_ACTIVITY_MS
+  )
+  const firstRealBucket =
+    firstMeaningfulBucket ||
+    validSeries.find(
+      (entry) =>
+        (artifactDateMs(entry.bucket_start_at) || 0) >= LEGACY_ARTIFACT_MINIMUM_REAL_ACTIVITY_MS
+    ) ||
+    null
+  const lastRealBucket = [...validSeries]
+    .reverse()
+    .find(
+      (entry) =>
+        (artifactDateMs(entry.bucket_end_at) || 0) >= LEGACY_ARTIFACT_MINIMUM_REAL_ACTIVITY_MS
+    )
+
+  const indexedStartMs =
+    declaredStartMs != null && declaredStartMs >= LEGACY_ARTIFACT_MINIMUM_REAL_ACTIVITY_MS
+      ? declaredStartMs
+      : artifactDateMs(firstRealBucket?.bucket_start_at)
+  const indexedEndMs =
+    declaredEndMs != null &&
+    declaredEndMs >= LEGACY_ARTIFACT_MINIMUM_REAL_ACTIVITY_MS &&
+    (indexedStartMs == null || declaredEndMs >= indexedStartMs)
+      ? declaredEndMs
+      : artifactDateMs(lastRealBucket?.bucket_end_at)
+
+  const series = validSeries.filter((entry) => {
+    const startMs = artifactDateMs(entry.bucket_start_at)
+    const endMs = artifactDateMs(entry.bucket_end_at)
+    if (startMs == null || endMs == null) return false
+    if (indexedStartMs != null && endMs < indexedStartMs) return false
+    if (indexedEndMs != null && startMs > indexedEndMs) return false
+    return true
+  })
+
+  return {
+    series,
+    indexedDateSpanStart: artifactIsoStringFromMs(indexedStartMs),
+    indexedDateSpanEnd: artifactIsoStringFromMs(indexedEndMs),
+  }
+}
+
 function buildPressureTrendFromArtifactBuckets(params: {
   publication: GmailArtifactPublicationRow | null
   wholeMailbox: Record<string, unknown>
@@ -6794,12 +7513,18 @@ function buildPressureTrendFromArtifactBuckets(params: {
     pressureStart: params.pressureStart,
     pressureEnd: params.pressureEnd,
   })
-  const series = parseArtifactPressureTrendSeries(selected.buckets)
+  const parsedSeries = parseArtifactPressureTrendSeries(selected.buckets)
   const firstPayload = artifactRecord(selected.buckets[0]?.bucket_payload) || {}
+  const normalizedArtifact = normalizePublishedPressureTrendSeries({
+    series: parsedSeries,
+    indexedDateSpanStart: artifactNullableText(params.wholeMailbox.indexed_date_span_start),
+    indexedDateSpanEnd: artifactNullableText(params.wholeMailbox.indexed_date_span_end),
+  })
+  const series = normalizedArtifact.series
   const coverageStartMs = artifactDateMs(series[0]?.bucket_start_at)
   const coverageEndMs = artifactDateMs(series[series.length - 1]?.bucket_end_at)
-  const fallbackIndexedDateSpanStart = artifactNullableText(params.wholeMailbox.indexed_date_span_start)
-  const fallbackIndexedDateSpanEnd = artifactNullableText(params.wholeMailbox.indexed_date_span_end)
+  const fallbackIndexedDateSpanStart = normalizedArtifact.indexedDateSpanStart
+  const fallbackIndexedDateSpanEnd = normalizedArtifact.indexedDateSpanEnd
 
   let requestedStartMs: number | null = null
   let requestedEndMs: number | null = coverageEndMs
@@ -6845,7 +7570,12 @@ function buildPressureTrendFromArtifactBuckets(params: {
       effective_start:
         window === 'custom'
           ? artifactIsoStringFromMs(effectiveStartMs) || fallbackIndexedDateSpanStart || null
-          : artifactNullableText(firstPayload.effective_start) ||
+          : (window !== 'all_indexed' &&
+              artifactDateMs(firstPayload.effective_start) != null &&
+              (coverageStartMs == null ||
+                (artifactDateMs(firstPayload.effective_start) || 0) >= coverageStartMs)
+              ? artifactNullableText(firstPayload.effective_start)
+              : null) ||
             series[0]?.bucket_start_at ||
             fallbackIndexedDateSpanStart ||
             null,
