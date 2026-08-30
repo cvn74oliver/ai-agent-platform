@@ -266,13 +266,42 @@ If you only back up the main folder:
 
 ### Recommended Backup Approach
 
-When doing a manual backup:
+Use the shared script:
 
-1. Close running dev servers
-2. Copy:
-   - main repo folder
-   - all worktree folders
-3. Store backup externally (drive, cloud, etc.)
+```text
+/Users/olivercarlin/Documents/Backups/backup-projects.sh
+```
+
+This Automata document is supplemental. The script itself is the authoritative shared operator guide because Curative Mushrooms and Curative Genetics project managers may not have access to Automata's control plane. Run the following to read the operating guidance without starting a backup:
+
+```text
+/Users/olivercarlin/Documents/Backups/backup-projects.sh --help
+```
+
+The selection screen explicitly includes:
+- Automata (`/Users/olivercarlin/Dev/ai-agent-platform`)
+- Curative Mushrooms (`/Users/olivercarlin/Documents/ChatGPT/Curative Mushrooms`)
+- Curative Genetics (`/Users/olivercarlin/Documents/Curative Genetics`)
+- active Git worktrees registered to each primary project
+- other top-level `~/Dev` projects and shared Codex skills when present
+
+Cadence:
+1. Incremental snapshot after each meaningful milestone.
+2. Full archive at end of day or after a significant update.
+3. Combined incremental + full `KEEP` set for a major accepted recovery point that should remain long-term.
+
+Retention:
+- normal incremental snapshots: seven days
+- normal full archives: seven days
+- pruning applies only to projects refreshed in the current run
+- `KEEP` full archives and their notes are never pruned automatically
+- the operator sees and confirms the pruning boundary on each run
+
+Verification and restore:
+1. Close running dev servers before a significant backup when practical.
+2. Select the primary repository and any worktree that contains unique or in-progress state.
+3. Require the generated note and verification result; full archives must pass readability verification and include SHA-256.
+4. Restore the primary repository first. A linked worktree `.git` pointer is not independently portable; recreate its recorded branch/worktree, then overlay files from the chosen snapshot if needed.
 
 ---
 

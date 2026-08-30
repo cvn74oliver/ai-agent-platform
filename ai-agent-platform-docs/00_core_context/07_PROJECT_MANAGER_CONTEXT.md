@@ -1,6 +1,6 @@
 🗂️ Project Manager Agent Context
 
-Last updated: August 21, 2026
+Last updated: August 30, 2026
 
 ## Automata Revival Operating Posture
 
@@ -21,6 +21,15 @@ Last updated: August 21, 2026
 - `docs/00_control_plane/EXECUTION_DASHBOARD.md` is the lightweight progress index and must remain consistent with `CURRENT_STATE.md`, `TODO.md`, and `ACTIVE_CHANGE_EVENTS.md`.
 
 ## Active Operating Model
+
+### Shared project backup discipline
+
+- Use `/Users/olivercarlin/Documents/Backups/backup-projects.sh` as the single shared local-backup entry point for Automata, Curative Mushrooms, and Curative Genetics.
+- Treat the script's comments and `--help` output as the cross-project operator manual. Curative Mushrooms and Curative Genetics managers must not depend on Automata control-plane access to understand cadence, retention, `KEEP`, worktree recovery, or verification.
+- Create an incremental snapshot after each meaningful milestone, a full archive at end of day or after a significant update, and a combined `KEEP` set only for major accepted recovery points.
+- The standard rolling retention remains seven days and prunes only normal backups for projects refreshed in the current run. `KEEP` full archives and their notes are never pruned automatically.
+- Select active Git worktrees separately when they contain unique or in-progress working-tree state. Restore the primary repository first; recreate linked worktrees from recorded branch/commit identity before overlaying their snapshot files.
+- Verification must confirm archive readability, SHA-256, source path, Git branch/HEAD where applicable, and a recovery note/manifest. Backup completion must not be inferred from script exit alone.
 
 Execution chain:
 - Oliver -> Project Manager -> current execution agent (Codex now; Claude Code after explicitly accepted successor cutover)

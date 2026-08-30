@@ -85,6 +85,9 @@ _Last updated: 2026-08-30 • Local-main consolidation Human-accepted; remote an
 - [x] Record Oliver's Human Review `ACCEPT` for the direct authenticated root proof on the exact canonical port-`3001` Editorial/content route: full `76`, narrowed `1M` `25`, zero repeated settled snippet requests, one explicit-retry request, preserved close/return rows and selection, and zero `412`/`409` churn.
 - [x] Record Recovery Contract: `CHANGELOG.md` -> `August 30, 2026 — ACE-048 Decision Mode Optional-Evidence Availability Accepted`.
 - [x] Integrate the accepted preservation branch into local `main` at `79ab1a6` and repeat the canonical proof on the normal port-`3000` runtime: full `76` and `1M` `25` sender universes, `12` loaded rows, subject-only settle, zero automatic repeats, one explicit-retry `200`, preserved close/return scope, no console/runtime errors, and zero `412`/`409` churn.
+- [x] Establish the shared backup script choices for Automata, Curative Mushrooms, Curative Genetics, and their current Git worktrees; document seven-day project-scoped pruning, `KEEP` exemption, archive verification, checksum capture, and linked-worktree restore guidance.
+- [x] Create and verify the ACE-048 significant-milestone combined `KEEP` backup for local `main@c28a7ba` and preservation worktree `9e47@74eb4e7`; preserve the verification manifest beside the archives.
+- [ ] Apply the shared cadence going forward: incremental after each meaningful milestone, full at end of day or after a significant update, and combined `KEEP` only for major long-term recovery points.
 - [ ] Begin the Management-page work as a fresh bounded discovery/PM-Brief flow; do not carry the closed Decision Mode execution scope into that new problem class.
 - [ ] Decide non-force remote push/deployment separately. Any recovery-branch deletion remains separately gated.
 

@@ -11,6 +11,7 @@ Status: LOCAL MAIN ANALYSIS HUMAN-ACCEPTED / DECISION MODE FIX INTEGRATED AND VE
 - Execution phase: accepted Cleanup Groups and linked analysis source remain consolidated on local `main`; the Decision Mode optional-evidence fix is Human-accepted, integrated at `79ab1a6`, and verified on the normal port-`3000` runtime
 - Problem class: runtime behavior; provider-neutral optional-evidence availability accepted with Gmail-specific degraded-capability presentation
 - Execution mode: `transitional_self_verification`
+- Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.
@@ -90,6 +91,7 @@ Status: LOCAL MAIN ANALYSIS HUMAN-ACCEPTED / DECISION MODE FIX INTEGRATED AND VE
 - [x] Record Human Review `ACCEPT` for direct authenticated root proof on the exact canonical port-`3001` route: full `76`, narrowed `1M` `25`, zero settled repeats, one explicit retry request, preserved close/return rows and selection, and zero `412`/`409` churn
 - [x] Create preservation branch `codex/ace-048-decision-mode-optional-evidence` and record the ACE-048 Recovery Contract
 - [x] Integrate the accepted Decision Mode commit into local `main` at `79ab1a6` and pass the canonical normal port-`3000` proof for full `76`, `1M` `25`, zero settled repeats, one explicit retry, close/return preservation, and zero `412`/`409` churn
+- [x] Establish and verify the shared three-project backup workflow, including project/worktree choices, retention/KEEP rules, checksums, and the ACE-048 combined long-term recovery set
 - [ ] Begin Management as a fresh bounded discovery/PM-Brief flow
 - [ ] Decide non-force remote push/deployment separately; keep recovery-branch deletion behind a later exact-target gate
 

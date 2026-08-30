@@ -1,3 +1,26 @@
+### August 30, 2026 — Shared Project Backup Governance Checkpoint
+
+What changed:
+- `/Users/olivercarlin/Documents/Backups/backup-projects.sh` now presents explicit choices for Automata, Curative Mushrooms, and Curative Genetics even though they live under different parent directories.
+- Registered Git worktrees for each primary project are discovered and listed as separate recovery choices.
+- The established seven-day retention remains project-scoped and operator-visible; `KEEP` full archives remain exempt from automatic pruning.
+- Future full archives verify tar readability and record SHA-256. Backup notes record Git checkout kind, branch, HEAD, common directory, changed-path count, and linked-worktree restore guidance.
+- The script now contains a self-contained shared operator guide and exposes it through `backup-projects.sh --help`, so project managers do not need access to Automata's control plane.
+
+Verification:
+- Syntax validation passed and the live selection screen exposed all three primary projects plus their current worktrees.
+- A significant-milestone combined `KEEP` set was created for Automata `main@c28a7ba` and accepted Decision Mode worktree `9e47@74eb4e7`.
+- Both archives passed full table-of-contents reads and SHA-256 capture. The verification manifest is `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-30/ACE-048 backup verification 30 August 2026.txt`.
+- Older non-`KEEP` Automata backups beyond seven days were pruned under the confirmed retention policy; existing `KEEP` archives were preserved.
+
+Recovery:
+- Original script: `backup-projects.sh.before-shared-projects-2026-08-30`.
+- First shared-project revision: `backup-projects.sh.before-recovery-metadata-2026-08-30`.
+- Recovery-metadata revision: `backup-projects.sh.before-shared-operator-guide-2026-08-30`.
+- Restore the primary repository before any linked worktree; recreate the recorded worktree branch/commit, then overlay snapshot files if working-tree recovery is needed.
+
+---
+
 ### August 30, 2026 — ACE-048 Decision Mode Optional-Evidence Availability Accepted
 
 Accepted invariant:
