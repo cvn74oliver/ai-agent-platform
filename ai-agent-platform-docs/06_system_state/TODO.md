@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-30 • Local-main consolidation Human-accepted; remote and retirement decisions remain separate_
+_Last updated: 2026-08-30 • Accepted ACE-048 consolidation published to GitHub; Management planning remains next_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -88,9 +88,13 @@ _Last updated: 2026-08-30 • Local-main consolidation Human-accepted; remote an
 - [x] Establish the shared backup script choices for Automata, Curative Mushrooms, Curative Genetics, and their current Git worktrees; document seven-day project-scoped pruning, `KEEP` exemption, archive verification, checksum capture, and linked-worktree restore guidance.
 - [x] Create and verify the ACE-048 significant-milestone combined `KEEP` backup for local `main@c28a7ba` and preservation worktree `9e47@74eb4e7`; preserve the verification manifest beside the archives.
 - [x] Retire the final clean `9e47` Decision Mode checkout after proving `74eb4e7` patch-equivalent to local `main`; preserve its recovery branch plus verified `KEEP` archive and standalone snapshot.
+- [x] Create and verify a normal full pre-publication Automata backup before generated-output cleanup and GitHub publication.
+- [x] Move the two untracked generated verification-output directories to recoverable Trash, add narrow ignore rules, and commit the hygiene correction as `d7e21ac`.
+- [x] Publish local `main` to the canonical GitHub repository with a non-force push; verify local `main`, `origin/main`, and live `refs/heads/main` are identical with zero divergence.
+- [x] Retire the clean detached `3226` Management discovery checkout after its read-only findings were reviewed; no product or control-plane source was discarded.
 - [ ] Apply the shared cadence going forward: incremental after each meaningful milestone, full at end of day or after a significant update, and combined `KEEP` only for major long-term recovery points.
-- [ ] Begin the Management-page work as a fresh bounded discovery/PM-Brief flow; do not carry the closed Decision Mode execution scope into that new problem class.
-- [ ] Decide non-force remote push/deployment separately. Any recovery-branch deletion remains separately gated.
+- [ ] Propagate the reviewed Management discovery direction and create its execution-ready PM Brief only after Oliver accepts that separate plan; do not carry the closed Decision Mode execution scope into the new problem class.
+- [ ] Decide deployment separately. Any recovery-branch deletion remains separately gated.
 
 ### Historical active heading retained below
 

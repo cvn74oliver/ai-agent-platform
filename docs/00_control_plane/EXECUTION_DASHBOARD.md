@@ -2,16 +2,17 @@
 
 Last updated: 2026-08-30
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: LOCAL MAIN ANALYSIS HUMAN-ACCEPTED / DECISION MODE FIX INTEGRATED AND VERIFIED / NO PUSH
+Status: ACE-048 ACCEPTED WORK PUBLISHED TO GITHUB / MANAGEMENT PLAN DECISION NEXT
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: accepted Cleanup Groups and linked analysis source remain consolidated on local `main`; the Decision Mode optional-evidence fix is Human-accepted, integrated at `79ab1a6`, and verified on the normal port-`3000` runtime
+- Execution phase: accepted Cleanup Groups, linked analysis, and Decision Mode optional-evidence work are consolidated on `main`, published non-force to canonical GitHub, and reverified at zero local/tracking/live-remote divergence; Management implementation remains a separate unapproved next work unit
 - Problem class: runtime behavior; provider-neutral optional-evidence availability accepted with Gmail-specific degraded-capability presentation
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
+- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; generated verification outputs cleaned recoverably and narrowly ignored; local `main`, `origin/main`, and live remote `main` matched after publication
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.

@@ -1,3 +1,22 @@
+### August 30, 2026 — ACE-048 GitHub Publication and Workspace Hygiene
+
+What changed:
+- Oliver approved closing the gap between accepted local `main` and GitHub before Management work begins.
+- A normal full Automata backup was created first and passed archive-readability and checksum verification.
+- The two untracked generated verification-output directories were moved to recoverable macOS Trash and narrow ignore rules were committed as `d7e21ac`.
+- Local `main` was pushed to GitHub normally, without force. GitHub's moved-repository notice was resolved by updating `origin` to `https://github.com/cvn74oliver/automata.git`.
+- Local `main`, `origin/main`, and live remote `refs/heads/main` were reverified identical with zero divergence. The clean detached Management discovery checkout was then retired.
+
+Boundary:
+- No deployment, artifact publication, semantic rebuild, Smart Sync, Gmail reindex/backfill, Supabase mutation, recovery-branch deletion, or product-data mutation occurred.
+- Management implementation remains a separate unapproved work unit.
+
+Recovery:
+- Pre-publication archive: `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-30/ai-agent-platform (backup 30 August 2026 - Pre-GitHub publication after ACE-048 consolidation).tar.gz`.
+- The generated outputs remain recoverable from the verified archive and macOS Trash.
+
+---
+
 ### August 30, 2026 — Shared Project Backup Governance Checkpoint
 
 What changed:
