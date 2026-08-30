@@ -81,8 +81,11 @@ _Last updated: 2026-08-30 • Local-main consolidation Human-accepted; remote an
 - [x] Refresh live lineage, preserve every recovery ref, intentionally commit the accepted source integration on local `main` at `7866368c97a6ca8d241a9541f6f83570df2017f4`, exclude auth/generated/nested-worktree residue, and update the integration/rollback packet. `origin/main` remains unchanged.
 - [x] Complete the exact-route old-artifact compatibility check. Oliver confirmed the requested behavior on 2026-08-30; supplied captures show the published Editorial/content child at full `76` and narrowed `25` workflow senders with populated rows and aligned analysis state.
 - [x] Retire the seven obsolete ACE-048 worktree checkouts after exact-target approval; retain every named recovery branch and discard only excluded generated Playwright/auth residue from `33ad`, `7865`, and `a985`.
-- [ ] Decide non-force remote push/deployment separately. Any recovery-branch deletion remains separately gated. Keep the Decision Mode evidence-detail `412` as the next bounded runtime repair after consolidation acceptance.
-- [ ] After an accepted merged baseline, repair the separate Decision Mode evidence-snippet `412`, then verify Decision Mode before beginning the Management-page work unit.
+- [x] Implement the bounded Decision Mode optional-evidence availability contract on preservation branch `codex/ace-048-decision-mode-optional-evidence` from accepted baseline `7526afe49235265f0b257fbb3dd4a389c7ea129c`: provider-neutral full-detail/subject-only states, Gmail-specific recovery guidance, no globally cached degradation, no poller, and genuine failures preserved as non-2xx.
+- [x] Record Oliver's Human Review `ACCEPT` for the direct authenticated root proof on the exact canonical port-`3001` Editorial/content route: full `76`, narrowed `1M` `25`, zero repeated settled snippet requests, one explicit-retry request, preserved close/return rows and selection, and zero `412`/`409` churn.
+- [x] Record Recovery Contract: `CHANGELOG.md` -> `August 30, 2026 — ACE-048 Decision Mode Optional-Evidence Availability Accepted`.
+- [ ] Integrate the accepted preservation branch into local `main` and repeat the canonical proof on the normal port-`3000` runtime before beginning the Management-page work unit.
+- [ ] Decide non-force remote push/deployment separately. Any recovery-branch deletion remains separately gated.
 
 ### Historical active heading retained below
 

@@ -36,6 +36,10 @@ import {
   gmailSemanticFamilyDisplayLabel,
   gmailSemanticPatternClassDisplayLabel,
 } from '@/lib/runtime/gmailSemanticPresentationPolicy'
+import type {
+  OptionalEvidenceDetailAvailability,
+  OptionalEvidenceDetailOperatorAction,
+} from '@/lib/runtime/optionalEvidenceDetail'
 
 type TimeContextChartScope =
   | 'all_indexed'
@@ -5548,6 +5552,19 @@ export type GmailSharedSenderCardManagedState = {
 export type GmailSharedSenderCardSnippetHydrationState = {
   loading: boolean
   error: string | null
+  availability: OptionalEvidenceDetailAvailability | null
+}
+
+function gmailOptionalEvidenceRecoveryCopy(
+  operatorAction: OptionalEvidenceDetailOperatorAction
+): string {
+  if (operatorAction === 'connect_source') {
+    return 'Connect Gmail in Settings to restore preview text.'
+  }
+  if (operatorAction === 'review_source_permissions') {
+    return 'Review Gmail access in Settings to allow preview text.'
+  }
+  return 'Reconnect Gmail in Settings to restore preview text.'
 }
 
 function sharedSenderSignalLabel(
@@ -5726,6 +5743,7 @@ export function GmailSharedSenderCard(props: {
   visibleEvidenceCount?: number
   onLoadMoreEvidence?: ((count: number) => void) | null
   snippetHydrationState?: GmailSharedSenderCardSnippetHydrationState | null
+  onRetrySnippetHydration?: (() => void) | null
   evidenceResolutionState?: 'ready' | 'resolving'
   onOpenMessagePreview?: ((
     sender: GmailSenderWorkspaceData['senders'][number],
@@ -5912,7 +5930,6 @@ export function GmailSharedSenderCard(props: {
                   Some recent proof text is still unavailable.
                 </p>
               ) : null}
-
               <div className="mt-3 space-y-2">
                 {evidenceGroups.map(([label, messages]) => (
                   <div key={label} className={`${neutralInsetSurfaceClass} rounded-xl p-3`}>
@@ -6088,6 +6105,39 @@ export function GmailSharedSenderCard(props: {
                 <p className="mt-3 text-[11px] text-amber-200">
                   Some recent proof text is still unavailable.
                 </p>
+              ) : null}
+              {props.snippetHydrationState?.availability?.state ===
+              'subject_only_available' ? (
+                <div
+                  className="mt-3 rounded-2xl border border-cyan-800/40 bg-cyan-950/15 p-3"
+                  data-optional-evidence-state="subject_only_available"
+                >
+                  <p className="text-sm font-medium text-cyan-100">
+                    Subject and date evidence is still available.
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-300">
+                    {gmailOptionalEvidenceRecoveryCopy(
+                      props.snippetHydrationState.availability.operator_action
+                    )}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      href="/settings"
+                      className={`${quietSecondaryActionClass} rounded-full px-3 py-1.5 text-xs`}
+                    >
+                      Open Gmail settings
+                    </Link>
+                    {props.onRetrySnippetHydration ? (
+                      <button
+                        type="button"
+                        onClick={props.onRetrySnippetHydration}
+                        className={`${quietControlSurfaceClass} rounded-full px-3 py-1.5 text-xs`}
+                      >
+                        Try preview text again
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
 
               <div className="mt-4 space-y-3">

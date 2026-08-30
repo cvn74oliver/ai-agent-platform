@@ -16,6 +16,12 @@ import type {
   GmailSenderPatternMixEntry,
   GmailSenderWorkspaceData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
+import {
+  FULL_OPTIONAL_EVIDENCE_DETAIL_AVAILABILITY,
+  isOptionalEvidenceDetailAvailability,
+  shouldCacheOptionalEvidenceDetail,
+  type OptionalEvidenceDetailAvailability,
+} from '@/lib/runtime/optionalEvidenceDetail'
 
 export type ChatMessage = {
   role: 'user' | 'assistant'
@@ -752,7 +758,38 @@ export type OperationsMessageSnippetsData = {
     message_id: string
     snippet: string | null
   }>
-  source: 'gmail_metadata_live'
+  source: 'gmail_metadata_live' | 'gmail_artifact_subject_date'
+  availability: OptionalEvidenceDetailAvailability
+}
+
+function isOperationsMessageSnippetsData(value: unknown): value is OperationsMessageSnippetsData {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Record<string, unknown>
+  if (
+    candidate.source !== 'gmail_metadata_live' &&
+    candidate.source !== 'gmail_artifact_subject_date'
+  ) {
+    return false
+  }
+  if (!isOptionalEvidenceDetailAvailability(candidate.availability)) return false
+  if (
+    (candidate.availability.state === 'full_detail_available' &&
+      candidate.source !== 'gmail_metadata_live') ||
+    (candidate.availability.state === 'subject_only_available' &&
+      candidate.source !== 'gmail_artifact_subject_date')
+  ) {
+    return false
+  }
+  if (!Array.isArray(candidate.messages)) return false
+  return candidate.messages.every((entry) => {
+    if (!entry || typeof entry !== 'object') return false
+    const message = entry as Record<string, unknown>
+    return (
+      typeof message.message_id === 'string' &&
+      message.message_id.trim().length > 0 &&
+      (message.snippet === null || typeof message.snippet === 'string')
+    )
+  })
 }
 
 export type OperationsMessagePreviewData = {
@@ -1527,6 +1564,7 @@ export async function fetchOperationsMessageSnippets(params: {
       data: {
         messages: [],
         source: 'gmail_metadata_live',
+        availability: FULL_OPTIONAL_EVIDENCE_DETAIL_AVAILABILITY,
       },
     }
   }
@@ -1588,7 +1626,12 @@ export async function fetchOperationsMessageSnippets(params: {
       | { ok?: boolean; error?: string; data?: OperationsMessageSnippetsData }
       | null
 
-    if (!res.ok || !payload?.ok || !payload.data) {
+    if (
+      !res.ok ||
+      !payload?.ok ||
+      !payload.data ||
+      !isOperationsMessageSnippetsData(payload.data)
+    ) {
       console.warn(
         `[operations][inbox-analysis-action] ${JSON.stringify({
           action: 'load_message_snippets',
@@ -1619,10 +1662,14 @@ export async function fetchOperationsMessageSnippets(params: {
       }
     }
 
-    operationsMessageSnippetsCache.set(requestKey, {
-      expiresAt: Date.now() + OPERATIONS_MESSAGE_SNIPPETS_CACHE_TTL_MS,
-      data: payload.data,
-    })
+    if (shouldCacheOptionalEvidenceDetail(payload.data.availability)) {
+      operationsMessageSnippetsCache.set(requestKey, {
+        expiresAt: Date.now() + OPERATIONS_MESSAGE_SNIPPETS_CACHE_TTL_MS,
+        data: payload.data,
+      })
+    } else {
+      operationsMessageSnippetsCache.delete(requestKey)
+    }
     console.info(
       `[operations][inbox-analysis-action] ${JSON.stringify({
         action: 'load_message_snippets',
@@ -1653,6 +1700,19 @@ export async function fetchOperationsMessageSnippets(params: {
   } finally {
     operationsMessageSnippetsInflight.delete(requestKey)
   }
+}
+
+export function invalidateOperationsMessageSnippets(messageIds: string[]): void {
+  const normalizedMessageIds = Array.from(
+    new Set(
+      messageIds
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+        .filter(Boolean)
+    )
+  ).slice(0, 200)
+
+  if (normalizedMessageIds.length === 0) return
+  operationsMessageSnippetsCache.delete(normalizedMessageIds.join('|'))
 }
 
 export async function fetchOperationsMessagePreview(params: {

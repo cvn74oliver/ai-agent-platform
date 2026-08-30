@@ -37,6 +37,12 @@ import {
   type GmailClusterSummaryArtifactRow,
 } from '@/lib/integrations/gmail/gmailArtifactStore'
 import { GMAIL_CANONICAL_TIMELINE_CONTRACT_VERSION } from '@/lib/runtime/gmailCleanupWorkspace'
+import {
+  FULL_OPTIONAL_EVIDENCE_DETAIL_AVAILABILITY,
+  subjectOnlyOptionalEvidenceDetailAvailability,
+  type OptionalEvidenceDetailAvailability,
+  type OptionalEvidenceDetailOperatorAction,
+} from '@/lib/runtime/optionalEvidenceDetail'
 import type {
   GmailAssignedCleanupGroupId,
   GmailCanonicalSenderActivityTimelineBucket,
@@ -764,7 +770,8 @@ export type GmailMessageSnippetsData = {
     message_id: string
     snippet: string | null
   }>
-  source: 'gmail_metadata_live'
+  source: 'gmail_metadata_live' | 'gmail_artifact_subject_date'
+  availability: OptionalEvidenceDetailAvailability
 }
 
 export type GmailMessageSnippetsResult =
@@ -6570,6 +6577,75 @@ async function refreshGmailAccessToken(params: {
   return { accessToken: tokenData.access_token }
 }
 
+type OptionalEvidenceTokenRefreshResult =
+  | { ok: true; accessToken: string }
+  | { ok: false; kind: 'reauthorization_required' }
+  | { ok: false; kind: 'configuration_error' | 'provider_error'; status: 500 | 502; error: string }
+
+async function refreshGmailAccessTokenForOptionalEvidence(params: {
+  refreshToken: string
+  clientId: string
+  clientSecret: string
+  logPrefix: string
+}): Promise<OptionalEvidenceTokenRefreshResult> {
+  const tokenBody = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: params.refreshToken,
+    client_id: params.clientId,
+    client_secret: params.clientSecret,
+  })
+
+  let tokenResponse: Response
+  try {
+    tokenResponse = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenBody.toString(),
+      cache: 'no-store',
+    })
+  } catch (error) {
+    console.error(`${params.logPrefix} Optional evidence token refresh network error:`, error)
+    return {
+      ok: false,
+      kind: 'provider_error',
+      status: 502,
+      error: 'Gmail token refresh is temporarily unavailable.',
+    }
+  }
+
+  const tokenData = (await tokenResponse
+    .json()
+    .catch(() => null)) as GoogleRefreshTokenResponse | null
+
+  if (tokenResponse.ok && tokenData?.access_token) {
+    return { ok: true, accessToken: tokenData.access_token }
+  }
+
+  if (tokenResponse.status === 400 && tokenData?.error === 'invalid_grant') {
+    console.info(`${params.logPrefix} Optional evidence authorization requires reconnection.`)
+    return { ok: false, kind: 'reauthorization_required' }
+  }
+
+  console.error(
+    `${params.logPrefix} Optional evidence token refresh failed:`,
+    tokenData?.error || `status_${tokenResponse.status}`
+  )
+  if (tokenData?.error === 'invalid_client' || tokenData?.error === 'unauthorized_client') {
+    return {
+      ok: false,
+      kind: 'configuration_error',
+      status: 500,
+      error: 'Gmail token refresh configuration was rejected.',
+    }
+  }
+  return {
+    ok: false,
+    kind: 'provider_error',
+    status: 502,
+    error: 'Gmail token refresh failed unexpectedly.',
+  }
+}
+
 export async function analyzeGmailInboxForTenant(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -9620,6 +9696,19 @@ export async function loadGmailMessageSnippetsForTenant(params: {
         .filter(Boolean)
     )
   ).slice(0, 200)
+  const subjectOnlyResult = (
+    operatorAction: OptionalEvidenceDetailOperatorAction
+  ): GmailMessageSnippetsResult => ({
+    ok: true,
+    data: {
+      messages: boundedMessageIds.map((messageId) => ({
+        message_id: messageId,
+        snippet: null,
+      })),
+      source: 'gmail_artifact_subject_date',
+      availability: subjectOnlyOptionalEvidenceDetailAvailability(operatorAction),
+    },
+  })
 
   if (!params.tenantId) {
     return fail(400, 'User profile is missing tenant_id.')
@@ -9630,6 +9719,7 @@ export async function loadGmailMessageSnippetsForTenant(params: {
       data: {
         messages: [],
         source: 'gmail_metadata_live',
+        availability: FULL_OPTIONAL_EVIDENCE_DETAIL_AVAILABILITY,
       },
     }
   }
@@ -9649,13 +9739,10 @@ export async function loadGmailMessageSnippetsForTenant(params: {
       return fail(500, 'Failed to load Gmail connection.')
     }
     if (!connectionRow) {
-      return fail(412, 'Gmail is not connected for this tenant. Reconnect Gmail with inbox-read scope.')
+      return subjectOnlyResult('connect_source')
     }
     if (!hasInboxReadScope(connectionRow.scopes)) {
-      return fail(
-        412,
-        'Connected Gmail token does not include inbox-read scope. Reconnect with gmail.readonly, gmail.metadata, gmail.modify, or mail.google.com scope.'
-      )
+      return subjectOnlyResult('review_source_permissions')
     }
 
     const refreshToken =
@@ -9664,10 +9751,7 @@ export async function loadGmailMessageSnippetsForTenant(params: {
       typeof connectionRow.access_token === 'string' ? connectionRow.access_token.trim() : ''
 
     if (!accessToken || !refreshToken) {
-      return fail(
-        412,
-        'Gmail token is incomplete for this tenant. Reconnect Gmail with inbox-read scope.'
-      )
+      return subjectOnlyResult('reauthorize_source')
     }
 
     if (isExpiredTimestamp(connectionRow.expires_at)) {
@@ -9676,17 +9760,17 @@ export async function loadGmailMessageSnippetsForTenant(params: {
       if (!clientId || !clientSecret) {
         return fail(500, 'Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET.')
       }
-      const refreshed = await refreshGmailAccessToken({
+      const refreshed = await refreshGmailAccessTokenForOptionalEvidence({
         refreshToken,
         clientId,
         clientSecret,
         logPrefix,
       })
-      if (!refreshed) {
-        return fail(
-          412,
-          'Failed to refresh Gmail access token. Reconnect Gmail with inbox-read scope.'
-        )
+      if (!refreshed.ok) {
+        if (refreshed.kind === 'reauthorization_required') {
+          return subjectOnlyResult('reauthorize_source')
+        }
+        return fail(refreshed.status, refreshed.error)
       }
       accessToken = refreshed.accessToken
     }
@@ -9737,18 +9821,39 @@ export async function loadGmailMessageSnippetsForTenant(params: {
           .catch(() => null)) as GmailMessageMetadataResponse | null
 
         if (response.status === 401 && !refreshedAfterUnauthorized) {
-          const refreshed = await refreshGmailAccessToken({
+          const clientId = process.env.GOOGLE_CLIENT_ID
+          const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+          if (!clientId || !clientSecret) {
+            return { messageId, snippet: null, ok: false, reason: 'configuration_error' }
+          }
+          const refreshed = await refreshGmailAccessTokenForOptionalEvidence({
             refreshToken,
-            clientId: process.env.GOOGLE_CLIENT_ID || '',
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+            clientId,
+            clientSecret,
             logPrefix,
           })
-          if (refreshed) {
+          if (refreshed.ok) {
             accessToken = refreshed.accessToken
             refreshedAfterUnauthorized = true
             continue
           }
-          return { messageId, snippet: null, ok: false, reason: 'unauthorized' }
+          if (refreshed.kind === 'reauthorization_required') {
+            return {
+              messageId,
+              snippet: null,
+              ok: false,
+              reason: 'capability_reauthorization_required',
+            }
+          }
+          return {
+            messageId,
+            snippet: null,
+            ok: false,
+            reason:
+              refreshed.kind === 'configuration_error'
+                ? 'configuration_error'
+                : 'token_refresh_provider_error',
+          }
         }
 
         if (response.status === 404) {
@@ -9815,11 +9920,31 @@ export async function loadGmailMessageSnippetsForTenant(params: {
       })}`
     )
 
+    if ((failureBuckets.get('capability_reauthorization_required') || 0) > 0) {
+      return subjectOnlyResult('reauthorize_source')
+    }
+
+    if ((failureBuckets.get('configuration_error') || 0) > 0) {
+      return fail(500, 'Gmail token refresh configuration is unavailable.')
+    }
+
+    const unexpectedProviderFailureCount = Array.from(failureBuckets.entries()).reduce(
+      (count, [reason, reasonCount]) =>
+        reason === 'not_found' || reason === 'snippet_unavailable'
+          ? count
+          : count + reasonCount,
+      0
+    )
+    if (unexpectedProviderFailureCount > 0) {
+      return fail(502, 'Gmail preview text could not be loaded from the provider.')
+    }
+
     return {
       ok: true,
       data: {
         messages,
         source: 'gmail_metadata_live',
+        availability: FULL_OPTIONAL_EVIDENCE_DETAIL_AVAILABILITY,
       },
     }
   } catch (error) {

@@ -1,3 +1,46 @@
+### August 30, 2026 — ACE-048 Decision Mode Optional-Evidence Availability Accepted
+
+Accepted invariant:
+- Optional evidence detail is a provider-neutral availability contract: full detail when the adapter can hydrate it, or honest subject/date evidence when optional detail is unavailable.
+- Gmail-specific connection, scope, and reauthorization reasons remain inside the Gmail adapter and presentation seam. The operator receives plain-language recovery guidance without technical `412` or token wording.
+- A degraded response settles the current request without global cache admission, polling, or automatic retry. An explicit retry invalidates the exact request key and issues one request after capability restoration.
+- Malformed requests, application authentication, tenant isolation, database/configuration failures, unexpected provider/network failures, and full-message-preview failures remain real non-2xx errors.
+
+Source layer fixed:
+- Provider-neutral optional-evidence availability contract, Gmail snippet-capability adapter, Operations Workspace response validation/cache invalidation, and Decision Mode degraded-state presentation
+
+Root cause:
+- Optional Gmail snippet capability/precondition failures were emitted as fatal automatic HTTP `412` responses even though subject/date evidence remained valid, producing a generic failure surface instead of an honest degraded evidence state.
+- The prior success-cache path had no safe contract for a degraded result to become eligible for live hydration after connection capability changed.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` for the direct authenticated root proof on the exact changed-worktree route: `http://localhost:3001/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions&subset_source=review_unit&subset_value=family%3Amarketing_candidate_editorial_content`.
+- The full `76`-sender Editorial/content path and narrowed `1M` `25`-sender path reached ready state. Subject/date evidence remained usable during degradation; settled state issued zero repeated snippet requests; explicit retry issued exactly one request; close/return preserved selection and nonzero rows; and no `412` or `409` churn remained.
+- Deterministic optional-evidence fixtures cover not-connected, missing-scope, incomplete-token, refresh-failed, recovery-to-live-detail, genuine-error preservation, malformed responses, and response sanitization. Targeted TypeScript, zero-error ESLint, scoped diff review, and `git diff --check` passed.
+
+Recovery identity:
+- Accepted preservation branch: `codex/ace-048-decision-mode-optional-evidence`.
+- Accepted pre-change baseline: `7526afe49235265f0b257fbb3dd4a389c7ea129c`.
+- The seven implementation paths are the provider-neutral contract, Gmail adapter, Operations Workspace cache/validation seam, Review route, Gmail Decision presentation, deterministic fixture, and package-script entry committed with this Recovery Contract.
+
+Acceptance boundary:
+- This accepts the bounded Decision Mode optional-evidence availability behavior on the preservation branch.
+- Local-main integration and repeat verification on the normal port-`3000` canonical route remain the final local closeout step before Management work.
+- No push, deployment, publication, artifact rebuild, Smart Sync, Gmail reindex/backfill, Supabase mutation, worktree deletion, or branch deletion is authorized.
+
+Replay steps:
+1. After local-main integration, open the exact canonical Editorial/content child on the normal port-`3000` runtime and establish authenticated ready state.
+2. Verify full `76` and narrowed `1M` `25` Decision Mode paths retain subject/date evidence and nonzero rows when optional detail is unavailable.
+3. Hold the degraded settled state and require zero repeat snippet requests; invoke the explicit retry once and require exactly one request.
+4. Close and return from Decision Mode; require the same child/window selection and nonzero rows.
+5. Confirm no `412`, `409`, polling, automatic retry, sync, rebuild, reindex, publication, or other navigation-triggered mutation. Do not mutate Gmail connection state to manufacture degradation.
+
+Rollback guidance:
+- Use `codex/ace-048-decision-mode-optional-evidence` as the accepted recovery source and `7526afe49235265f0b257fbb3dd4a389c7ea129c` as the pre-change comparison point.
+- If local-main integration causes an unrelated regression, revert only the seven implementation paths from the integration commit; preserve this Recovery Contract and the previously accepted Cleanup Groups/Sender Distribution/Time Context/Pressure Trend contracts.
+
+---
+
 ### August 30, 2026 — ACE-048 Local Main Consolidation Accepted
 
 Accepted invariant:

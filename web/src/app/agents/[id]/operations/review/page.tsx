@@ -46,11 +46,16 @@ import {
   analysisScopeControlLabel,
   fetchOperationsMessagePreview,
   fetchOperationsMessageSnippets,
+  invalidateOperationsMessageSnippets,
   normalizeOperationsAnalysisScope,
   serializeOperationsQuery,
   type OperationsMessagePreviewData,
   type OperationsAnalysisScope,
 } from '@/lib/runtime/operationsWorkspace'
+import {
+  unresolvedOptionalEvidenceDetailIds,
+  type OptionalEvidenceDetailAvailability,
+} from '@/lib/runtime/optionalEvidenceDetail'
 import {
   buildCleanupGroupPublishedReviewUnits,
   buildCleanupGroupInternalStructure,
@@ -484,6 +489,7 @@ type SenderSnippetOverrides = Record<string, Record<string, string | null>>
 type SenderSnippetHydrationState = {
   loading: boolean
   error: string | null
+  availability: OptionalEvidenceDetailAvailability | null
 }
 
 type EvidenceMessageSelection = {
@@ -3635,13 +3641,13 @@ function missingSnippetMessageIds(
   messages: WorkspaceSender['preview_messages'],
   snippetOverrides: Record<string, string | null> | undefined
 ): string[] {
-  return messages
-    .filter(
-      (message) =>
-        message.snippet == null &&
-        !hasSnippetOverride(snippetOverrides, message.message_id)
-    )
-    .map((message) => message.message_id)
+  return unresolvedOptionalEvidenceDetailIds(
+    messages.map((message) => ({
+      id: message.message_id,
+      detail: message.snippet,
+    })),
+    new Set(Object.keys(snippetOverrides || {}))
+  )
 }
 
 function normalizeMessageBodyText(value: string | null | undefined): string | null {
@@ -12030,6 +12036,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           [expandedVisibleSender.sender_key]: {
             loading: false,
             error: null,
+            availability: currentState?.availability || null,
           },
         }
       })
@@ -12042,6 +12049,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       [expandedVisibleSender.sender_key]: {
         loading: true,
         error: null,
+        availability: null,
       },
     }))
 
@@ -12063,6 +12071,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
             [expandedVisibleSender.sender_key]: {
               loading: false,
               error: result.error,
+              availability: null,
             },
           }))
           return
@@ -12091,6 +12100,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           [expandedVisibleSender.sender_key]: {
             loading: false,
             error: null,
+            availability: result.data.availability,
           },
         }))
       })
@@ -12104,6 +12114,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               error instanceof Error && error.message.trim()
                 ? error.message
                 : 'Failed to load preview text for this sender row.',
+            availability: null,
           },
         }))
       })
@@ -12135,6 +12146,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           [renderedDecisionSender.sender_key]: {
             loading: false,
             error: null,
+            availability: currentState?.availability || null,
           },
         }
       })
@@ -12147,6 +12159,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       [renderedDecisionSender.sender_key]: {
         loading: true,
         error: null,
+        availability: null,
       },
     }))
 
@@ -12168,6 +12181,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
             [renderedDecisionSender.sender_key]: {
               loading: false,
               error: result.error,
+              availability: null,
             },
           }))
           return
@@ -12196,6 +12210,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           [renderedDecisionSender.sender_key]: {
             loading: false,
             error: null,
+            availability: result.data.availability,
           },
         }))
       })
@@ -12209,6 +12224,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               error instanceof Error && error.message.trim()
                 ? error.message
                 : 'Failed to load preview text for this sender in Decision Mode.',
+            availability: null,
           },
         }))
       })
@@ -12222,6 +12238,38 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     mode,
     renderedDecisionSender,
   ])
+
+  const retryDecisionSnippetHydration = useCallback(() => {
+    if (!renderedDecisionSender) return
+
+    const retryMessageIds = renderedDecisionSender.preview_messages
+      .slice(0, decisionVisibleEvidenceCount)
+      .filter((message) => message.snippet == null)
+      .map((message) => message.message_id)
+    if (retryMessageIds.length === 0) return
+
+    invalidateOperationsMessageSnippets(retryMessageIds)
+    setSnippetOverridesBySender((current) => {
+      const nextSenderOverrides = {
+        ...(current[renderedDecisionSender.sender_key] || {}),
+      }
+      for (const messageId of retryMessageIds) {
+        delete nextSenderOverrides[messageId]
+      }
+      return {
+        ...current,
+        [renderedDecisionSender.sender_key]: nextSenderOverrides,
+      }
+    })
+    setSnippetHydrationStateBySender((current) => ({
+      ...current,
+      [renderedDecisionSender.sender_key]: {
+        loading: false,
+        error: null,
+        availability: null,
+      },
+    }))
+  }, [decisionVisibleEvidenceCount, renderedDecisionSender])
 
   const updateSubsetSelection = useCallback(
     (
@@ -14537,6 +14585,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                     }))
                   }
                   snippetHydrationState={decisionSnippetHydrationState}
+                  onRetrySnippetHydration={retryDecisionSnippetHydration}
                   evidenceResolutionState={decisionEvidenceResolutionState}
                   onOpenMessagePreview={(selectedSender, message) =>
                     setMessagePreviewState({
