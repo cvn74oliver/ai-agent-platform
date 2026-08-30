@@ -24,3 +24,5 @@ node_modules/
 
 # local generated Playwright proof artifacts
 output/playwright/
+web/output/
+web/web/output/
