@@ -84,7 +84,8 @@ _Last updated: 2026-08-30 • Local-main consolidation Human-accepted; remote an
 - [x] Implement the bounded Decision Mode optional-evidence availability contract on preservation branch `codex/ace-048-decision-mode-optional-evidence` from accepted baseline `7526afe49235265f0b257fbb3dd4a389c7ea129c`: provider-neutral full-detail/subject-only states, Gmail-specific recovery guidance, no globally cached degradation, no poller, and genuine failures preserved as non-2xx.
 - [x] Record Oliver's Human Review `ACCEPT` for the direct authenticated root proof on the exact canonical port-`3001` Editorial/content route: full `76`, narrowed `1M` `25`, zero repeated settled snippet requests, one explicit-retry request, preserved close/return rows and selection, and zero `412`/`409` churn.
 - [x] Record Recovery Contract: `CHANGELOG.md` -> `August 30, 2026 — ACE-048 Decision Mode Optional-Evidence Availability Accepted`.
-- [ ] Integrate the accepted preservation branch into local `main` and repeat the canonical proof on the normal port-`3000` runtime before beginning the Management-page work unit.
+- [x] Integrate the accepted preservation branch into local `main` at `79ab1a6` and repeat the canonical proof on the normal port-`3000` runtime: full `76` and `1M` `25` sender universes, `12` loaded rows, subject-only settle, zero automatic repeats, one explicit-retry `200`, preserved close/return scope, no console/runtime errors, and zero `412`/`409` churn.
+- [ ] Begin the Management-page work as a fresh bounded discovery/PM-Brief flow; do not carry the closed Decision Mode execution scope into that new problem class.
 - [ ] Decide non-force remote push/deployment separately. Any recovery-branch deletion remains separately gated.
 
 ### Historical active heading retained below

@@ -2,13 +2,13 @@
 
 Last updated: 2026-08-30
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: LOCAL MAIN ANALYSIS HUMAN-ACCEPTED / DECISION MODE FIX HUMAN-ACCEPTED ON PRESERVATION BRANCH / INTEGRATION OPEN / NO PUSH
+Status: LOCAL MAIN ANALYSIS HUMAN-ACCEPTED / DECISION MODE FIX INTEGRATED AND VERIFIED / NO PUSH
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: accepted Cleanup Groups and linked analysis source remain consolidated on local `main`; the Decision Mode optional-evidence fix is Human-accepted on its preservation branch and awaits local-main integration plus normal port-`3000` re-verification
+- Execution phase: accepted Cleanup Groups and linked analysis source remain consolidated on local `main`; the Decision Mode optional-evidence fix is Human-accepted, integrated at `79ab1a6`, and verified on the normal port-`3000` runtime
 - Problem class: runtime behavior; provider-neutral optional-evidence availability accepted with Gmail-specific degraded-capability presentation
 - Execution mode: `transitional_self_verification`
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -89,7 +89,8 @@ Status: LOCAL MAIN ANALYSIS HUMAN-ACCEPTED / DECISION MODE FIX HUMAN-ACCEPTED ON
 - [x] Implement the bounded Decision Mode optional-evidence availability contract without globally cached degradation, polling, automatic retry, or weakened genuine-error boundaries
 - [x] Record Human Review `ACCEPT` for direct authenticated root proof on the exact canonical port-`3001` route: full `76`, narrowed `1M` `25`, zero settled repeats, one explicit retry request, preserved close/return rows and selection, and zero `412`/`409` churn
 - [x] Create preservation branch `codex/ace-048-decision-mode-optional-evidence` and record the ACE-048 Recovery Contract
-- [ ] Integrate the accepted Decision Mode commit into local `main` and repeat the canonical proof on the normal port-`3000` runtime before Management work
+- [x] Integrate the accepted Decision Mode commit into local `main` at `79ab1a6` and pass the canonical normal port-`3000` proof for full `76`, `1M` `25`, zero settled repeats, one explicit retry, close/return preservation, and zero `412`/`409` churn
+- [ ] Begin Management as a fresh bounded discovery/PM-Brief flow
 - [ ] Decide non-force remote push/deployment separately; keep recovery-branch deletion behind a later exact-target gate
 
 ## Immediate Human Review return

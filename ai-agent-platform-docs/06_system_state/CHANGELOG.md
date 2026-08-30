@@ -16,16 +16,20 @@ Root cause:
 Acceptance proof:
 - Oliver returned Human Review `ACCEPT` for the direct authenticated root proof on the exact changed-worktree route: `http://localhost:3001/agents/d256b48e-5acf-4b3d-af22-003d52e7e582/operations/review?cluster_id=semantic.marketing_subscriptions&subset_source=review_unit&subset_value=family%3Amarketing_candidate_editorial_content`.
 - The full `76`-sender Editorial/content path and narrowed `1M` `25`-sender path reached ready state. Subject/date evidence remained usable during degradation; settled state issued zero repeated snippet requests; explicit retry issued exactly one request; close/return preserved selection and nonzero rows; and no `412` or `409` churn remained.
+- After local-main integration, the same exact stable review-unit route passed authenticated verification on normal port `3000`: full `76` and `1M` `25` sender universes retained `12` loaded rows; subject-only evidence remained visibly usable; settled holds added zero requests; one explicit retry added exactly one `200`; close/return preserved the stable unit and `last_month` window; and browser console/runtime-overlay inspection remained clean.
 - Deterministic optional-evidence fixtures cover not-connected, missing-scope, incomplete-token, refresh-failed, recovery-to-live-detail, genuine-error preservation, malformed responses, and response sanitization. Targeted TypeScript, zero-error ESLint, scoped diff review, and `git diff --check` passed.
+- Normal-runtime proof packet: `ace048-main-iab-summary.json`, `ace048-main-iab-request-trace.txt`, `ace048-main-iab-02-full-degraded.png`, `ace048-main-iab-05-1m-degraded.png`, `ace048-main-iab-06-1m-after-retry.png`, and `ace048-main-iab-07-1m-return.png` under the local ACE-048 visualization artifact directory.
 
 Recovery identity:
 - Accepted preservation branch: `codex/ace-048-decision-mode-optional-evidence`.
+- Preserved recovery worktree: `/Users/olivercarlin/.codex/worktrees/9e47/ai-agent-platform`.
 - Accepted pre-change baseline: `7526afe49235265f0b257fbb3dd4a389c7ea129c`.
+- Accepted preservation commit: `74eb4e7`; local-main integration commit: `79ab1a6`.
 - The seven implementation paths are the provider-neutral contract, Gmail adapter, Operations Workspace cache/validation seam, Review route, Gmail Decision presentation, deterministic fixture, and package-script entry committed with this Recovery Contract.
 
 Acceptance boundary:
-- This accepts the bounded Decision Mode optional-evidence availability behavior on the preservation branch.
-- Local-main integration and repeat verification on the normal port-`3000` canonical route remain the final local closeout step before Management work.
+- This accepts the bounded Decision Mode optional-evidence availability behavior on the preservation branch and integrated local `main`.
+- Local-main integration and repeat verification on the normal port-`3000` canonical route are complete. Management is a separate next work unit.
 - No push, deployment, publication, artifact rebuild, Smart Sync, Gmail reindex/backfill, Supabase mutation, worktree deletion, or branch deletion is authorized.
 
 Replay steps:
