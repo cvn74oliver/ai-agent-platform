@@ -92,6 +92,7 @@ Status: LOCAL MAIN ANALYSIS HUMAN-ACCEPTED / DECISION MODE FIX INTEGRATED AND VE
 - [x] Create preservation branch `codex/ace-048-decision-mode-optional-evidence` and record the ACE-048 Recovery Contract
 - [x] Integrate the accepted Decision Mode commit into local `main` at `79ab1a6` and pass the canonical normal port-`3000` proof for full `76`, `1M` `25`, zero settled repeats, one explicit retry, close/return preservation, and zero `412`/`409` churn
 - [x] Establish and verify the shared three-project backup workflow, including project/worktree choices, retention/KEEP rules, checksums, and the ACE-048 combined long-term recovery set
+- [x] Retire the final clean Decision Mode preservation checkout after patch-equivalence and backup proof; retain its named recovery branch
 - [ ] Begin Management as a fresh bounded discovery/PM-Brief flow
 - [ ] Decide non-force remote push/deployment separately; keep recovery-branch deletion behind a later exact-target gate
 

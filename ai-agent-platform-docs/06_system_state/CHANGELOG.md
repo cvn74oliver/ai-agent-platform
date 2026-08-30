@@ -12,6 +12,7 @@ Verification:
 - A significant-milestone combined `KEEP` set was created for Automata `main@c28a7ba` and accepted Decision Mode worktree `9e47@74eb4e7`.
 - Both archives passed full table-of-contents reads and SHA-256 capture. The verification manifest is `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-30/ACE-048 backup verification 30 August 2026.txt`.
 - Older non-`KEEP` Automata backups beyond seven days were pruned under the confirmed retention policy; existing `KEEP` archives were preserved.
+- After backup verification, the final clean Decision Mode checkout `9e47@74eb4e7` was retired. Its patch is equivalent to the accepted integration on local `main`; the named recovery branch and verified `KEEP` archive/snapshot remain preserved.
 
 Recovery:
 - Original script: `backup-projects.sh.before-shared-projects-2026-08-30`.
