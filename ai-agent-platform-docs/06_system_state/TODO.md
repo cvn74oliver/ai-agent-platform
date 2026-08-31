@@ -1,7 +1,23 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-30 • Accepted ACE-048 consolidation published to GitHub; Management planning remains next_
+_Last updated: 2026-08-31 • Post-merge publication recovery verifier-passed; Human decision is required before main/GitHub closeout_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
+
+### Post-merge publication recovery — VERIFIER PASS / AWAITING HUMAN DECISION
+
+- [x] Reattest clean Git lineage: local `main` and `origin/main` match at `49f863c`; accepted Cleanup Groups and shared-analysis integration commits are present.
+- [x] Diagnose the live mismatch read-only: April artifact `full-mailbox-20260415024237593` remains published with zero review-unit manifests; August candidate `full-mailbox-20260825031402535` is terminal candidate-ready with `5,024` senders, `60` validated manifests, and coverage through August 15.
+- [x] Record Oliver `ACCEPT` for the bounded publication recovery plan.
+- [x] Create authoritative runtime brief `docs/00_control_plane/runtime/ACE-048_POST_MERGE_PUBLICATION_RECOVERY_PM_BRIEF.md`.
+- [x] Create verified full pre-change `KEEP` backup; skip pruning.
+- [x] Restore a narrow compare-and-set readiness/promotion path without wholesale cleanup-branch integration.
+- [x] Make Mailbox Intelligence use read-only indexed provenance in the sidebar and keep Pressure Trend as its sole mutable timeframe authority.
+- [x] Run static verification and a non-published August-candidate browser preview across Cleanup Groups, Sender Overview, Sender Distribution, Time Context, Pressure Trend, and Decision Mode.
+- [x] Reattest exact publication identity and atomically promote the August candidate with the April version retained for rollback.
+- [x] Run final post-settle linked-surface proof on normal port `3000`; all locked surfaces passed with zero API failures, guard churn, or console errors.
+- [ ] Obtain explicit Human Review `ACCEPT` or `REJECT` for this verifier packet.
+- [ ] On `ACCEPT`, record the accepted-fix Recovery Contract, merge the bounded recovery branch into `main`, create the milestone backup, and push normally to GitHub.
+- [ ] Keep Management planning deferred until this recovery is accepted.
 
 - [x] Oliver approved the decision-complete all-parent plan and immediate same-flow implementation through the pre-rebuild gate.
 - [x] Create authoritative runtime packet `docs/00_control_plane/runtime/ACE-048_ALL_PARENT_CLEANUP_TAXONOMY_CONSOLIDATION_PM_BRIEF.md`; supersede Marketing-only execution authority while preserving it as partial evidence.

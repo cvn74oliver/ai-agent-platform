@@ -402,13 +402,18 @@ function OperationsWorkspaceShellInner(props: {
     props.pathname.includes('/operations/review') &&
     typeof props.clusterId === 'string' &&
     props.clusterId.trim().length > 0
+  const intelligenceUsesRailOwnedTimeframe = props.pathname.includes('/operations/intelligence')
+  const usesReadOnlyIndexedCoverage =
+    reviewSupportsDetachedScope || intelligenceUsesRailOwnedTimeframe
   const visibleAnalysisScope = props.analysisScope
-  const analysisWindowControlLabel = reviewSupportsDetachedScope
+  const analysisWindowControlLabel = usesReadOnlyIndexedCoverage
     ? 'Indexed coverage'
     : 'Analysis window'
   const analysisWindowHelperText = reviewSupportsDetachedScope
     ? 'This is the published data available to this review. Use Workflow window in the Analysis Rail below to narrow the work.'
-    : 'This control changes the discovery window used for cleanup analysis.'
+    : intelligenceUsesRailOwnedTimeframe
+      ? 'This is the published data available to this dashboard. Use Pressure Trend below to change the visible timeframe.'
+      : 'This control changes the discovery window used for cleanup analysis.'
   const reviewHref = useCallback(
     (mode: string) => {
       const next = new URLSearchParams()
@@ -722,7 +727,7 @@ function OperationsWorkspaceShellInner(props: {
   }
 
   useEffect(() => {
-    if (reviewSupportsDetachedScope) {
+    if (usesReadOnlyIndexedCoverage) {
       previousScopeRef.current = props.analysisScope
       return
     }
@@ -739,7 +744,7 @@ function OperationsWorkspaceShellInner(props: {
   }, [
     beginBackgroundRegeneration,
     props.analysisScope,
-    reviewSupportsDetachedScope,
+    usesReadOnlyIndexedCoverage,
   ])
 
   const regenerateClusters = async () => {
@@ -1411,9 +1416,13 @@ function OperationsWorkspaceShellInner(props: {
               {analysisWindowControlLabel}
             </p>
             <p className="text-[10px] leading-5 text-slate-300">{analysisWindowHelperText}</p>
-            {reviewSupportsDetachedScope ? (
+            {usesReadOnlyIndexedCoverage ? (
               <div
-                data-testid="review-indexed-coverage"
+                data-testid={
+                  reviewSupportsDetachedScope
+                    ? 'review-indexed-coverage'
+                    : 'intelligence-indexed-coverage'
+                }
                 className={`${railInputClass} flex items-center`}
               >
                 {analysisScopeControlLabel(visibleAnalysisScope)}
@@ -1508,7 +1517,7 @@ function OperationsWorkspaceShellInner(props: {
               {runtime.manualMailboxReindexStarting ? 'Starting full mailbox reindex…' : 'Run full mailbox reindex'}
             </button>
             <p className="text-[10px] text-slate-300">
-              {reviewSupportsDetachedScope ? 'Published coverage' : 'View'}:{' '}
+              {usesReadOnlyIndexedCoverage ? 'Published coverage' : 'View'}:{' '}
               {analysisScopeLabel(visibleAnalysisScope)} · Last refresh:{' '}
               {runtime.loadedAt ? new Date(runtime.loadedAt).toLocaleTimeString() : '—'}
             </p>

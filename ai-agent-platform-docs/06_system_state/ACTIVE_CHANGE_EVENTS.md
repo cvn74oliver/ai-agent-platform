@@ -16,6 +16,28 @@ This file tracks active architectural, product, workflow, UI, and operating-mode
 
 ## Active Change Events
 
+### [ACE-048] Post-merge publication recovery — 2026-08-31
+
+Status: VERIFIER PASS / AWAITING HUMAN DECISION
+Problem class: artifact/publication truth plus bounded UI timeframe-control authority
+Execution mode: `transitional_self_verification`
+
+- Human Review found that the accepted consolidated source is not the runtime truth currently shown on canonical localhost: Mailbox Intelligence Pressure Trend stops in April, Cleanup Groups uses incomplete legacy child data, and current child Sender Overview routes fail to load their distribution/workspace.
+- Git reattestation proves local `main`, `origin/main`, and live main remain aligned at `49f863c055787ff0a0eb696a76d4609dd3d7568f`; the accepted Cleanup Groups and shared Sender Distribution/Time Context/Pressure Trend integration commits are present. The preserved `cleanup-taxonomy-rebuild` branch is superseded lineage and must not be merged wholesale.
+- Read-only Supabase reattestation locks the mechanism: published `all_indexed` remains `full-mailbox-20260415024237593` with `4,923` senders and zero review-unit manifests. Candidate `full-mailbox-20260825031402535` is terminal `completed / candidate_ready` with `5,024` senders, `244,628` messages, `7` parents, `60` candidate-validated manifests, and projection coverage from `2022-12-02` through `2026-08-15`.
+- The new source expects persisted review-unit projection truth that the April publication does not contain. Therefore old child population, April Pressure Trend coverage, and `selected cleanup child does not match published artifact` are one mixed-version publication failure, not three unrelated UI defects.
+- Separate accepted UI direction: Mailbox Intelligence must not retain a competing mutable Operations Workspace analysis dropdown. The sidebar becomes read-only indexed provenance; Pressure Trend remains the page's sole mutable timeframe control.
+- Oliver recorded `ACCEPT` on 2026-08-31 for the bounded recovery plan. Authoritative packet: `docs/00_control_plane/runtime/ACE-048_POST_MERGE_PUBLICATION_RECOVERY_PM_BRIEF.md`.
+- A verified full `KEEP` backup exists before execution. No pruning occurred.
+- Authorized sequence: restore compare-and-set promotion safety; correct Intelligence timeframe authority; preview the exact August candidate without publication; verify all linked surfaces; then perform one atomic publication transition only if preview passes. April remains the rollback version.
+- Prohibited: Gmail access, Smart Sync, reindex, raw scan, rebuild, second candidate, migration, broad Supabase mutation, deployment, deletion, or wholesale legacy branch integration.
+- Execution result: guarded publication changed only the canonical artifact pointer from `full-mailbox-20260415024237593` to `full-mailbox-20260825031402535`; the pointer is `published / fresh`, no build lock remains, and the job is terminal `published`.
+- Verifier result: candidate preview and canonical port-`3000` final proof pass after settle for Mailbox Intelligence, seven-group Cleanup Groups, canonical child entry, Sender Distribution `1W`, and Time Context `1W`. Pressure Trend reaches Q3 2026; all linked surfaces use the August artifact. API failures, `409` guard churn, console errors, and duplicate-key warnings were zero.
+- Static/contract proof: TypeScript, targeted ESLint, cleanup assignment, Pressure Trend, generic workspace review-unit, generic/Gmail window projection, and Gmail review-unit contract fixtures all pass.
+- Decision gate: Human Review must explicitly `ACCEPT`, `REJECT`, `BLOCKED`, or `RETURN_TO_PM`. No Recovery Contract, main merge, or GitHub push may occur before that decision.
+
+Checkpoint Status: continuity checkpoint created. Material implementation and verifier proof are propagated; Human Review decision is required before closeout, Recovery Contract capture, main integration, or push.
+
 ### [ACE-048] Automata Revival — Security and Rebaseline
 
 Date: 2026-08-15

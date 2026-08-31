@@ -133,6 +133,15 @@ export type GmailArtifactPublicationRestoreState = Pick<
   | 'refresh_sync_run_id'
 >
 
+export type GmailArtifactPublicationCompareAndSetExpectation = {
+  published_version?: string | null
+  building_version?: string | null
+  build_status?: GmailArtifactBuildStatus | null
+  refresh_job_id?: string | null
+  last_index_state_updated_at?: string | null
+  last_indexed_message_count?: number | null
+}
+
 export type GmailArtifactJobRow = {
   job_id: string
   tenant_id: string
@@ -1357,6 +1366,15 @@ function cachePublicationState(params: {
   publicationStateInflight.delete(cacheKey)
 }
 
+function evictPublicationStateCache(params: {
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+}): void {
+  const cacheKey = artifactPublicationCacheKey(params)
+  publicationStateCache.delete(cacheKey)
+  publicationStateInflight.delete(cacheKey)
+}
+
 async function loadPublicationState(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -1527,6 +1545,93 @@ async function writePublicationState(params: {
     analysisScope: params.analysisScope,
     publication: result,
   })
+  return result
+}
+
+function applyPublicationExpectationClause<
+  TQuery extends {
+    eq(column: string, value: unknown): TQuery
+    is(column: string, value: null): TQuery
+  },
+>(
+  query: TQuery,
+  column: keyof GmailArtifactPublicationCompareAndSetExpectation,
+  value: unknown
+): TQuery {
+  if (value === undefined) return query
+  if (value === null) return query.is(column, null)
+  return query.eq(column, value)
+}
+
+async function writePublicationStateCompareAndSet(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  patch: Partial<GmailArtifactPublicationRow>
+  expected: GmailArtifactPublicationCompareAndSetExpectation
+}): Promise<GmailArtifactPublicationRow | null> {
+  const nextPatch = {
+    ...omitUndefinedValues(params.patch as Record<string, unknown>),
+    updated_at: nowIso(),
+  }
+  const result = await withArtifactStoreRetry({
+    label: 'gmail_artifact_publications.compare_and_set',
+    run: async () => {
+      let update = params.supabase
+        .from('gmail_artifact_publications')
+        .update(nextPatch)
+        .eq('tenant_id', params.tenantId)
+        .eq('analysis_scope', params.analysisScope)
+
+      update = applyPublicationExpectationClause(
+        update,
+        'published_version',
+        params.expected.published_version
+      )
+      update = applyPublicationExpectationClause(
+        update,
+        'building_version',
+        params.expected.building_version
+      )
+      update = applyPublicationExpectationClause(update, 'build_status', params.expected.build_status)
+      update = applyPublicationExpectationClause(
+        update,
+        'refresh_job_id',
+        params.expected.refresh_job_id
+      )
+      update = applyPublicationExpectationClause(
+        update,
+        'last_index_state_updated_at',
+        params.expected.last_index_state_updated_at
+      )
+      update = applyPublicationExpectationClause(
+        update,
+        'last_indexed_message_count',
+        params.expected.last_indexed_message_count
+      )
+
+      const { data, error } = await update
+        .select(GMAIL_ARTIFACT_PUBLICATION_SELECT)
+        .maybeSingle()
+      if (error) {
+        throw new Error(`Failed to compare-and-set gmail_artifact_publications: ${error.message}`)
+      }
+      return (data as GmailArtifactPublicationRow | null) ?? null
+    },
+  })
+
+  if (result) {
+    cachePublicationState({
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+      publication: result,
+    })
+  } else {
+    evictPublicationStateCache({
+      tenantId: params.tenantId,
+      analysisScope: params.analysisScope,
+    })
+  }
   return result
 }
 
@@ -2802,6 +2907,65 @@ export async function completeGmailArtifactBuildCandidate(params: {
   return restoredPublication
 }
 
+export async function promoteGmailArtifactPublication(params: {
+  supabase: SupabaseClient
+  jobId: string
+  tenantId: string
+  analysisScope: GmailArtifactAnalysisScope
+  artifactVersion: string
+  lastIndexStateUpdatedAt?: string | null
+  lastIndexedMessageCount?: number | null
+  expectedCurrentPublication?: GmailArtifactPublicationCompareAndSetExpectation
+}): Promise<GmailArtifactPublicationRow> {
+  const completedAt = nowIso()
+  const currentPublication = await loadPublicationState({
+    supabase: params.supabase,
+    tenantId: params.tenantId,
+    analysisScope: params.analysisScope,
+  })
+  const newerRefreshRequested = publicationHasNewerRefreshRequestThanStartedBuild(currentPublication)
+  const patch: Partial<GmailArtifactPublicationRow> = {
+    published_version: normalizeText(params.artifactVersion),
+    published_at: completedAt,
+    building_version: null,
+    build_status: 'published',
+    last_error: null,
+    last_error_at: null,
+    last_index_state_updated_at: normalizeNullableText(params.lastIndexStateUpdatedAt),
+    last_indexed_message_count:
+      typeof params.lastIndexedMessageCount === 'number' &&
+      Number.isFinite(params.lastIndexedMessageCount)
+        ? Math.max(0, Math.round(params.lastIndexedMessageCount))
+        : null,
+    freshness_state: newerRefreshRequested ? undefined : 'fresh',
+    freshness_reason: newerRefreshRequested ? undefined : 'published_artifact_current',
+    refresh_completed_at: newerRefreshRequested ? undefined : completedAt,
+    refresh_job_id: newerRefreshRequested ? undefined : normalizeText(params.jobId),
+  }
+
+  const publication = params.expectedCurrentPublication
+    ? await writePublicationStateCompareAndSet({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: params.analysisScope,
+        patch,
+        expected: params.expectedCurrentPublication,
+      })
+    : await writePublicationState({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+        analysisScope: params.analysisScope,
+        patch,
+      })
+
+  if (!publication) {
+    throw new Error(
+      `Unable to publish artifact version ${params.artifactVersion}; compare-and-set publication prechecks failed.`
+    )
+  }
+  return publication
+}
+
 export async function publishGmailArtifactBuild(params: {
   supabase: SupabaseClient
   jobId: string
@@ -2813,31 +2977,22 @@ export async function publishGmailArtifactBuild(params: {
   processedSenderCount?: number | null
   processedMessageCount?: number | null
   processedClusterCount?: number | null
+  expectedCurrentPublication?: GmailArtifactPublicationCompareAndSetExpectation
+  markJobPublished?: boolean
 }): Promise<void> {
   const completedAt = nowIso()
-  await writePublicationState({
+  await promoteGmailArtifactPublication({
     supabase: params.supabase,
+    jobId: params.jobId,
     tenantId: params.tenantId,
     analysisScope: params.analysisScope,
-    patch: {
-      published_version: normalizeText(params.artifactVersion),
-      published_at: completedAt,
-      building_version: null,
-      build_status: 'published',
-      last_error: null,
-      last_error_at: null,
-      last_index_state_updated_at: normalizeNullableText(params.lastIndexStateUpdatedAt),
-      last_indexed_message_count:
-        typeof params.lastIndexedMessageCount === 'number' &&
-        Number.isFinite(params.lastIndexedMessageCount)
-          ? Math.max(0, Math.round(params.lastIndexedMessageCount))
-          : null,
-      freshness_state: 'fresh',
-      freshness_reason: 'published_artifact_current',
-      refresh_completed_at: completedAt,
-      refresh_job_id: normalizeText(params.jobId),
-    },
+    artifactVersion: params.artifactVersion,
+    lastIndexStateUpdatedAt: params.lastIndexStateUpdatedAt,
+    lastIndexedMessageCount: params.lastIndexedMessageCount,
+    expectedCurrentPublication: params.expectedCurrentPublication,
   })
+
+  if (params.markJobPublished === false) return
 
   await writeArtifactJob({
     supabase: params.supabase,

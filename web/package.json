@@ -18,6 +18,8 @@
     "test:gmail-review-unit-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-review-unit-contract-fixtures.mjs",
     "test:gmail-optional-evidence-detail-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-optional-evidence-detail-contract-fixtures.mjs",
     "audit:gmail-cleanup-group-live": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-cleanup-group-live-audit.mjs",
+    "audit:gmail-artifact-publication-readiness": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-artifact-publication-readiness.mjs",
+    "publish:gmail-artifact-candidate": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-artifact-publication-promote.mjs",
     "accept:gmail-workspace-data-access": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-workspace-data-access-acceptance.mjs",
     "build:gmail-full-mailbox-artifacts": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-artifact-full-coverage-audit.mjs"
   },

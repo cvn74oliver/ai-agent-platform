@@ -1,18 +1,20 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: ACE-048 ACCEPTED WORK PUBLISHED TO GITHUB / MANAGEMENT PLAN DECISION NEXT
+Status: POST-MERGE PUBLICATION RECOVERY VERIFIER PASS / AWAITING HUMAN DECISION
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: accepted Cleanup Groups, linked analysis, and Decision Mode optional-evidence work are consolidated on `main`, published non-force to canonical GitHub, and reverified at zero local/tracking/live-remote divergence; Management implementation remains a separate unapproved next work unit
-- Problem class: runtime behavior; provider-neutral optional-evidence availability accepted with Gmail-specific degraded-capability presentation
+- Execution phase: August artifact is canonically published and the recovered linked UI passes post-settle verification; Human Review decision is the only remaining gate before source closeout to main/GitHub and Management
+- Problem class: artifact/publication truth plus bounded UI timeframe-control authority
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; generated verification outputs cleaned recoverably and narrowly ignored; local `main`, `origin/main`, and live remote `main` matched after publication
+- Runtime publication posture: August `full-mailbox-20260825031402535` is active, `published / fresh`, and terminal job phase `published`; April `full-mailbox-20260415024237593` remains preserved as the rollback target
+- Recovery backup: full pre-change `KEEP` archive verified; verifier-checkpoint incremental completed on 2026-08-31 with project-scoped seven-day pruning and `KEEP` preservation
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.
