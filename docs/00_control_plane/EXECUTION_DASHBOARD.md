@@ -2,14 +2,14 @@
 
 Last updated: 2026-08-31
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: POST-MERGE PUBLICATION RECOVERY VERIFIER PASS / AWAITING HUMAN DECISION
+Status: HUMAN REVIEW RETURN DIAGNOSED / CORRECTION PLAN AWAITING OLIVER DECISION
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: August artifact is canonically published and the recovered linked UI passes post-settle verification; Human Review decision is the only remaining gate before source closeout to main/GitHub and Management
-- Problem class: artifact/publication truth plus bounded UI timeframe-control authority
+- Execution phase: Human Review return diagnosis complete; three bounded correction packets await Oliver decision before source execution
+- Problem class: mixed but decomposed — fixed-window index continuity, manifest-vs-presentation projection identity, and cleanup-choice presentation prioritization
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; generated verification outputs cleaned recoverably and narrowly ignored; local `main`, `origin/main`, and live remote `main` matched after publication
@@ -20,6 +20,13 @@ Status: POST-MERGE PUBLICATION RECOVERY VERIFIER PASS / AWAITING HUMAN DECISION
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.
 
 ## Approved all-parent consolidation
+
+- [x] Record 2026-08-31 Human Review `REJECT` on missing May/June Pressure Trend continuity, tiny-child presentation clutter, and failed non-`All Indexed` analysis windows on additional chooser-generated units
+- [x] Complete read-only source/index continuity diagnosis: fixed `45`-day fresh-head recovery stranded May/June between prior April and recovered July/August
+- [x] Complete representative review-unit narrowed-window diagnosis: persisted projection requires exact manifest parent; compatibility fallback only masks the mismatch for smaller units
+- [x] Lock framework-first small-group presentation policy: exact membership preserved; ordinary `<5` and `<1%`/overflow choices are expandable; action/risk exceptions remain visible under Special handling
+- [x] Issue `ACE-048_HUMAN_REVIEW_RETURN_CORRECTION_PM_BRIEF.md` with projection identity -> index continuity -> chooser presentation execution order
+- [ ] Record Oliver decision before any source edit; live gap repair remains a separate later decision gate
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

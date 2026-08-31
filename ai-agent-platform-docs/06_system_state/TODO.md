@@ -1,9 +1,9 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-31 • Post-merge publication recovery verifier-passed; Human decision is required before main/GitHub closeout_
+_Last updated: 2026-08-31 • Human Review return diagnosed; three-packet correction plan awaits Oliver decision_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
-### Post-merge publication recovery — VERIFIER PASS / AWAITING HUMAN DECISION
+### Post-merge publication recovery — HUMAN REVIEW REJECT / RETURN_TO_PM
 
 - [x] Reattest clean Git lineage: local `main` and `origin/main` match at `49f863c`; accepted Cleanup Groups and shared-analysis integration commits are present.
 - [x] Diagnose the live mismatch read-only: April artifact `full-mailbox-20260415024237593` remains published with zero review-unit manifests; August candidate `full-mailbox-20260825031402535` is terminal candidate-ready with `5,024` senders, `60` validated manifests, and coverage through August 15.
@@ -15,8 +15,14 @@ _Last updated: 2026-08-31 • Post-merge publication recovery verifier-passed; H
 - [x] Run static verification and a non-published August-candidate browser preview across Cleanup Groups, Sender Overview, Sender Distribution, Time Context, Pressure Trend, and Decision Mode.
 - [x] Reattest exact publication identity and atomically promote the August candidate with the April version retained for rollback.
 - [x] Run final post-settle linked-surface proof on normal port `3000`; all locked surfaces passed with zero API failures, guard churn, or console errors.
-- [ ] Obtain explicit Human Review `ACCEPT` or `REJECT` for this verifier packet.
-- [ ] On `ACCEPT`, record the accepted-fix Recovery Contract, merge the bounded recovery branch into `main`, create the milestone backup, and push normally to GitHub.
+- [x] Record Human Review `REJECT`: yearly Pressure Trend has May/June 2026 gaps, small child choices need a framework-first clutter policy, and non-`All Indexed` analysis windows fail for additional chooser-generated units.
+- [x] Diagnose indexed-source continuity without Gmail access or mutation: May/June are absent from raw indexed rows because fixed-window fresh-head recovery stopped in July before bridging to the prior April endpoint.
+- [x] Diagnose narrowed Sender Distribution / Time Context: manifest-parent projection identity succeeds for simple and composite units, while presentation/legacy parent identities fail; the small-unit compatibility fallback masked the mismatch.
+- [x] Produce a framework-first small-group presentation recommendation: preserve exact units, classify `<5` and `<1%` ordinary units under More specific, preserve action/risk exceptions under Special handling, and cap immediately visible primary choices at `8`.
+- [x] Produce authoritative three-packet correction plan `docs/00_control_plane/runtime/ACE-048_HUMAN_REVIEW_RETURN_CORRECTION_PM_BRIEF.md` with projection identity -> index continuity -> chooser presentation execution order.
+- [ ] Record Oliver `ACCEPT` / `REJECT` / `BLOCKED` / `RETURN_TO_PM` on the correction plan.
+- [ ] If accepted, execute source-only packets A-C; keep provider access, live data repair, rebuild, and publication behind a later separate gate.
+- [ ] After correction and full representative linked-surface verification, return to a new Human Review decision gate before any Recovery Contract, main merge, milestone backup, or GitHub push.
 - [ ] Keep Management planning deferred until this recovery is accepted.
 
 - [x] Oliver approved the decision-complete all-parent plan and immediate same-flow implementation through the pre-rebuild gate.

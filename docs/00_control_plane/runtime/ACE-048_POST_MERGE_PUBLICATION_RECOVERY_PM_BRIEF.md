@@ -1,7 +1,7 @@
 # ACE-048 Post-Merge Publication Recovery PM Brief
 
 Date: 2026-08-31
-Status: VERIFIER PASS / AWAITING HUMAN DECISION
+Status: HUMAN REVIEW REJECT / SUPERSEDED AS CLOSEOUT AUTHORITY
 Governing ACE: ACE-048
 Feature domain: Cleanup Groups and shared sender-analysis surfaces
 Execution mode: `transitional_self_verification`
@@ -191,6 +191,18 @@ Request families observed: bounded artifact-backed Operations APIs only. API fai
 
 Verifier-checkpoint backup: `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-31/ai-agent-platform (incremental 31 August 2026 - ACE-048 post-merge publication recovery verifier checkpoint before Human Review)`.
 
-Status: Awaiting Decision
+## Human Review result — 2026-08-31
+
+Decision: `REJECT` / `RETURN_TO_PM`.
+
+- Pressure Trend visibly preserves empty May and June 2026 buckets between April and resumed July activity; source/index continuity must be diagnosed rather than hidden in presentation.
+- Multiple ordinary cleanup children contain only one or two subjects; a framework-first presentation threshold and semantic-risk exception policy must be decided without changing exact stored membership merely to improve appearance.
+- Non-`All Indexed` Sender Distribution and Time Context windows fail for additional chooser-generated review-unit identity classes. The prior proof of one canonical family child was too narrow to establish all-child parity.
+
+The prior candidate and final proof remain useful bounded evidence but do not establish an Accepted Fix. Active work returns to PM discovery and must produce three separately scoped correction packets before implementation resumes.
+
+Status: RETURN_TO_PM
 
 Decision options: `ACCEPT`, `REJECT`, `BLOCKED`, `RETURN_TO_PM`.
+
+Superseding active correction plan: `docs/00_control_plane/runtime/ACE-048_HUMAN_REVIEW_RETURN_CORRECTION_PM_BRIEF.md`.
