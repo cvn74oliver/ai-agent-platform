@@ -15,9 +15,19 @@ import {
   type ChatMessage,
 } from '@/lib/runtime/operationsWorkspace'
 import { OperationsRuntimeProvider, useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
+import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
+import { DecisionWorkspaceReadProvider } from '@/components/runtime/DecisionWorkspaceReadContext'
+import type { DecisionWorkspaceReadAdapterId } from '@/lib/runtime/decisionWorkspaceReadModel'
+import {
+  presentationHasProviderControl,
+  resolveDecisionWorkspacePresentationSlot,
+  type DecisionWorkspacePresentationDefinition,
+  type DecisionWorkspacePresentationSlotId,
+} from '@/lib/runtime/decisionWorkspacePresentation'
 
 type Props = {
   agentId: string
+  decisionWorkspaceReadAdapterId: DecisionWorkspaceReadAdapterId
   children: ReactNode
 }
 
@@ -30,42 +40,24 @@ type RailItem = {
   stage?: string
 }
 
-function assistantSuggestedPrompts(pathname: string, reviewStage: string | null): string[] {
-  if (pathname.includes('/operations/intelligence')) {
-    return [
-      'Which senders dominate the whole mailbox versus the cleanup candidate universe?',
-      'What does the protected/safe context say about cleanup risk?',
-      'Which cleanup group should I open next from this dashboard?',
-    ]
-  }
+function presentationSlotForPath(
+  pathname: string,
+  reviewStage: string | null
+): DecisionWorkspacePresentationSlotId {
+  if (pathname.includes('/operations/intelligence')) return 'health_overview'
+  if (pathname.includes('/operations/clusters')) return 'review_groups'
   if (pathname.includes('/operations/review')) {
-    if (reviewStage === 'decision') {
-      return [
-        'Why is this sender in the current cleanup group?',
-        'Show engagement/protection signals for this sender.',
-        'What Management bucket will this decision land in?',
-      ]
-    }
-    return [
-      'What does this cleanup group represent before I start decisions?',
-      'How many senders are already managed versus still eligible?',
-      'When should I leave Overview and enter Decision Mode?',
-    ]
+    return reviewStage === 'decision' ? 'decision_mode' : 'item_overview'
   }
-  if (pathname.includes('/operations/clusters')) {
-    return [
-      'Which cluster is safest to start with?',
-      'Why does this cluster exist?',
-      'How does this group narrow the sender universe?',
-    ]
-  }
-  if (pathname.includes('/operations/management')) {
-    return [
-      'Which destination states need attention right now?',
-      'What has been committed versus actually executed?',
-      'Which sender states should I revisit next?',
-    ]
-  }
+  if (pathname.includes('/operations/management')) return 'decision_management'
+  return 'workspace'
+}
+
+function assistantSuggestedPrompts(
+  pathname: string,
+  reviewStage: string | null,
+  presentation: DecisionWorkspacePresentationDefinition
+): readonly string[] {
   if (pathname.includes('/operations/approvals')) {
     return [
       'What happens if I approve this request?',
@@ -80,11 +72,7 @@ function assistantSuggestedPrompts(pathname: string, reviewStage: string | null)
       'Any risky trends in recent operations?',
     ]
   }
-  return [
-    'What should I look at in Mailbox Intelligence first?',
-    'Which cleanup group should I start with?',
-    'What should stay protected?',
-  ]
+  return presentation.assistant.prompts[presentationSlotForPath(pathname, reviewStage)]
 }
 
 function buildAssistantContext(params: {
@@ -92,37 +80,13 @@ function buildAssistantContext(params: {
   resultId: string | null
   clusterId: string | null
   reviewStage: string | null
+  presentation: DecisionWorkspacePresentationDefinition
 }): string {
   const resultSuffix = params.resultId ? ` Result: ${params.resultId}.` : ''
   const clusterSuffix = params.clusterId ? ` Cluster: ${params.clusterId}.` : ''
   const scopeSuffix = `${resultSuffix}${clusterSuffix}`.trim()
   const withScope = (text: string) => (scopeSuffix ? `${text} ${scopeSuffix}` : text)
 
-  if (params.pathname.includes('/operations/review')) {
-    if (params.reviewStage === 'decision') {
-      return withScope(
-        'Current context: Decision Mode. Focus on one-sender-at-a-time classification, destination assignment, protection signals, and the correct Management bucket.'
-      )
-    }
-    return withScope(
-      'Current context: Sender Overview. Focus on cleanup-group orientation, sender scope, progress, and when to enter Decision Mode.'
-    )
-  }
-  if (params.pathname.includes('/operations/intelligence')) {
-    return withScope(
-      'Current context: Mailbox Intelligence. Focus on whole-mailbox sender analysis, cleanup candidate context, protected/safe context, and which cleanup group should be reviewed next.'
-    )
-  }
-  if (params.pathname.includes('/operations/clusters')) {
-    return withScope(
-      'Current context: Cleanup Groups. Focus on sender-cluster prioritization, scope narrowing, and safest review order.'
-    )
-  }
-  if (params.pathname.includes('/operations/management')) {
-    return withScope(
-      'Current context: Decision Management. Focus on committed sender destinations, execution truth, warnings, and which destination states need follow-up next.'
-    )
-  }
   if (params.pathname.includes('/operations/approvals')) {
     return withScope(
       'Current context: Pending Approvals. Focus on approval consequences and reversibility.'
@@ -132,7 +96,9 @@ function buildAssistantContext(params: {
     return withScope('Current context: History. Focus on outcomes, trends, and repeated patterns.')
   }
   return withScope(
-    'Current context: Gmail workspace entry route. Focus on opening Mailbox Intelligence, understanding sender-first cleanup status, and identifying the next cleanup group to review.'
+    params.presentation.assistant.context[
+      presentationSlotForPath(params.pathname, params.reviewStage)
+    ]
   )
 }
 
@@ -274,6 +240,7 @@ function mailboxIndexBackfillTargetLines(params: {
 
 function OperationsWorkspaceShellInner(props: {
   agentId: string
+  decisionWorkspaceReadAdapterId: DecisionWorkspaceReadAdapterId
   children: ReactNode
   pathname: string
   sessionId: string | null
@@ -286,6 +253,20 @@ function OperationsWorkspaceShellInner(props: {
   const router = useRouter()
   const searchParams = useSearchParams()
   const runtime = useOperationsRuntime()
+  const presentation = useDecisionWorkspacePresentation()
+  const workspaceSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'workspace')
+  const healthSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'health_overview')
+  const reviewGroupsSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'review_groups')
+  const itemOverviewSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'item_overview')
+  const decisionModeSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'decision_mode')
+  const decisionManagementSlot = resolveDecisionWorkspacePresentationSlot(
+    presentation,
+    'decision_management'
+  )
+  const showGmailIndexControls =
+    presentationHasProviderControl(presentation, 'gmail.smart_sync', 'gmail.primary') &&
+    presentationHasProviderControl(presentation, 'gmail.continue_backfill', 'gmail.primary') &&
+    presentationHasProviderControl(presentation, 'gmail.full_mailbox_reindex', 'gmail.primary')
   const isMailboxIntelligencePage = props.pathname.includes('/operations/intelligence')
   const [scopeUpdating, setScopeUpdating] = useState(false)
   const [regeneratingClusters, setRegeneratingClusters] = useState(false)
@@ -435,38 +416,38 @@ function OperationsWorkspaceShellInner(props: {
       {
         key: 'intelligence',
         section: 'workflow',
-        label: 'Mailbox Intelligence',
-        caption: 'Mission, status, and high-level cleanup summary',
+        label: healthSlot.title,
+        caption: healthSlot.subtitle,
         href: `/agents/${props.agentId}/operations/intelligence${query}`,
       },
       {
         key: 'clusters',
         section: 'workflow',
-        label: 'Cleanup Groups',
-        caption: 'Full sender-group selection surface',
+        label: reviewGroupsSlot.title,
+        caption: reviewGroupsSlot.subtitle,
         href: `/agents/${props.agentId}/operations/clusters${query}`,
       },
       {
         key: 'sender_overview',
         section: 'workflow',
-        label: 'Sender Overview',
-        caption: 'Orientation, scope, and progress before focused review',
+        label: itemOverviewSlot.title,
+        caption: itemOverviewSlot.subtitle,
         href: reviewHref('overview'),
         stage: 'overview',
       },
       {
         key: 'decision_mode',
         section: 'workflow',
-        label: 'Decision Mode',
-        caption: 'One sender at a time, four actions, no Gmail mutation',
+        label: decisionModeSlot.title,
+        caption: decisionModeSlot.subtitle,
         href: reviewHref('decision'),
         stage: 'decision',
       },
       {
         key: 'management',
         section: 'workflow',
-        label: 'Management',
-        caption: 'Destination states, execution truth, and follow-up',
+        label: decisionManagementSlot.title,
+        caption: decisionManagementSlot.subtitle,
         href: `/agents/${props.agentId}/operations/management${query}`,
       },
       {
@@ -504,7 +485,18 @@ function OperationsWorkspaceShellInner(props: {
         href: `/agents/${props.agentId}/playground${query}`,
       },
     ],
-    [props.agentId, props.analysisScope, props.sessionId, query, reviewHref]
+    [
+      decisionManagementSlot,
+      decisionModeSlot,
+      healthSlot,
+      itemOverviewSlot,
+      props.agentId,
+      props.analysisScope,
+      props.sessionId,
+      query,
+      reviewGroupsSlot,
+      reviewHref,
+    ]
   )
 
   const groupedItems = useMemo(() => {
@@ -800,8 +792,8 @@ function OperationsWorkspaceShellInner(props: {
   ])
 
   const suggestedPrompts = useMemo(
-    () => assistantSuggestedPrompts(props.pathname, props.reviewStage),
-    [props.pathname, props.reviewStage]
+    () => assistantSuggestedPrompts(props.pathname, props.reviewStage, presentation),
+    [presentation, props.pathname, props.reviewStage]
   )
 
   const mailboxIndexStatus = useMemo(() => {
@@ -1359,6 +1351,7 @@ function OperationsWorkspaceShellInner(props: {
       resultId: props.resultId,
       clusterId: props.clusterId,
       reviewStage: props.reviewStage,
+      presentation,
     })
     const nextMessages: ChatMessage[] = [
       ...assistantMessages,
@@ -1407,9 +1400,9 @@ function OperationsWorkspaceShellInner(props: {
     <div className={shellGridClassName}>
       <aside className={leftRailClassName}>
         <div className="space-y-2.5 pb-3.5 border-b border-slate-500/30">
-          <p className="text-[11px] uppercase tracking-wide text-cyan-300">Operations Workspace</p>
+          <p className="text-[11px] uppercase tracking-wide text-cyan-300">{workspaceSlot.title}</p>
           <p className="text-[11px] leading-snug text-slate-200">
-            Session-scoped operator workflow for sender-first cleanup, destination management, and secondary audit access.
+            {presentation.copy.workspaceDescription}
           </p>
           <div className="app-surface-rail-card space-y-1.5 rounded-xl p-2.5">
             <p className="text-[9px] uppercase tracking-wide text-slate-300">
@@ -1460,62 +1453,68 @@ function OperationsWorkspaceShellInner(props: {
             <p className="text-[10px] text-amber-200/90">
               Refreshing cleanup analysis does not increase indexed mailbox coverage.
             </p>
-            <button
-              type="button"
-              onClick={() => void triggerSmartSync()}
-              disabled={mailboxIndexActionDisabled}
-              className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
-                mailboxIndexActionDisabled
-                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                  : 'bg-sky-700 hover:bg-sky-600 text-white'
-              }`}
-            >
-              {runtime.smartMailboxSyncStarting ? 'Starting Smart Sync…' : 'Smart Sync'}
-            </button>
-            {showDefaultContinueBackfillButton ? (
-              <button
-                type="button"
-                onClick={() => void triggerMailboxBackfill()}
-                disabled={mailboxIndexActionDisabled}
-                className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
-                  mailboxIndexActionDisabled
-                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                    : 'bg-amber-700 hover:bg-amber-600 text-white'
-                }`}
-              >
-                {runtime.operatorMailboxBackfillStarting
-                  ? 'Starting Continue Backfill…'
-                  : 'Continue Backfill'}
-              </button>
+            {showGmailIndexControls ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void triggerSmartSync()}
+                  disabled={mailboxIndexActionDisabled}
+                  className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                    mailboxIndexActionDisabled
+                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                      : 'bg-sky-700 hover:bg-sky-600 text-white'
+                  }`}
+                >
+                  {runtime.smartMailboxSyncStarting ? 'Starting Smart Sync…' : 'Smart Sync'}
+                </button>
+                {showDefaultContinueBackfillButton ? (
+                  <button
+                    type="button"
+                    onClick={() => void triggerMailboxBackfill()}
+                    disabled={mailboxIndexActionDisabled}
+                    className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                      mailboxIndexActionDisabled
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-amber-700 hover:bg-amber-600 text-white'
+                    }`}
+                  >
+                    {runtime.operatorMailboxBackfillStarting
+                      ? 'Starting Continue Backfill…'
+                      : 'Continue Backfill'}
+                  </button>
+                ) : null}
+                {showExtendedContinueBackfillButton ? (
+                  <button
+                    type="button"
+                    onClick={() => void triggerMailboxBackfillExtended()}
+                    disabled={mailboxIndexActionDisabled}
+                    className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                      mailboxIndexActionDisabled
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-amber-900 hover:bg-amber-800 text-white'
+                    }`}
+                  >
+                    {runtime.operatorMailboxBackfillStarting
+                      ? 'Starting Continue Backfill (36m)…'
+                      : 'Continue Backfill (36m)'}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void triggerManualMailboxReindex()}
+                  disabled={mailboxIndexActionDisabled}
+                  className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
+                    mailboxIndexActionDisabled
+                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                      : 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                  }`}
+                >
+                  {runtime.manualMailboxReindexStarting
+                    ? 'Starting full mailbox reindex…'
+                    : 'Run full mailbox reindex'}
+                </button>
+              </>
             ) : null}
-            {showExtendedContinueBackfillButton ? (
-              <button
-                type="button"
-                onClick={() => void triggerMailboxBackfillExtended()}
-                disabled={mailboxIndexActionDisabled}
-                className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
-                  mailboxIndexActionDisabled
-                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                    : 'bg-amber-900 hover:bg-amber-800 text-white'
-                }`}
-              >
-                {runtime.operatorMailboxBackfillStarting
-                  ? 'Starting Continue Backfill (36m)…'
-                  : 'Continue Backfill (36m)'}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void triggerManualMailboxReindex()}
-              disabled={mailboxIndexActionDisabled}
-              className={`w-full rounded px-2 py-1.5 text-xs font-medium ${
-                mailboxIndexActionDisabled
-                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                  : 'bg-emerald-700 hover:bg-emerald-600 text-white'
-              }`}
-            >
-              {runtime.manualMailboxReindexStarting ? 'Starting full mailbox reindex…' : 'Run full mailbox reindex'}
-            </button>
             <p className="text-[10px] text-slate-300">
               {usesReadOnlyIndexedCoverage ? 'Published coverage' : 'View'}:{' '}
               {analysisScopeLabel(visibleAnalysisScope)} · Last refresh:{' '}
@@ -1543,7 +1542,8 @@ function OperationsWorkspaceShellInner(props: {
                 Refreshing cleanup analysis in the background. Current cleanup groups stay visible until the new results are ready.
               </p>
             ) : null}
-            <div className={railInsetPanelClass}>
+            {showGmailIndexControls ? (
+              <div className={railInsetPanelClass}>
               <p className="text-[10px] uppercase tracking-wide text-slate-300">Mailbox index</p>
               <p
                 className={`text-[11px] font-medium ${
@@ -1585,12 +1585,13 @@ function OperationsWorkspaceShellInner(props: {
                   {mailboxIndexNotice.text}
                 </p>
               ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
           <div className="app-surface-rail-card rounded-xl px-3 py-2.5 space-y-1.5">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">Control center</p>
             <p className="text-[11px] leading-relaxed text-slate-200">
-              Management is now the primary control center for committed sender states, execution truth, and undo. Pending Approvals and History remain available below as legacy audit routes only.
+              {presentation.copy.controlCenterDescription}
             </p>
           </div>
         </div>
@@ -1638,7 +1639,15 @@ function OperationsWorkspaceShellInner(props: {
         </div>
       </aside>
 
-      <section className={centerFrameClassName}>{props.children}</section>
+      <section className={centerFrameClassName}>
+        <DecisionWorkspaceReadProvider
+          adapterId={props.decisionWorkspaceReadAdapterId}
+          agentId={props.agentId}
+          requestedSessionId={props.sessionId}
+        >
+          {props.children}
+        </DecisionWorkspaceReadProvider>
+      </section>
 
       <aside className={assistantRailClassName}>
         <div className="flex items-start justify-between gap-2">
@@ -1722,7 +1731,11 @@ function OperationsWorkspaceShellInner(props: {
   )
 }
 
-export default function OperationsWorkspaceShell({ agentId, children }: Props) {
+export default function OperationsWorkspaceShell({
+  agentId,
+  decisionWorkspaceReadAdapterId,
+  children,
+}: Props) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('playground_session_id')
@@ -1754,6 +1767,7 @@ export default function OperationsWorkspaceShell({ agentId, children }: Props) {
     >
       <OperationsWorkspaceShellInner
         agentId={agentId}
+        decisionWorkspaceReadAdapterId={decisionWorkspaceReadAdapterId}
         pathname={pathname}
         sessionId={sessionId}
         analysisScope={analysisScope}

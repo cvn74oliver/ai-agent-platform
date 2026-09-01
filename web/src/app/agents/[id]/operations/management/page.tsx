@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
+import { useDecisionWorkspaceRead } from '@/components/runtime/DecisionWorkspaceReadContext'
+import { resolveDecisionWorkspacePresentationSlot } from '@/lib/runtime/decisionWorkspacePresentation'
 import {
   clearSenderFromGmailCleanupWorkflowDrafts,
-  fetchGmailDecisionManagementSummary,
   persistGmailCleanupMemoryEvent,
   type GmailDecisionManagementSummaryData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
@@ -650,6 +652,11 @@ export default function OperationsDecisionManagementPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const presentation = useDecisionWorkspacePresentation()
+  const { management } = useDecisionWorkspaceRead()
+  const itemOverviewSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'item_overview')
+  const decisionModeSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'decision_mode')
+  const managementSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'decision_management')
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const sessionId = searchParams.get('playground_session_id')
   const analysisScope = normalizeOperationsAnalysisScope(searchParams.get('analysis_scope'))
@@ -663,13 +670,17 @@ export default function OperationsDecisionManagementPage() {
   const [reopeningSenderKey, setReopeningSenderKey] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
-    const result = await fetchGmailDecisionManagementSummary({ agentId })
+    const result = await management.readSummary({ agentId })
     if (!result.ok) {
       setState({ status: 'error', data: null, error: result.error })
       return
     }
-    setState({ status: 'ready', data: result.data, error: null })
-  }, [agentId])
+    setState({
+      status: 'ready',
+      data: result.data.compatibilityValue.value as GmailDecisionManagementSummaryData,
+      error: null,
+    })
+  }, [agentId, management])
 
   useEffect(() => {
     if (!agentId) return
@@ -823,7 +834,7 @@ export default function OperationsDecisionManagementPage() {
   if (state.status === 'loading') {
     return (
       <section className="app-surface-card-subtle rounded-2xl p-5 text-sm text-gray-300">
-        Loading Management control center…
+        Loading {managementSlot.title}…
       </section>
     )
   }
@@ -831,7 +842,7 @@ export default function OperationsDecisionManagementPage() {
   if (state.status === 'error' || !state.data) {
     return (
       <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-5 text-sm text-rose-100">
-        {state.error || 'Failed to load Decision Management.'}
+        {state.error || `Failed to load ${managementSlot.title}.`}
       </section>
     )
   }
@@ -902,8 +913,8 @@ export default function OperationsDecisionManagementPage() {
       <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Management</p>
-            <h1 className="text-2xl font-semibold text-white">Execution and sync control center</h1>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">{managementSlot.title}</p>
+            <h1 className="text-2xl font-semibold text-white">{managementSlot.subtitle}</h1>
             <p className="max-w-3xl text-sm text-gray-300">
               Decisions are already stored. Management is where you see what can act now, what is stored for later, what Gmail has already applied, and where attention is needed.
             </p>
@@ -913,13 +924,13 @@ export default function OperationsDecisionManagementPage() {
               href={buildReviewHref({ agentId, sessionId, analysisScope })}
               className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
             >
-              Sender Overview
+              {itemOverviewSlot.title}
             </Link>
             <Link
               href={buildReviewHref({ agentId, sessionId, analysisScope, mode: 'decision' })}
               className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
             >
-              Decision Mode
+              {decisionModeSlot.title}
             </Link>
           </div>
         </div>

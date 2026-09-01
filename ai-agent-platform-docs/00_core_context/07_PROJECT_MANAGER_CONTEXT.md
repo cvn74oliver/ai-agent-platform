@@ -31,6 +31,14 @@ Last updated: August 30, 2026
 - Select active Git worktrees separately when they contain unique or in-progress working-tree state. Restore the primary repository first; recreate linked worktrees from recorded branch/commit identity before overlaying their snapshot files.
 - Verification must confirm archive readability, SHA-256, source path, Git branch/HEAD where applicable, and a recovery note/manifest. Backup completion must not be inferred from script exit alone.
 
+### Accepted-milestone Git publication discipline
+
+- Oliver's standing policy is that Human-accepted stable fixes, slices, phases, and meaningful milestones must be preserved through both the shared backup workflow and GitHub publication.
+- After Human acceptance and the required Recovery Contract/control-plane propagation, require an exact-scope commit and normal non-force push to the canonical remote. Accepted work must not remain only in a dirty worktree, detached checkout, or local-only branch.
+- Reattest remote/branch/divergence and stage explicit reviewed paths. Exclude secrets, environment files, saved auth/session state, generated browser proof, build/dependency output, and unrelated dirty state.
+- Use direct accepted-main publication only when it is the governed repository path; otherwise push a named branch and use the repository's review/merge path. In either case, verify live remote parity and record commit/branch/check/exclusion evidence.
+- A publication blocker does not invalidate Human acceptance, but it must remain an explicit `Git publication pending` continuation item until resolved. No force push, deployment, provider/data mutation, or recovery-lineage deletion is implied.
+
 Execution chain:
 - Oliver -> Project Manager -> current execution agent (Codex now; Claude Code after explicitly accepted successor cutover)
 

@@ -45,6 +45,7 @@ const HISTORY_RECOVERY_PARTIAL_SCAN_COOLDOWN_MS = 10 * 60 * 1000
 const SMART_SYNC_BOUNDED_SCAN_MAX_MESSAGES = 2_500
 const MAILBOX_INDEX_RECENT_HEALTH_WINDOW_DAYS = 14
 const MAILBOX_INDEX_FRESH_HEAD_RECOVERY_WINDOW_DAYS = 45
+const MAILBOX_INDEX_RECOVERY_BRIDGE_OVERLAP_DAYS = 2
 const MAILBOX_INDEX_RECENT_HEALTH_QUERY_LIMIT = 20_000
 const MAILBOX_INDEX_MAX_NEWEST_MESSAGE_AGE_MS = 18 * 60 * 60 * 1000
 const INDEXED_ROWS_CACHE_TTL_MS = 1000 * 60 * 3
@@ -154,6 +155,9 @@ type GmailMailboxIndexYieldDetail = {
   oldest_message_seen_at: string | null
   newest_message_seen_at: string | null
   next_page_token_present: boolean | null
+  recovery_bridge_status?: 'pending' | 'completed' | 'failed' | null
+  recovery_bridge_boundary_at?: string | null
+  recovery_bridge_cutoff_at?: string | null
 }
 
 export type GmailMailboxIndexState = {
@@ -238,6 +242,7 @@ export type GmailMailboxRecentHealth = {
     | 'recent_gap_detected'
     | 'newest_message_behind_expected'
     | 'recent_gap_and_newest_lag'
+    | 'continuity_bridge_pending'
     | null
 }
 
@@ -281,6 +286,8 @@ type GmailMailboxIndexTerminalReason =
   | 'gmail_metadata_failed'
   | 'database_failed'
   | 'recent_window_reached'
+  | 'recovery_bridge_completed'
+  | 'recovery_bridge_yielded'
   | 'sender_stats_failed'
   | 'already_running'
   | 'incremental_sync_complete'
@@ -419,7 +426,7 @@ export type GmailMailboxIndexSyncResult =
   | {
       ok: true
       deferred: true
-      reason: 'manual_full_run_active'
+      reason: 'manual_full_run_active' | 'recovery_bridge_yielded'
       mode: 'full' | 'incremental'
       requested_mode: 'full' | 'incremental'
       effective_mode: 'full' | 'incremental'
@@ -1410,6 +1417,9 @@ function emptyMailboxIndexYieldDetail(): GmailMailboxIndexYieldDetail {
     oldest_message_seen_at: null,
     newest_message_seen_at: null,
     next_page_token_present: null,
+    recovery_bridge_status: null,
+    recovery_bridge_boundary_at: null,
+    recovery_bridge_cutoff_at: null,
   }
 }
 
@@ -1595,6 +1605,12 @@ function mergeYieldDetail(
     oldest_message_seen_at: earlierIso(current.oldest_message_seen_at, delta.oldest_message_seen_at),
     newest_message_seen_at: laterIso(current.newest_message_seen_at, delta.newest_message_seen_at),
     next_page_token_present: delta.next_page_token_present,
+    recovery_bridge_status:
+      delta.recovery_bridge_status ?? current.recovery_bridge_status ?? null,
+    recovery_bridge_boundary_at:
+      delta.recovery_bridge_boundary_at ?? current.recovery_bridge_boundary_at ?? null,
+    recovery_bridge_cutoff_at:
+      delta.recovery_bridge_cutoff_at ?? current.recovery_bridge_cutoff_at ?? null,
   }
 }
 
@@ -1762,6 +1778,55 @@ export async function loadGmailMailboxIndexCoverageForTenant(params: {
   }
 }
 
+export function resolveGmailRecoveryBridgeLookupBefore(params: {
+  lastTerminalReason?: string | null
+  lastYieldDetail?: GmailMailboxIndexYieldDetail | null
+}): string | null {
+  if (params.lastTerminalReason !== 'recent_window_reached') return null
+  if (params.lastYieldDetail?.next_page_token_present !== true) return null
+  return usableIso(params.lastYieldDetail.oldest_message_seen_at)
+}
+
+async function loadGmailFreshHeadRecoveryIndexedBoundaryForTenant(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  state: GmailMailboxIndexState | null
+}): Promise<string | null> {
+  const lookupBefore = resolveGmailRecoveryBridgeLookupBefore({
+    lastTerminalReason: params.state?.last_terminal_reason ?? null,
+    lastYieldDetail: params.state?.last_yield_detail ?? null,
+  })
+  if (!lookupBefore) {
+    const coverage = await loadGmailMailboxIndexCoverageForTenant({
+      supabase: params.supabase,
+      tenantId: params.tenantId,
+    })
+    return coverage.indexed_date_span_end
+  }
+
+  const lookupBeforeMs = Date.parse(lookupBefore)
+  const { data, error } = await params.supabase
+    .from('gmail_messages')
+    .select('internal_date_ms')
+    .eq('tenant_id', params.tenantId)
+    .not('internal_date_ms', 'is', null)
+    .gt('internal_date_ms', 0)
+    .lt('internal_date_ms', lookupBeforeMs)
+    .order('internal_date_ms', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to resolve the prior indexed continuity boundary: ${error.message}`)
+  }
+  if (!isUsableMailboxInternalDateMs(data?.internal_date_ms)) {
+    throw new Error(
+      'Fresh-head recovery stopped with more Gmail pages available, but no prior indexed continuity boundary could be resolved.'
+    )
+  }
+  return new Date(data.internal_date_ms).toISOString()
+}
+
 function computeIndexCompletionPct(params: {
   indexedMessageCount: number
   mailboxEstimatedTotal: number | null
@@ -1804,6 +1869,100 @@ function enumerateUtcDayKeys(startMs: number, endMs: number): string[] {
   return keys
 }
 
+type GmailFreshHeadRecoveryBridge = {
+  boundary_at: string | null
+  cutoff_at: string
+  source: 'persisted_bridge' | 'indexed_continuity' | 'fixed_recent_window'
+}
+
+function usableIso(value: string | null | undefined): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null
+}
+
+export function resolveGmailFreshHeadRecoveryBridge(params: {
+  nowMs: number
+  recentRecoveryWindowDays: number
+  indexedBoundaryAt?: string | null
+  persistedBoundaryAt?: string | null
+  overlapDays?: number
+}): GmailFreshHeadRecoveryBridge {
+  const recentWindowDays = Math.max(1, Math.round(params.recentRecoveryWindowDays))
+  const overlapDays = Math.max(
+    0,
+    Math.round(params.overlapDays ?? MAILBOX_INDEX_RECOVERY_BRIDGE_OVERLAP_DAYS)
+  )
+  const fixedCutoffMs = startOfUtcDayMs(
+    params.nowMs - (recentWindowDays - 1) * UTC_DAY_MS
+  )
+  const persistedBoundaryAt = usableIso(params.persistedBoundaryAt)
+  const indexedBoundaryAt = usableIso(params.indexedBoundaryAt)
+  const boundaryAt = persistedBoundaryAt ?? indexedBoundaryAt
+  if (!boundaryAt) {
+    return {
+      boundary_at: null,
+      cutoff_at: new Date(fixedCutoffMs).toISOString(),
+      source: 'fixed_recent_window',
+    }
+  }
+
+  const boundaryCutoffMs = startOfUtcDayMs(Date.parse(boundaryAt) - overlapDays * UTC_DAY_MS)
+  return {
+    boundary_at: boundaryAt,
+    cutoff_at: new Date(Math.min(fixedCutoffMs, boundaryCutoffMs)).toISOString(),
+    source: persistedBoundaryAt ? 'persisted_bridge' : 'indexed_continuity',
+  }
+}
+
+export function resolveGmailRecoveryBridgeOutcome(params: {
+  bridgeActive: boolean
+  boundaryReached: boolean
+  stoppedOnEmptyPage: boolean
+  nextPageTokenPresent: boolean
+  processedMessages: number
+  maxMessages: number
+}): 'completed' | 'yielded' | 'inactive' {
+  if (!params.bridgeActive) return 'inactive'
+  if (params.boundaryReached || params.stoppedOnEmptyPage || !params.nextPageTokenPresent) {
+    return 'completed'
+  }
+  if (params.processedMessages >= params.maxMessages && params.nextPageTokenPresent) {
+    return 'yielded'
+  }
+  return 'inactive'
+}
+
+function recoveryBridgeYieldDetail(
+  detail: GmailMailboxIndexYieldDetail | null | undefined,
+  status: 'pending' | 'completed' | 'failed'
+): GmailMailboxIndexYieldDetail | null {
+  if (!detail?.recovery_bridge_boundary_at && !detail?.recovery_bridge_cutoff_at) {
+    return detail ?? null
+  }
+  return {
+    ...detail,
+    recovery_bridge_status: status,
+  }
+}
+
+function pendingRecoveryBridgeBoundary(
+  state: GmailMailboxIndexState | null | undefined
+): string | null {
+  const candidates = [state?.active_yield_detail, state?.last_yield_detail]
+  for (const detail of candidates) {
+    if (
+      detail?.recovery_bridge_status !== 'pending' &&
+      detail?.recovery_bridge_status !== 'failed'
+    ) {
+      continue
+    }
+    const boundaryAt = usableIso(detail.recovery_bridge_boundary_at)
+    if (boundaryAt) return boundaryAt
+  }
+  return null
+}
+
 export async function loadGmailMailboxRecentHealthForTenant(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -1816,7 +1975,7 @@ export async function loadGmailMailboxRecentHealthForTenant(params: {
     Math.round(params.recentWindowDays ?? MAILBOX_INDEX_RECENT_HEALTH_WINDOW_DAYS)
   )
   const recentCutoffMs = startOfUtcDayMs(nowMs - (recentWindowDays - 1) * UTC_DAY_MS)
-  const [{ data: recentRows }, { data: newestRow }] = await Promise.all([
+  const [{ data: recentRows }, { data: newestRow }, { data: indexStateRow }] = await Promise.all([
     params.supabase
       .from('gmail_messages')
       .select('internal_date_ms')
@@ -1832,6 +1991,11 @@ export async function loadGmailMailboxRecentHealthForTenant(params: {
       .not('internal_date_ms', 'is', null)
       .order('internal_date_ms', { ascending: false })
       .limit(1)
+      .maybeSingle(),
+    params.supabase
+      .from('gmail_mailbox_index_state')
+      .select('active_yield_detail,last_yield_detail')
+      .eq('tenant_id', params.tenantId)
       .maybeSingle(),
   ])
 
@@ -1877,9 +2041,14 @@ export async function loadGmailMailboxRecentHealthForTenant(params: {
     newestMessageMs != null ? Math.max(0, Math.round(nowMs - newestMessageMs)) : null
   const newestMessageBehindExpected =
     newestMessageAgeMs != null && newestMessageAgeMs > MAILBOX_INDEX_MAX_NEWEST_MESSAGE_AGE_MS
-  const falseHealthyState = missingRecentDays.length > 0 || newestMessageBehindExpected
-  const reason =
-    missingRecentDays.length > 0 && newestMessageBehindExpected
+  const continuityBridgePending = Boolean(
+    pendingRecoveryBridgeBoundary(indexStateRow as GmailMailboxIndexState | null)
+  )
+  const falseHealthyState =
+    continuityBridgePending || missingRecentDays.length > 0 || newestMessageBehindExpected
+  const reason = continuityBridgePending
+    ? 'continuity_bridge_pending'
+    : missingRecentDays.length > 0 && newestMessageBehindExpected
       ? 'recent_gap_and_newest_lag'
       : missingRecentDays.length > 0
         ? 'recent_gap_detected'
@@ -2122,11 +2291,15 @@ export function isManualFullRunActive(
 }
 
 function isResumeCapableFullTrigger(trigger: GmailMailboxIndexTrigger): boolean {
-  return trigger === 'manual_full_reindex' || trigger === 'operator_backfill'
+  return (
+    trigger === 'smart_sync' ||
+    trigger === 'manual_full_reindex' ||
+    trigger === 'operator_backfill'
+  )
 }
 
 function usesSharedResumeCheckpointTrigger(trigger: GmailMailboxIndexTrigger): boolean {
-  return trigger === 'manual_full_reindex'
+  return trigger === 'smart_sync' || trigger === 'manual_full_reindex'
 }
 
 function operatorFullLogPrefix(trigger: GmailMailboxIndexTrigger): string {
@@ -2164,14 +2337,16 @@ function hasResumableCheckpointToken(params: {
 
 function buildManualFullResumeCheckpoint(
   state: GmailMailboxIndexState | null | undefined,
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  acceptedRunId?: string | null
 ): GmailMailboxIndexResumeCheckpoint | null {
   if (!state) return null
   const staleManualRun =
     state.active_run_trigger != null &&
     usesSharedResumeCheckpointTrigger(state.active_run_trigger) &&
     state.active_effective_mode === 'full' &&
-    !isMailboxIndexRunActive(state, nowMs) &&
+    (!isMailboxIndexRunActive(state, nowMs) ||
+      (Boolean(acceptedRunId) && state.active_run_id === acceptedRunId)) &&
     hasCheckpointProgress({
       pageToken: state.active_next_page_token,
       pageIndex: state.active_last_page_index,
@@ -2461,6 +2636,41 @@ function mailboxIndexDeferredResult(params: {
     growth_delta: mailboxIndexGrowthDelta(params.run.rowsBefore, indexedCount),
     last_history_id: params.currentState?.last_history_id ?? null,
     used_fallback_full_scan: false,
+  }
+}
+
+function mailboxIndexRecoveryBridgeYieldedResult(params: {
+  run: GmailMailboxIndexRunContext
+  processedMessages: number
+  upsertedMessages: number
+  indexedMessageCount: number
+  gmailResultSizeEstimate: number | null
+  listPagesFetched: number
+  lastHistoryId: string | null
+}): GmailMailboxIndexSyncResult {
+  return {
+    ok: true,
+    deferred: true,
+    reason: 'recovery_bridge_yielded',
+    mode: params.run.requestedMode,
+    requested_mode: params.run.requestedMode,
+    effective_mode: 'full',
+    run_id: params.run.runId,
+    active_run_id: null,
+    trigger: params.run.trigger,
+    terminal_reason: 'recovery_bridge_yielded',
+    gmail_result_size_estimate: params.gmailResultSizeEstimate,
+    list_pages_fetched: params.listPagesFetched,
+    processed_messages: params.processedMessages,
+    upserted_messages: params.upsertedMessages,
+    deleted_messages: 0,
+    indexed_message_count: params.indexedMessageCount,
+    rows_before: params.run.rowsBefore,
+    rows_after: params.indexedMessageCount,
+    growth_delta: mailboxIndexGrowthDelta(params.run.rowsBefore, params.indexedMessageCount),
+    last_history_id: params.lastHistoryId,
+    used_fallback_full_scan: params.run.requestedMode !== 'full',
+    artifact_refresh_hint: null,
   }
 }
 
@@ -3106,6 +3316,7 @@ async function markMailboxIndexRunFailed(params: {
       pageIndex: params.activeLastPageIndex,
       processedMessages: params.processedMessages,
     })
+  const finalYieldDetail = recoveryBridgeYieldDetail(params.yieldDetail, 'failed')
   await upsertMailboxIndexState({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -3178,7 +3389,7 @@ async function markMailboxIndexRunFailed(params: {
         }
       : {}),
     lastStartedFromCheckpoint: params.startedFromCheckpoint ?? null,
-    lastYieldDetail: params.yieldDetail ?? null,
+    lastYieldDetail: finalYieldDetail,
     ...(params.lastFullScanAt !== undefined ? { lastFullScanAt: params.lastFullScanAt } : {}),
     ...(params.lastIncrementalSyncAt !== undefined
       ? { lastIncrementalSyncAt: params.lastIncrementalSyncAt }
@@ -3235,8 +3446,10 @@ async function markMailboxIndexRunCompleted(params: {
   backfillCompletedCutoffAt?: string | null
   backfillCompletedAt?: string | null
   startedFromCheckpoint?: boolean | null
+  continuityComplete?: boolean
 }): Promise<void> {
   const nowIso = new Date().toISOString()
+  const continuityComplete = params.continuityComplete !== false
   const growthDelta = mailboxIndexGrowthDelta(params.run.rowsBefore, params.indexedMessageCount)
   const shouldClearSharedResumeCheckpoint =
     params.clearResumeCheckpoint ??
@@ -3254,10 +3467,12 @@ async function markMailboxIndexRunCompleted(params: {
       mailboxEstimatedTotal: params.mailboxEstimatedTotal,
     }),
     lastIndexDurationMs: params.lastIndexDurationMs,
-    lastSyncStatus: mailboxIndexCompleteStatus({
-      mode: params.effectiveMode,
-      growthDelta,
-    }),
+    lastSyncStatus: continuityComplete
+      ? mailboxIndexCompleteStatus({
+          mode: params.effectiveMode,
+          growthDelta,
+        })
+      : 'full_scan_partial',
     lastSyncError: null,
     activeRunId: null,
     activeRunMode: null,
@@ -3277,8 +3492,12 @@ async function markMailboxIndexRunCompleted(params: {
     activeYieldDetail: null,
     lastRunId: params.run.runId,
     lastRunTrigger: params.run.trigger,
-    lastCompletedAt: nowIso,
-    lastCompletedMode: params.effectiveMode,
+    ...(continuityComplete
+      ? {
+          lastCompletedAt: nowIso,
+          lastCompletedMode: params.effectiveMode,
+        }
+      : {}),
     lastRequestedMode: params.run.requestedMode,
     lastEffectiveMode: params.effectiveMode,
     lastRowsBefore: params.run.rowsBefore,
@@ -3333,7 +3552,7 @@ async function markMailboxIndexRunCompleted(params: {
       : {}),
     lastStartedFromCheckpoint: params.startedFromCheckpoint ?? null,
     lastYieldDetail: params.yieldDetail ?? null,
-    ...(params.effectiveMode === 'full'
+    ...(params.effectiveMode === 'full' && continuityComplete
       ? {
           lastFullScanAt: nowIso,
           lastIncrementalSyncAt: nowIso,
@@ -3406,6 +3625,14 @@ export async function primeAcceptedSmartSyncRunForTenant(params: {
   })
   const requestedMode = 'incremental' as const
   const effectiveMode = params.forceFreshHeadRecovery ? ('full' as const) : ('incremental' as const)
+  const resumeCheckpoint = params.forceFreshHeadRecovery
+    ? buildManualFullResumeCheckpoint(currentState)
+    : null
+  const resumedYieldDetail = resumeCheckpoint
+    ? resumeCheckpoint.source === 'stale_active'
+      ? currentState?.active_yield_detail ?? null
+      : currentState?.last_yield_detail ?? null
+    : null
   const mailboxEstimatedTotal =
     currentState?.mailbox_estimated_total != null &&
     Number.isFinite(currentState.mailbox_estimated_total)
@@ -3433,13 +3660,13 @@ export async function primeAcceptedSmartSyncRunForTenant(params: {
       Number.isFinite(currentState.index_completion_pct)
         ? currentState.index_completion_pct
         : null,
-    activeProcessedMessages: null,
-    activeListPagesFetched: null,
-    activeNextPageToken: null,
-    activeLastPageIndex: null,
-    activeLastProcessedAt: null,
-    startedFromCheckpoint: false,
-    yieldDetail: null,
+    activeProcessedMessages: resumeCheckpoint?.processedMessages ?? null,
+    activeListPagesFetched: resumeCheckpoint?.pageIndex ?? null,
+    activeNextPageToken: resumeCheckpoint?.nextPageToken ?? null,
+    activeLastPageIndex: resumeCheckpoint?.pageIndex ?? null,
+    activeLastProcessedAt: resumeCheckpoint?.processedAt ?? null,
+    startedFromCheckpoint: Boolean(resumeCheckpoint),
+    yieldDetail: resumedYieldDetail,
   })
 
   console.info(
@@ -3451,7 +3678,7 @@ export async function primeAcceptedSmartSyncRunForTenant(params: {
       effective_mode: effectiveMode,
       rows_before: rowsBefore,
       force_fresh_head_recovery: params.forceFreshHeadRecovery === true,
-      resume_checkpoint_present: false,
+      resume_checkpoint_present: Boolean(resumeCheckpoint),
     })}`
   )
 
@@ -3461,8 +3688,15 @@ export async function primeAcceptedSmartSyncRunForTenant(params: {
     effective_mode: effectiveMode,
     trigger: 'smart_sync',
     rows_before: rowsBefore,
-    resume_checkpoint: null,
-    started_from_checkpoint: false,
+    resume_checkpoint: resumeCheckpoint
+      ? buildResumeCheckpointSummary({
+          pageToken: resumeCheckpoint.nextPageToken,
+          pageIndex: resumeCheckpoint.pageIndex,
+          processedMessages: resumeCheckpoint.processedMessages,
+          processedAt: resumeCheckpoint.processedAt,
+        })
+      : null,
+    started_from_checkpoint: Boolean(resumeCheckpoint),
   }
 }
 
@@ -3639,10 +3873,26 @@ async function runFullMailboxIndexForTenant(params: {
     typeof params.recentRecoveryWindowDays === 'number' && params.recentRecoveryWindowDays > 0
       ? Math.max(1, Math.round(params.recentRecoveryWindowDays))
       : null
-  const recentRecoveryCutoffAtMs =
+  const persistedRecoveryBoundaryAt = pendingRecoveryBridgeBoundary(priorState)
+  const indexedRecoveryBoundaryAt =
+    recentRecoveryWindowDays != null && !persistedRecoveryBoundaryAt
+      ? await loadGmailFreshHeadRecoveryIndexedBoundaryForTenant({
+          supabase: params.supabase,
+          tenantId: params.tenantId,
+          state: priorState,
+        })
+      : null
+  const recoveryBridge =
     recentRecoveryWindowDays != null
-      ? startOfUtcDayMs(Date.now() - (recentRecoveryWindowDays - 1) * UTC_DAY_MS)
-      : Number.NaN
+      ? resolveGmailFreshHeadRecoveryBridge({
+          nowMs: Date.now(),
+          recentRecoveryWindowDays,
+          indexedBoundaryAt: indexedRecoveryBoundaryAt,
+          persistedBoundaryAt: persistedRecoveryBoundaryAt,
+        })
+      : null
+  const recentRecoveryCutoffAtMs =
+    recoveryBridge != null ? Date.parse(recoveryBridge.cutoff_at) : Number.NaN
   const recentRecoveryCutoffAt =
     Number.isFinite(recentRecoveryCutoffAtMs) ? new Date(recentRecoveryCutoffAtMs).toISOString() : null
   const resumeCheckpoint = params.disableResumeCheckpoint
@@ -3650,7 +3900,7 @@ async function runFullMailboxIndexForTenant(params: {
     : params.run.trigger === 'operator_backfill'
       ? buildOperatorBackfillResumeCheckpoint(priorState)
       : isResumeCapableFullTrigger(params.run.trigger)
-        ? buildManualFullResumeCheckpoint(priorState)
+        ? buildManualFullResumeCheckpoint(priorState, Date.now(), params.run.runId)
         : null
   const operatorBackfillWindowMonths =
     params.run.trigger === 'operator_backfill'
@@ -3685,16 +3935,19 @@ async function runFullMailboxIndexForTenant(params: {
       reason: resumeCheckpoint ? null : 'no_usable_checkpoint_in_state',
     })
   }
-  if (params.disableResumeCheckpoint) {
+  if (recentRecoveryWindowDays != null) {
     console.info(
       `${params.logPrefix} ${JSON.stringify({
-        event: 'fresh_head_recovery_selected',
+        event: 'fresh_head_recovery_bridge_selected',
         run_id: params.run.runId,
         trigger: params.run.trigger,
         requested_mode: params.run.requestedMode,
         effective_mode: 'full',
         recent_recovery_window_days: recentRecoveryWindowDays,
         recent_recovery_cutoff_at: recentRecoveryCutoffAt,
+        recovery_bridge_boundary_at: recoveryBridge?.boundary_at ?? null,
+        recovery_bridge_source: recoveryBridge?.source ?? null,
+        resume_checkpoint_present: Boolean(resumeCheckpoint),
       })}`
     )
   }
@@ -3705,6 +3958,14 @@ async function runFullMailboxIndexForTenant(params: {
       : resumeCheckpoint?.source === 'last_failed'
         ? priorState?.last_yield_detail ?? emptyMailboxIndexYieldDetail()
         : emptyMailboxIndexYieldDetail()
+  if (recoveryBridge) {
+    yieldDetail = {
+      ...yieldDetail,
+      recovery_bridge_status: 'pending',
+      recovery_bridge_boundary_at: recoveryBridge.boundary_at,
+      recovery_bridge_cutoff_at: recoveryBridge.cutoff_at,
+    }
+  }
   await markMailboxIndexRunStarted({
     supabase: params.supabase,
     tenantId: params.tenantId,
@@ -3740,7 +4001,10 @@ async function runFullMailboxIndexForTenant(params: {
       ? Date.parse(operatorBackfillCampaignTarget.cutoffAt)
       : Number.NaN
   let processed =
-    params.run.trigger === 'operator_backfill' ? 0 : resumeCheckpoint?.processedMessages ?? 0
+    params.run.trigger === 'operator_backfill' ||
+    (params.run.trigger === 'smart_sync' && recoveryBridge)
+      ? 0
+      : resumeCheckpoint?.processedMessages ?? 0
   const resolveTokenStartedAt = Date.now()
   const token = await resolveGmailAccessTokenForTenant({
     supabase: params.supabase,
@@ -3828,7 +4092,7 @@ async function runFullMailboxIndexForTenant(params: {
         tenantId: params.tenantId,
         effectiveMode: 'full',
         run: params.run,
-        lastHistoryId: highestHistoryId,
+        lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
         mailboxEstimatedTotal,
         indexedMessageCount: indexedCount,
         lastIndexDurationMs: durationMs,
@@ -3861,7 +4125,7 @@ async function runFullMailboxIndexForTenant(params: {
         gmailResultSizeEstimate: lastGmailResultSizeEstimate,
         listPagesFetched: fetchedPageIndex,
         processedMessages: processed,
-        lastHistoryId: highestHistoryId,
+        lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
         usedFallbackFullScan: false,
         rowsAfter: indexedCount,
       })
@@ -3999,7 +4263,7 @@ async function runFullMailboxIndexForTenant(params: {
           tenantId: params.tenantId,
           effectiveMode: 'full',
           run: params.run,
-          lastHistoryId: highestHistoryId,
+          lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
           mailboxEstimatedTotal,
           indexedMessageCount: indexedCount,
           lastIndexDurationMs: durationMs,
@@ -4033,7 +4297,7 @@ async function runFullMailboxIndexForTenant(params: {
           gmailResultSizeEstimate: lastGmailResultSizeEstimate,
           listPagesFetched,
           processedMessages: processed,
-          lastHistoryId: highestHistoryId,
+          lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
           usedFallbackFullScan: false,
           rowsAfter: indexedCount,
         })
@@ -4079,7 +4343,7 @@ async function runFullMailboxIndexForTenant(params: {
         tenantId: params.tenantId,
         effectiveMode: 'full',
         run: params.run,
-        lastHistoryId: highestHistoryId,
+        lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
         mailboxEstimatedTotal,
         indexedMessageCount: indexedCount,
         lastIndexDurationMs: durationMs,
@@ -4110,7 +4374,7 @@ async function runFullMailboxIndexForTenant(params: {
         gmailResultSizeEstimate: lastGmailResultSizeEstimate,
         listPagesFetched,
         processedMessages: processed,
-        lastHistoryId: highestHistoryId,
+        lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
         usedFallbackFullScan: false,
         rowsAfter: indexedCount,
       })
@@ -4148,7 +4412,7 @@ async function runFullMailboxIndexForTenant(params: {
         tenantId: params.tenantId,
         effectiveMode: 'full',
         run: params.run,
-        lastHistoryId: highestHistoryId,
+        lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
         mailboxEstimatedTotal,
         indexedMessageCount: indexedCount,
         lastIndexDurationMs: durationMs,
@@ -4176,7 +4440,7 @@ async function runFullMailboxIndexForTenant(params: {
         gmailResultSizeEstimate: lastGmailResultSizeEstimate,
         listPagesFetched,
         processedMessages: processed,
-        lastHistoryId: highestHistoryId,
+        lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
         usedFallbackFullScan: false,
         rowsAfter: indexedCount,
       })
@@ -4195,7 +4459,7 @@ async function runFullMailboxIndexForTenant(params: {
       tenantId: params.tenantId,
       effectiveMode: 'full',
       run: params.run,
-      lastHistoryId: highestHistoryId,
+      lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
       mailboxEstimatedTotal,
       indexCompletionPct: computeIndexCompletionPct({
         indexedMessageCount: committedIndexedCount,
@@ -4278,12 +4542,25 @@ async function runFullMailboxIndexForTenant(params: {
     tenantId: params.tenantId,
   })
   phaseMs.count_indexed_ms = Math.max(0, Date.now() - countIndexedStartedAt)
-  const senderStatsStartedAt = Date.now()
-  const senderStatsResult = await recomputeSenderStatsForTenant({
-    supabase: params.supabase,
-    tenantId: params.tenantId,
+  const recoveryBridgeOutcome = resolveGmailRecoveryBridgeOutcome({
+    bridgeActive: Boolean(recoveryBridge),
+    boundaryReached: recentRecoveryWindowReached,
+    stoppedOnEmptyPage,
+    nextPageTokenPresent: pageToken !== null,
+    processedMessages: processed,
+    maxMessages,
   })
-  phaseMs.sender_stats_recompute_ms = Math.max(0, Date.now() - senderStatsStartedAt)
+  const recoveryBridgeYielded = recoveryBridgeOutcome === 'yielded'
+  const senderStatsStartedAt = Date.now()
+  const senderStatsResult = recoveryBridgeYielded
+    ? ({ ok: true } as const)
+    : await recomputeSenderStatsForTenant({
+        supabase: params.supabase,
+        tenantId: params.tenantId,
+      })
+  phaseMs.sender_stats_recompute_ms = recoveryBridgeYielded
+    ? 0
+    : Math.max(0, Date.now() - senderStatsStartedAt)
   if (!senderStatsResult.ok) {
     const durationMs = Math.max(0, Math.round(Date.now() - runStartedAt))
     await markMailboxIndexRunFailed({
@@ -4291,7 +4568,7 @@ async function runFullMailboxIndexForTenant(params: {
       tenantId: params.tenantId,
       effectiveMode: 'full',
       run: params.run,
-      lastHistoryId: highestHistoryId,
+      lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
       mailboxEstimatedTotal,
       indexedMessageCount: indexedCount,
       lastIndexDurationMs: durationMs,
@@ -4322,22 +4599,33 @@ async function runFullMailboxIndexForTenant(params: {
       gmailResultSizeEstimate: lastGmailResultSizeEstimate,
       listPagesFetched,
       processedMessages: processed,
-      lastHistoryId: highestHistoryId,
+      lastHistoryId: recoveryBridge ? priorState?.last_history_id ?? null : highestHistoryId,
       usedFallbackFullScan: false,
       rowsAfter: indexedCount,
     })
   }
 
   const durationMs = Math.max(0, Math.round(Date.now() - runStartedAt))
+  const recoveryBridgeCompleted = recoveryBridgeOutcome === 'completed'
   const terminalReason: GmailMailboxIndexTerminalReason = historicalWindowReached
     ? 'historical_window_reached'
-    : recentRecoveryWindowReached
-      ? 'recent_window_reached'
+    : recoveryBridgeCompleted
+      ? 'recovery_bridge_completed'
+      : recoveryBridgeYielded
+        ? 'recovery_bridge_yielded'
+        : recentRecoveryWindowReached
+          ? 'recent_window_reached'
       : stoppedOnEmptyPage
         ? 'empty_page'
         : processed >= maxMessages && pageToken !== null
           ? 'requested_limit_reached'
           : 'gmail_pagination_exhausted'
+  yieldDetail = recoveryBridge
+    ? recoveryBridgeYieldDetail(
+        yieldDetail,
+        recoveryBridgeCompleted ? 'completed' : recoveryBridgeYielded ? 'pending' : 'failed'
+      ) ?? yieldDetail
+    : yieldDetail
   const backfillCampaignCompleted =
     params.run.trigger === 'operator_backfill' &&
     (terminalReason === 'historical_window_reached' ||
@@ -4349,7 +4637,9 @@ async function runFullMailboxIndexForTenant(params: {
     tenantId: params.tenantId,
     effectiveMode: 'full',
     run: params.run,
-    lastHistoryId: highestHistoryId,
+    lastHistoryId: recoveryBridgeYielded
+      ? priorState?.last_history_id ?? null
+      : highestHistoryId,
     mailboxEstimatedTotal,
     indexedMessageCount: indexedCount,
     lastIndexDurationMs: durationMs,
@@ -4361,8 +4651,11 @@ async function runFullMailboxIndexForTenant(params: {
     deletedMessages: 0,
     yieldDetail,
     startedFromCheckpoint,
+    continuityComplete: !recoveryBridgeYielded,
     clearResumeCheckpoint:
-      params.run.trigger === 'operator_backfill' ? false : terminalReason !== 'requested_limit_reached',
+      params.run.trigger === 'operator_backfill'
+        ? false
+        : !recoveryBridgeYielded && terminalReason !== 'requested_limit_reached',
     clearActiveBackfillCampaign: backfillCampaignCompleted,
     activeBackfillWindowMonths: operatorBackfillCampaignTarget?.windowMonths ?? null,
     activeBackfillCutoffAt: operatorBackfillCampaignTarget?.cutoffAt ?? null,
@@ -4379,7 +4672,7 @@ async function runFullMailboxIndexForTenant(params: {
 
   console.info(
     `${params.logPrefix} ${JSON.stringify({
-      event: 'completed',
+      event: recoveryBridgeYielded ? 'recovery_bridge_yielded' : 'completed',
       mode: 'full',
       requested_mode: params.run.requestedMode,
       effective_mode: 'full',
@@ -4406,7 +4699,7 @@ async function runFullMailboxIndexForTenant(params: {
   if (isResumeCapableFullTrigger(params.run.trigger)) {
     console.info(
       `${operatorFullLogPrefix(params.run.trigger)} ${JSON.stringify({
-        event: 'completed',
+        event: recoveryBridgeYielded ? 'recovery_bridge_yielded' : 'completed',
         run_id: params.run.runId,
         trigger: params.run.trigger,
         requested_mode: params.run.requestedMode,
@@ -4425,6 +4718,18 @@ async function runFullMailboxIndexForTenant(params: {
         boundary_oldest_internal_date: boundaryOldestInternalDate,
       })}`
     )
+  }
+
+  if (recoveryBridgeYielded) {
+    return mailboxIndexRecoveryBridgeYieldedResult({
+      run: params.run,
+      processedMessages: processed,
+      upsertedMessages: upserted,
+      indexedMessageCount: indexedCount,
+      gmailResultSizeEstimate: lastGmailResultSizeEstimate,
+      listPagesFetched,
+      lastHistoryId: priorState?.last_history_id ?? null,
+    })
   }
 
   return mailboxIndexSuccessResult({
@@ -5449,7 +5754,9 @@ export async function syncGmailMailboxIndexForTenant(params: {
   const resumeCheckpoint =
     trigger === 'operator_backfill'
         ? buildOperatorBackfillResumeCheckpoint(currentState)
-        : null
+        : forceFreshHeadRecovery
+          ? buildManualFullResumeCheckpoint(currentState)
+          : null
   const requestedMode =
     trigger === 'smart_sync'
       ? 'incremental'
@@ -5483,7 +5790,7 @@ export async function syncGmailMailboxIndexForTenant(params: {
         effective_mode: effectiveMode,
         recovery_reason: recentHealth?.reason ?? null,
         recent_missing_days: recentHealth?.missing_recent_days ?? [],
-        checkpoint_present: false,
+        checkpoint_present: Boolean(resumeCheckpoint),
       })}`
     )
   }
@@ -5542,7 +5849,7 @@ export async function syncGmailMailboxIndexForTenant(params: {
       maxMessages,
       logPrefix,
       run,
-      disableResumeCheckpoint: forceFreshHeadRecovery,
+      disableResumeCheckpoint: false,
       recentRecoveryWindowDays: forceFreshHeadRecovery
         ? MAILBOX_INDEX_FRESH_HEAD_RECOVERY_WINDOW_DAYS
         : null,

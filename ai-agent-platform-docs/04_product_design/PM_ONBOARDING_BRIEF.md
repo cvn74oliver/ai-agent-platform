@@ -1,10 +1,35 @@
 # Project Manager Onboarding Brief
 
-Last updated: 2026-08-21
+Last updated: 2026-08-31
 
 ## Purpose
 This document gives a new or refreshed Project Manager immediate orientation to the active operating model.
 It exists to prevent re-explanation, reduce drift, and keep PM activation aligned with the Automata Control Plane.
+
+## Product framing
+
+Automata is a provider-neutral visual reporting and human-decision system for agent-operated SOPs and workflows. Gmail is the first reference adapter, not the product boundary.
+
+The reusable loop is:
+
+`Source data -> agent/SOP analysis -> evidence-backed recommendation -> human decision -> approved execution -> measured outcome`
+
+Shared platform concepts include workflow identity, review groups, time/activity analysis, evidence/provenance, recommendations, decisions, approvals, execution state, outcomes, and history. Provider adapters own authentication, source schemas, domain vocabulary, metrics, and executable capabilities. PM scope must preserve this boundary and must not generalize real provider operations into misleading platform behavior.
+
+Product-area ownership:
+
+- Settings / Connections owns provider authentication, scopes, connection health, and reusable capabilities.
+- Automations / Workflow Studio owns guided SOP/workflow authoring, testing, versioned publication, and assignment.
+- Agents / Operations owns runtime reporting, recommendations, human decisions, approvals, execution truth, outcomes, and history for a published workflow version.
+- Dashboard owns compatible cross-workflow and cross-source status.
+
+The workflow builder may select integrations, but it references centrally managed connections rather than storing credentials itself. Operations must reference the immutable published workflow/version that governed each recommendation and decision.
+
+Initial framework validation domains are customer service, investments, paid media, and finance, but PM briefs must keep the adapter contract open to arbitrary future systems. Marketplace and AI/MCP-guided creation remain explicit future workstreams.
+
+PM briefs must also test arbitrary cross-agent operating chains, such as purchasing agents feeding spreadsheet-maintenance and shipping/inventory agents. Prefer versioned workflow definitions, adapter vocabulary, semantic metrics, evidence types, declared capabilities, action catalogs, and bounded add-ons before proposing a shared-platform overhaul or company-specific fork. The framework is successful when it improves human decisions and turns approved SOPs, corrections, decisions, and outcomes into inspectable long-term company memory.
+
+Company-specific SOPs, policies, records, examples, decisions, corrections, feedback, and outcome history form a tenant-owned proprietary brain and are private by default. The brain is versioned application-layer knowledge and memory—not an LLM or fine-tuning dataset. Foundation models may use authorized context from it at runtime, but durable learning remains inspectable in platform knowledge, provenance, coverage, quality, feedback, and workflow artifacts. Any shared-learning feature requires explicit opt-in, aggregation/de-identification, privacy thresholds, provenance, evaluation, and rollback; it must never silently expose proprietary brain content or source data.
 
 ## Active Operating Model
 

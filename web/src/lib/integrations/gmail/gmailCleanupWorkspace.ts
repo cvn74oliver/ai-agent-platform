@@ -247,6 +247,22 @@ const gmailReviewUnitProjectionCache = new Map<
     promise: Promise<WorkspaceReviewUnitWindowProjectionRead>
   }
 >()
+const gmailReviewUnitProjectionIdentityCache = new Map<
+  string,
+  {
+    expiresAtMs: number
+    promise: Promise<
+      | {
+          source: 'published_manifest'
+          parentId: string
+          coverageStartAt: string
+          coverageEndAt: string
+          timeZone: string
+        }
+      | { source: 'legacy_artifact'; parentId: string }
+    >
+  }
+>()
 const gmailLegacyReviewUnitProjectionCache = new Map<
   string,
   {
@@ -2371,6 +2387,180 @@ function resolveReviewUnitProjectionRequest(params: {
   }
 }
 
+export async function resolveReviewUnitProjectionIdentity(params: {
+  supabase: SupabaseClient
+  tenantId: string
+  analysisScope: GmailAnalysisScope
+  artifactVersion: string
+  reviewUnitId: string
+  legacyParentId: string
+}): Promise<
+  | {
+      source: 'published_manifest'
+      parentId: string
+      coverageStartAt: string
+      coverageEndAt: string
+      timeZone: string
+    }
+  | { source: 'legacy_artifact'; parentId: string }
+> {
+  const tenantId = artifactText(params.tenantId)
+  const analysisScope = normalizeMailboxProfileScope(params.analysisScope)
+  const artifactVersion = artifactText(params.artifactVersion)
+  const reviewUnitId = artifactText(params.reviewUnitId)
+  const legacyParentId = artifactText(params.legacyParentId)
+  if (!tenantId || !artifactVersion || !reviewUnitId || !legacyParentId) {
+    throw new Error('Review-unit projection manifest identity is incomplete.')
+  }
+  const key = [tenantId, analysisScope, artifactVersion, reviewUnitId].join('::')
+  const cached = gmailReviewUnitProjectionIdentityCache.get(key)
+  if (cached && cached.expiresAtMs > Date.now()) return cached.promise
+
+  const promise = (async () => {
+    const { data, error } = await params.supabase
+      .from('workspace_review_unit_projection_manifests')
+      .select('parent_id,validation_status,coverage_start_at,coverage_end_at,projection_timezone')
+      .match({
+        tenant_id: tenantId,
+        workspace_type: GMAIL_REVIEW_UNIT_PROJECTION_WORKSPACE_TYPE,
+        workspace_id: tenantId,
+        workflow_id: GMAIL_REVIEW_UNIT_PROJECTION_WORKFLOW_ID,
+        decision_subject_type: GMAIL_REVIEW_UNIT_PROJECTION_DECISION_SUBJECT_TYPE,
+        analysis_scope: analysisScope,
+        artifact_version: artifactVersion,
+        review_unit_id: reviewUnitId,
+      })
+      .order('parent_id', { ascending: true })
+      .limit(2)
+    if (error) {
+      throw new Error(`Failed to resolve review-unit projection manifest: ${error.message}`)
+    }
+    const rows = Array.isArray(data)
+      ? (data as Array<{
+          parent_id: string | null
+          validation_status: string | null
+          coverage_start_at: string | null
+          coverage_end_at: string | null
+          projection_timezone: string | null
+        }>)
+      : []
+    if (rows.length === 0) {
+      const { data: artifactManifestRows, error: artifactManifestError } = await params.supabase
+        .from('workspace_review_unit_projection_manifests')
+        .select('review_unit_id')
+        .match({
+          tenant_id: tenantId,
+          workspace_type: GMAIL_REVIEW_UNIT_PROJECTION_WORKSPACE_TYPE,
+          workspace_id: tenantId,
+          workflow_id: GMAIL_REVIEW_UNIT_PROJECTION_WORKFLOW_ID,
+          decision_subject_type: GMAIL_REVIEW_UNIT_PROJECTION_DECISION_SUBJECT_TYPE,
+          analysis_scope: analysisScope,
+          artifact_version: artifactVersion,
+        })
+        .order('review_unit_id', { ascending: true })
+        .limit(1)
+      if (artifactManifestError) {
+        throw new Error(
+          `Failed to confirm legacy review-unit projection status: ${artifactManifestError.message}`
+        )
+      }
+      if (Array.isArray(artifactManifestRows) && artifactManifestRows.length > 0) {
+        throw new Error('Published review-unit projection manifest identity is missing.')
+      }
+      return { source: 'legacy_artifact' as const, parentId: legacyParentId }
+    }
+    if (rows.length !== 1) {
+      throw new Error('Review-unit projection manifest identity is ambiguous.')
+    }
+    const parentId = artifactText(rows[0]?.parent_id)
+    const coverageStartAt = artifactText(rows[0]?.coverage_start_at)
+    const coverageEndAt = artifactText(rows[0]?.coverage_end_at)
+    const timeZone = artifactText(rows[0]?.projection_timezone)
+    if (
+      !parentId ||
+      !coverageStartAt ||
+      !coverageEndAt ||
+      !timeZone ||
+      rows[0]?.validation_status !== 'candidate_validated'
+    ) {
+      throw new Error('Review-unit projection manifest is not validated.')
+    }
+    return {
+      source: 'published_manifest' as const,
+      parentId,
+      coverageStartAt,
+      coverageEndAt,
+      timeZone,
+    }
+  })().catch((error) => {
+    gmailReviewUnitProjectionIdentityCache.delete(key)
+    throw error
+  })
+
+  gmailReviewUnitProjectionIdentityCache.set(key, {
+    expiresAtMs: Date.now() + GMAIL_REVIEW_UNIT_PROJECTION_CACHE_TTL_MS,
+    promise,
+  })
+  return promise
+}
+
+export function resolvePublishedReviewUnitProjectionWindow(params: {
+  window: GmailSenderOverviewWindow | null
+  start?: string | null
+  end?: string | null
+  coverageStartAt: string
+  coverageEndAt: string
+  timeZone: string
+}): { start: string | null; end: string | null; timeZone: string } {
+  const windowKind = reviewUnitProjectionWindowKind(params.window)
+  const explicitStart = artifactNullableText(params.start)
+  const explicitEnd = artifactNullableText(params.end)
+  const timeZone = artifactText(params.timeZone) || 'UTC'
+  if (windowKind === 'all_indexed') {
+    return { start: null, end: null, timeZone }
+  }
+  if (explicitStart && explicitEnd && inclusiveDateToHalfOpenEnd(explicitEnd)) {
+    return { start: explicitStart.slice(0, 10), end: explicitEnd.slice(0, 10), timeZone }
+  }
+  if (windowKind === 'custom') {
+    throw new Error('Custom review-unit windows require explicit coverage bounds.')
+  }
+
+  const coverageStart = artifactNullableText(params.coverageStartAt)?.slice(0, 10) || null
+  const coverageEnd = artifactNullableText(params.coverageEndAt)?.slice(0, 10) || null
+  const coverageStartMs = coverageStart ? Date.parse(`${coverageStart}T00:00:00Z`) : Number.NaN
+  const coverageEndMs = coverageEnd ? Date.parse(`${coverageEnd}T00:00:00Z`) : Number.NaN
+  const dayCount =
+    params.window === 'last_year'
+      ? 365
+      : params.window === 'last_quarter'
+        ? 90
+        : params.window === 'last_month'
+          ? 30
+          : params.window === 'last_week'
+            ? 7
+            : params.window === 'last_day'
+              ? 1
+              : null
+  if (
+    dayCount == null ||
+    !Number.isFinite(coverageStartMs) ||
+    !Number.isFinite(coverageEndMs) ||
+    coverageEndMs < coverageStartMs
+  ) {
+    throw new Error('Published review-unit preset could not resolve indexed coverage bounds.')
+  }
+  const startMs = Math.max(
+    coverageStartMs,
+    coverageEndMs - Math.max(0, dayCount - 1) * 24 * 60 * 60 * 1000
+  )
+  return {
+    start: new Date(startMs).toISOString().slice(0, 10),
+    end: coverageEnd,
+    timeZone,
+  }
+}
+
 async function loadCachedReviewUnitWindowProjection(params: {
   supabase: SupabaseClient
   tenantId: string
@@ -2381,12 +2571,16 @@ async function loadCachedReviewUnitWindowProjection(params: {
   window: GmailSenderOverviewWindow | null
   start?: string | null
   end?: string | null
+  coverageStartAt: string
+  coverageEndAt: string
+  timeZone: string
 }): Promise<GmailReviewUnitWindowProjectionData> {
   const reviewUnitId = artifactText(params.reviewUnitId)
   const parentId = artifactText(params.parentId)
   const artifactVersion = artifactText(params.artifactVersion)
-  const start = artifactNullableText(params.start)
-  const end = artifactNullableText(params.end)
+  const resolvedWindow = resolvePublishedReviewUnitProjectionWindow(params)
+  const start = resolvedWindow.start
+  const end = resolvedWindow.end
   const halfOpenEnd = inclusiveDateToHalfOpenEnd(end)
   const windowKind = reviewUnitProjectionWindowKind(params.window)
   if (!reviewUnitId || !parentId || !artifactVersion) {
@@ -2423,7 +2617,7 @@ async function loadCachedReviewUnitWindowProjection(params: {
     windowKind,
     windowStart: start,
     windowEnd: halfOpenEnd,
-    timeZone: 'UTC',
+    timeZone: resolvedWindow.timeZone,
   }).catch((error) => {
     gmailReviewUnitProjectionCache.delete(key)
     throw error
@@ -3068,65 +3262,59 @@ async function loadSenderDistributionFromArtifact(params: {
       }
       let projection: GmailReviewUnitWindowProjectionData
       try {
-        projection = await loadCachedReviewUnitWindowProjection({
+        const projectionIdentity = await resolveReviewUnitProjectionIdentity({
           supabase: params.supabase,
           tenantId: params.tenantId,
           analysisScope: params.analysisScope,
-          parentId: resolvedClusterId,
           artifactVersion,
           reviewUnitId: params.reviewUnitId,
-          window: projectionRequest.window,
-          start: projectionRequest.start,
-          end: projectionRequest.end,
+          legacyParentId: resolvedClusterId,
         })
-      } catch (persistedProjectionError) {
-        console.warn('[integrations/gmail/review-unit-projection-compatibility]', {
-          action: 'fallback_to_bounded_materialization',
+        projection =
+          projectionIdentity.source === 'published_manifest'
+            ? await loadCachedReviewUnitWindowProjection({
+                supabase: params.supabase,
+                tenantId: params.tenantId,
+                analysisScope: params.analysisScope,
+                parentId: projectionIdentity.parentId,
+                artifactVersion,
+                reviewUnitId: params.reviewUnitId,
+                window: projectionRequest.window,
+                start: projectionRequest.start,
+                end: projectionRequest.end,
+                coverageStartAt: projectionIdentity.coverageStartAt,
+                coverageEndAt: projectionIdentity.coverageEndAt,
+                timeZone: projectionIdentity.timeZone,
+              })
+            : await loadLegacyReviewUnitWindowProjection({
+                supabase: params.supabase,
+                tenantId: params.tenantId,
+                analysisScope: params.analysisScope,
+                parentId: projectionIdentity.parentId,
+                artifactVersion,
+                reviewUnitId: params.reviewUnitId,
+                seedRows: exactSeedRows,
+                window: projectionRequest.window,
+                start: projectionRequest.start,
+                end: projectionRequest.end,
+              })
+      } catch (projectionError) {
+        console.warn('[integrations/gmail/review-unit-projection]', {
+          action: 'sender_distribution',
           analysis_scope: params.analysisScope,
-          parent_id: resolvedClusterId,
+          presentation_parent_id: resolvedClusterId,
           artifact_version: artifactVersion,
           review_unit_id: params.reviewUnitId,
           window: params.senderOverviewWindow ?? 'all_indexed',
-          persisted_projection_error:
-            persistedProjectionError instanceof Error
-              ? persistedProjectionError.message
+          error:
+            projectionError instanceof Error
+              ? projectionError.message
               : 'unknown_projection_error',
         })
-        try {
-          projection = await loadLegacyReviewUnitWindowProjection({
-            supabase: params.supabase,
-            tenantId: params.tenantId,
-            analysisScope: params.analysisScope,
-            parentId: resolvedClusterId,
-            artifactVersion,
-            reviewUnitId: params.reviewUnitId,
-            seedRows: exactSeedRows,
-            window: projectionRequest.window,
-            start: projectionRequest.start,
-            end: projectionRequest.end,
-          })
-        } catch (compatibilityProjectionError) {
-          console.warn('[integrations/gmail/review-unit-projection]', {
-            action: 'sender_distribution',
-            analysis_scope: params.analysisScope,
-            parent_id: resolvedClusterId,
-            artifact_version: artifactVersion,
-            review_unit_id: params.reviewUnitId,
-            window: params.senderOverviewWindow ?? 'all_indexed',
-            persisted_projection_error:
-              persistedProjectionError instanceof Error
-                ? persistedProjectionError.message
-                : 'unknown_projection_error',
-            compatibility_projection_error:
-              compatibilityProjectionError instanceof Error
-                ? compatibilityProjectionError.message
-                : 'unknown_projection_error',
-          })
-          return fail(503, 'The selected review-unit window is unavailable.', {
-            reason: 'review_unit_projection_unavailable',
-            retryAfterMs: null,
-          })
-        }
+        return fail(503, 'The selected review-unit window is unavailable.', {
+          reason: 'review_unit_projection_unavailable',
+          retryAfterMs: null,
+        })
       }
       const projectionMembers = new Map(
         projection.members.map((member) => [member.entity_id, member] as const)
@@ -5977,31 +6165,30 @@ async function loadSenderWorkspaceFromArtifact(params: {
       const projectionParentId =
         artifactText(artifactRead.selected_header.cluster_id) || artifactSelectedClusterId
       try {
-        reviewUnitProjection = await loadCachedReviewUnitWindowProjection({
+        const projectionIdentity = await resolveReviewUnitProjectionIdentity({
           supabase: params.supabase,
           tenantId: params.tenantId,
           analysisScope: params.analysisScope,
-          parentId: projectionParentId,
           artifactVersion: artifactRead.artifact_version,
           reviewUnitId,
-          window: projectionRequest.window,
-          start: projectionRequest.start,
-          end: projectionRequest.end,
+          legacyParentId: projectionParentId,
         })
-      } catch (persistedProjectionError) {
-        console.warn('[integrations/gmail/review-unit-projection-compatibility]', {
-          action: 'sender_workspace_fallback_to_bounded_materialization',
-          analysis_scope: params.analysisScope,
-          parent_id: projectionParentId,
-          artifact_version: artifactRead.artifact_version,
-          review_unit_id: reviewUnitId,
-          window: params.senderOverviewWindow ?? 'all_indexed',
-          persisted_projection_error:
-            persistedProjectionError instanceof Error
-              ? persistedProjectionError.message
-              : 'unknown_projection_error',
-        })
-        try {
+        if (projectionIdentity.source === 'published_manifest') {
+          reviewUnitProjection = await loadCachedReviewUnitWindowProjection({
+            supabase: params.supabase,
+            tenantId: params.tenantId,
+            analysisScope: params.analysisScope,
+            parentId: projectionIdentity.parentId,
+            artifactVersion: artifactRead.artifact_version,
+            reviewUnitId,
+            window: projectionRequest.window,
+            start: projectionRequest.start,
+            end: projectionRequest.end,
+            coverageStartAt: projectionIdentity.coverageStartAt,
+            coverageEndAt: projectionIdentity.coverageEndAt,
+            timeZone: projectionIdentity.timeZone,
+          })
+        } else {
           const exactSeedRows = legacyReviewUnitArtifactPageRead
             ? legacyReviewUnitExactSeedRows || []
             : await loadExactReviewUnitSeedRowsForLegacyProjection({
@@ -6015,7 +6202,7 @@ async function loadSenderWorkspaceFromArtifact(params: {
             supabase: params.supabase,
             tenantId: params.tenantId,
             analysisScope: params.analysisScope,
-            parentId: projectionParentId,
+            parentId: projectionIdentity.parentId,
             artifactVersion: artifactRead.artifact_version,
             reviewUnitId,
             seedRows: exactSeedRows,
@@ -6023,28 +6210,24 @@ async function loadSenderWorkspaceFromArtifact(params: {
             start: projectionRequest.start,
             end: projectionRequest.end,
           })
-        } catch (compatibilityProjectionError) {
-          console.warn('[integrations/gmail/review-unit-projection]', {
-            action: 'sender_workspace',
-            analysis_scope: params.analysisScope,
-            parent_id: projectionParentId,
-            artifact_version: artifactRead.artifact_version,
-            review_unit_id: reviewUnitId,
-            window: params.senderOverviewWindow ?? 'all_indexed',
-            persisted_projection_error:
-              persistedProjectionError instanceof Error
-                ? persistedProjectionError.message
-                : 'unknown_projection_error',
-            compatibility_projection_error:
-              compatibilityProjectionError instanceof Error
-                ? compatibilityProjectionError.message
-                : 'unknown_projection_error',
-          })
-          return fail(503, 'The selected review-unit window is unavailable.', {
-            reason: 'review_unit_projection_unavailable',
-            retryAfterMs: null,
-          })
         }
+      } catch (projectionError) {
+        console.warn('[integrations/gmail/review-unit-projection]', {
+          action: 'sender_workspace',
+          analysis_scope: params.analysisScope,
+          presentation_parent_id: projectionParentId,
+          artifact_version: artifactRead.artifact_version,
+          review_unit_id: reviewUnitId,
+          window: params.senderOverviewWindow ?? 'all_indexed',
+          error:
+            projectionError instanceof Error
+              ? projectionError.message
+              : 'unknown_projection_error',
+        })
+        return fail(503, 'The selected review-unit window is unavailable.', {
+          reason: 'review_unit_projection_unavailable',
+          retryAfterMs: null,
+        })
       }
       try {
         reviewUnitWorkingEntityIds = resolveReviewUnitWindowWorkingEntityIds({
@@ -8442,18 +8625,50 @@ export async function loadGmailSenderOverviewWindowForTenant(params: {
           retryAfterMs: null,
         })
       }
-      const projection = await loadCachedReviewUnitWindowProjection({
+      const presentationParentId =
+        artifactText(artifactRead.selected_header.cluster_id) || artifactSelectedClusterId
+      const projectionIdentity = await resolveReviewUnitProjectionIdentity({
         supabase: params.supabase,
         tenantId: params.tenantId,
         analysisScope,
-        parentId:
-          artifactText(artifactRead.selected_header.cluster_id) || artifactSelectedClusterId,
         artifactVersion: artifactRead.artifact_version,
         reviewUnitId,
-        window: pressureWindow,
-        start: params.pressureStart,
-        end: params.pressureEnd,
+        legacyParentId: presentationParentId,
       })
+      const projection =
+        projectionIdentity.source === 'published_manifest'
+          ? await loadCachedReviewUnitWindowProjection({
+              supabase: params.supabase,
+              tenantId: params.tenantId,
+              analysisScope,
+              parentId: projectionIdentity.parentId,
+              artifactVersion: artifactRead.artifact_version,
+              reviewUnitId,
+              window: pressureWindow,
+              start: params.pressureStart,
+              end: params.pressureEnd,
+              coverageStartAt: projectionIdentity.coverageStartAt,
+              coverageEndAt: projectionIdentity.coverageEndAt,
+              timeZone: projectionIdentity.timeZone,
+            })
+          : await loadLegacyReviewUnitWindowProjection({
+              supabase: params.supabase,
+              tenantId: params.tenantId,
+              analysisScope,
+              parentId: projectionIdentity.parentId,
+              artifactVersion: artifactRead.artifact_version,
+              reviewUnitId,
+              seedRows: await loadExactReviewUnitSeedRowsForLegacyProjection({
+                supabase: params.supabase,
+                tenantId: params.tenantId,
+                analysisScope,
+                selectedClusterId: artifactSelectedClusterId,
+                reviewUnitId,
+              }),
+              window: pressureWindow,
+              start: params.pressureStart || null,
+              end: params.pressureEnd || null,
+            })
       if (projection.unit_entity_total !== artifactRead.focused_total_senders) {
         return fail(409, 'The selected review-unit projection does not match its published membership.', {
           reason: 'review_unit_projection_mismatch',

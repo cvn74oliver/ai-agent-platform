@@ -17,10 +17,7 @@ import type {
   GmailConfirmationPreviewData,
   GmailDestinationExecutionState,
   GmailDestinationState,
-  GmailMailboxIntelligenceData,
   GmailMonitoringSummaryData,
-  GmailPressureTrendData,
-  GmailPressureTrendWindow,
   GmailScopeLadderCounts,
   GmailSenderPolicy,
   GmailSenderWorkspaceData,
@@ -40,6 +37,16 @@ import type {
   OptionalEvidenceDetailAvailability,
   OptionalEvidenceDetailOperatorAction,
 } from '@/lib/runtime/optionalEvidenceDetail'
+import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
+import { resolveDecisionWorkspacePresentationSlot } from '@/lib/runtime/decisionWorkspacePresentation'
+import type {
+  DecisionReviewRecommendationReason,
+  DecisionWorkspaceIntelligenceGroup,
+  DecisionWorkspaceItemOverviewAnalysisTab,
+  DecisionWorkspaceManagementSignals,
+  DecisionWorkspacePressureTrendData,
+  DecisionWorkspacePressureTrendWindow,
+} from '@/lib/runtime/decisionWorkspaceReadModel'
 
 type TimeContextChartScope =
   | 'all_indexed'
@@ -278,16 +285,18 @@ function loadingSkeleton(className: string) {
   )
 }
 
-type ManagementSignalsData = {
+type ManagementSignalsData = Pick<
+  DecisionWorkspaceManagementSignals,
+  | 'archiveVerificationCount'
+  | 'archiveFailureCount'
+  | 'quarantineCount'
+  | 'customRuleCount'
+  | 'recentRestoreCount'
+> & {
   approvalsWaiting: number
-  archiveVerificationCount: number
-  archiveFailureCount: number
-  quarantineCount: number
-  customRuleCount: number
-  recentRestoreCount: number
 }
 
-const EMPTY_PRESSURE_TREND_SERIES: GmailPressureTrendData['series'] = []
+const EMPTY_PRESSURE_TREND_SERIES: DecisionWorkspacePressureTrendData['series'] = []
 
 export function MailboxContextMetrics(props: {
   totalSenderCount: number
@@ -295,6 +304,10 @@ export function MailboxContextMetrics(props: {
   underReviewSenderCount: number
   decidedSenderCount: number
 }) {
+  const presentation = useDecisionWorkspacePresentation()
+  const supportingEvidenceLabel =
+    presentation.semanticMetrics.find((metric) => metric.id === 'supporting_message_count')?.label ||
+    presentation.nouns.evidencePlural
   const senderUniverse = Math.max(props.totalSenderCount, 1)
   const messageDensity = props.totalSupportingMessageCount / senderUniverse
   const reviewRatio = props.underReviewSenderCount / senderUniverse
@@ -303,7 +316,7 @@ export function MailboxContextMetrics(props: {
   return (
     <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
       {metricMeterCard({
-        title: 'Indexed senders',
+        title: presentation.metricLabels.itemsInScope,
         value: props.totalSenderCount.toLocaleString(),
         subtitle: 'Total sender universe in scope for cleanup decisions.',
         accentClass: 'border-[var(--app-border-muted)] bg-[var(--app-surface-nested)]',
@@ -311,7 +324,7 @@ export function MailboxContextMetrics(props: {
         valueClass: 'text-white',
       })}
       {metricMeterCard({
-        title: 'Supporting messages',
+        title: supportingEvidenceLabel,
         value: `~${props.totalSupportingMessageCount.toLocaleString()}`,
         subtitle: `Message pressure behind the indexed sender universe. ~${messageDensity.toFixed(1)} messages per indexed sender.`,
         accentClass: 'border-violet-950/60 bg-violet-950/10',
@@ -319,7 +332,7 @@ export function MailboxContextMetrics(props: {
         valueClass: 'text-violet-100',
       })}
       {metricMeterCard({
-        title: 'Senders in review',
+        title: presentation.metricLabels.reviewCandidates,
         value: props.underReviewSenderCount.toLocaleString(),
         subtitle: `${Math.round(reviewRatio * 100)}% of indexed senders are currently surfaced for review.`,
         accentClass: 'border-cyan-950/60 bg-cyan-950/10',
@@ -327,7 +340,7 @@ export function MailboxContextMetrics(props: {
         valueClass: 'text-cyan-100',
       })}
       {metricMeterCard({
-        title: 'Senders already decided',
+        title: presentation.metricLabels.decisionsMade,
         value: props.decidedSenderCount.toLocaleString(),
         subtitle: `${Math.round(decisionRatio * 100)}% of indexed senders. Current decided coverage snapshot.`,
         accentClass: 'border-emerald-950/60 bg-emerald-950/10',
@@ -906,15 +919,15 @@ function CompactTrendChart(props: {
   title: string
   summary: string | null
   detail: string | null
-  items: GmailPressureTrendData['series'] | null
+  items: DecisionWorkspacePressureTrendData['series'] | null
   direction: 'rising' | 'falling' | 'stable' | 'unknown'
   peakBucketStartAt: string | null
   peakCount: number
   latestBucketStartAt: string | null
-  groups: GmailMailboxIntelligenceData['cleanup_groups']
+  groups: readonly DecisionWorkspaceIntelligenceGroup[]
   nextActionTitle: string
   nextActionDetail: string
-  activeWindow: GmailPressureTrendWindow
+  activeWindow: DecisionWorkspacePressureTrendWindow
   activeRangeLabel: string | null
   loading: boolean
   error: string | null
@@ -922,7 +935,7 @@ function CompactTrendChart(props: {
   customRangeEnd: string | null
   customRangeMin: string | null
   customRangeMax: string | null
-  onSelectWindow: (window: Exclude<GmailPressureTrendWindow, 'custom'>) => void
+  onSelectWindow: (window: Exclude<DecisionWorkspacePressureTrendWindow, 'custom'>) => void
   onApplyCustomRange: (start: string, end: string) => void
 }) {
   const items = props.items ?? EMPTY_PRESSURE_TREND_SERIES
@@ -951,7 +964,7 @@ function CompactTrendChart(props: {
   const paddingTop = 20
   const paddingBottom = 48
 
-  const windowOptions: Array<{ key: GmailPressureTrendWindow; label: string }> = [
+  const windowOptions: Array<{ key: DecisionWorkspacePressureTrendWindow; label: string }> = [
     { key: 'all_indexed', label: 'All indexed' },
     { key: 'last_year', label: '1Y' },
     { key: 'last_quarter', label: '1Q' },
@@ -1397,7 +1410,7 @@ function CompactTrendChart(props: {
                     type="button"
                     onClick={() => {
                       setCustomEditorOpen(false)
-                      props.onSelectWindow(option.key as Exclude<GmailPressureTrendWindow, 'custom'>)
+                      props.onSelectWindow(option.key as Exclude<DecisionWorkspacePressureTrendWindow, 'custom'>)
                     }}
                     className={`rounded-full border px-3 py-1.5 text-xs transition ${className}`}
                   >
@@ -1957,7 +1970,7 @@ function SenderOverviewAnalysisRailShell(props: {
   )
 }
 
-type SharedAnalysisRailTab = 'time_context' | 'sender_distribution'
+type SharedAnalysisRailTab = DecisionWorkspaceItemOverviewAnalysisTab
 
 type SenderDistributionRailItem = {
   senderKey: string
@@ -4646,6 +4659,8 @@ export function InboxHealthGauge(props: {
   impactInsight: string
   explanation: string
 }) {
+  const presentation = useDecisionWorkspacePresentation()
+  const healthSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'health_overview')
   const scoreMeta = healthSeverityMeta(props.score, props.healthState)
   const boundedScore = Math.max(0, Math.min(100, props.score))
   const markerPosition = Math.max(3, Math.min(97, boundedScore))
@@ -4667,7 +4682,7 @@ export function InboxHealthGauge(props: {
           ? props.interventionInsight
         : hoveredSection === 'impact'
           ? props.impactInsight
-          : `Inbox health tracks committed sender decision coverage first, then execution friction. ${props.explanation} ${
+          : `${healthSlot.title} tracks committed ${presentation.nouns.subjectSingular.toLowerCase()} decision coverage first, then execution friction. ${props.explanation} ${
               props.managementSignals.approvalsWaiting > 0
                 ? 'Right now, approvals are the main reason sender decisions are not yet turning into visible inbox reduction.'
                 : props.managementSignals.archiveVerificationCount > 0
@@ -4696,9 +4711,9 @@ export function InboxHealthGauge(props: {
         <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">
           Visual intelligence
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-white">Inbox health</h2>
+        <h2 className="mt-2 text-2xl font-semibold text-white">{healthSlot.title}</h2>
         <p className="mt-3 text-sm text-gray-300">
-          A fast visual read on sender decision coverage, the execution friction affecting it, and the intervention most likely to improve inbox clarity next.
+          {healthSlot.subtitle}
         </p>
       </div>
 
@@ -4749,7 +4764,7 @@ export function InboxHealthGauge(props: {
         <div className="grid gap-5 2xl:grid-cols-[0.72fr_1.28fr]">
           <div className="space-y-4">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Inbox health</p>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">{healthSlot.title}</p>
               <p className={`mt-3 text-6xl font-semibold ${scoreMeta.scoreClass}`}>
                 {boundedScore}
                 <span className="ml-2 text-xl font-medium text-gray-400">/ 100</span>
@@ -5093,13 +5108,16 @@ export function MailboxIntelligenceLoadingState(props: {
   resumeHref: string | null
   nextActionHref: string | null
 }) {
+  const presentation = useDecisionWorkspacePresentation()
+  const healthSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'health_overview')
+  const reviewGroupsSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'review_groups')
   const likelyAction =
     props.pendingApprovals > 0
       ? 'Approve archive queue'
       : props.resumeHref
         ? 'Resume sender review'
         : props.nextActionHref
-          ? 'Open Cleanup Groups'
+          ? `Open ${reviewGroupsSlot.title}`
           : 'Wait for refreshed guidance'
   const likelyReason =
     props.pendingApprovals > 0
@@ -5121,17 +5139,17 @@ export function MailboxIntelligenceLoadingState(props: {
       <section className="rounded-3xl border border-cyan-900/45 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_30%),linear-gradient(180deg,rgba(8,47,73,0.28),rgba(3,7,18,0.72))] p-5 space-y-4">
         <div className="max-w-3xl">
           <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Visual intelligence</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Loading inbox intelligence…</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-white">Loading {healthSlot.title}…</h2>
           <p className="mt-3 text-sm text-gray-300">
             Using the latest stable runtime snapshot while cached intelligence hydrates.
           </p>
         </div>
         <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
           {[
-            'Indexed senders',
-            'Supporting messages',
-            'Senders in review',
-            'Senders already decided',
+            presentation.metricLabels.itemsInScope,
+            presentation.nouns.evidencePlural,
+            presentation.metricLabels.reviewCandidates,
+            presentation.metricLabels.decisionsMade,
           ].map((label) => (
             <div key={label} className={`${neutralNestedSurfaceClass} rounded-2xl p-4`}>
               <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">{label}</p>
@@ -5144,7 +5162,7 @@ export function MailboxIntelligenceLoadingState(props: {
         <div className="app-surface-card rounded-3xl p-5 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">Inbox health rail</p>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">{healthSlot.title} rail</p>
               {loadingSkeleton('mt-3 h-14 w-36')}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -5251,18 +5269,22 @@ export function MailboxIntelligenceLoadingState(props: {
 }
 
 export function CleanupGroupContributionCards(props: {
-  groups: GmailMailboxIntelligenceData['cleanup_groups']
+  groups: readonly DecisionWorkspaceIntelligenceGroup[]
   buildClusterHref: (clusterId: string) => string
   openGroupsHref: string
-  recommendedGroup: GmailMailboxIntelligenceData['cleanup_groups'][number] | null
-  recommendedReason: CleanupGroupRecommendationReason
+  recommendedGroup: DecisionWorkspaceIntelligenceGroup | null
+  recommendedReason: DecisionReviewRecommendationReason
 }) {
-  const recommendationCopy = getCleanupGroupRecommendationExplanation(props.recommendedReason)
+  const recommendationCopy = getCleanupGroupRecommendationExplanation(
+    props.recommendedReason as CleanupGroupRecommendationReason
+  )
   const internalStructure =
     props.recommendedGroup?.cluster_id === 'subscription-senders'
     ? buildCleanupGroupInternalStructure(
         props.recommendedGroup.cluster_id,
-        props.recommendedGroup.semantic_rollup || null
+        (props.recommendedGroup.semantic_rollup || null) as Parameters<
+          typeof buildCleanupGroupInternalStructure
+        >[1]
       )
     : null
   return sectionCard(
@@ -5389,11 +5411,11 @@ export function CleanupGroupContributionCards(props: {
 }
 
 export function MailboxIntelligenceDashboard(props: {
-  data: GmailMailboxIntelligenceData
+  groups: readonly DecisionWorkspaceIntelligenceGroup[]
   buildClusterHref: (clusterId: string) => string
   openGroupsHref: string
-  recommendedCleanupGroup: GmailMailboxIntelligenceData['cleanup_groups'][number] | null
-  recommendedCleanupGroupReason: CleanupGroupRecommendationReason
+  recommendedCleanupGroup: DecisionWorkspaceIntelligenceGroup | null
+  recommendedCleanupGroupReason: DecisionReviewRecommendationReason
   managementSignals: ManagementSignalsData
   approvalHref: string | null
   managementHref: string | null
@@ -5411,9 +5433,9 @@ export function MailboxIntelligenceDashboard(props: {
             latestBucketStartAt?: string | null
           }
         | null
-  pressureTrendSeries: GmailPressureTrendData['series'] | null
+  pressureTrendSeries: DecisionWorkspacePressureTrendData['series'] | null
   pressureTrendSelection: {
-    window: GmailPressureTrendWindow
+    window: DecisionWorkspacePressureTrendWindow
     start: string | null
     end: string | null
   }
@@ -5422,7 +5444,7 @@ export function MailboxIntelligenceDashboard(props: {
   pressureTrendRangeDetail: string | null
   pressureTrendCoverageMin: string | null
   pressureTrendCoverageMax: string | null
-  onSelectPressureTrendWindow: (window: Exclude<GmailPressureTrendWindow, 'custom'>) => void
+  onSelectPressureTrendWindow: (window: Exclude<DecisionWorkspacePressureTrendWindow, 'custom'>) => void
   onApplyPressureTrendCustomRange: (start: string, end: string) => void
 }) {
   return (
@@ -5442,7 +5464,7 @@ export function MailboxIntelligenceDashboard(props: {
         peakCount={props.pressureTrend?.peakCount || 0}
         latestBucketStartAt={props.pressureTrend?.latestBucketStartAt || null}
         items={props.pressureTrendSeries}
-        groups={props.data.cleanup_groups}
+        groups={props.groups}
         nextActionTitle={props.nextActionTitle}
         nextActionDetail={props.nextActionDetail}
         activeWindow={props.pressureTrendSelection.window}
@@ -5464,7 +5486,7 @@ export function MailboxIntelligenceDashboard(props: {
       />
 
       <CleanupGroupContributionCards
-        groups={props.data.cleanup_groups}
+        groups={props.groups}
         buildClusterHref={props.buildClusterHref}
         openGroupsHref={props.openGroupsHref}
         recommendedGroup={props.recommendedCleanupGroup}

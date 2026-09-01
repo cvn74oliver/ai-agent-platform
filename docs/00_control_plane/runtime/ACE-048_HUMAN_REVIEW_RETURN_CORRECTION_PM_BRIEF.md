@@ -1,9 +1,9 @@
 # ACE-048 Human Review Return — Three-Packet Correction PM Brief
 
-Date: 2026-08-31  
-Status: `PLAN MODE / AWAITING OLIVER DECISION`  
-Execution mode: `transitional_self_verification`  
-Governing event: `ACE-048`  
+Date: 2026-08-31
+Status: `APPROVED / SOURCE-ONLY EXECUTION COMPLETED / REVIEW PACKET ACTIVE`
+Execution mode: `transitional_self_verification`
+Governing event: `ACE-048`
 Problem class: mixed, decomposed into source/index truth, runtime projection identity, and UI presentation policy
 
 ## Executive summary
@@ -93,7 +93,7 @@ Locked mechanism: persisted projection reads are not resolving `parent_id` from 
 
 ## Approved-scope write packets
 
-Implementation MUST NOT begin until Oliver records `ACCEPT` for this plan.
+Oliver recorded `ACCEPT` for this plan. The source-only packets were executed in the approved order; live provider/data repair remains separately gated.
 
 ### Write packet A — narrowed projection identity
 
@@ -226,11 +226,11 @@ Required proof:
 
 ## Approval gate
 
-Status: `Awaiting Decision`
+Historical plan decision: `ACCEPT` — source-only execution authorized and completed.
 
-- `ACCEPT` — authorize the three implementation packets in the stated order; live repair remains a later separate gate.
+- `ACCEPT` — recorded; the three implementation packets were authorized and completed. Live repair remains a later separate gate.
 - `REJECT` — return the plan for correction.
 - `BLOCKED` — identify the missing evidence or dependency.
 - `RETURN_TO_PM` — materially rescope the work before implementation.
 
-Checkpoint Status: continuity checkpoint created. This brief and its three correction contracts are reflected in the active control plane; execution remains blocked only on Oliver's explicit decision.
+Checkpoint Status: continuity checkpoint created. This brief remains the approved execution contract. Current evidence and the next decision are recorded in `ACE-048_HUMAN_REVIEW_RETURN_CORRECTION_REVIEW_PACKET.md`.

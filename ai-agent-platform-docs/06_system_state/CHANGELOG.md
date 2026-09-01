@@ -1,3 +1,368 @@
+### September 2, 2026 — Accepted-Milestone Git Publication Policy
+
+Accepted operating invariant:
+- Human-accepted stable fixes, slices, phases, and meaningful milestones are preserved twice: first through the governed shared backup workflow, then through an exact-scope Git commit and normal non-force push to the canonical GitHub remote.
+- Accepted work must not remain stranded only in a dirty worktree, detached checkout, or local-only branch.
+- Mixed worktrees require explicit path staging, provenance classification, secret/generated-output inspection, relevant verification, and remote-divergence reattestation before publication.
+- Repository policy determines direct accepted-main publication versus a pushed named branch plus review/merge path. Local commit, remote-tracking ref, and live remote identity must be verified afterward.
+- Git publication does not authorize force pushes, deployment, provider/data mutation, recovery-lineage deletion, or publication of unaccepted implementation.
+
+Authority:
+- Oliver explicitly directed on 2026-09-02: accepted and good work should be pushed to GitHub as a standard policy, just as accepted milestones are backed up.
+- The protected root `AGENTS.md` and canonical Project Manager context were explicitly placed in scope by that policy request.
+
+Recovery and replay:
+1. Reattest the accepted milestone, governing ACE, Recovery Contract, exact source/control-plane paths, and verified backup.
+2. Reattest canonical remote, target branch, and remote divergence.
+3. Exclude secrets, environment/auth/session state, generated browser/build/dependency output, and unrelated dirty state.
+4. Stage explicit paths, inspect the staged diff, run relevant verification plus diff/secret checks, and create the terse milestone commit.
+5. Push normally without force and verify local/remote/live parity.
+6. If blocked, preserve the backup and exact pending path set and keep `Git publication pending` active until resumed.
+
+---
+
+### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 3 Slice 4 Accepted
+
+Accepted invariant:
+- Decision Mode and Decision Management obtain managed decision-state through the selected Decision Workspace adapter instead of importing the Gmail management-summary helper directly in both shared pages.
+- The framework owns portable managed-subject, workflow/state identity, adapter-approved labels, activity/evidence, source and agent-role identity, capability/execution provenance, and fail-closed validation. Gmail remains the sole owner of its accepted management-summary helper, cache, request translation, provider actions, and lifecycle behavior.
+- The accepted Gmail experience remains unchanged: Management preserves `17 / 3 / 2 / 10 / 0 / 2`; Offer campaign `1M` preserves `108 / 1 / 107 / 1,030`; promotional cycle `1M` preserves `43 / 0 / 43 / 132`; filters, rows, Decision Mode evidence, provider controls, and exact close/return behavior remain intact.
+
+Source layers fixed:
+- Generic managed decision-state read model, validators, compatibility value, and fail-closed finalizer.
+- Selected-adapter management read service exposed through the existing Decision Workspace read context.
+- Gmail compatibility projection over the existing `fetchGmailDecisionManagementSummary` helper without changing its `15s` cache, per-key single-flight, request family, or provider operations.
+- Decision Mode and Decision Management read consumers plus eight-domain/static fail-closed fixtures.
+
+Acceptance proof:
+- Oliver returned explicit Human Review `Accept` on 2026-09-02 after Codex completed the requested delegated Playwright check and reported its `PASS / HIGH` result. This acceptance is the explicit decision, not inferred from prior general approval.
+- Verifier decision is `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE4_REVIEW_PACKET.md`; `Missing Proof Type: none for the required exact-origin accepted surfaces`.
+- Eight-domain fixtures cover Gmail, customer service, real estate, crypto/investments, four-source paid media, bookkeeping, tax, and multi-role/multi-source purchasing and shipping. Invalid provider projections fail closed; render-time model calls and new request definitions remain zero.
+- Required Phase 1, Phase 2, Phase 3 Slices 1-3, generic/Gmail review-unit, window-projection, cleanup-assignment, Pressure Trend, optional-evidence, and mailbox-continuity fixtures pass with TypeScript, targeted ESLint, exact allowlist assertions, default production build, and `git diff --check`.
+- The original full post-settle Playwright matrix and the delegated refresh both pass. The refresh proves Management `17 / 3 / 2 / 10 / 0 / 2`, Review `108 / 1 / 107 / 1,030`, Decision Mode sender `1 of 108`, exact Close return, zero provider actions/writes, zero `409` churn, and no settled console errors, warnings, duplicate keys, or runtime overlay.
+- One initial external Supabase timeout in the delegated refresh remained pre-settle diagnostic evidence only. A mailbox-index success supplied a new signal for one bounded reload; the complete accepted flow then settled successfully. No repeated retry occurred.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE4_DECISION_MANAGEMENT_READ_FACADE_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE4_REVIEW_PACKET.md`.
+- Delegated proof: `output/playwright/ace-048-phase3-slice4-delegated-review/verification-summary.json`, `state-transition-matrix.json`, and four post-settle screenshots.
+- Generic read contract: `web/src/lib/runtime/decisionWorkspaceReadModel.ts`.
+- Shared read context: `web/src/components/runtime/DecisionWorkspaceReadContext.tsx`.
+- Gmail read adapter: `web/src/lib/integrations/gmail/gmailDecisionWorkspaceReadAdapter.ts`.
+- Shared consumers: `web/src/app/agents/[id]/operations/review/page.tsx` and `web/src/app/agents/[id]/operations/management/page.tsx`.
+- Cross-domain proof: `web/scripts/workspace-decision-read-model-fixtures.mjs`.
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - Pre ACE-048 framework-first Decision Workspace Phase 3 Slice 4 managed decision-)`.
+- Explicit Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 3 Slice 4 explicit Human Review acceptance after delegated Playwri)`; `2,163` files, detached HEAD `8f8e4d670cabdd21459c0b4b8e502d16e272afc0`, `54` changed paths at backup time, normal seven-day project-scoped pruning, and all `KEEP` archives preserved.
+
+Replay steps:
+1. Run `npm run test:workspace-decision-read-model`, `npm run test:workspace-decision-contract`, and `npm run test:workspace-decision-presentation`; require all eight domains, multi-source/multi-role identity, fail-closed managed-state validation, zero model calls, and zero new request definitions to pass.
+2. Run the retained generic/Gmail review-unit, cleanup-assignment, window-projection, Pressure Trend, optional-evidence, and mailbox-continuity regressions.
+3. Run `./node_modules/.bin/tsc --noEmit`, targeted ESLint on the exact six-file Slice 4 allowlist, source/action assertions, backup-to-current allowlist comparison, the default production build, and `git diff --check`.
+4. Start the exact worktree runtime with the established environment loaded only in-process and loopback-only binding; do not copy, print, or publish secret environment values.
+5. Exercise the exact accepted Management and Review/Decision Mode matrix after settle. Require the preserved Gmail values, existing request families only, zero provider writes, zero failed/guard/model requests, zero settled polling, and zero console/page errors.
+
+Rollback guidance:
+- Restore only the Slice 4 seams in the six allowlisted files from the pre-implementation snapshot if the managed decision-state adapter boundary itself regresses. Preserve all accepted Phase 1, Phase 2, and Phase 3 Slices 1-3 work in those shared files.
+- Preserve Gmail provider/data/runtime behavior, routes, published artifact, counts, actions, requests, caches, lifecycle ownership, and their existing Recovery Contracts.
+- No provider/data rollback is required because Slice 4 did not mutate providers, data, databases, artifacts, indexes, publication, routes, requests, polling, or lifecycle behavior.
+
+Acceptance boundary:
+- This Recovery Contract accepts Phase 3 Slice 4 and closes the bounded Phase 3 generic runtime/data-facade program.
+- It does not authorize Phase 4 capability/action work, a real non-Gmail provider, Workflow Studio, proprietary-brain UI, shared learning, multi-agent orchestration, route changes, provider/data/database/artifact/index/publication mutation, commit, push, or deployment.
+
+---
+
+### September 1, 2026 — ACE-048 Framework-First Decision Workspace Phase 3 Slice 3 Accepted
+
+Accepted invariant:
+- Sender Overview consumes the selected Decision Workspace adapter service for workspace, window, distribution, authority, and activity-series reads rather than importing Gmail read helpers directly in the page.
+- The framework owns portable Item Overview subject, activity, evidence, semantic-metric, provenance, role, source, pagination, and fail-closed validation. Adapter/workflow definitions own deterministic domain titles and nouns, while provider actions and source controls remain explicitly provider-specific.
+- The accepted Gmail experience remains unchanged: Offer campaign preserves `267` All indexed and `108 / 84 / 2 / 100` tested windowed sender universes; promotional cycle preserves `43` senders; Analysis Rail tabs, rows, pagination, Decision Mode evidence/full preview, close/return, and the accepted editorial-to-Review-Groups redirect remain intact.
+
+Source layers fixed:
+- Generic Item Overview read-model schema, validators, finalization, and adapter-service contract.
+- Selected-adapter Item Overview service exposed through the existing Decision Workspace read context.
+- Gmail compatibility projection over the existing workspace, window, distribution, authority, and activity-series helpers without moving page lifecycle ownership or introducing another cache.
+- Sender Overview page/component consumption boundary and eight-domain fail-closed fixtures.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` on 2026-09-01 after reviewing the page and reporting no visible regression.
+- Verifier decision is `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE3_REVIEW_PACKET.md`; `Missing Proof Type: none`.
+- Eight-domain fixtures cover Gmail, customer service, real estate, crypto/investments, four-source paid media, bookkeeping, tax, and multi-role/multi-source purchasing and shipping. Unsafe identity, provenance, quality, semantic metrics, aggregation, or pagination fails closed; render-time model calls and new request definitions remain zero.
+- Required Phase 1, Phase 2, Slice 1, Slice 2, generic/Gmail review-unit, window-projection, cleanup-assignment, Pressure Trend, optional-evidence, and mailbox-continuity fixtures pass with TypeScript, targeted ESLint, exact allowlist assertions, and `git diff --check`.
+- Authenticated post-settle Playwright proof covers the exact Offer campaign window matrix, promotional-cycle composite route, Analysis Rail tabs, pagination, Decision Mode evidence/full preview, close/return, and accepted editorial compatibility redirect. Console errors/warnings, runtime overlays, failed or `409` requests, provider mutations, new request families, and settled polling are zero.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE3_SENDER_OVERVIEW_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE3_REVIEW_PACKET.md`.
+- Generic read contract: `web/src/lib/runtime/decisionWorkspaceReadModel.ts`.
+- Shared read context: `web/src/components/runtime/DecisionWorkspaceReadContext.tsx`.
+- Gmail read adapter: `web/src/lib/integrations/gmail/gmailDecisionWorkspaceReadAdapter.ts`.
+- Sender Overview consumers: `web/src/app/agents/[id]/operations/review/page.tsx` and `web/src/components/runtime/GmailCleanupComponents.tsx`.
+- Cross-domain proof: `web/scripts/workspace-decision-read-model-fixtures.mjs`.
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - Pre ACE-048 framework-first Decision Workspace Phase 3 Slice 3 Sender Overview r)`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - ACE-048 framework-first Decision Workspace Phase 3 Slice 3 Human acceptance)`; `1,574` files, detached HEAD `8f8e4d670cabdd21459c0b4b8e502d16e272afc0`, `51` changed paths at backup time, normal seven-day project-scoped pruning, and all `23` `KEEP` archives preserved.
+
+Replay steps:
+1. Run `npm run test:workspace-decision-read-model` and require all eight domains, multi-source/multi-role identity, fail-closed Item Overview validation, zero model calls, and zero new request definitions to pass.
+2. Run the Phase 1 contract, Phase 2 presentation, Slice 1/Slice 2 read-model, and retained generic/Gmail review-unit, cleanup-assignment, window-projection, Pressure Trend, optional-evidence, and mailbox-continuity fixtures.
+3. Run `./node_modules/.bin/tsc --noEmit`, targeted ESLint on the exact six-file Slice 3 allowlist, source assertions, backup-to-current allowlist comparison, and `git diff --check`.
+4. Start the exact worktree runtime with the established environment loaded only in-process and loopback-only binding; do not copy, print, or publish secret environment values.
+5. Exercise the exact accepted Sender Overview routes and window/tab/pagination/Decision Mode/return matrix after settle. Require preserved Gmail counts and route identity, existing request families only, zero failed/guard/model requests, zero settled polling, and zero console/page errors.
+
+Rollback guidance:
+- Restore only the Slice 3 seams in the six allowlisted files from the pre-implementation snapshot if the Item Overview adapter boundary itself regresses. Preserve all accepted Phase 1, Phase 2, and Phase 3 Slices 1-2 work in those shared files.
+- Preserve Gmail provider/data/runtime behavior, routes, published artifact, counts, actions, requests, caches, lifecycle ownership, and their existing Recovery Contracts.
+- No provider/data rollback is required because Slice 3 did not mutate providers, data, databases, artifacts, indexes, publication, routes, requests, polling, or lifecycle behavior.
+
+Acceptance boundary:
+- This Recovery Contract accepts Phase 3 Slice 3 Sender Overview read-facade behavior only.
+- It does not authorize another Phase 3 slice, Phase 4 capability/action work, Management behavior changes, real non-Gmail providers, Workflow Studio, proprietary-brain UI, shared learning, multi-agent orchestration, route changes, provider/data/database/artifact/index/publication mutation, commit, push, or deployment.
+
+---
+
+### September 1, 2026 — ACE-048 Framework-First Decision Workspace Phase 3 Slice 2 Accepted
+
+Accepted invariant:
+- Decision Intelligence consumes the selected Decision Workspace adapter service rather than importing Gmail cache, request, draft, activity-series, management-summary, or recommendation helpers directly in the page.
+- The framework owns validated decision-health semantics, score definition/range/directionality, lifecycle and provenance signals, activity-series buckets, recommendations, workflow progress, accessibility meaning, and safe fail-closed behavior. Adapter/workflow definitions own approved domain vocabulary and semantic mappings deterministically at render time.
+- The accepted Gmail Intelligence experience remains unchanged: `Inbox health`, `5,144` senders, `~259,422` supporting messages, `1,999` review candidates, `17` decisions, health `5/100`, accepted Pressure Trend windows/buckets, the `915 / 75,844` recommendation, exact Review Groups handoff/return, and explicit Gmail provider controls.
+
+Source layers fixed:
+- Generic Decision Intelligence read model, validation, activity-series, lifecycle, recommendation, and progress contracts.
+- Selected-adapter Intelligence service exposed through the existing Decision Workspace read context.
+- Gmail compatibility projection over the existing cache/request/draft/management/activity helpers without moving page lifecycle ownership or introducing a second cache.
+- Intelligence page/component consumption boundary and eight-domain fail-closed fixtures.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` on 2026-09-01 after reviewing the page, reporting no visible regression, and approving continuation.
+- Verifier decision is `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE2_REVIEW_PACKET.md`; `Missing Proof Type: none`.
+- Eight-domain fixtures cover Gmail, customer service, real estate, crypto/investments, four-source paid media, bookkeeping, tax, and multi-role/multi-source purchasing and shipping. Distinct approved titles/definitions render from the same semantic slots; explicit zero buckets survive; unsafe/missing metadata and incompatible aggregation fail closed; render-time model calls and new request definitions remain zero.
+- All required Phase 1, Phase 2, Slice 1, generic/Gmail review-unit, window-projection, cleanup-assignment, Pressure Trend, optional-evidence, and mailbox-continuity fixtures pass with TypeScript, targeted ESLint, allowlist/source assertions, and `git diff --check`.
+- Authenticated post-settle browser proof covers cold All indexed, `1Y`, `1M`, restored All indexed, Custom, focus refresh, exact Review Groups handoff, return, and a six-second final hold. Failed requests, `409` churn, console/page errors, overlays, and settled polling are zero.
+- Human-visible cold, Custom, focused Review Groups, and final return/hold screenshots show no loading shell, broken chart, stale contradiction, or visible regression.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE2_DECISION_INTELLIGENCE_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE2_REVIEW_PACKET.md`.
+- Generic read contract: `web/src/lib/runtime/decisionWorkspaceReadModel.ts`.
+- Shared read context: `web/src/components/runtime/DecisionWorkspaceReadContext.tsx`.
+- Gmail read adapter: `web/src/lib/integrations/gmail/gmailDecisionWorkspaceReadAdapter.ts`.
+- Intelligence consumer: `web/src/app/agents/[id]/operations/intelligence/page.tsx` and `web/src/components/runtime/GmailCleanupComponents.tsx`.
+- Cross-domain proof: `web/scripts/workspace-decision-read-model-fixtures.mjs`.
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - Pre ACE-048 framework-first Decision Workspace Phase 3 Slice 2 Decision Intellig)`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - ACE-048 framework-first Decision Workspace Phase 3 Slice 2 Human acceptance)`; `1,136` files, detached HEAD `8f8e4d670cabdd21459c0b4b8e502d16e272afc0`, `48` changed paths, normal seven-day project-scoped pruning, and `KEEP` exemption.
+
+Replay steps:
+1. Run `npm run test:workspace-decision-read-model` and require all eight domains, multi-source/multi-role identity, explicit zero buckets, incompatible-aggregation rejection, fail-closed validators, zero model calls, and zero new request definitions to pass.
+2. Run the Phase 1 contract, Phase 2 presentation, Slice 1 read-model, and retained generic/Gmail review-unit, cleanup-assignment, window-projection, Pressure Trend, optional-evidence, and mailbox-continuity fixtures.
+3. Run `./node_modules/.bin/tsc --noEmit`, targeted ESLint on the exact six-file Slice 2 allowlist, source assertions, backup-to-current allowlist comparison, and `git diff --check`.
+4. Start the exact worktree runtime with the established environment loaded only in-process and loopback-only binding; do not copy, print, or publish secret environment values.
+5. Exercise the canonical Intelligence cold/window/custom/focus/group-handoff/return/hold matrix after settle. Require preserved Gmail values, recommendation, provider controls, route/query identity, existing request families only, one request per uncached pressure key, cache reuse on return, zero failed/guard/model requests, zero settled polling, and zero console/page errors.
+
+Rollback guidance:
+- Restore only the Slice 2 seams in the six allowlisted files from the pre-implementation snapshot if the Decision Intelligence adapter boundary itself regresses. Preserve all accepted Phase 1, Phase 2, and Phase 3 Slice 1 work in those shared files.
+- Preserve Gmail provider/data/runtime behavior, routes, published artifact, counts, actions, requests, caches, and their existing Recovery Contracts.
+- No provider/data rollback is required because Slice 2 did not mutate providers, data, databases, artifacts, indexes, publication, routes, requests, polling, or lifecycle behavior.
+
+Acceptance boundary:
+- This Recovery Contract accepts Phase 3 Slice 2 Decision Intelligence read-facade behavior only.
+- It does not authorize another Phase 3 slice, broad runtime/data migration, Decision Mode/Management behavior changes, real non-Gmail providers, Workflow Studio, proprietary-brain UI, shared learning, multi-agent orchestration, route changes, provider/data/database/artifact/index/publication mutation, commit, push, or deployment.
+
+---
+
+### September 1, 2026 — ACE-048 Framework-First Decision Workspace Phase 3 Slice 1 Accepted
+
+Accepted invariant:
+- Review Groups consumes a generic, validated decision-workspace read model. The framework owns the stable read contract and fail-closed validation; the Gmail compatibility adapter owns the existing Gmail runtime, cache, semantic grouping, draft-progress, and route-identity projection.
+- The read envelope retains workflow/version, source, agent-role, subject/activity, semantic metric, provenance, freshness, quality, group, review-unit, and recommendation identity without assuming one provider, one workflow, or one agent.
+- The accepted Gmail Review Groups experience remains unchanged: `7` main groups, `3` optional/reference groups, `5,144` senders, the `915 / 75,844` recommendation, `67` review-unit links, exact child/return identity, and explicit Gmail provider controls.
+
+Source layers fixed:
+- Generic decision-workspace read-model schema, adapter interface, validation, and finalization.
+- Selected-adapter React read context inside the existing runtime provider.
+- Gmail compatibility read adapter over the existing runtime/cache/semantic/draft helpers.
+- Review Groups consumer boundary and eight-domain fail-closed fixtures.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` on 2026-09-01 after inspecting the accepted screenshot and confirming that the visible Gmail system still looked correct.
+- Verifier decision is `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE1_REVIEW_PACKET.md`.
+- Eight-domain fixtures cover Gmail, customer service, real estate, crypto, four-source paid media, bookkeeping, tax, and multi-role/multi-source purchasing and shipping. Invalid identity, provenance, quality, metric, group, unit, and count truth fails closed; the facade adds zero model calls and zero request definitions.
+- Existing Phase 1/2 and Gmail review-unit, cleanup-assignment, window-projection, optional-evidence, and mailbox-continuity fixtures pass with TypeScript, targeted ESLint, and `git diff --check`.
+- Authenticated post-settle Playwright proof covers Review Groups cold load, focused state, exact child transition, and return. Only the four existing API families appeared, all responses were `200`, and console errors, warnings, `409` churn, overlays, and duplicate-key warnings were zero.
+- Cold-load and return screenshots are byte-identical; final visible proof preserves Gmail wording, counts, ordering, recommendation, controls, and route/query identity.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_REVIEW_GROUPS_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE1_REVIEW_PACKET.md`.
+- Generic read contract: `web/src/lib/runtime/decisionWorkspaceReadModel.ts`.
+- Shared read context: `web/src/components/runtime/DecisionWorkspaceReadContext.tsx`.
+- Gmail read adapter: `web/src/lib/integrations/gmail/gmailDecisionWorkspaceReadAdapter.ts`.
+- Review Groups consumer: `web/src/app/agents/[id]/operations/clusters/page.tsx`.
+- Cross-domain proof: `web/scripts/workspace-decision-read-model-fixtures.mjs`.
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - Pre ACE-048 Phase 3 Slice 1 Review Groups read facade implementation)`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - ACE-048 framework-first Decision Workspace Phase 3 Slice 1 Human acceptance)`.
+
+Replay steps:
+1. Run `npm run test:workspace-decision-read-model` and require all eight domains, multi-role/multi-source identity, incompatible-metric rejection, fail-closed validators, zero model calls, and zero request definitions to pass.
+2. Run the Phase 1 decision-workspace contract, Phase 2 presentation contract, and retained Gmail review-unit, cleanup-assignment, generic/Gmail window-projection, optional-evidence, and mailbox-continuity fixtures.
+3. Run `./node_modules/.bin/tsc --noEmit`, targeted ESLint on the Slice 1 allowlist, and `git diff --check`.
+4. Start the exact worktree runtime with the established environment loaded in-process and loopback-only binding; do not copy or publish secret environment files.
+5. Exercise the canonical Review Groups cold/focus/child/return matrix after settle. Require preserved counts, recommendation, links, provider controls, route/query identity, only existing request families, zero failed/guard/model requests, and zero console/page errors.
+
+Rollback guidance:
+- Restore the four modified Slice 1 files and remove the four new Slice 1 files using the pre-implementation snapshot if the generic read boundary itself regresses.
+- Preserve the Human-accepted Phase 1 contract, Phase 2 presentation layer, Gmail provider/data/runtime behavior, routes, published artifact, counts, actions, and their Recovery Contracts.
+- No provider/data rollback is required because Slice 1 did not mutate providers, data, databases, artifacts, indexes, publication, requests, polling, caches, or lifecycle behavior.
+
+Acceptance boundary:
+- This Recovery Contract accepts Phase 3 Slice 1 Review Groups read-facade behavior only.
+- It does not authorize another Phase 3 slice, broad runtime/data migration, Decision Mode/Management behavior changes, real non-Gmail providers, Workflow Studio, proprietary-brain UI, shared learning, multi-agent orchestration, route changes, provider/data/database/artifact/index/publication mutation, commit, push, or deployment.
+
+---
+
+### September 1, 2026 — ACE-048 Framework-First Decision Workspace Phase 2 Accepted
+
+Accepted invariant:
+- The shared Operations workspace renders through a provider-neutral, deterministic presentation contract. The framework owns stable semantic slots, meaning, accessibility, validation, and safe generic fallbacks; a versioned adapter/workflow presentation definition owns approved visible domain language.
+- Gmail remains the reference application and supplies truthful Gmail vocabulary, semantic metric labels, and provider-operational controls without becoming the platform vocabulary authority.
+- One stable semantic slot may render domain-adaptive titles such as `Inbox health`, `Portfolio health`, `Campaign health`, `Compliance health`, or `Service health`; missing or unsafe metadata fails closed or renders `Decision health` without leaking provider terms.
+- Presentation metadata retains workflow, source, agent-role, version, provenance, human approval, and reversibility identity. It does not implement live AI copy generation, uncontrolled learning, multi-agent orchestration, or cross-tenant transfer.
+
+Source layers fixed:
+- Generic presentation schema, validator, token renderer, and generated-chrome contract.
+- Shared presentation React context and existing Operations render-path integration.
+- Gmail compatibility presentation metadata and explicit provider-control declarations.
+- Operations shell, Intelligence, Review Groups, Item Overview, Decision Mode, Decision Management, and reusable Gmail overview/decision presentation consumers.
+- Seven-domain plus multi-role/multi-source shipping fixtures.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` on 2026-09-01 after inspecting the recovered exact worktree runtime and confirming the visible Gmail system remained correct.
+- Verifier decision is `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE2_REVIEW_PACKET.md`.
+- Cross-domain fixtures prove distinct approved domain titles, safe generic fallback, token/slot fail-closed behavior, capability-gated provider controls, multi-source/role/provenance identity, human governance, zero page-load model calls, and zero new request families.
+- Existing Phase 1 and Gmail review-unit, cleanup-assignment, optional-evidence, Pressure Trend, window-projection, and mailbox-continuity fixtures remain passing. TypeScript, targeted ESLint, and `git diff --check` pass.
+- Authenticated post-settle Playwright proof covers all six exact accepted Gmail paths, Decision Mode open/return, final rendered UI, DOM/state, request traces, linked-surface truth, console state, and the required State Transition Matrix.
+- Before/after API families remain identical with `19` API requests, zero failures, zero `409` churn, zero model calls, and zero console/page errors. Gmail counts, groups, charts, windows, rows, actions, provider controls, and route/query identity remain preserved.
+- The first Oliver review attempt was blocked by a missing worktree environment, not product behavior. The exact worktree server was recovered with the established local environment loaded only in-process and bound to loopback; fresh authenticated proof showed no runtime overlay, console warning/error, or duplicate-key warning.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE2_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE2_REVIEW_PACKET.md`.
+- Generic presentation contract: `web/src/lib/runtime/decisionWorkspacePresentation.ts`.
+- Shared presentation context: `web/src/components/runtime/DecisionWorkspacePresentationContext.tsx`.
+- Gmail presentation adapter: `web/src/lib/integrations/gmail/gmailDecisionWorkspacePresentation.ts`.
+- Cross-domain proof: `web/scripts/workspace-decision-presentation-fixtures.mjs`.
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-31/ai-agent-platform-worktree-8642 (incremental 31 August 2026 - Pre ACE-048 framework-first Decision Workspace Phase 2 presentation implementati)`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - ACE-048 framework-first Decision Workspace Phase 2 Human acceptance)`.
+
+Replay steps:
+1. Run `npm run test:workspace-decision-presentation` and require all seven domains, the shipping multi-role/multi-source fixture, safe fallback, fail-closed tokens/slots, governance, and zero-request assertions to pass.
+2. Run the Phase 1 decision-workspace and retained Gmail review-unit, cleanup-assignment, window-projection, optional-evidence, Pressure Trend, and mailbox-continuity fixtures.
+3. Run `./node_modules/.bin/tsc --noEmit`, targeted ESLint on the Phase 2 files, and `git diff --check`.
+4. Start the exact worktree runtime with the established environment loaded in-process and loopback-only binding; do not copy or publish secret environment files.
+5. Exercise the six exact review-packet paths after settle. Require preserved Gmail counts, route/query identity, provider controls, Decision Mode close/return, identical API families, zero failed/guard/model requests, and zero console/page errors.
+6. Render non-Gmail presentation fixtures and require domain-specific titles plus source/workflow/role/provenance identity without Gmail chrome leakage.
+
+Rollback guidance:
+- Restore only the Phase 2 presentation contract/context/Gmail-adapter and allowlisted consumer seams from the pre-implementation snapshot if the presentation layer itself regresses.
+- Preserve the accepted Phase 1 contract, Gmail provider/data/runtime behavior, routes, published artifact, counts, actions, and Recovery Contracts.
+- Do not replace explicit provider operations with generic labels. Restore the adapter/framework ownership boundary and `Decision health` fallback rather than reintroducing Gmail language into shared framework vocabulary.
+
+Acceptance boundary:
+- This Recovery Contract accepts Phase 2 presentation/workspace-shell behavior only.
+- It does not authorize Phase 3 runtime/data-facade implementation, capability-driven Decision Mode/Management, real non-Gmail providers, Workflow Studio, proprietary-brain UI, shared learning, multi-agent orchestration, route compatibility cleanup, provider/data/database/artifact/index/publication mutation, commit, push, or deployment.
+
+---
+
+### August 31, 2026 — ACE-048 Framework-First Decision Workspace Phase 1 Accepted
+
+Accepted invariant:
+- Automata's shared decision-workspace contract is provider-neutral. Gmail is a compatibility adapter and reference application, not the platform data model or vocabulary authority.
+- Each runtime record retains the exact published workflow/SOP definition and version that governed it.
+- Recommendations, human decisions, approvals, provider execution, rollback, and measured outcomes remain separate auditable facts.
+- Cross-source metrics combine only through explicit compatible definitions. Provider actions require declared capabilities, risk/approval policy, idempotency where applicable, contiguous lifecycle history, and execution receipts.
+- Company learning is a private, tenant-owned proprietary brain made of versioned knowledge, memory, provenance, examples, corrections, decisions, and outcome feedback. It is not an LLM or fine-tuning dataset.
+
+Source layers fixed:
+- Canonical decision-workspace contract and validators.
+- Generic review-unit blueprint bridge.
+- Gmail compatibility adapter metadata.
+- Cross-domain contract fixtures and targeted test command.
+- Control-plane product framing for initial validation systems and proprietary-brain governance.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` on 2026-08-31 after the verifier issued `ACCEPT / HIGH` for Phase 1.
+- `test:workspace-decision-contract` passes seven definitions: Gmail, customer service, real-estate scouting, crypto portfolio, four-source paid media, bookkeeping, and tax.
+- The fixtures prove multiple sources, multiple decision subjects in one workspace, fail-closed metric compatibility, capability/idempotency enforcement, versioned recommendation/decision/execution history, lifecycle receipts, and private proprietary-brain governance.
+- Existing generic and Gmail review-unit, Gmail cleanup-assignment, generic time-window projection, and Gmail time-window projection fixtures remain passing.
+- TypeScript, targeted ESLint, and `git diff --check` pass.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE1_REVIEW_PACKET.md`.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_REFACTOR_PM_BRIEF.md`.
+- Canonical contract: `web/src/lib/runtime/decisionWorkspaceContract.ts`.
+- Gmail bridge: `web/src/lib/integrations/gmail/gmailReviewUnitContract.ts`.
+- Cross-domain proof: `web/scripts/workspace-decision-contract-fixtures.mjs`.
+- Verifier-checkpoint snapshot: `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-31/ai-agent-platform (incremental 31 August 2026 - ACE-048 framework-first decision workspace Phase 1 verifier checkpoint)`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-31/ai-agent-platform (incremental 31 August 2026 - ACE-048 framework-first decision workspace Phase 1 Human acceptance)`.
+
+Replay steps:
+1. Run `npm run test:workspace-decision-contract` from `web` and require every reference contract and fail-closed assertion to pass.
+2. Run the generic/Gmail review-unit and window-projection fixtures plus Gmail cleanup assignment; require accepted IDs, membership, counts, and projections to remain unchanged.
+3. Run `./node_modules/.bin/tsc --noEmit`, targeted ESLint on the contract/bridge/Gmail adapter/fixture, and `git diff --check`.
+4. Confirm an incompatible metric pair cannot aggregate, an undeclared provider capability fails, a provider write without idempotency fails, a stale workflow version fails, and an executed provider action without a receipt fails.
+5. Confirm no live provider, database, artifact publication, indexing, polling, UI, commit, push, or deployment mutation is required for Phase 1 replay.
+
+Rollback guidance:
+- Revert only the Phase 1 contract/bridge/adapter metadata/fixture seams if the generic contract itself regresses; preserve the previously accepted Gmail runtime and published data.
+- Do not remove Gmail-specific nouns from Gmail connector internals or provider actions. Restore the provider/core boundary rather than replacing it with generic but misleading operations.
+- Do not reintroduce `LLM training` or `fine-tuning` as the proprietary-brain architecture. Historical UI may retain legacy copy only until its separately gated migration.
+
+---
+
+### August 31, 2026 — ACE-048 Published Continuity and Linked Analysis Truth Accepted
+
+Accepted invariant:
+- Pressure Trend, Sender Distribution, Time Context, Cleanup Groups, sender workflow rows, and Decision Mode read the same active published observation/review-unit truth.
+- Historical continuity must bridge from newly recovered activity back through the prior persisted boundary before the index advances its continuity marker; a fixed recent-window stop may not strand an unexplained gap.
+- Review-unit window projections resolve exact published manifest identity. Presentation aliases and legacy route identities must not become the authoritative projection parent.
+- Cleanup presentation may prioritize and collapse ordinary tiny choices, but exact review-unit identity and membership remain preserved and selectable.
+
+Source layers fixed:
+- Gmail indexed-history continuity, published review-unit projection identity, Cleanup Groups presentation tiers, and linked analysis/runtime consumption.
+
+Root cause:
+- Fresh-head recovery stopped at a fixed `45`-day boundary after reaching July, then advanced continuity without bridging to the persisted April endpoint, leaving May and June genuinely absent from the index.
+- Some chooser-generated composite units used presentation/legacy parent identities rather than their exact published manifest parent, so narrowed projections failed even though `All Indexed` remained available.
+- Every exact child was presented at the same visual priority, turning accurate one- and two-subject units into primary-choice clutter.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` on 2026-08-31 after inspecting the active canonical port-`3000` publication.
+- Active artifact `full-mailbox-20260831062356983` is `published / fresh`; predecessor `full-mailbox-20260825031402535` remains the immediate rollback version.
+- Yearly Pressure Trend visibly renders May `1,894` and June `1,940` supporting messages. Composite Time Context renders continuous monthly bars with May `67` activities from `22` senders and June `63` from `22`.
+- Cleanup Groups preserves `67` exact review links under primary, four `More specific groups`, and two `Special handling` sections.
+- Simple and composite units pass cold load and `All Indexed -> 1Y -> 1M -> 1W` across Sender Distribution, Time Context, workflow rows, pagination, and Decision Mode close/return. Accepted API responses were `200`; no `409`, failed API request, console error, page error, runtime overlay, or duplicate-key warning occurred.
+- Canonical proof is recorded in `docs/00_control_plane/runtime/ACE-048_HUMAN_REVIEW_RETURN_CORRECTION_REVIEW_PACKET.md` and `docs/00_control_plane/runtime/evidence/ACE-048_PUBLICATION_PROMOTE.json`.
+
+Recovery identity:
+- Immediate rollback publication: `full-mailbox-20260825031402535`.
+- Pre-change long-term archive: `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-31/ai-agent-platform (backup 31 August 2026 - Pre ACE-048 August artifact publication recovery - KEEP).tar.gz`.
+- Human-acceptance milestone snapshot: `/Users/olivercarlin/Documents/Backups/August 2026/2026-08-31/ai-agent-platform (incremental 31 August 2026 - ACE-048 published continuity, cleanup tiering, and linked chart Human acceptance)`.
+- The terminal fresh production-build proof remains explicitly `Missing Proof Type: Blocked` by the documented pre-existing Turbopack idle / Webpack `node:crypto` environment behavior. Under `transitional_self_verification`, the accepted runtime surfaces retain direct static, contract, data, network, and post-settle browser proof.
+
+Replay steps:
+1. Open the canonical port-`3000` Intelligence route and select the yearly Pressure Trend.
+2. Require visible nonzero May and June buckets and matching selected-period totals.
+3. Open representative simple and composite Cleanup Group children; switch `All Indexed -> 1Y -> 1M -> 1W` and require Sender Distribution, Time Context, workflow totals, rows, pagination, and Decision Mode return to stay populated and reconciled.
+4. Expand Cleanup Groups secondary sections and require all exact review links to remain available without promoting ordinary tiny units into the primary scan path.
+5. Confirm no navigation-triggered sync, bridge, reindex, artifact build/publication, overlapping poller, or `409` churn.
+
+Rollback guidance:
+- If the repaired publication regresses, compare against or atomically restore `full-mailbox-20260825031402535`; retain the repaired index and evidence until the regression mechanism is understood.
+- Do not restore the fixed `45`-day continuity stop or presentation-parent projection lookup. Reapply the invariant at the source layer rather than hiding missing buckets or deleting exact units.
+
+---
+
 ### August 30, 2026 — ACE-048 GitHub Publication and Workspace Hygiene
 
 What changed:

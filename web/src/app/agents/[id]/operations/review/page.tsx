@@ -10,22 +10,17 @@ import {
   SenderTimeContextAnalysisRail,
 } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
+import { useDecisionWorkspaceRead } from '@/components/runtime/DecisionWorkspaceReadContext'
+import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
+import { resolveDecisionWorkspacePresentationSlot } from '@/lib/runtime/decisionWorkspacePresentation'
+import type { DecisionWorkspaceItemOverviewAnalysisTab } from '@/lib/runtime/decisionWorkspaceReadModel'
 import {
-  buildGmailReviewUnitTimeContextChart,
-  buildGmailSenderDistributionCacheKey,
   buildGmailCleanupWorkflowClusterPayload,
-  fetchGmailDecisionManagementSummary,
-  fetchGmailSenderDistribution,
-  fetchGmailSenderOverviewWindow,
-  fetchGmailSenderWorkspace,
   normalizeGmailCleanupWorkflowTarget,
-  readCachedGmailSenderDistribution,
   readCachedGmailMailboxIntelligence,
-  readCachedGmailSenderOverviewWindow,
-  readCachedGmailSenderWorkspace,
   readLatestCachedGmailMailboxIntelligence,
-  resolveGmailSenderDistributionAuthorityKeys,
   type GmailCleanupClusterRef,
+  type GmailDecisionManagementSummaryData,
   type GmailDestinationExecutionState,
   type GmailDestinationState,
   type GmailSenderOverviewWindowData,
@@ -35,6 +30,7 @@ import {
   type GmailSenderWorkspaceData,
   type GmailTimeContextBucketSelection,
   type GmailMailboxIntelligenceData,
+  type GmailReviewUnitTimeContextChart,
 } from '@/lib/runtime/gmailCleanupWorkspace'
 import {
   buildCleanupGroupFutureCanonicalPublishIdentity,
@@ -95,7 +91,7 @@ type PublishedReviewUnitEntryState =
 type DrilldownSort = 'impact' | 'recent' | 'unread'
 
 const MARKETING_PARENT_CANONICAL_ID = 'semantic.marketing_subscriptions'
-type SharedAnalysisRailTab = 'time_context' | 'sender_distribution'
+type SharedAnalysisRailTab = DecisionWorkspaceItemOverviewAnalysisTab
 type TimeContextGranularity = 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
 type TimeContextChartScope =
   | 'all_indexed'
@@ -3809,6 +3805,8 @@ function SenderDrilldownRow(props: {
     message: WorkspaceSender['preview_messages'][number]
   ) => void
 }) {
+  const presentation = useDecisionWorkspacePresentation()
+  const decisionModeSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'decision_mode')
   const visibleMessages = props.sender.preview_messages.slice(0, props.visibleEvidenceCount)
   const evidenceGroups = buildSenderEvidenceGroups({
     messages: visibleMessages,
@@ -3903,7 +3901,7 @@ function SenderDrilldownRow(props: {
             onClick={() => props.onOpenDecisionMode(props.sender)}
             className="rounded-full border border-cyan-700/45 bg-cyan-950/20 px-3 py-1.5 text-xs text-cyan-100 hover:border-cyan-600/60 hover:bg-cyan-950/30 lg:w-full"
           >
-            Decision Mode
+            {decisionModeSlot.title}
           </button>
           <button
             type="button"
@@ -3953,6 +3951,15 @@ export default function OperationsReviewPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const runtime = useOperationsRuntime()
+  const { itemOverview, management } = useDecisionWorkspaceRead()
+  const presentation = useDecisionWorkspacePresentation()
+  const reviewGroupsSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'review_groups')
+  const itemOverviewSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'item_overview')
+  const decisionModeSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'decision_mode')
+  const decisionManagementSlot = resolveDecisionWorkspacePresentationSlot(
+    presentation,
+    'decision_management'
+  )
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const requestedSessionId = searchParams.get('playground_session_id')
   const sessionId = runtime.sessionId || requestedSessionId
@@ -4640,21 +4647,23 @@ export default function OperationsReviewPage() {
   const cachedSenderOverviewWindow = useMemo(
     () =>
       selectedCluster && senderOverviewWindowSelection && subsetSource !== 'review_unit'
-        ? readCachedGmailSenderOverviewWindow({
-            selectedCluster,
-            analysisScope: effectiveWorkflowScope,
+        ? itemOverview.readCachedWindow({
+            selectedGroup: selectedCluster,
+            allGroups: runtimeClusters,
+            analysisScopeId: effectiveWorkflowScope,
             cacheVersion,
             reviewUnitId: null,
-            pressureWindow: senderOverviewWindowSelection.window,
-            pressureStart: senderOverviewWindowSelection.start,
-            pressureEnd: senderOverviewWindowSelection.end,
+            windowId: senderOverviewWindowSelection.window,
+            startAt: senderOverviewWindowSelection.start,
+            endAt: senderOverviewWindowSelection.end,
             timeZone: browserTimeZone,
-          })
+          }) as GmailSenderOverviewWindowData | null
         : null,
     [
       browserTimeZone,
       cacheVersion,
       effectiveWorkflowScope,
+      itemOverview,
       runtimeClusters,
       selectedCluster,
       senderOverviewWindowSelection,
@@ -4680,32 +4689,33 @@ export default function OperationsReviewPage() {
   )
   const cachedWorkspace = useMemo(() => {
     if (!selectedCluster) return null
-    return readCachedGmailSenderWorkspace({
-      selectedCluster,
-      allClusters: runtimeClusters,
-      analysisScope,
+    return itemOverview.readCachedWorkspace({
+      selectedGroup: selectedCluster,
+      allGroups: runtimeClusters,
+      analysisScopeId: analysisScope,
       cacheVersion,
-      includeClusterSenderKeys: true,
+      includeOrderedSubjectIds: true,
       page: mode === 'overview' ? requestedSenderPage : 1,
       pageSize:
         mode === 'decision'
           ? DECISION_QUEUE_WORKSPACE_PAGE_SIZE
           : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
       reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
-      previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
+      previewEvidenceSubjectId: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-      senderOverviewWindow: null,
-      senderOverviewStart: null,
-      senderOverviewEnd: null,
+      overviewWindow: null,
+      overviewStart: null,
+      overviewEnd: null,
       timeZone: browserTimeZone,
-    })
+    }) as GmailSenderWorkspaceData | null
   }, [
     analysisScope,
     browserTimeZone,
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
+    itemOverview,
     mode,
     publishedReviewUnitEntryRequestedUnit?.id,
     requestedSenderPage,
@@ -4743,15 +4753,15 @@ export default function OperationsReviewPage() {
     void (async () => {
       let attempt = 0
       while (!cancelled) {
-        const result = await fetchGmailSenderOverviewWindow({
-          selectedCluster,
-          allClusters: runtimeClusters,
-          analysisScope: effectiveWorkflowScope,
+        const result = await itemOverview.fetchWindow({
+          selectedGroup: selectedCluster,
+          allGroups: runtimeClusters,
+          analysisScopeId: effectiveWorkflowScope,
           cacheVersion,
           reviewUnitId: subsetSource === 'review_unit' ? subsetValue : null,
-          pressureWindow: senderOverviewWindowSelection.window,
-          pressureStart: senderOverviewWindowSelection.start,
-          pressureEnd: senderOverviewWindowSelection.end,
+          windowId: senderOverviewWindowSelection.window,
+          startAt: senderOverviewWindowSelection.start,
+          endAt: senderOverviewWindowSelection.end,
           timeZone: browserTimeZone,
           requestContext: {
             source: 'operations_review_page',
@@ -4779,7 +4789,7 @@ export default function OperationsReviewPage() {
         }
         setSenderOverviewWindowState({
           status: 'ready',
-          data: result.data,
+          data: result.data as GmailSenderOverviewWindowData,
           error: null,
           requestKey: senderOverviewWindowRequestKey,
         })
@@ -4796,6 +4806,7 @@ export default function OperationsReviewPage() {
     cacheVersion,
     cachedSenderOverviewWindow,
     effectiveWorkflowScope,
+    itemOverview,
     runtimeClusters,
     selectedCluster,
     senderOverviewWindowRequestKey,
@@ -4836,27 +4847,28 @@ export default function OperationsReviewPage() {
   ])
   const cachedDecisionWorkspace = useMemo(() => {
     if (!selectedCluster || mode !== 'overview') return null
-    return readCachedGmailSenderWorkspace({
-      selectedCluster,
-      allClusters: runtimeClusters,
-      analysisScope,
+    return itemOverview.readCachedWorkspace({
+      selectedGroup: selectedCluster,
+      allGroups: runtimeClusters,
+      analysisScopeId: analysisScope,
       cacheVersion,
-      includeClusterSenderKeys: true,
+      includeOrderedSubjectIds: true,
       page: 1,
       pageSize: DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
       reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
-      senderOverviewStart: senderOverviewWindowSelection?.start || null,
-      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      overviewWindow: senderOverviewWindowSelection?.window || null,
+      overviewStart: senderOverviewWindowSelection?.start || null,
+      overviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
-    })
+    }) as GmailSenderWorkspaceData | null
   }, [
     analysisScope,
     browserTimeZone,
     cacheVersion,
+    itemOverview,
     mode,
     publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
@@ -4898,32 +4910,33 @@ export default function OperationsReviewPage() {
   ])
   const workflowCachedWorkspace = useMemo(() => {
     if (!selectedCluster || senderOverviewWindowSelection) return null
-    return readCachedGmailSenderWorkspace({
-      selectedCluster,
-      allClusters: runtimeClusters,
-      analysisScope: effectiveWorkflowScope,
+    return itemOverview.readCachedWorkspace({
+      selectedGroup: selectedCluster,
+      allGroups: runtimeClusters,
+      analysisScopeId: effectiveWorkflowScope,
       cacheVersion,
-      includeClusterSenderKeys: true,
+      includeOrderedSubjectIds: true,
       page: mode === 'overview' ? requestedSenderPage : 1,
       pageSize:
         mode === 'decision'
           ? DECISION_QUEUE_WORKSPACE_PAGE_SIZE
           : DEFAULT_OVERVIEW_WORKSPACE_PAGE_SIZE,
       reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
-      previewEvidenceSenderKey: decisionPreviewEvidenceSenderKey,
+      previewEvidenceSubjectId: decisionPreviewEvidenceSenderKey,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-      senderOverviewWindow: null,
-      senderOverviewStart: null,
-      senderOverviewEnd: null,
+      overviewWindow: null,
+      overviewStart: null,
+      overviewEnd: null,
       timeZone: browserTimeZone,
-    })
+    }) as GmailSenderWorkspaceData | null
   }, [
     browserTimeZone,
     cacheVersion,
     decisionPreviewEvidenceSenderKey,
     effectiveWorkflowScope,
+    itemOverview,
     mode,
     publishedReviewUnitEntryRequestedUnit?.id,
     requestedSenderPage,
@@ -4967,27 +4980,28 @@ export default function OperationsReviewPage() {
   ])
   const workflowCachedDecisionWorkspace = useMemo(() => {
     if (!selectedCluster || mode !== 'overview') return null
-    return readCachedGmailSenderWorkspace({
-      selectedCluster,
-      allClusters: runtimeClusters,
-      analysisScope: effectiveWorkflowScope,
+    return itemOverview.readCachedWorkspace({
+      selectedGroup: selectedCluster,
+      allGroups: runtimeClusters,
+      analysisScopeId: effectiveWorkflowScope,
       cacheVersion,
-      includeClusterSenderKeys: true,
+      includeOrderedSubjectIds: true,
       page: 1,
       pageSize: DECISION_QUEUE_WORKSPACE_PAGE_SIZE,
       reviewUnitId: publishedReviewUnitEntryRequestedUnit?.id || null,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
-      senderOverviewStart: senderOverviewWindowSelection?.start || null,
-      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      overviewWindow: senderOverviewWindowSelection?.window || null,
+      overviewStart: senderOverviewWindowSelection?.start || null,
+      overviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
-    })
+    }) as GmailSenderWorkspaceData | null
   }, [
     browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
+    itemOverview,
     mode,
     publishedReviewUnitEntryRequestedUnit?.id,
     requestedTimeContextBucketLabel,
@@ -6133,15 +6147,16 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   useEffect(() => {
     if (!agentId) return
     let cancelled = false
-    void fetchGmailDecisionManagementSummary({ agentId }).then((result) => {
+    void management.readSummary({ agentId }).then((result) => {
       if (cancelled) return
       if (!result.ok) {
         setManagementError(result.error)
         return
       }
+      const summary = result.data.compatibilityValue.value as GmailDecisionManagementSummaryData
       setManagementError(null)
       setManagedBySender(
-        result.data.sender_profiles.reduce<Record<string, ManagedSenderState>>((map, profile) => {
+        summary.sender_profiles.reduce<Record<string, ManagedSenderState>>((map, profile) => {
           map[profile.sender_key] = {
             destinationState: profile.destination_state,
             executionState: profile.execution_state,
@@ -6155,7 +6170,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     return () => {
       cancelled = true
     }
-  }, [agentId])
+  }, [agentId, management])
 
   useEffect(() => {
     if (!selectedCluster || rawRequestedClusterId === selectedCluster.clusterId) return
@@ -6503,24 +6518,24 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
     void (async () => {
       const readLatestWorkspaceCacheSnapshot = () => {
-      const cachedData = readCachedGmailSenderWorkspace({
-          selectedCluster: plan.selectedCluster,
-          allClusters: plan.allClusters,
-          analysisScope: plan.analysisScope,
+      const cachedData = itemOverview.readCachedWorkspace({
+          selectedGroup: plan.selectedCluster,
+          allGroups: plan.allClusters,
+          analysisScopeId: plan.analysisScope,
           cacheVersion: plan.cacheVersion,
-          includeClusterSenderKeys: true,
+          includeOrderedSubjectIds: true,
           page: plan.page,
           pageSize: plan.pageSize,
           reviewUnitId: plan.reviewUnitId,
-          previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
+          previewEvidenceSubjectId: plan.previewEvidenceSenderKey,
           timeContextBucketLabel: plan.timeContextBucketLabel,
           timeContextBucketStartAt: plan.timeContextBucketStartAt,
           timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
-          senderOverviewWindow: plan.senderOverviewWindowSelection?.window || null,
-          senderOverviewStart: plan.senderOverviewWindowSelection?.start || null,
-          senderOverviewEnd: plan.senderOverviewWindowSelection?.end || null,
+          overviewWindow: plan.senderOverviewWindowSelection?.window || null,
+          overviewStart: plan.senderOverviewWindowSelection?.start || null,
+          overviewEnd: plan.senderOverviewWindowSelection?.end || null,
           timeZone: plan.senderOverviewWindowTimeZone,
-        })
+        }) as GmailSenderWorkspaceData | null
         if (!cachedData) return null
         const snapshot = buildWorkspaceSnapshot({
           data: cachedData,
@@ -6555,22 +6570,22 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
           : null
       }
 
-      const result = await fetchGmailSenderWorkspace({
-        selectedCluster: plan.selectedCluster,
-        allClusters: plan.allClusters,
-        analysisScope: plan.analysisScope,
+      const result = await itemOverview.fetchWorkspace({
+        selectedGroup: plan.selectedCluster,
+        allGroups: plan.allClusters,
+        analysisScopeId: plan.analysisScope,
         cacheVersion: plan.cacheVersion,
-        includeClusterSenderKeys: true,
+        includeOrderedSubjectIds: true,
         page: plan.page,
         pageSize: plan.pageSize,
         reviewUnitId: plan.reviewUnitId,
-        previewEvidenceSenderKey: plan.previewEvidenceSenderKey,
+        previewEvidenceSubjectId: plan.previewEvidenceSenderKey,
         timeContextBucketLabel: plan.timeContextBucketLabel,
         timeContextBucketStartAt: plan.timeContextBucketStartAt,
         timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
-        senderOverviewWindow: plan.senderOverviewWindowSelection?.window || null,
-        senderOverviewStart: plan.senderOverviewWindowSelection?.start || null,
-        senderOverviewEnd: plan.senderOverviewWindowSelection?.end || null,
+        overviewWindow: plan.senderOverviewWindowSelection?.window || null,
+        overviewStart: plan.senderOverviewWindowSelection?.start || null,
+        overviewEnd: plan.senderOverviewWindowSelection?.end || null,
         timeZone: plan.senderOverviewWindowTimeZone,
         requestContext: {
           source: 'operations_review_page',
@@ -6656,7 +6671,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       }
 
       const nextSnapshot = buildWorkspaceSnapshot({
-        data: result.data,
+        data: result.data as GmailSenderWorkspaceData,
         clusterId: plan.selectedCluster.clusterId,
         reviewUnitId: plan.reviewUnitId,
         analysisScope: plan.normalizedAnalysisScope,
@@ -6714,6 +6729,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     currentMatchingWorkspaceSnapshot,
     currentReadyWorkspaceSnapshot,
     decisionReadyWorkspaceSnapshot,
+    itemOverview,
     mode,
     passiveReadyWorkspaceSnapshot,
     passiveWorkspaceSeedSnapshot,
@@ -9339,25 +9355,25 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       requestKey: semanticFocusWorkspaceRequestKey,
     }))
 
-    void fetchGmailSenderWorkspace({
-      selectedCluster: plan.selectedCluster,
-      allClusters: plan.allClusters,
-      analysisScope: plan.analysisScope,
+    void itemOverview.fetchWorkspace({
+      selectedGroup: plan.selectedCluster,
+      allGroups: plan.allClusters,
+      analysisScopeId: plan.analysisScope,
       cacheVersion: plan.cacheVersion,
-      includeClusterSenderKeys: true,
+      includeOrderedSubjectIds: true,
       page: plan.page,
       pageSize: plan.pageSize,
       sort: plan.sort,
       direction: plan.direction,
       semanticFocus: plan.semanticFocus,
       reviewUnitId: plan.reviewUnitId,
-      expectedReviewUnitSenderCount: plan.expectedReviewUnitSenderCount,
+      expectedReviewUnitSubjectCount: plan.expectedReviewUnitSenderCount,
       timeContextBucketLabel: plan.timeContextBucketLabel,
       timeContextBucketStartAt: plan.timeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: plan.timeContextBucketEndExclusiveAt,
-      senderOverviewWindow: plan.senderOverviewWindow,
-      senderOverviewStart: plan.senderOverviewStart,
-      senderOverviewEnd: plan.senderOverviewEnd,
+      overviewWindow: plan.senderOverviewWindow,
+      overviewStart: plan.senderOverviewStart,
+      overviewEnd: plan.senderOverviewEnd,
       timeZone: plan.timeZone,
       requestContext: {
         source: 'operations_review_page',
@@ -9392,7 +9408,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         current.requestKey === semanticFocusWorkspaceRequestKey
           ? {
               status: 'ready',
-              data: result.data,
+              data: result.data as GmailSenderWorkspaceData,
               error: null,
               requestKey: semanticFocusWorkspaceRequestKey,
             }
@@ -9403,7 +9419,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     return () => {
       cancelled = true
     }
-  }, [agentId, router, semanticFocusWorkspaceRequestKey])
+  }, [agentId, itemOverview, router, semanticFocusWorkspaceRequestKey])
   const activeOverviewSubset = useMemo(() => {
     if (!renderedSubsetSource || !renderedSubsetValue) return null
 
@@ -10141,25 +10157,26 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
       return null
     }
-    return buildGmailSenderDistributionCacheKey({
-      selectedCluster: senderDistributionDedicatedFetchCluster,
-      allClusters: runtimeClusters,
-      analysisScope: effectiveWorkflowScope,
+    return itemOverview.buildDistributionRequestKey({
+      selectedGroup: senderDistributionDedicatedFetchCluster,
+      allGroups: runtimeClusters,
+      analysisScopeId: effectiveWorkflowScope,
       cacheVersion: cacheVersion?.trim() || 'default',
       semanticFocus: senderDistributionSemanticFocus,
       reviewUnitId: senderDistributionReviewUnitId,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
-      senderOverviewStart: senderOverviewWindowSelection?.start || null,
-      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      overviewWindow: senderOverviewWindowSelection?.window || null,
+      overviewStart: senderOverviewWindowSelection?.start || null,
+      overviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
     })
   }, [
     browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
+    itemOverview,
     runtimeClusters,
     senderDistributionDedicatedFetchCluster,
     senderDistributionSemanticFocus,
@@ -10178,26 +10195,27 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     if (!senderDistributionDedicatedFetchCluster) {
       return null
     }
-    return readCachedGmailSenderDistribution({
-      selectedCluster: senderDistributionDedicatedFetchCluster,
-      allClusters: runtimeClusters,
-      analysisScope: effectiveWorkflowScope,
+    return itemOverview.readCachedDistribution({
+      selectedGroup: senderDistributionDedicatedFetchCluster,
+      allGroups: runtimeClusters,
+      analysisScopeId: effectiveWorkflowScope,
       cacheVersion,
       semanticFocus: senderDistributionSemanticFocus,
       reviewUnitId: senderDistributionReviewUnitId,
       timeContextBucketLabel: requestedTimeContextBucketLabel,
       timeContextBucketStartAt: requestedTimeContextBucketStartAt,
       timeContextBucketEndExclusiveAt: requestedTimeContextBucketEndExclusiveAt,
-      senderOverviewWindow: senderOverviewWindowSelection?.window || null,
-      senderOverviewStart: senderOverviewWindowSelection?.start || null,
-      senderOverviewEnd: senderOverviewWindowSelection?.end || null,
+      overviewWindow: senderOverviewWindowSelection?.window || null,
+      overviewStart: senderOverviewWindowSelection?.start || null,
+      overviewEnd: senderOverviewWindowSelection?.end || null,
       timeZone: browserTimeZone,
-      expectedSenderKeys: senderDistributionExpectedSenderKeys,
-    })
+      expectedSubjectIds: senderDistributionExpectedSenderKeys,
+    }) as GmailSenderDistributionData | null
   }, [
     browserTimeZone,
     cacheVersion,
     effectiveWorkflowScope,
+    itemOverview,
     runtimeClusters,
     senderDistributionSemanticFocus,
     senderDistributionReviewUnitId,
@@ -10342,22 +10360,22 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
       const latestPlan = senderDistributionRequestPlanRef.current
       const latestSelectedCluster = latestPlan.selectedCluster
       if (latestPlan.lifecycleKey !== lifecycleKey || !latestSelectedCluster) return null
-      return readCachedGmailSenderDistribution({
-        selectedCluster: latestSelectedCluster,
-        allClusters: latestPlan.allClusters,
-        analysisScope: latestPlan.analysisScope,
+      return itemOverview.readCachedDistribution({
+        selectedGroup: latestSelectedCluster,
+        allGroups: latestPlan.allClusters,
+        analysisScopeId: latestPlan.analysisScope,
         cacheVersion: latestPlan.cacheVersion,
         semanticFocus: latestPlan.semanticFocus,
         reviewUnitId: latestPlan.reviewUnitId,
         timeContextBucketLabel: latestPlan.timeContextBucketLabel,
         timeContextBucketStartAt: latestPlan.timeContextBucketStartAt,
         timeContextBucketEndExclusiveAt: latestPlan.timeContextBucketEndExclusiveAt,
-        senderOverviewWindow: latestPlan.senderOverviewWindow,
-        senderOverviewStart: latestPlan.senderOverviewStart,
-        senderOverviewEnd: latestPlan.senderOverviewEnd,
+        overviewWindow: latestPlan.senderOverviewWindow,
+        overviewStart: latestPlan.senderOverviewStart,
+        overviewEnd: latestPlan.senderOverviewEnd,
         timeZone: latestPlan.timeZone,
-        expectedSenderKeys: latestPlan.expectedSenderKeys,
-      })
+        expectedSubjectIds: latestPlan.expectedSenderKeys,
+      }) as GmailSenderDistributionData | null
     }
 
     const loadingState: SenderDistributionWorkspaceState = {
@@ -10371,21 +10389,21 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
     void (async () => {
       try {
-        const result = await fetchGmailSenderDistribution({
-          selectedCluster: initialSelectedCluster,
-          allClusters: initialRequestPlan.allClusters,
-          analysisScope: initialRequestPlan.analysisScope,
+        const result = await itemOverview.fetchDistribution({
+          selectedGroup: initialSelectedCluster,
+          allGroups: initialRequestPlan.allClusters,
+          analysisScopeId: initialRequestPlan.analysisScope,
           cacheVersion: initialRequestPlan.cacheVersion,
           semanticFocus: initialRequestPlan.semanticFocus,
           reviewUnitId: initialRequestPlan.reviewUnitId,
           timeContextBucketLabel: initialRequestPlan.timeContextBucketLabel,
           timeContextBucketStartAt: initialRequestPlan.timeContextBucketStartAt,
           timeContextBucketEndExclusiveAt: initialRequestPlan.timeContextBucketEndExclusiveAt,
-          senderOverviewWindow: initialRequestPlan.senderOverviewWindow,
-          senderOverviewStart: initialRequestPlan.senderOverviewStart,
-          senderOverviewEnd: initialRequestPlan.senderOverviewEnd,
+          overviewWindow: initialRequestPlan.senderOverviewWindow,
+          overviewStart: initialRequestPlan.senderOverviewStart,
+          overviewEnd: initialRequestPlan.senderOverviewEnd,
           timeZone: initialRequestPlan.timeZone,
-          expectedSenderKeys: initialRequestPlan.expectedSenderKeys,
+          expectedSubjectIds: initialRequestPlan.expectedSenderKeys,
           requestContext: {
             source: 'operations_review_page',
             component: 'sender_distribution',
@@ -10429,7 +10447,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
 
         const readyState: SenderDistributionWorkspaceState = {
           status: 'ready',
-          data: result.data,
+          data: result.data as GmailSenderDistributionData,
           error: null,
           requestKey,
         }
@@ -10451,15 +10469,15 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         senderDistributionActiveRequestOwnerRef.current = null
       }
     }
-  }, [senderDistributionLifecycleKey])
+  }, [itemOverview, senderDistributionLifecycleKey])
   const senderDistributionData = senderDistributionWorkspaceState.data
   const activeReviewUnitProjection =
     semanticFocusWorkspace?.review_unit_projection ||
     senderDistributionData?.review_unit_projection ||
     null
   const reviewUnitTimeContextChart = useMemo(
-    () => buildGmailReviewUnitTimeContextChart(activeReviewUnitProjection),
-    [activeReviewUnitProjection]
+    () => itemOverview.buildReviewUnitActivitySeries(activeReviewUnitProjection) as GmailReviewUnitTimeContextChart | null,
+    [activeReviewUnitProjection, itemOverview]
   )
   const senderDistributionSenderLookup = useMemo(() => {
     const lookup = new Map<string, GmailSenderDistributionData['senders'][number]>()
@@ -10477,12 +10495,12 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
     [senderDistributionData?.senders]
   )
   const senderDistributionAuthoritativeWorkflowSenderKeys =
-    resolveGmailSenderDistributionAuthorityKeys({
+    itemOverview.resolveDistributionAuthoritySubjectIds({
       reviewUnitActive: activeOverviewSubset?.source === 'review_unit',
       responseReady:
         senderDistributionWorkspaceState.status === 'ready' && senderDistributionData != null,
-      responseSenderKeys: senderDistributionBroadSenderKeys,
-      fallbackSenderKeys: authoritativeWorkflowSenderKeys,
+      responseSubjectIds: senderDistributionBroadSenderKeys,
+      fallbackSubjectIds: authoritativeWorkflowSenderKeys,
     })
   const senderDistributionEmptyScopedSubset =
     senderDistributionWorkspaceState.status === 'ready' &&
@@ -10618,7 +10636,10 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   const stableOverviewSummary = lastCompleteOverviewSummaryRef.current
   const publishedReviewUnitSummaryActive = activeOverviewSubset?.source === 'review_unit'
   const publishedReviewUnitProjectionSenderKeys = useMemo(
-    () => (activeReviewUnitProjection?.members || []).map((member) => member.entity_id),
+    () =>
+      (activeReviewUnitProjection?.members || [])
+        .filter((member) => member.activity_count > 0)
+        .map((member) => member.entity_id),
     [activeReviewUnitProjection?.members]
   )
   const publishedReviewUnitDistributionReady = Boolean(
@@ -12825,16 +12846,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         pendingNarrowingInteraction?.kind === 'route_subset' &&
         pendingNarrowingInteraction.expectation.subsetSource === 'contributor' &&
         pendingNarrowingInteraction.expectation.subsetValue === itemId
-      const shareLabel =
-        overviewAnalytics.groupMessageTotal > 0
-          ? formatPercent(ratioPercent(item.value, overviewAnalytics.groupMessageTotal))
-          : '0%'
-
       return {
         id: itemId,
         label: item.label,
         value: item.value,
-        valueLabel: shareLabel,
+        valueLabel: item.detail.replace(' of all cleanup-group messages', ''),
         rankLabel: `#${index + 1}`,
         supportLabel: `${item.value.toLocaleString()} message${item.value === 1 ? '' : 's'}`,
         accentClass: 'bg-cyan-500',
@@ -13175,7 +13191,8 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
   if (!selectedCluster && !missingScopedCluster && !requestedClusterId && !continuityOverviewWorkspaceSnapshot) {
     return (
       <section className={`${primarySurfaceClass} p-4 text-sm text-slate-200`}>
-        No cleanup group is selected yet. Open Cleanup Groups first, then continue into Sender Overview.
+        No review group is selected yet. Open {reviewGroupsSlot.title} first, then continue into{' '}
+        {itemOverviewSlot.title}.
       </section>
     )
   }
@@ -13366,13 +13383,13 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               href={`/agents/${agentId}/operations/clusters${clusterQuery}`}
               className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
             >
-              Cleanup Groups
+              {reviewGroupsSlot.title}
             </Link>
             <Link
               href={managementHref}
               className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
             >
-              Open Management
+              Open {decisionManagementSlot.title}
             </Link>
           </div>
         </div>
@@ -14449,14 +14466,14 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
         <div className="fixed inset-0 z-40 flex justify-center bg-slate-950/72 backdrop-blur-sm">
           <button
             type="button"
-            aria-label="Close Decision Mode"
+            aria-label={`Close ${decisionModeSlot.title}`}
             onClick={closeDecisionMode}
             className="absolute inset-0"
           />
           <div className="relative z-10 flex h-full w-full max-w-6xl justify-center overflow-y-auto px-4 py-6 sm:px-6">
             {!renderedDecisionSender && workspaceState.status === 'error' ? (
               <section className="my-auto w-full max-w-3xl rounded-3xl border border-rose-900/45 bg-rose-950/20 p-6 text-sm text-rose-100">
-                {workspaceState.error || 'Decision Mode could not load for this sender.'}
+                {workspaceState.error || `${decisionModeSlot.title} could not load for this sender.`}
               </section>
             ) : !renderedDecisionSender && !decisionWorkspaceReady ? (
               <section className={`${primarySurfaceClass} my-auto w-full max-w-3xl p-6 text-sm text-slate-200`}>
@@ -14468,7 +14485,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
               <section className="my-auto w-full max-w-4xl rounded-3xl border border-cyan-700/45 bg-[linear-gradient(180deg,rgba(13,34,50,0.94),rgba(8,16,27,0.98),rgba(10,14,22,0.98))] p-6 space-y-5 shadow-[0_22px_56px_rgba(2,6,23,0.3)]">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
-                    Decision Mode complete
+                    {decisionModeSlot.title} complete
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">
                     {activeOverviewSubset
@@ -14513,7 +14530,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                     scroll={false}
                     className="rounded-full bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-gray-950 hover:bg-cyan-400"
                   >
-                    Go to Management
+                    Go to {decisionManagementSlot.title}
                   </Link>
                   <button
                     type="button"
@@ -14530,7 +14547,7 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">
-                        Decision Mode
+                        {decisionModeSlot.title}
                       </p>
                       <p className="mt-1 text-sm text-slate-200">
                         {activeOverviewSubset

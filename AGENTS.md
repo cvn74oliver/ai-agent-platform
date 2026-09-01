@@ -788,6 +788,32 @@ If a change is accepted as a stable fix:
 
 Codex must NOT mark the fix as complete until both conditions are satisfied.
 
+### Accepted-Milestone Git Publication Rule (CRITICAL)
+
+When Oliver Human-accepts a stable fix, completed slice, phase, or other meaningful milestone, the accepted work MUST be preserved in both recovery systems:
+
+1. create and verify the governed milestone backup under the shared backup policy;
+2. create an exact-scope Git commit containing the accepted source and required control-plane truth;
+3. push the accepted commit to the canonical GitHub remote using a normal non-force push.
+
+Required behavior:
+- do not leave accepted work only in a dirty worktree, detached checkout, or local-only branch;
+- reattest the canonical remote, target branch, remote divergence, and exact staged path set immediately before commit/push;
+- exclude secrets, environment files, saved authentication/session state, generated browser output, dependencies, build output, and unrelated user changes;
+- use explicit path staging for mixed worktrees; `git add -A` is prohibited unless the whole tree has been proven in scope;
+- run the relevant accepted verification, staged diff check, and secret/generated-output inspection before push;
+- use the repository's approved integration path: direct accepted-main publication when that is the governed repository policy, otherwise a pushed named branch plus review/merge path;
+- verify local commit, remote-tracking ref, and live remote ref identity after publication;
+- record branch, commit, remote target, exclusions, checks, and parity evidence in the control plane;
+- never force-push, delete recovery lineage, deploy, or broaden product/data/provider authority merely because Git publication is required.
+
+If publication is temporarily blocked by authentication, remote divergence, mixed provenance, failed verification, or security concerns:
+- classify the accepted milestone as `Git publication pending` rather than complete repository hygiene;
+- preserve the verified backup and exact pending path set;
+- resume publication as the next required continuation step once the blocker is removed.
+
+The Git publication step is mandatory milestone hygiene after Human acceptance; it is not a substitute for Human acceptance and must never publish unaccepted implementation as accepted truth.
+
 
 ### PLAN MODE vs EXECUTION MODE (CRITICAL)
 
