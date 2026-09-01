@@ -75,4 +75,6 @@ Oliver accepted the recommended sequence on 2026-09-02 and established a standin
 
 Preparation is now governed by `docs/00_control_plane/runtime/ACE-048_ACCEPTED_FRAMEWORK_BASELINE_GITHUB_PUBLICATION_PACKET.md`. The combined backup is verified, the current detached worktree is the authoritative accepted superset, and named-worktree-only `.DS_Store`/legacy residue is excluded. The packet's numbered allowlist is authoritative and must pass exact staged-path comparison before commit.
 
+Publication result: exact commit `eef994f8a0a668164d68089ecffd4c5efe70b37f` is published normally on `agent/ace-048-accepted-framework-baseline`; draft PR `https://github.com/cvn74oliver/automata/pull/3` targets `main`; local, remote-tracking, and PR head identity match at `0 / 0` divergence. `main` remains unchanged pending the repository review/merge path.
+
 Checkpoint Status: continuity checkpoint created. The dirty state is classified as a real publication backlog, not a reason to perform a blind broad commit. Publication is authorized only through the exact packet; no merge, branch deletion, force operation, deployment, provider action, or data mutation is authorized.

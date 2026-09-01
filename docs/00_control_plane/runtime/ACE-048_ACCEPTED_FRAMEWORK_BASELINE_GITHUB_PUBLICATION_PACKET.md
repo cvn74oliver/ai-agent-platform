@@ -1,7 +1,7 @@
 # ACE-048 Accepted Framework Baseline GitHub Publication Packet
 
 Date: 2026-09-02
-Status: `VERIFIED / COMMIT-READY`
+Status: `PUBLISHED TO CANONICAL GITHUB REMOTE / DRAFT PR OPEN`
 Governing event: `ACE-048`
 Publication branch: `agent/ace-048-accepted-framework-baseline`
 Base commit: `8f8e4d670cabdd21459c0b4b8e502d16e272afc0`
@@ -137,4 +137,17 @@ Accepted source and fixtures:
 
 The next allowed Git operations are the exact commit, fresh remote reattestation, normal non-force branch push, draft PR creation, and post-push parity proof.
 
-Checkpoint Status: continuity checkpoint created. The exact baseline publication packet is verified and commit-ready. No Phase 4 source implementation, provider/data mutation, push, merge, deployment, force operation, or lineage deletion occurred before this checkpoint.
+## Publication result
+
+- Commit: `eef994f8a0a668164d68089ecffd4c5efe70b37f` — `publish ACE-048 accepted framework baseline`.
+- Published branch: `agent/ace-048-accepted-framework-baseline`.
+- Canonical remote: `https://github.com/cvn74oliver/automata.git`.
+- Default/base branch: `main`.
+- Draft PR: `https://github.com/cvn74oliver/automata/pull/3`.
+- Post-push parity: local `HEAD`, `origin/agent/ace-048-accepted-framework-baseline`, and PR head OID all equal `eef994f8a0a668164d68089ecffd4c5efe70b37f`; divergence `0 / 0`.
+- Push type: normal non-force new-branch push.
+- `main` was not moved; no merge, deployment, provider/data action, force operation, branch deletion, or worktree deletion occurred.
+
+The accepted baseline is now durably present on GitHub. Phase 4 Slice 1 may begin locally under its separate exact eight-file authority; its implementation remains unaccepted and must not be published as accepted until the required verification and Human Review gates pass.
+
+Checkpoint Status: none for accepted-baseline GitHub preservation. The verified baseline commit is published with live remote/PR parity. No Phase 4 source implementation, provider/data mutation, merge, deployment, force operation, or lineage deletion occurred in the publication checkpoint.

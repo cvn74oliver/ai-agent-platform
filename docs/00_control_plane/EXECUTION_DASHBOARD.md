@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION POLICY ACTIVE; FRAMEWORK BASELINE PUBLICATION AUTHORIZED / IN PROGRESS; PHASE 4 SLICE 1 AUTHORIZED AFTER BACKUP/PUBLICATION
+Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION POLICY ACTIVE; FRAMEWORK BASELINE GITHUB-PRESERVED; PHASE 4 SLICE 1 IMPLEMENTATION ACTIVE
 
 ## Current position
 
@@ -91,8 +91,9 @@ Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION 
 - [x] Record Oliver's acceptance of the recommended sequence and authorization for the exact Phase 4 Slice 1 after the governed backup/publication checkpoint
 - [x] Complete the separate Git publication-safety audit; no commit, branch movement, push, or deployment occurred
 - [x] Activate the standing accepted-milestone verified-backup plus exact-scope normal non-force GitHub publication policy
-- [ ] Create/verify the combined backup, reconcile both dirty worktrees, build the exact staged packet, run checks, publish, and prove live remote parity
+- [x] Create/verify the combined backup, reconcile both dirty worktrees, build the exact staged packet, run checks, publish, and prove live remote parity
 - [x] Verify the combined `2,175`-file incremental/readable full archive and exact `61`-path staged packet; 11 fixture families, TypeScript, lint, diff check, and environment-corrected `63`-route build pass
+- [x] Publish accepted baseline commit `eef994f` on `agent/ace-048-accepted-framework-baseline`, open draft PR #3, and prove local/remote/PR-head parity
 - [ ] Implement and verify only the eight-file Phase 4 Slice 1 action presentation/availability contract
 
 - [x] Decision-complete plan approved for immediate same-flow execution

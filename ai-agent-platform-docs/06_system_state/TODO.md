@@ -99,9 +99,10 @@ _Last updated: 2026-09-02 • Accepted-milestone backup/commit/push policy activ
 - [x] Record Oliver's acceptance of the recommended sequence and authorization for the exact Phase 4 Slice 1 implementation after the governed backup/publication checkpoint.
 - [x] Audit the detached and named recovery worktrees, `main`/`origin/main` divergence, canonical remote, and dirty-path counts in `ACE-048_GIT_PUBLICATION_SAFETY_AUDIT.md`; no Git mutation occurred.
 - [x] Record Oliver's standing policy that every Human-accepted stable fix/slice/phase/milestone receives both a verified backup and exact-scope normal non-force GitHub publication.
-- [ ] ACTIVE NOW — create the combined pre-publication/pre-implementation backup, reconcile exact accepted paths across both dirty worktrees, exclude secrets/generated/auth/unrelated state, verify, commit, push, and prove live parity.
+- [x] Create the combined pre-publication/pre-implementation backup, reconcile exact accepted paths across both dirty worktrees, exclude secrets/generated/auth/unrelated state, verify, commit, push, and prove live parity.
 - [x] Verify the `2,175`-file incremental plus readable/checksummed full archive and exact `61`-path staged packet; pass 11 fixture families, TypeScript, targeted lint, cached diff check, and the environment-corrected `63`-route production build.
-- [ ] After accepted-baseline publication, execute only the eight-file Phase 4 Slice 1 action-presentation/availability brief and complete the required verification loop before Human Review.
+- [x] Publish `eef994f` normally on `agent/ace-048-accepted-framework-baseline`; verify local/remote/PR-head parity and open draft PR #3 against `main`.
+- [ ] ACTIVE NOW — execute only the eight-file Phase 4 Slice 1 action-presentation/availability brief and complete the required verification loop before Human Review.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 
