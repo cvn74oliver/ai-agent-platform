@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import DashboardLayout from '@/app/components/DashboardLayout'
+import { DecisionWorkspaceActionProvider } from '@/components/runtime/DecisionWorkspaceActionContext'
 import { DecisionWorkspacePresentationProvider } from '@/components/runtime/DecisionWorkspacePresentationContext'
 import OperationsWorkspaceShell from '@/components/runtime/OperationsWorkspaceShell'
 import { gmailDecisionWorkspacePresentation } from '@/lib/integrations/gmail/gmailDecisionWorkspacePresentation'
@@ -16,9 +17,11 @@ export default async function OperationsLayout(props: {
     <DashboardLayout>
       <div className="app-page-stack">
         <DecisionWorkspacePresentationProvider presentation={gmailDecisionWorkspacePresentation}>
-          <OperationsWorkspaceShell agentId={id} decisionWorkspaceReadAdapterId="gmail">
-            {props.children}
-          </OperationsWorkspaceShell>
+          <DecisionWorkspaceActionProvider adapterId="gmail">
+            <OperationsWorkspaceShell agentId={id} decisionWorkspaceReadAdapterId="gmail">
+              {props.children}
+            </OperationsWorkspaceShell>
+          </DecisionWorkspaceActionProvider>
         </DecisionWorkspacePresentationProvider>
       </div>
     </DashboardLayout>

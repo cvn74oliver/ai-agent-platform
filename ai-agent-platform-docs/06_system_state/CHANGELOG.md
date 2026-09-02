@@ -1,3 +1,43 @@
+### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 1 Accepted
+
+Accepted invariant:
+- Decision Mode and Decision Management obtain visible action labels, compatibility values, explanatory copy, and state-derived availability from the selected deterministic workflow/provider adapter rather than defining Gmail action presentation inside the shared pages.
+- The framework owns stable action identity, required meaning, capability/prerequisite/effect/risk/reversibility/approval/preview/idempotency metadata, validation, and fail-closed behavior. The Gmail adapter owns its exact visible vocabulary and provider-specific controls.
+- The accepted Gmail behavior remains unchanged: Decision Mode preserves `Keep All`, `Keep Some`, `Archive All`, and `Not Sure` in order; Management preserves `17 / 3 / 2 / 10 / 0 / 2` and `3 / 0 / 15` visible Push/Restore/Reopen eligibility; the existing commit/push/restore/reopen handlers, requests, routes, caches, lifecycle, provider behavior, and close/return identity remain frozen.
+
+Acceptance proof:
+- Oliver returned Human Review `ACCEPT` on 2026-09-02 by accepting the recommended verifier-backed result and authorizing continuation.
+- Verifier decision is `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE1_REVIEW_PACKET.md`; `Missing Proof Type: none` for the accepted surfaces.
+- Static generated-chrome fixtures pass for Gmail, customer service, real estate, crypto, four-source paid media, bookkeeping, tax, and three-role purchasing/records/shipping. Missing, unsafe, or incompatible metadata fails closed; render-time model calls and new request definitions remain zero.
+- Required Phase 1-3 and Gmail regressions, TypeScript, targeted lint, allowlist/static guards, and `git diff --check` pass. Authenticated post-settle Playwright preserves simple Review `108 / 1 / 107 / 1,030`, composite Review `43 / 0 / 43 / 132`, both exact Decision Mode close/return paths, the full Management filter loop, and a 16-second idle state with zero action POSTs, failed requests, `409` churn, settled polling, console/page errors, or runtime overlay.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE1_ACTION_PRESENTATION_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE1_REVIEW_PACKET.md`.
+- Generic model: `web/src/lib/runtime/decisionWorkspaceActionModel.ts`.
+- Selected-adapter context: `web/src/components/runtime/DecisionWorkspaceActionContext.tsx`.
+- Gmail adapter: `web/src/lib/integrations/gmail/gmailDecisionWorkspaceActionAdapter.ts`.
+- Shared consumers: `web/src/app/agents/[id]/operations/review/page.tsx` and `web/src/app/agents/[id]/operations/management/page.tsx`.
+- Cross-domain proof: `web/scripts/workspace-decision-action-model-fixtures.mjs`.
+- Accepted browser evidence: `output/playwright/ace-048-phase4-slice1/verification-summary.json`, `state-transition-matrix.json`, `sanitized-request-trace.json`, and post-settle screenshots `01` through `15`; generated evidence and authentication state remain excluded from Git.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 4 Slice 1 Human acceptance)`; `2,409` files, branch `agent/ace-048-accepted-framework-baseline`, HEAD `1a04314c284a027cce6ebfde155cf6c35863855a`, `15` changed paths at backup time, normal seven-day project-scoped pruning, and `KEEP` preservation. Git publication identity is recorded by the final closeout propagation.
+
+Replay steps:
+1. Run the action-model fixture plus the retained Decision Workspace contract, presentation, read-model, review-unit, window-projection, cleanup-assignment, Pressure Trend, mailbox-continuity, and optional-evidence fixtures.
+2. Run TypeScript, targeted ESLint on the exact eight-source-file allowlist, static action/request/timer/model/provider guards, and `git diff --check`.
+3. Start the exact worktree runtime with environment values loaded only in-process and loopback binding; never print, copy, commit, or publish secrets or saved authentication state.
+4. Exercise the exact simple/composite Review paths and Management path after settle. Require the preserved Gmail counts, action order, control eligibility, filter loop, exact close/return identity, zero action invocation during verification, zero failed/guard/model requests, zero settled polling, and zero console/page errors.
+
+Rollback guidance:
+- Restore only the eight Phase 4 Slice 1 source seams from the Human-acceptance snapshot if deterministic action presentation or availability regresses. Preserve all accepted Phase 1-3 framework, presentation, read-facade, Gmail data/runtime, route, request, cache, provider-action, lifecycle, artifact, and publication truth.
+- No provider/data rollback is required because this slice did not mutate providers, data, databases, artifacts, indexes, publication, routes, requests, polling, or lifecycle behavior.
+
+Acceptance boundary:
+- This Recovery Contract accepts deterministic action presentation and read-only availability only.
+- It does not authorize approval integration, execution-facade behavior, new provider actions, Workflow Studio, proprietary-brain UI, shared learning, multi-agent orchestration, route changes, provider/data/database/artifact/index/publication mutation, deployment, merge, force operations, later Phase 4 work, or lineage deletion.
+
+---
+
 ### September 2, 2026 — Accepted-Milestone Git Publication Policy
 
 Accepted operating invariant:

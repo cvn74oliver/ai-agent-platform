@@ -10,9 +10,11 @@ import {
   SenderTimeContextAnalysisRail,
 } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
+import { useDecisionWorkspaceActions } from '@/components/runtime/DecisionWorkspaceActionContext'
 import { useDecisionWorkspaceRead } from '@/components/runtime/DecisionWorkspaceReadContext'
 import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
 import { resolveDecisionWorkspacePresentationSlot } from '@/lib/runtime/decisionWorkspacePresentation'
+import type { DecisionWorkspaceActionTone } from '@/lib/runtime/decisionWorkspaceActionModel'
 import type { DecisionWorkspaceItemOverviewAnalysisTab } from '@/lib/runtime/decisionWorkspaceReadModel'
 import {
   buildGmailCleanupWorkflowClusterPayload,
@@ -3946,11 +3948,37 @@ function SenderDrilldownRow(props: {
   )
 }
 
+function decisionActionClassName(tone: DecisionWorkspaceActionTone): string {
+  if (tone === 'positive') {
+    return 'border-emerald-900/45 bg-emerald-950/18 text-emerald-100 hover:border-emerald-700/60'
+  }
+  if (tone === 'constructive') {
+    return 'border-violet-900/45 bg-violet-950/18 text-violet-100 hover:border-violet-700/60'
+  }
+  if (tone === 'caution') {
+    return 'border-amber-900/45 bg-amber-950/18 text-amber-100 hover:border-amber-700/60'
+  }
+  if (tone === 'secondary') {
+    return 'border-slate-700 bg-slate-950/35 text-slate-100 hover:border-slate-500'
+  }
+  return 'border-cyan-900/45 bg-cyan-950/18 text-cyan-100 hover:border-cyan-700/60'
+}
+
+function gmailDestinationStateFromCompatibilityValue(
+  value: string | null
+): GmailDestinationState | null {
+  if (value === 'KEEP' || value === 'CUSTOM_RULE' || value === 'ARCHIVE' || value === 'QUARANTINE') {
+    return value
+  }
+  return null
+}
+
 export default function OperationsReviewPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
   const runtime = useOperationsRuntime()
+  const actionAdapter = useDecisionWorkspaceActions()
   const { itemOverview, management } = useDecisionWorkspaceRead()
   const presentation = useDecisionWorkspacePresentation()
   const reviewGroupsSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'review_groups')
@@ -3960,6 +3988,7 @@ export default function OperationsReviewPage() {
     presentation,
     'decision_management'
   )
+  const decisionActionGroup = actionAdapter.decisionMode.getActions()
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const requestedSessionId = searchParams.get('playground_session_id')
   const sessionId = runtime.sessionId || requestedSessionId
@@ -14647,40 +14676,22 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                   }
                   actionsSlot={
                     <div className="grid gap-3 md:grid-cols-2">
-                      {[
-                        {
-                          label: 'Keep All',
-                          description: 'Protect this sender and keep it out of the active work buckets.',
-                          destinationState: 'KEEP' as const,
-                          className: 'border-emerald-900/45 bg-emerald-950/18 text-emerald-100 hover:border-emerald-700/60',
-                        },
-                        {
-                          label: 'Keep Some',
-                          description: 'Store this sender as a pending Custom Rule for later refinement.',
-                          destinationState: 'CUSTOM_RULE' as const,
-                          className: 'border-violet-900/45 bg-violet-950/18 text-violet-100 hover:border-violet-700/60',
-                        },
-                        {
-                          label: 'Archive All',
-                          description: 'Queue this sender for Archive. Gmail changes still wait in Management.',
-                          destinationState: 'ARCHIVE' as const,
-                          className: 'border-cyan-900/45 bg-cyan-950/18 text-cyan-100 hover:border-cyan-700/60',
-                        },
-                        {
-                          label: 'Not Sure',
-                          description: 'Move this sender to Quarantine for later review.',
-                          destinationState: 'QUARANTINE' as const,
-                          className: 'border-amber-900/45 bg-amber-950/18 text-amber-100 hover:border-amber-700/60',
-                        },
-                      ].map((action) => (
+                      {decisionActionGroup.actions.map((action) => (
                         <button
-                          key={action.label}
+                          key={action.id}
                           type="button"
-                          disabled={submittingSenderKey === renderedDecisionSender.sender_key}
-                          onClick={() =>
-                            void commitDecision(renderedDecisionSender, action.destinationState)
+                          disabled={
+                            submittingSenderKey === renderedDecisionSender.sender_key ||
+                            action.availability.state !== 'available'
                           }
-                          className={`rounded-2xl border p-4 text-left transition ${action.className} disabled:cursor-not-allowed disabled:opacity-60`}
+                          onClick={() => {
+                            const destinationState = gmailDestinationStateFromCompatibilityValue(
+                              action.compatibilityValue
+                            )
+                            if (!destinationState) return
+                            void commitDecision(renderedDecisionSender, destinationState)
+                          }}
+                          className={`rounded-2xl border p-4 text-left transition ${decisionActionClassName(action.tone)} disabled:cursor-not-allowed disabled:opacity-60`}
                         >
                           <p className="text-base font-semibold">{action.label}</p>
                           <p className="mt-2 text-sm leading-6 text-current/90">
@@ -14688,6 +14699,11 @@ const shouldFetchOverviewCoverageBackfill = useMemo(() => {
                           </p>
                         </button>
                       ))}
+                      {decisionActionGroup.actions.length === 0 ? (
+                        <div className="rounded-2xl border border-slate-800 bg-slate-950/35 p-4 text-sm text-slate-400 md:col-span-2">
+                          {decisionActionGroup.emptyLabel}
+                        </div>
+                      ) : null}
                     </div>
                   }
                 />

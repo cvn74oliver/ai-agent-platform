@@ -16,6 +16,7 @@
     "test:workspace-decision-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/workspace-decision-contract-fixtures.mjs",
     "test:workspace-decision-presentation": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/workspace-decision-presentation-fixtures.mjs",
     "test:workspace-decision-read-model": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/workspace-decision-read-model-fixtures.mjs",
+    "test:workspace-decision-action-model": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/workspace-decision-action-model-fixtures.mjs",
     "test:workspace-review-unit-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/workspace-review-unit-contract-fixtures.mjs",
     "test:review-unit-window-projection-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/review-unit-window-projection-contract-fixtures.mjs",
     "test:gmail-review-unit-window-projection-contract": "node --experimental-strip-types --loader ./scripts/ts-path-loader.mjs ./scripts/gmail-review-unit-window-projection-contract-fixtures.mjs",

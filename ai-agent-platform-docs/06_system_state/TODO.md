@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • Accepted-milestone backup/commit/push policy active; accepted baseline publication and Phase 4 Slice 1 authorized in sequence_
+_Last updated: 2026-09-02 • Accepted baseline GitHub-preserved; Phase 4 Slice 1 Human-accepted; closeout publication in progress_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -102,7 +102,10 @@ _Last updated: 2026-09-02 • Accepted-milestone backup/commit/push policy activ
 - [x] Create the combined pre-publication/pre-implementation backup, reconcile exact accepted paths across both dirty worktrees, exclude secrets/generated/auth/unrelated state, verify, commit, push, and prove live parity.
 - [x] Verify the `2,175`-file incremental plus readable/checksummed full archive and exact `61`-path staged packet; pass 11 fixture families, TypeScript, targeted lint, cached diff check, and the environment-corrected `63`-route production build.
 - [x] Publish `eef994f` normally on `agent/ace-048-accepted-framework-baseline`; verify local/remote/PR-head parity and open draft PR #3 against `main`.
-- [ ] ACTIVE NOW — execute only the eight-file Phase 4 Slice 1 action-presentation/availability brief and complete the required verification loop before Human Review.
+- [x] Implement and verifier-accept only the exact eight-file Phase 4 Slice 1 action-presentation/availability brief; preserve all Gmail handlers, requests, routes, counts, lifecycle, provider controls, and close/return behavior.
+- [x] Record Oliver's explicit Phase 4 Slice 1 Human Review `ACCEPT` and Recovery Contract.
+- [x] Create and verify the `2,409`-file Human-acceptance milestone backup with exact worktree/branch/HEAD identity, normal seven-day pruning, and `KEEP` preservation.
+- [ ] ACTIVE NOW — exact-scope commit, normal non-force GitHub push, and live remote/PR parity proof.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 

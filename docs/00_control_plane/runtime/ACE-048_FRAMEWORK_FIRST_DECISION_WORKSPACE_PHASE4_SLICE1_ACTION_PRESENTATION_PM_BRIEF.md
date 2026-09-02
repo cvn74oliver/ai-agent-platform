@@ -1,7 +1,7 @@
 # ACE-048 Framework-First Decision Workspace Phase 4 Slice 1 — Capability-Driven Action Presentation PM Brief
 
 Date: 2026-09-02
-Status: `TARGET-LOCKED / IMPLEMENTATION AUTHORIZED AFTER GOVERNED BACKUP AND ACCEPTED-BASELINE PUBLICATION`
+Status: `HUMAN-ACCEPTED / RECOVERY-BACKED / CLOSEOUT PUBLICATION IN PROGRESS`
 Governing event: `ACE-048`
 Feature domain: Decision Workspace capability/action boundary — deterministic action presentation and availability
 Mode: `PLAN MODE` until explicit implementation authorization; later bounded `EXECUTION MODE`
@@ -241,4 +241,10 @@ Future action proposals and outcomes may inform the tenant-owned proprietary bra
 
 Oliver accepted the recommended sequence and authorized this exact eight-file/five-slice implementation on 2026-09-02. Execution begins only after the governed combined backup and accepted-baseline Git publication checkpoint pass. Any ninth source file or altered request/provider/lifecycle behavior returns to PM.
 
-Checkpoint Status: continuity checkpoint created. Phase 4 discovery, the exact target lock, prerequisite publication sequence, and implementation authority are propagated. Deployment, provider/data mutation, approval integration, execution-facade work, later Phase 4 slices, force operations, and lineage deletion remain separately gated.
+## Execution and verification result
+
+The prerequisite backup and accepted-baseline Git publication passed. The exact eight-source-file implementation then completed inside the locked scope. The Verifier returned `ACCEPT / HIGH` after eight-domain/static validation, all required framework and Gmail regression fixtures, TypeScript, targeted lint with zero errors, exact allowlist/diff checks, byte-identical handler proof, and authenticated post-settle Playwright across both exact Review paths and exact Management.
+
+Final clean browser proof preserved the accepted simple `108 / 1 / 107 / 1,030`, composite `43 / 0 / 43 / 132`, and Management `17 / 3 / 2 / 10 / 0 / 2` truth; the four Decision Mode controls retain exact wording/order; Management retains `3` Push, `0` Restore, and `15` Reopen controls in ALL; Close/return and the full filter loop pass; action POSTs, failed requests, `409` churn, settled polling, console errors, page errors, and runtime overlays are all zero. Review packet: `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE1_REVIEW_PACKET.md`.
+
+Checkpoint Status: continuity checkpoint created. Implementation and verifier acceptance are propagated. Status is `Awaiting Decision`; Human acceptance, Recovery Contract, Human-acceptance backup, implementation commit/push, merge, deployment, provider/data mutation, approval/execution-facade work, later Phase 4 slices, force operations, and lineage deletion remain separately gated.
