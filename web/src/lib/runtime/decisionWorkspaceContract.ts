@@ -186,9 +186,14 @@ export type DecisionWorkspaceHumanDecisionRecord = Readonly<{
 export type DecisionWorkspaceExecutionStatus =
   | 'proposed'
   | 'approved'
+  | 'claimed'
   | 'executing'
   | 'executed'
+  | 'succeeded'
   | 'failed'
+  | 'partial'
+  | 'indeterminate'
+  | 'skipped'
   | 'reverted'
 
 export type DecisionWorkspaceExecutionTransition = Readonly<{
@@ -205,11 +210,14 @@ export type DecisionWorkspaceActionExecutionRecord = Readonly<{
   subject: DecisionWorkspaceSubjectReference
   actionId: string
   sourceId: string | null
+  providerType?: string | null
+  connectionId?: string | null
+  agentRoleId?: string | null
   capability: string
   status: DecisionWorkspaceExecutionStatus
   idempotencyKey: string | null
   previewReference: string | null
-  providerReceipt: string | null
+  providerReceipt: string | Readonly<Record<string, unknown>> | null
   rollbackReference: string | null
   errorCode: string | null
   transitions: readonly DecisionWorkspaceExecutionTransition[]
@@ -596,10 +604,15 @@ export function validateDecisionWorkspaceActionExecution<TDimension extends stri
   } else if (execution.sourceId !== null) {
     errors.push('Decision-only execution must not claim a provider source.')
   }
+  const hasProviderReceipt =
+    nonEmpty(execution.providerReceipt) ||
+    (typeof execution.providerReceipt === 'object' &&
+      execution.providerReceipt !== null &&
+      !Array.isArray(execution.providerReceipt))
   if (
     action?.effect === 'provider_write' &&
-    execution.status === 'executed' &&
-    !nonEmpty(execution.providerReceipt)
+    (execution.status === 'executed' || execution.status === 'succeeded' || execution.status === 'partial') &&
+    !hasProviderReceipt
   ) {
     errors.push('Executed provider action must retain a provider receipt.')
   }

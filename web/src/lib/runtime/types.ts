@@ -233,6 +233,9 @@ export type RuntimeGmailArchiveMessagesData = {
   requested_count: number
   archived_count: number
   message_ids: string[]
+  accepted_message_ids: string[]
+  failed_message_ids: string[]
+  partial_failure: boolean
 }
 
 export type RuntimeGmailArchiveMessagesExecutionActionResult = {
@@ -263,4 +266,13 @@ export type RuntimeExecutionResultPayload = {
   message_id?: string
   executed_at: string
   success: true
+  status?: 'succeeded'
+}
+
+export type RuntimeExecutionOutcomeData = {
+  execution_id: string
+  status: 'succeeded' | 'failed' | 'partial' | 'indeterminate'
+  executed: boolean
+  results?: RuntimeExecutionActionResult[]
+  draft_id?: string
 }

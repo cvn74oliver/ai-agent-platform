@@ -1,3 +1,47 @@
+### September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage A Accepted
+
+#### Accepted outcome
+
+- Oliver returned the exact Human Review decision `ACCEPT PHASE 4 SLICE 4A STAGE A` on 2026-09-03 after verifier `ACCEPT / HIGH` for the exact nine-file Stage A packet.
+- The accepted source candidate defines a provider-neutral, tenant-scoped atomic local execution claim, stable per-action identity, lease-token-guarded receipts and finalization, explicit stale resolution, and honest `partial`, `indeterminate`, and `skipped` outcomes.
+- Gmail remains the reference adapter rather than the framework vocabulary. Its archive policy retains accepted and failed message identities, and ambiguous draft creation becomes manual-required `indeterminate` rather than an automatic retry.
+- Multi-source and multi-role workflows retain tenant, workflow, runtime, role, source, connection, action, and receipt identity. The contract does not claim cross-provider atomicity or authorize uncontrolled self-modification, silent cross-tenant learning, Workflow Studio, training UI, shared learning, a provider registry, or multi-agent orchestration.
+- The generated migration remains unapplied. Stage B migration application, live ledger/RPC proof, provider action, production execution, retry/reconciliation, merge, and deployment remain separately gated.
+
+#### Acceptance proof
+
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_ATOMIC_EXECUTION_CLAIM_AND_RECEIPT_FOUNDATION_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEA_REVIEW_PACKET.md`.
+- Eight-domain/static fixtures prove Gmail, customer service, real estate, investments/crypto, multi-source paid media, bookkeeping, tax, and purchasing/records/shipping behavior from the same provider-neutral execution model.
+- All required state-transition rows, ten established Decision Workspace/Gmail regressions, TypeScript, exact-file lint, diff/allowlist/frozen-hash checks, and authenticated post-settle Playwright passed at `HIGH` confidence.
+- The accepted Gmail Approval Queue remained `3 / 0 / 8 / 46`, with its existing read family only, zero action POSTs, zero failed final requests, zero `409` churn, and a clean console.
+
+#### Recovery identity
+
+- Accepted source packet: the exact nine-file Stage A allowlist in the governing brief and review packet.
+- Migration identity: `supabase/migrations/20260902141603_add_decision_workspace_execution_ledger.sql`, SHA-256 `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`, authored but not applied.
+- Pre-target recovery: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - Pre ACE-048 Phase 4 Slice 4A atomic execution ledger target generation)`; `2,466` files at clean baseline `b752c863c7dc4d634e6e21b061fd6f7d2a4cc1ef`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage A Human acceptance)`; `2,584` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pre-publication HEAD `b752c863c7dc4d634e6e21b061fd6f7d2a4cc1ef`, `16` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted Git identities are recorded by the acceptance-closeout packet after normal non-force publication completes.
+
+#### Replay steps
+
+1. Run `web/scripts/runtime-execution-ledger-fixtures.mjs` and the retained Decision Workspace/Gmail regression fixtures named in the review packet.
+2. Run non-incremental TypeScript, exact-file ESLint, `git diff --check`, exact nine-file implementation allowlist comparison, and the two frozen-file hash checks.
+3. Start the exact worktree runtime with environment values loaded only in-process and loopback binding; never print, copy, commit, or publish secrets or saved authentication state.
+4. With saved Playwright authentication, open the exact canonical Approval Queue after settle and require `3 / 0 / 8 / 46`, the existing read family only, zero action POSTs, zero failed requests or `409` churn, and a clean console.
+5. Do not apply the migration, invoke a provider action, or write live ledger/data rows during Stage A replay.
+
+#### Recovery Contract
+
+- Before Stage B, restore the four previously existing source files to baseline and remove the four new source/fixture files plus the generated unapplied migration to return to the pre-Stage-A source state.
+- Re-run the replay steps after restoration and require the previously accepted Gmail routes, counts, groups, charts, windows, rows, actions, provider controls, request families, caches, polling, and close/return behavior to remain intact.
+- No live database, schema, provider, Gmail, artifact, index, publication, Vercel, or domain rollback belongs to Stage A because no such mutation occurred.
+- Do not partially remove the claim, action identity, receipt, finalization, or provider-policy seams. Preserve the complete accepted invariant or execute a separately approved replacement with equivalent tenant isolation, provenance, idempotency, lease, and honest-outcome guarantees.
+- If Stage B later applies the migration, this source-only Recovery Contract no longer authorizes rollback by deleting migration files or executing a destructive down migration. Stage B must establish its own separately reviewed additive-schema recovery procedure before application.
+
+---
+
 ### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 3 Accepted
 
 #### Accepted outcome

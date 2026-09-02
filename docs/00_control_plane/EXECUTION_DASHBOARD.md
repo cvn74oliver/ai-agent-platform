@@ -2,21 +2,21 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 3 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 3 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / ACCEPTANCE PRESERVATION IN PROGRESS; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, and Phase 4 Slices 1-3 Human-accepted, recovery-backed, GitHub-preserved, and closed
-- Problem class: runtime behavior / endpoint access and request-decision binding closed; atomic execution/receipt lifecycle separately unresolved and requires fresh target lock
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, and Phase 4 Slices 1-3 Human-accepted, recovery-backed, GitHub-preserved, and closed; Slice 4A Stage A is Human-accepted with acceptance preservation in progress
+- Problem class: runtime behavior plus additive schema contract / provider-neutral atomic local execution claim and per-action receipt foundation Human-accepted; Stage B migration application remains separate
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
 - Deployment posture: canonical `ai-agent-platform` initially logged seven `/api/runtime/gmail-memory` `500` errors because Production lacked the service key. The accepted Production-only Secret repair and exact-source redeploy resolved it. After PR #4, canonical `dpl_5qpg7KLUJU2MUpJsJ9KHEPp3J39j` and duplicate `dpl_FfeyA9WdwijPEM5kdBHUtw4zuHWL` reached Production `READY` with successful GitHub contexts and no alias error. Authenticated canonical proof retained the accepted UI and `259,422` rows; two route requests returned HTTP `200`, and the post-deploy runtime-error scan was clean
 - Task-archival posture: completed one-time Automata tasks are eligible only after full propagation and clean decision/checkpoint/approval/blocker/continuation state; standing long-term, active, blocked, and awaiting-decision tasks remain open; archival is reversible and project-scoped
 - Runtime publication posture: repaired artifact `full-mailbox-20260831062356983` is active and `published / fresh`; predecessor `full-mailbox-20260825031402535` remains the immediate rollback version and April `full-mailbox-20260415024237593` remains preserved historical lineage
-- Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 and Slice 2 Human-acceptance incrementals completed on 2026-09-02 with `2,409` and `2,434` files respectively; Vercel-fix pre-propagation and accepted-closeout incrementals were created on 2026-09-02 with normal project-scoped seven-day pruning and `KEEP` preservation
+- Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 and Slice 2 Human-acceptance incrementals completed on 2026-09-02 with `2,409` and `2,434` files respectively; Vercel-fix pre-propagation and accepted-closeout incrementals plus the clean `2,466`-file Phase 4 Slice 4A pre-target-generation incremental were created on 2026-09-02; the verified `2,584`-file Slice 4A Stage A Human-acceptance incremental completed on 2026-09-03 with normal project-scoped seven-day pruning and `KEEP` preservation
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.
@@ -121,7 +121,12 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 3 HUMAN-ACCEPTED / RECOVERY-BACKED / GIT
 - [x] Record explicit Slice 3 Human Review `ACCEPT` and Recovery Contract
 - [x] Create/verify the `2,466`-file Human-acceptance backup with exact identity, `21` changed paths, normal seven-day pruning, and `KEEP` preservation
 - [x] Commit accepted-content `22243c25bdd16098c2bd5eb97719f0a0ac95874e` and push normally without force to the dedicated Slice 3 branch
-- [ ] ACTIVE NOW — return to PM discovery/target locking before any atomic execution/receipt-ledger work; keep action invocation during proof, provider/data mutation, schema work, new request/lifecycle behavior, merge, and deployment behind separate gates
+- [x] Complete Phase 4 Slice 4A repository/live-schema discovery, create the clean pre-target-generation recovery point, and generate exact empty unapplied migration `20260902141603_add_decision_workspace_execution_ledger.sql` through the required Supabase workflow
+- [x] Create the exact nine-file target-locked Slice 4A PM Brief for a provider-neutral atomic local claim/per-action receipt foundation; retain multi-source/workflow/agent-role identity and honest partial/indeterminate outcomes without claiming cross-provider atomicity
+- [x] Implement and verifier-accept only the exact nine-file Slice 4A Stage A source/schema packet; pass eight-domain/static lifecycle fixtures, established regressions, TypeScript, lint, diff/allowlist/frozen hashes, and post-settle read-only Gmail proof at `HIGH`
+- [x] Record Oliver's exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE A` and the authoritative Recovery Contract
+- [x] Create and verify the `2,584`-file Slice 4A Stage A Human-acceptance snapshot with exact identity, `16` accepted changed paths, normal pruning, and `KEEP` preservation
+- [ ] ACTIVE NOW — complete exact-scope normal non-force GitHub preservation; Stage B migration application and recovery review remain separate
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

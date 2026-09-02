@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • Phase 4 Slice 3 Human-accepted, recovery-backed, GitHub-preserved, and closed_
+_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage A Human-accepted; acceptance preservation in progress_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -127,8 +127,14 @@ _Last updated: 2026-09-02 • Phase 4 Slice 3 Human-accepted, recovery-backed, G
 - [x] Record explicit Phase 4 Slice 3 Human Review `ACCEPT` and create the accepted-fix Recovery Contract.
 - [x] Create and verify the `2,466`-file Human-acceptance incremental with exact worktree/branch/HEAD identity, `21` changed paths, normal seven-day project-scoped pruning, and `KEEP` preservation.
 - [x] Commit accepted-content `22243c25bdd16098c2bd5eb97719f0a0ac95874e` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
-- [ ] ACTIVE NOW — use a fresh PM discovery/target-lock pass before planning the atomic execution claim, per-action receipt, partial/indeterminate failure, retry/reconciliation, and rollback ledger; no generalized provider-execution claim exists yet.
-- [ ] Keep provider/data mutation, action invocation during proof, schema work, new requests/polling/cache/lifecycle behavior, merge, and deployment behind their applicable separate gates.
+- [x] Complete the bounded Phase 4 Slice 4A repository/live-schema discovery, create the governed pre-target-generation recovery point, and generate the exact empty migration identity through `supabase migration new`.
+- [x] Create the exact nine-file target-locked `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_ATOMIC_EXECUTION_CLAIM_AND_RECEIPT_FOUNDATION_PM_BRIEF.md`; preserve Gmail as the first reference adapter under a provider-neutral, multi-business execution/receipt contract with no false cross-provider atomicity.
+- [x] Record Oliver's `ACCEPT PHASE 4 SLICE 4A STAGE A IMPLEMENTATION` and implement only the exact nine-file source/migration packet without applying the migration or invoking a provider action.
+- [x] Pass eight-domain/static lifecycle fixtures, ten established Decision Workspace/Gmail regressions, TypeScript, exact lint, diff/allowlist/frozen-hash checks, and authenticated post-settle Gmail Approval Queue proof at verifier `ACCEPT / HIGH`.
+- [x] Record Oliver's exact Human Review decision `ACCEPT PHASE 4 SLICE 4A STAGE A` and the Stage A Recovery Contract.
+- [x] Create and verify the `2,584`-file Human-acceptance snapshot with exact linked-worktree identity, `16` changed paths, normal seven-day project-scoped pruning, and `KEEP` preservation.
+- [ ] ACTIVE NOW — complete exact-scope normal non-force GitHub preservation; then return to PM for a separate Stage B additive-schema application/recovery decision surface.
+- [ ] Keep migration application, provider/data mutation, action invocation during proof, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, commit, push, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 
