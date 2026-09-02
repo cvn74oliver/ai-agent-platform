@@ -1,7 +1,7 @@
 # ACE-048 Framework-First Decision Workspace Phase 4 Slice 1 — Capability-Driven Action Presentation PM Brief
 
 Date: 2026-09-02
-Status: `HUMAN-ACCEPTED / RECOVERY-BACKED / CLOSEOUT PUBLICATION IN PROGRESS`
+Status: `HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED`
 Governing event: `ACE-048`
 Feature domain: Decision Workspace capability/action boundary — deterministic action presentation and availability
 Mode: `PLAN MODE` until explicit implementation authorization; later bounded `EXECUTION MODE`

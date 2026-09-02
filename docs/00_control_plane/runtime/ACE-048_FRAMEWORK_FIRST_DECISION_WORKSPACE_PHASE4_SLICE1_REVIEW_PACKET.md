@@ -1,7 +1,7 @@
 # ACE-048 Framework-First Decision Workspace Phase 4 Slice 1 — Verifier Review Packet
 
 Date: 2026-09-02
-Status: `HUMAN-ACCEPTED / CLOSEOUT PUBLICATION IN PROGRESS`
+Status: `HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED`
 Verifier verdict: `ACCEPT`
 Verification Confidence: `HIGH`
 Execution mode: `transitional_self_verification`
@@ -76,7 +76,7 @@ The optional webpack fallback remains blocked by the repository's pre-existing `
 
 ## Human Review decision
 
-Recorded decision: `ACCEPT` — Oliver accepted the recommended verifier-backed result on 2026-09-02. Recovery Contract capture and the verified `2,409`-file Human-acceptance snapshot are complete; exact-scope normal non-force GitHub publication is the remaining closeout step.
+Recorded decision: `ACCEPT` — Oliver accepted the recommended verifier-backed result on 2026-09-02. Recovery Contract capture and the verified `2,409`-file Human-acceptance snapshot are complete. Accepted-content commit `9e27a12` was published normally without force and matched local, remote-tracking, live remote, and draft PR #3 head before final docs-only closeout propagation.
 
 - `ACCEPT` — record Human acceptance, create the Recovery Contract and milestone backup, propagate closeout, then exact-scope commit and normal non-force GitHub push under the standing policy.
 - `REJECT` — return to bounded correction with the exact visible or behavioral finding.
@@ -85,4 +85,4 @@ Recorded decision: `ACCEPT` — Oliver accepted the recommended verifier-backed 
 
 No acceptance is inferred from prior implementation authorization.
 
-Checkpoint Status: propagation required before closeout. Human acceptance, the Recovery Contract, and the verified Human-acceptance backup are captured; exact-scope publication, live remote/PR parity proof, and final closed-state propagation remain pending. Merge, deployment, provider/data mutation, later Phase 4 work, force operations, and lineage deletion remain unauthorized.
+Checkpoint Status: none. Human acceptance, Recovery Contract, verified Human-acceptance backup, accepted-content publication, and final closed-state propagation are captured. Merge, deployment, provider/data mutation, later Phase 4 work, force operations, and lineage deletion remain unauthorized.

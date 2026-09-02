@@ -2,17 +2,17 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION POLICY ACTIVE; FRAMEWORK BASELINE GITHUB-PRESERVED; PHASE 4 SLICE 1 HUMAN-ACCEPTED / CLOSEOUT PUBLICATION IN PROGRESS
+Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION POLICY ACTIVE; FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
 - Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, and all four Phase 3 generic runtime/data-facade slices Human-accepted, recovery-backed, and closed
-- Problem class: Phase 4 Slice 1 UI grammar/rendering plus read-only capability availability; exact eight-source-file implementation Human-accepted at `ACCEPT / HIGH`; recovery/publication closeout in progress
+- Problem class: Phase 4 Slice 1 UI grammar/rendering plus read-only capability availability; exact eight-source-file implementation Human-accepted at `ACCEPT / HIGH` and closed
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
-- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; accepted baseline preserved on `agent/ace-048-accepted-framework-baseline` with local/remote/PR head at `1a04314` and draft PR #3 open against `main`; accepted Phase 4 Slice 1 exact-scope publication is in progress
+- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; accepted framework through Phase 4 Slice 1 preserved on `agent/ace-048-accepted-framework-baseline`; accepted-content commit `9e27a12` pushed normally without force and matched local/remote/live/draft-PR #3 head before final docs-only closeout propagation
 - Runtime publication posture: repaired artifact `full-mailbox-20260831062356983` is active and `published / fresh`; predecessor `full-mailbox-20260825031402535` remains the immediate rollback version and April `full-mailbox-20260415024237593` remains preserved historical lineage
 - Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 Human-acceptance incremental completed on 2026-09-02 with `2,409` files; project-scoped seven-day pruning and `KEEP` preservation apply
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
@@ -97,7 +97,7 @@ Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION 
 - [x] Implement and verifier-accept only the exact eight-file Phase 4 Slice 1 action presentation/availability contract
 - [x] Record explicit Phase 4 Slice 1 Human Review `ACCEPT` and Recovery Contract
 - [x] Create and verify the `2,409`-file Phase 4 Slice 1 Human-acceptance backup
-- [ ] Publish the exact accepted slice normally without force and prove local/remote/PR parity
+- [x] Publish accepted-content commit `9e27a12` normally without force and prove local/remote/live/PR parity
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
