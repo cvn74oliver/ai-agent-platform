@@ -18,8 +18,8 @@ This file tracks active architectural, product, workflow, UI, and operating-mode
 
 ### [ACE-048] Post-merge publication recovery — 2026-08-31
 
-Status: HUMAN ACCEPTED / RECOVERY CAPTURED; ACCEPTED-MILESTONE GIT PUBLICATION POLICY ACTIVE; FRAMEWORK THROUGH PHASE 4 SLICE 1 GITHUB-PRESERVED / CLOSED; PHASE 4 SLICE 2 IMPLEMENTATION AUTHORIZED
-Problem class: Approval Queue UI grammar/rendering plus read-only complete-bundle truth projection; provider actions and runtime lifecycle frozen
+Status: HUMAN ACCEPTED / RECOVERY CAPTURED; ACCEPTED-MILESTONE GIT PUBLICATION POLICY ACTIVE; FRAMEWORK THROUGH PHASE 4 SLICE 2 GITHUB-PRESERVED / CLOSED; LATER PHASE 4 WORK REQUIRES FRESH PM DISCOVERY AND TARGET LOCK
+Problem class: mixed / unresolved for later Phase 4 work; remain in PM discovery until a fresh target lock; the accepted Approval Queue presentation/read surface is closed and endpoint/runtime hardening remains separate and unapproved
 Execution mode: `transitional_self_verification`
 
 - Initial post-merge Human Review found that accepted consolidated source was not yet the runtime truth on canonical localhost: Mailbox Intelligence stopped at the April artifact, Cleanup Groups used incomplete legacy child data, and child Sender Overview routes failed against that mixed version.

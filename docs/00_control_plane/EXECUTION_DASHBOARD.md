@@ -2,19 +2,19 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED; PHASE 4 SLICE 2 IMPLEMENTATION AUTHORIZED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; LATER PHASE 4 WORK REQUIRES FRESH PM DISCOVERY AND TARGET LOCK
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, and all four Phase 3 generic runtime/data-facade slices Human-accepted, recovery-backed, and closed
-- Problem class: Phase 4 Slice 2 Approval Queue UI grammar/rendering plus read-only complete-bundle truth projection; target-locked implementation active after recovery checkpoint
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, and Phase 4 Slices 1-2 Human-accepted, recovery-backed, GitHub-preserved, and closed
+- Problem class: mixed / unresolved for later Phase 4 work; remain in PM discovery until a fresh target lock; endpoint/runtime hardening remains separate and unapproved
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
-- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; accepted framework through Phase 4 Slice 1 preserved on `agent/ace-048-accepted-framework-baseline`; accepted-content commit `9e27a12` pushed normally without force and matched local/remote/live/draft-PR #3 head before final docs-only closeout propagation
+- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; accepted framework through Phase 4 Slice 2 preserved on `agent/ace-048-accepted-framework-baseline`; accepted-content commit `00f8c6e` plus final docs-only closeout commit `2ee79f11` pushed normally without force and matched local/remote/live/draft-PR #3 head at `0 / 0` divergence
 - Runtime publication posture: repaired artifact `full-mailbox-20260831062356983` is active and `published / fresh`; predecessor `full-mailbox-20260825031402535` remains the immediate rollback version and April `full-mailbox-20260415024237593` remains preserved historical lineage
-- Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 Human-acceptance incremental completed on 2026-09-02 with `2,409` files; project-scoped seven-day pruning and `KEEP` preservation apply
+- Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 and Slice 2 Human-acceptance incrementals completed on 2026-09-02 with `2,409` and `2,434` files respectively; project-scoped seven-day pruning and `KEEP` preservation apply
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.

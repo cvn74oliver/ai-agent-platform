@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • Phase 4 Slice 2 Approval Queue truth implementation authorized_
+_Last updated: 2026-09-02 • Phase 4 Slice 2 Human-accepted, recovery-backed, GitHub-preserved, and closed; later Phase 4 work requires fresh PM discovery and target lock_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
