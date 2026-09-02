@@ -1,7 +1,7 @@
 # ACE-048 Framework-First Decision Workspace Phase 4 Slice 3 — Endpoint Access and Decision Binding PM Brief
 
 Date: 2026-09-02
-Status: `HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PUBLICATION PENDING 2026-09-02`
+Status: `HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVED / CLOSED 2026-09-02`
 Governing event: `ACE-048`
 Feature domain: `Decision Workspace approval-family runtime endpoints`
 Mode: `PLAN MODE required; execute only after explicit approval`
@@ -192,4 +192,4 @@ Rollback is source-only across the 13-file allowlist: restore the ten existing e
 
 ## Decision gate
 
-Oliver returned `ACCEPT PHASE 4 SLICE 3 ENDPOINT ACCESS IMPLEMENTATION` on 2026-09-02. The exact 13-file implementation and required verification loop are authorized. Human acceptance, Recovery Contract closeout, accepted-milestone backup, commit, push, merge, and deployment remain later gates.
+Oliver returned `ACCEPT PHASE 4 SLICE 3 ENDPOINT ACCESS IMPLEMENTATION` and later explicit Human Review `ACCEPT` on 2026-09-02. The exact 13-file implementation passed the required verification loop, its Recovery Contract and Human-acceptance backup were captured, and accepted-content commit `22243c25bdd16098c2bd5eb97719f0a0ac95874e` was pushed normally without force. Merge, deployment, and later atomic execution/receipt-ledger work remain separate gates.

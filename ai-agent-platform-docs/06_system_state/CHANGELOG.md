@@ -22,6 +22,7 @@
 - Discovery handoff: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_ENDPOINT_INTEGRITY_DISCOVERY_HANDOFF.md`.
 - Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE3_REVIEW_PACKET.md`.
 - Accepted source packet: the exact 13-file allowlist in the governing brief and review packet.
+- Accepted-content Git identity: commit `22243c25bdd16098c2bd5eb97719f0a0ac95874e` on branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pushed normally without force.
 - Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 4 Slice 3 Human acceptance)`; `2,466` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pre-publication HEAD `98b513ffaf1f1490b90601fd55ec1e8d4ec6515c`, `21` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
 
 #### Replay steps

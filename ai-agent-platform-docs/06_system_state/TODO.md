@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • Phase 4 Slice 3 Human-accepted and recovery-backed; exact commit and normal push pending_
+_Last updated: 2026-09-02 • Phase 4 Slice 3 Human-accepted, recovery-backed, GitHub-preserved, and closed_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -126,9 +126,9 @@ _Last updated: 2026-09-02 • Phase 4 Slice 3 Human-accepted and recovery-backed
 - [x] Implement and verifier-accept only the exact 13-file endpoint access/request-decision binding target lock; preserve accepted Gmail behavior and stop before the separate atomic execution/receipt ledger.
 - [x] Record explicit Phase 4 Slice 3 Human Review `ACCEPT` and create the accepted-fix Recovery Contract.
 - [x] Create and verify the `2,466`-file Human-acceptance incremental with exact worktree/branch/HEAD identity, `21` changed paths, normal seven-day project-scoped pruning, and `KEEP` preservation.
-- [ ] ACTIVE NOW — commit and normally push only the exact accepted packet; merge, deployment, and later ledger work remain separate.
-- [ ] After Slice 3 is separately accepted, plan the atomic execution claim, per-action receipt, partial/indeterminate failure, retry/reconciliation, and rollback ledger as a new target lock before any generalized provider-execution claim.
-- [ ] Keep provider/data mutation, action invocation during proof, schema work, new requests/polling/cache/lifecycle behavior, commit, push, merge, and deployment behind their applicable separate gates.
+- [x] Commit accepted-content `22243c25bdd16098c2bd5eb97719f0a0ac95874e` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
+- [ ] ACTIVE NOW — use a fresh PM discovery/target-lock pass before planning the atomic execution claim, per-action receipt, partial/indeterminate failure, retry/reconciliation, and rollback ledger; no generalized provider-execution claim exists yet.
+- [ ] Keep provider/data mutation, action invocation during proof, schema work, new requests/polling/cache/lifecycle behavior, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 
