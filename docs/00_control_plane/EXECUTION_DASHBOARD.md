@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / AUTOMATIC PRODUCTION DEPLOYMENTS READY / CLOSED; LATER PHASE 4 WORK REQUIRES FRESH PM DISCOVERY AND TARGET LOCK
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / AUTOMATIC PRODUCTION DEPLOYMENTS READY / CLOSED; ONE VERCEL ENVIRONMENT DEFECT REQUIRES SEPARATE PM ADJUDICATION
 
 ## Current position
 
@@ -13,7 +13,7 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAI
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged with merge commit `c766da0` from base `49f863c` and accepted head `ccf2c27`; merge tree equals the accepted head tree; local/remote/live `main` parity verified; source and recovery refs preserved
-- Deployment posture: both automatic Vercel `main@c766da0` production deployments are `READY`, both GitHub status contexts passed, and no runtime-error clusters were reported in the post-merge observation window; no direct Vercel mutation occurred
+- Deployment posture: both automatic Vercel `main@c766da0` production deployments and both later `main@3817137` docs-closeout deployments are `READY`; both merge-commit GitHub status contexts passed. Delayed telemetry recorded two `/api/runtime/gmail-memory` `500` errors on the first `ai-agent-platform` merge deployment because `supabaseKey is required`; no error/fatal logs were observed for `e6cc` or either docs-closeout deployment. Environment repair remains separately gated; no direct Vercel mutation occurred
 - Task-archival posture: completed one-time Automata tasks are eligible only after full propagation and clean decision/checkpoint/approval/blocker/continuation state; standing long-term, active, blocked, and awaiting-decision tasks remain open; archival is reversible and project-scoped
 - Runtime publication posture: repaired artifact `full-mailbox-20260831062356983` is active and `published / fresh`; predecessor `full-mailbox-20260825031402535` remains the immediate rollback version and April `full-mailbox-20260415024237593` remains preserved historical lineage
 - Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 and Slice 2 Human-acceptance incrementals completed on 2026-09-02 with `2,409` and `2,434` files respectively; project-scoped seven-day pruning and `KEEP` preservation apply
@@ -109,8 +109,9 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAI
 - [x] Create and verify the `2,434`-file Human-acceptance backup with exact worktree/branch/HEAD identity and `KEEP` preservation
 - [x] Commit accepted-content `00f8c6e`, push normally without force, and prove local/remote/live/draft-PR-head parity with `0 / 0` divergence
 - [x] Merge PR #3 with merge commit `c766da0`; verify ordered parents, accepted-head-equivalent tree, merged PR state, preserved refs, and local/remote/live main parity
-- [x] Observe both automatic production deployments to `READY`; confirm both GitHub Vercel status contexts passed and no post-merge runtime-error clusters were reported
+- [x] Observe both merge and docs-closeout automatic production deployment pairs to `READY`; confirm merge-commit GitHub Vercel statuses passed and record the two missing-`supabaseKey` `/api/runtime/gmail-memory` errors on the first `ai-agent-platform` merge deployment
 - [x] Add and propagate the project-scoped completed-task archival procedure without changing later Phase 4 authority
+- [ ] Separately adjudicate canonical Vercel project/environment ownership and the missing `supabaseKey`; no environment mutation is authorized by this closeout
 - [ ] Keep Slice 2 closed; require a fresh PM discovery/target lock and separate approval before endpoint hardening or later Phase 4 work
 
 - [x] Decision-complete plan approved for immediate same-flow execution
