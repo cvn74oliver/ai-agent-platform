@@ -124,16 +124,15 @@ Missing Proof Type: `NONE within Stage A scope`
 
 ## Decision gate
 
-Status: `HUMAN ACCEPTED — 2026-09-03 / RECOVERY BACKED / GITHUB PRESERVATION IN PROGRESS`
+Status: `HUMAN ACCEPTED — 2026-09-03 / RECOVERY BACKED / GITHUB PRESERVED / CLOSED`
 
-Oliver returned exact `ACCEPT PHASE 4 SLICE 4A STAGE A`. The Stage A source/migration candidate is Human-accepted, its Recovery Contract is recorded, and the governed `2,584`-file Human-acceptance snapshot is verified. Exact-scope GitHub preservation is in progress. Migration application, provider action, and deployment remain unauthorized.
+Oliver returned exact `ACCEPT PHASE 4 SLICE 4A STAGE A`. The Stage A source/migration candidate is Human-accepted, its Recovery Contract is recorded, the governed `2,584`-file Human-acceptance snapshot is verified, and accepted-content commit `a4fdbc0` is GitHub-preserved. Migration application, provider action, and deployment remain unauthorized.
 
 - `ACCEPT PHASE 4 SLICE 4A STAGE A` — accept the verified source/migration candidate and authorize the governed acceptance capture/preservation step; Stage B migration application still requires its own explicit decision.
 - `REJECT` — return the exact concern for bounded correction and re-verification.
 
-Checkpoint Status: `continuity checkpoint created`
+Checkpoint Status: `none`
 
-- Unpropagated state after this packet: accepted Git identities only.
-- Classification: accepted-fix state and backup evidence are propagated; Git preservation evidence remains to be recorded.
-- Same-thread continuation: allowed only for exact-scope commit/push and final preservation evidence.
-- Stage B or a new task: blocked until acceptance preservation closes and PM presents the separate migration-application/recovery decision surface.
+- Unpropagated state after this packet: none.
+- Classification: Stage A accepted-fix state, backup evidence, and Git preservation are fully propagated.
+- Stage A is closed. Stage B remains inactive until PM presents and Oliver accepts a separate migration-application/recovery decision surface.

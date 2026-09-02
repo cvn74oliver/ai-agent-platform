@@ -22,7 +22,7 @@
 - Migration identity: `supabase/migrations/20260902141603_add_decision_workspace_execution_ledger.sql`, SHA-256 `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`, authored but not applied.
 - Pre-target recovery: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - Pre ACE-048 Phase 4 Slice 4A atomic execution ledger target generation)`; `2,466` files at clean baseline `b752c863c7dc4d634e6e21b061fd6f7d2a4cc1ef`.
 - Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage A Human acceptance)`; `2,584` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pre-publication HEAD `b752c863c7dc4d634e6e21b061fd6f7d2a4cc1ef`, `16` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
-- Accepted Git identities are recorded by the acceptance-closeout packet after normal non-force publication completes.
+- Accepted-content Git identity: commit `a4fdbc0` on branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pushed normally without force. Local, remote-tracking, and live branch parity were required before closeout.
 
 #### Replay steps
 

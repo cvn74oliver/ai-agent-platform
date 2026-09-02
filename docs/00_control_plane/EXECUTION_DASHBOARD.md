@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 3 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / ACCEPTANCE PRESERVATION IN PROGRESS; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B NOT ACTIVE; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, and Phase 4 Slices 1-3 Human-accepted, recovery-backed, GitHub-preserved, and closed; Slice 4A Stage A is Human-accepted with acceptance preservation in progress
-- Problem class: runtime behavior plus additive schema contract / provider-neutral atomic local execution claim and per-action receipt foundation Human-accepted; Stage B migration application remains separate
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, and Slice 4A Stage A Human-accepted, recovery-backed, GitHub-preserved, and closed
+- Problem class: runtime behavior plus additive schema contract / provider-neutral atomic local execution claim and per-action receipt Stage A closed; Stage B migration application remains separate and inactive
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
@@ -126,7 +126,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 3 HUMAN-ACCEPTED / RECOVERY-BACKED / GIT
 - [x] Implement and verifier-accept only the exact nine-file Slice 4A Stage A source/schema packet; pass eight-domain/static lifecycle fixtures, established regressions, TypeScript, lint, diff/allowlist/frozen hashes, and post-settle read-only Gmail proof at `HIGH`
 - [x] Record Oliver's exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE A` and the authoritative Recovery Contract
 - [x] Create and verify the `2,584`-file Slice 4A Stage A Human-acceptance snapshot with exact identity, `16` accepted changed paths, normal pruning, and `KEEP` preservation
-- [ ] ACTIVE NOW — complete exact-scope normal non-force GitHub preservation; Stage B migration application and recovery review remain separate
+- [x] Commit accepted Stage A content as `a4fdbc0` and push normally without force to the dedicated branch
+- [ ] NEXT DECISION — authorize or defer the bounded PM Stage B readiness review; migration application and recovery execution remain separate
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

@@ -1,7 +1,7 @@
 # ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A — Atomic Execution Claim and Receipt Foundation PM Brief
 
 Date: 2026-09-02
-Status: `STAGE A HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVATION IN PROGRESS`
+Status: `STAGE A HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVED / CLOSED`
 Governing event: `ACE-048`
 Feature domain: `Decision Workspace approved-action execution integrity`
 Mode: `PLAN MODE required; execute Stage A only after explicit approval`
@@ -267,4 +267,6 @@ Decision recorded: Oliver returned exact `ACCEPT PHASE 4 SLICE 4A STAGE A`. This
 
 Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage A Human acceptance)`; `2,584` files and `16` accepted changed paths at pre-publication baseline `b752c863c7dc4d634e6e21b061fd6f7d2a4cc1ef`.
 
-Checkpoint Status: `continuity checkpoint created` — Stage A accepted-fix truth, Recovery Contract, and Human-acceptance backup are propagated; exact-scope GitHub preservation is in progress before closeout.
+Accepted-content Git identity: `a4fdbc0` on `codex/ace-048-phase4-endpoint-integrity-discovery`, pushed normally without force.
+
+Checkpoint Status: `none` — Stage A accepted-fix truth, Recovery Contract, Human-acceptance backup, and exact-scope GitHub preservation are propagated. Stage B is not active and requires a separate PM readiness/application decision surface.
