@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • Phase 4 Slice 1 Human-accepted, recovery-backed, GitHub-preserved, and closed_
+_Last updated: 2026-09-02 • Phase 4 Slice 2 Approval Queue truth implementation authorized_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -107,7 +107,14 @@ _Last updated: 2026-09-02 • Phase 4 Slice 1 Human-accepted, recovery-backed, G
 - [x] Create and verify the `2,409`-file Human-acceptance milestone backup with exact worktree/branch/HEAD identity, normal seven-day pruning, and `KEEP` preservation.
 - [x] Publish accepted-content commit `9e27a12` normally without force and prove local/remote/live/PR-head parity before final docs-only closeout propagation.
 - [x] Record Oliver's approval for a fresh bounded PM discovery/target-lock pass before any further Phase 4 implementation.
-- [ ] ACTIVE NOW — discover and target-lock the next Phase 4 capability/action slice; return an operator-readable recommendation plus an execution-ready PM Brief or precise blocker. Do not implement source/runtime behavior.
+- [x] Complete read-only discovery of the next Phase 4 capability/action slice and prove the Approval Queue first-action truncation versus full-bundle execution boundary.
+- [x] Create the exact four-file target-locked `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE2_APPROVAL_QUEUE_TRUTH_PM_BRIEF.md` with eight-domain, multi-role/source, fail-closed, load, rollback, and post-settle proof contracts.
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 2 IMPLEMENTATION` decision.
+- [x] Create and verify the governed pre-implementation recovery point, then implement and verifier-check only the exact four-file Approval Queue truth-projection contract.
+- [x] Record Oliver's Human Review `accept` and create the accepted-fix Recovery Contract for Phase 4 Slice 2.
+- [x] Create and verify the `2,434`-file Phase 4 Slice 2 Human-acceptance backup with exact worktree/branch/HEAD identity, normal seven-day project-scoped pruning, and `KEEP` preservation.
+- [ ] ACTIVE NOW — commit and normally push only the exact accepted 11-path Slice 2 source/control-plane packet, then prove local/remote/live/PR-head parity before starting another slice.
+- [ ] Plan the discovered approval/execution endpoint integrity issues as a separate later work unit before any generalized provider-execution claim; do not fold runtime hardening into the four-file presentation/read slice.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 

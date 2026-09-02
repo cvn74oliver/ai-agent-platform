@@ -1,3 +1,45 @@
+### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 2 Accepted
+
+Accepted invariant:
+- The Operations Approval Queue presents the complete ordered action bundle that one Human approval can authorize; it never reduces a multi-action request to `proposed_actions[0]` while the frozen execution path processes the full bundle.
+- The framework owns stable request, bundle, action, status, control, atomicity, validation, and fail-closed semantics. The selected adapter owns deterministic domain vocabulary plus source, workflow stage, responsible role, capability, effect/risk, reversibility, scope, evidence, and safety presentation.
+- Valid current Gmail requests retain the same route, status sections, counts, controls, request bodies, event history, refresh behavior, and provider execution. Invalid, unsupported, partially unsafe, or ambiguously combined bundles expose no approve/execute compatibility value.
+
+Acceptance proof:
+- Oliver returned explicit Human Review `accept` on 2026-09-02 after the verifier presented the completed result and exact decision gate.
+- Verifier decision is `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE2_REVIEW_PACKET.md`.
+- Eight-domain fixtures prove Gmail plus customer service, real estate, crypto, multi-source paid media, bookkeeping, tax, and multi-role purchasing/records/shipping. Complete ordered bundles retain source/workflow/role identity; undeclared multi-source atomicity and unsafe or unsupported actions fail closed.
+- Required framework and Gmail regressions, TypeScript, targeted lint, exact allowlist, frozen-file hashes, byte-identical approve/execute handlers, and `git diff --check` pass.
+- Authenticated post-settle Playwright on the exact canonical Approval Queue preserves `3 / 0 / 8 / 46`, current valid Gmail controls, and the existing read family with zero action POSTs, zero failed final-run requests, zero `409` churn, and zero console errors. Before/after artifacts show the first-action-only card replaced by complete structured action truth.
+- One optimized production build attempt is `Missing Proof Type: Blocked` by the established local Turbopack stall under `transitional_self_verification`; no duplicate retry occurred without a new signal.
+
+Recovery identity:
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE2_APPROVAL_QUEUE_TRUTH_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE2_REVIEW_PACKET.md`.
+- Generic action model: `web/src/lib/runtime/decisionWorkspaceActionModel.ts`.
+- Gmail action adapter: `web/src/lib/integrations/gmail/gmailDecisionWorkspaceActionAdapter.ts`.
+- Shared Approval Queue consumer: `web/src/app/agents/[id]/operations/approvals/page.tsx`.
+- Cross-domain proof: `web/scripts/workspace-decision-action-model-fixtures.mjs`.
+- Accepted browser evidence: `output/playwright/ace048-phase4-slice2/`; generated screenshots, DOM snapshots, and authentication state remain excluded from Git.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 4 Slice 2 Human acceptance)`; `2,434` files, exact worktree source, branch `agent/ace-048-accepted-framework-baseline`, pre-publication HEAD `861e0a917a75f60f0717cb566dcdeed6ab777fd2`, `11` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+
+Replay steps:
+1. Run the action-model fixture plus retained Decision Workspace contract, presentation, read-model, Gmail review-unit, cleanup-assignment, and optional-evidence fixtures.
+2. Run TypeScript, targeted ESLint on the exact four-source-file allowlist, handler/frozen-seam comparisons, and `git diff --check`.
+3. Start the exact worktree runtime with environment values loaded only in-process and loopback binding; never print, copy, commit, or publish secrets or saved authentication state.
+4. Authenticate through the stable Playwright bootstrap, then exercise the exact canonical Approval Queue after settle without clicking approve, reject, or execute. Require `3 / 0 / 8 / 46`, complete action truth, valid controls, zero action POSTs, zero failed final-run requests, zero `409` churn, and zero console errors.
+
+Rollback guidance:
+- Restore only the four Phase 4 Slice 2 source files from the Human-acceptance snapshot if complete-bundle presentation, adapter projection, validation, or fail-closed controls regress.
+- Preserve every accepted Phase 1-4 Slice 1 contract, route, runtime/API/provider/cache/lifecycle seam, event history, and Gmail data/artifact/publication state. No provider/data rollback is required because this slice performed no provider or data mutation.
+
+Acceptance boundary:
+- This Recovery Contract accepts Approval Queue presentation and read-only complete-bundle projection only.
+- It does not accept or authorize the separately discovered approval-decision/result scoping, latest-decision, request-existence, or guarded-mode endpoint corrections; those remain a later PM-governed runtime-integrity work unit.
+- It does not authorize new provider actions, Workflow Studio, proprietary-brain UI, shared learning, multi-agent orchestration, route/request/cache/poll/lifecycle changes, data/database/artifact/index/publication mutation, deployment, merge, force operations, later Phase 4 work, or lineage deletion.
+
+---
+
 ### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 1 Accepted
 
 Accepted invariant:

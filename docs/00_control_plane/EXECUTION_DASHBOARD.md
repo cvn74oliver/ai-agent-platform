@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED; NEXT PHASE 4 DISCOVERY AUTHORIZED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED; PHASE 4 SLICE 2 IMPLEMENTATION AUTHORIZED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
 - Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, and all four Phase 3 generic runtime/data-facade slices Human-accepted, recovery-backed, and closed
-- Problem class: next Phase 4 capability/action boundary is candidate-grounded / pre-execution discovery; no implementation authority
+- Problem class: Phase 4 Slice 2 Approval Queue UI grammar/rendering plus read-only complete-bundle truth projection; target-locked implementation active after recovery checkpoint
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; accepted framework through Phase 4 Slice 1 preserved on `agent/ace-048-accepted-framework-baseline`; accepted-content commit `9e27a12` pushed normally without force and matched local/remote/live/draft-PR #3 head before final docs-only closeout propagation
@@ -99,7 +99,13 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GIT
 - [x] Create and verify the `2,409`-file Phase 4 Slice 1 Human-acceptance backup
 - [x] Publish accepted-content commit `9e27a12` normally without force and prove local/remote/live/PR parity
 - [x] Record Oliver's approval for a fresh bounded next-Phase-4 discovery/target-lock task
-- [ ] Complete read-only discovery and return an execution-ready PM Brief or precise candidate-grounded blocker; implementation remains separately gated
+- [x] Complete read-only Approval Queue discovery, prove first-action presentation truncation versus complete-bundle execution, and record separate endpoint-integrity findings
+- [x] Create the exact four-file target-locked `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE2_APPROVAL_QUEUE_TRUTH_PM_BRIEF.md`
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 2 IMPLEMENTATION` decision
+- [x] Create/verify the pre-implementation recovery point, then implement and verifier-check only the exact four-file target lock; runtime endpoint hardening remains separate
+- [x] Record Human Review `accept` and the Phase 4 Slice 2 Recovery Contract
+- [x] Create and verify the `2,434`-file Human-acceptance backup with exact worktree/branch/HEAD identity and `KEEP` preservation
+- [ ] Commit and normally push only the exact accepted 11-path Slice 2 packet; prove local/remote/live/PR-head parity
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
