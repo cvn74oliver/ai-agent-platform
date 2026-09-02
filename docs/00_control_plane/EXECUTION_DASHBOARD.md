@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION POLICY ACTIVE; FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED; NEXT PHASE 4 DISCOVERY AUTHORIZED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
 - Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, and all four Phase 3 generic runtime/data-facade slices Human-accepted, recovery-backed, and closed
-- Problem class: Phase 4 Slice 1 UI grammar/rendering plus read-only capability availability; exact eight-source-file implementation Human-accepted at `ACCEPT / HIGH` and closed
+- Problem class: next Phase 4 capability/action boundary is candidate-grounded / pre-execution discovery; no implementation authority
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; accepted framework through Phase 4 Slice 1 preserved on `agent/ace-048-accepted-framework-baseline`; accepted-content commit `9e27a12` pushed normally without force and matched local/remote/live/draft-PR #3 head before final docs-only closeout propagation
@@ -98,6 +98,8 @@ Status: PUBLISHED CORRECTION HUMAN-ACCEPTED; ACCEPTED-MILESTONE GIT PUBLICATION 
 - [x] Record explicit Phase 4 Slice 1 Human Review `ACCEPT` and Recovery Contract
 - [x] Create and verify the `2,409`-file Phase 4 Slice 1 Human-acceptance backup
 - [x] Publish accepted-content commit `9e27a12` normally without force and prove local/remote/live/PR parity
+- [x] Record Oliver's approval for a fresh bounded next-Phase-4 discovery/target-lock task
+- [ ] Complete read-only discovery and return an execution-ready PM Brief or precise candidate-grounded blocker; implementation remains separately gated
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

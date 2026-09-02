@@ -106,7 +106,8 @@ _Last updated: 2026-09-02 • Phase 4 Slice 1 Human-accepted, recovery-backed, G
 - [x] Record Oliver's explicit Phase 4 Slice 1 Human Review `ACCEPT` and Recovery Contract.
 - [x] Create and verify the `2,409`-file Human-acceptance milestone backup with exact worktree/branch/HEAD identity, normal seven-day pruning, and `KEEP` preservation.
 - [x] Publish accepted-content commit `9e27a12` normally without force and prove local/remote/live/PR-head parity before final docs-only closeout propagation.
-- [ ] NEXT SEPARATE GATE — perform PM discovery/target locking before any further Phase 4 implementation; do not infer approval for approval/execution-facade or provider behavior.
+- [x] Record Oliver's approval for a fresh bounded PM discovery/target-lock pass before any further Phase 4 implementation.
+- [ ] ACTIVE NOW — discover and target-lock the next Phase 4 capability/action slice; return an operator-readable recommendation plus an execution-ready PM Brief or precise blocker. Do not implement source/runtime behavior.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 
