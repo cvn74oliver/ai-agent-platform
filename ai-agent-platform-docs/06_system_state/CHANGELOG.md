@@ -1,3 +1,22 @@
+### September 2, 2026 — ACE-048 Vercel Production Service-Key Configuration Accepted
+
+#### Accepted outcome
+
+- Oliver explicitly authorized `ACCEPT VERCEL PRODUCTION KEY FIX` after read-only diagnosis proved that canonical Vercel project `ai-agent-platform` owned `orinexlabs.com` / `www.orinexlabs.com`, while its Production environment lacked the server-only `SUPABASE_SERVICE_ROLE_KEY` required by `GET /api/runtime/gmail-memory`.
+- The existing project-matched service-role key was added once as a Vercel **Secret** scoped only to **Production** on canonical project `prj_L3V4M23PH0qlNcI4AMxkFlpZNQcz`. Preview and duplicate project `ai-agent-platform-e6cc` were not changed.
+- Current `main@bf9f401c5fa9fc76170e8303c47a298a351990b9` was redeployed without build cache as production deployment `dpl_Aa2BVRAZAwwCwLQtTYeCmf9UVSTt`; it reached `READY` with `aliasError=null` and canonical aliases including `orinexlabs.com` and `www.orinexlabs.com`.
+- Authenticated post-settle production proof reloaded the exact existing Automata review route. The route showed no runtime overlay and no `supabaseKey is required` error. Deployment-scoped runtime logs recorded two `/api/runtime/gmail-memory` responses at HTTP `200`; Vercel runtime-error aggregation reported no errors for that route in the verification window.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_VERCEL_PRODUCTION_KEY_FIX_REVIEW_PACKET.md`.
+
+#### Recovery Contract
+
+- Preserve canonical project identity, Production-only secret scope, current `main` source identity, custom-domain ownership, and the unchanged duplicate project.
+- If the configured key is later suspected invalid or exposed, rotate it through the governed Supabase/Vercel secret procedure and redeploy; never print or commit the secret.
+- Configuration rollback is limited to removing `SUPABASE_SERVICE_ROLE_KEY` from canonical project Production and redeploying the same source. That restores the pre-fix configuration and is expected to restore the prior runtime failure, so use it only for emergency containment or a coordinated key replacement.
+- No source/UI route, provider data, Supabase schema/data, Gmail state, artifact/publication pointer, domain assignment, Preview variable, or duplicate-project setting belongs to this accepted fix.
+- Pre-propagation recovery snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Vercel production key fix before Recovery Contract propagation)`; normal project-scoped seven-day pruning ran and `KEEP` preservation remained active.
+- Accepted-closeout snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Vercel production key fix accepted control-plane closeout)`; it contains the propagated Recovery Contract and review packet under the same retention and `KEEP` rules.
+
 ### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 2 Accepted
 
 Accepted invariant:
