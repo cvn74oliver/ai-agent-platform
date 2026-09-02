@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B APPLICATION BLOCKED / RETURN_TO_PM; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION DISCOVERY AUTHORIZED / ACTIVE; STAGE B APPLICATION BLOCKED; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, and Slice 4A Stage A Human-accepted, recovery-backed, GitHub-preserved, and closed; Stage B application blocked before execution
-- Problem class: source/index truth for migration-history identity plus additive schema application readiness; exact one-migration dry run blocked by local/remote drift
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, and Slice 4A Stage A Human-accepted, recovery-backed, GitHub-preserved, and closed; migration-history reconciliation discovery active while Stage B remains blocked
+- Problem class: source/index truth for migration-history identity; recover two remote-only definitions and classify four timestamp aliases without mutation
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
@@ -129,7 +129,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Commit accepted Stage A content as `a4fdbc0` and push normally without force to the dedicated branch
 - [x] Record Oliver's authorization for the fresh bounded Stage B read-only readiness review
 - [x] Complete the read-only Stage B readiness review and return `BLOCKED / RETURN_TO_PM` after the safe linked dry run refuses on migration-history drift
-- [ ] NEXT DECISION — authorize or defer dedicated read-only migration-history identity reconciliation discovery/target-lock; Stage B application remains prohibited
+- [x] Record exact `ACCEPT MIGRATION-HISTORY RECONCILIATION DISCOVERY`
+- [ ] ACTIVE NOW — complete read-only authoritative-definition recovery and four-pair equivalence target lock; return an execution-ready reconciliation packet or blocker
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

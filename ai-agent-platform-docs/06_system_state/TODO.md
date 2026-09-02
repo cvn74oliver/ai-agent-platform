@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B application blocked by migration-history identity drift_
+_Last updated: 2026-09-03 • Migration-history reconciliation read-only discovery/target-lock authorized_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -136,7 +136,8 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B application blocked by mi
 - [x] Commit accepted Stage A content as `a4fdbc0` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
 - [x] Record Oliver's authorization for a fresh, bounded, read-only Stage B readiness review. No migration application is authorized.
 - [x] Complete the read-only Stage B readiness review; confirm the accepted migration/schema contract is bounded but detect local/remote migration-history identity drift that prevents an exact one-migration dry run.
-- [ ] NEXT DECISION — authorize or defer a dedicated read-only migration-history identity reconciliation discovery/target-lock. It must recover the two April remote-only definitions, prove SQL/schema equivalence for four timestamp aliases, and select a canonical non-reexecution mapping before any write packet.
+- [x] Record Oliver's exact `ACCEPT MIGRATION-HISTORY RECONCILIATION DISCOVERY`; this authorizes read-only discovery/target-lock only, not reconciliation writes or Stage B application.
+- [ ] ACTIVE NOW — recover authoritative definitions for the two April remote-only migrations, prove exact SQL/schema-effect equivalence or difference for all four timestamp aliases, and return an operator-readable canonical mapping plus exact execution-ready reconciliation packet or blocker.
 - [ ] Keep Stage B application blocked until `supabase db push --dry-run --linked` lists exactly `20260902141603` and nothing older, after a separately approved reconciliation and pre-application recovery point.
 - [ ] Keep migration application, provider/data mutation, action invocation during proof, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, commit, push, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
