@@ -56,4 +56,4 @@ Accepted-closeout snapshot: `/Users/olivercarlin/Documents/Backups/September 202
 
 Rollback is limited to removing the one Production secret from the canonical project and redeploying the same source. Because that restores the known failing configuration, prefer coordinated key replacement if the key itself must change.
 
-Checkpoint Status: propagation required before closeout. Runtime/configuration work is verified; exact-scope control-plane GitHub publication awaits completion of GitHub's email-backed device verification. Merge and any resulting deployment remain separately gated.
+Checkpoint Status: none. Runtime/configuration work is verified, and GitHub publication is complete: exact six-file accepted-content commit `b66c1d4` was normally pushed to `codex/ace-048-vercel-production-key-fix` and documentation-only draft PR #4 is open at `https://github.com/cvn74oliver/automata/pull/4`. Merge and any resulting deployment remain separately gated.

@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE GITHUB PUBLICATION AWAITING AUTH
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE GITHUB-PUBLISHED / DRAFT PR #4 OPEN
 
 ## Current position
 
@@ -113,7 +113,7 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAI
 - [x] Add and propagate the project-scoped completed-task archival procedure without changing later Phase 4 authority
 - [x] Record clean-worktree / zero-unique-branch-content / main-only-closeout / historical-PR-counter separation
 - [x] Adjudicate canonical Vercel ownership and repair the missing Production service key under Oliver's explicit acceptance; redeploy exact current `main` and verify the previously failing route at HTTP `200` with no runtime-error recurrence
-- [ ] Finish GitHub email-backed device verification and publish the exact six-file control-plane packet as a draft PR; merge remains separately gated
+- [x] Complete GitHub device verification and publish the exact six-file control-plane packet as commit `b66c1d4` on documentation-only draft PR #4; merge remains separately gated
 - [ ] Keep Slice 2 closed; require a fresh PM discovery/target lock and separate approval before endpoint hardening or later Phase 4 work
 
 - [x] Decision-complete plan approved for immediate same-flow execution

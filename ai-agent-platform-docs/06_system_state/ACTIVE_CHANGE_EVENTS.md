@@ -18,7 +18,7 @@ This file tracks active architectural, product, workflow, UI, and operating-mode
 
 ### [ACE-048] Post-merge publication recovery — 2026-08-31
 
-Status: HUMAN ACCEPTED / RECOVERY CAPTURED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE GITHUB PUBLICATION AWAITING AUTH; FRAMEWORK THROUGH PHASE 4 SLICE 2 CLOSED
+Status: HUMAN ACCEPTED / RECOVERY CAPTURED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE GITHUB-PUBLISHED / DRAFT PR #4 OPEN; FRAMEWORK THROUGH PHASE 4 SLICE 2 CLOSED
 Problem class: mixed / unresolved for later Phase 4 work; remain in PM discovery until a fresh target lock; the accepted Approval Queue presentation/read surface is closed and endpoint/runtime hardening remains separate and unapproved
 Execution mode: `transitional_self_verification`
 
@@ -144,7 +144,7 @@ Execution mode: `transitional_self_verification`
 - Publication-audit truth — 2026-09-02: the accepted feature worktree is clean; the accepted branch has zero unique commits/content relative to live `main`; `main` contains later closeout-only commits; and GitHub retains PR #3's historical `73 files / +17,261 / -1,839` review counter. These are distinct facts. The historical PR diff is not evidence of unpublished local work after the accepted branch is fully contained in `main`.
 - PM operating-procedure propagation — 2026-09-02: Oliver explicitly authorized the protected Project Manager Activation & Turnover Protocol edit. Completed one-time task archival is now restricted to fully propagated, decision-free, checkpoint-free, approval-free, blocker-free Automata tasks; standing long-term role tasks and every active, blocked, or awaiting-decision task remain open. Archival remains reversible, discoverable/restorable, and owned only by this project's PM; cross-project archival is prohibited by default.
 
-Checkpoint Status: propagation required before closeout. The accepted Vercel fix, runtime proof, Recovery Contract, dashboard, TODO, and review packet are captured locally on `codex/ace-048-vercel-production-key-fix`; exact-scope GitHub publication is paused only because GitHub requires an email-backed device verification before CLI authentication can complete. No additional Vercel, runtime, provider, or data action is pending.
+Checkpoint Status: none. GitHub authentication completed as `cvn74oliver`; the exact six-file accepted Vercel-fix control-plane packet was committed as `b66c1d4` and normally pushed to `codex/ace-048-vercel-production-key-fix`. Documentation-only draft PR #4 is open at `https://github.com/cvn74oliver/automata/pull/4`. Merge and any resulting deployment remain separately gated. No unpropagated Vercel, runtime, provider, data, or publication state remains.
 
 ### [ACE-048] Automata Revival — Security and Rebaseline
 
