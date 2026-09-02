@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage A Human-accepted, recovery-backed, GitHub-preserved, and closed_
+_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B bounded read-only readiness review authorized_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -134,7 +134,8 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage A Human-accepted, recovery-
 - [x] Record Oliver's exact Human Review decision `ACCEPT PHASE 4 SLICE 4A STAGE A` and the Stage A Recovery Contract.
 - [x] Create and verify the `2,584`-file Human-acceptance snapshot with exact linked-worktree identity, `16` changed paths, normal seven-day project-scoped pruning, and `KEEP` preservation.
 - [x] Commit accepted Stage A content as `a4fdbc0` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
-- [ ] NEXT DECISION — authorize or defer a bounded PM Stage B readiness review that defines the additive-schema application and recovery decision surface. No migration application is active.
+- [x] Record Oliver's authorization for a fresh, bounded, read-only Stage B readiness review. No migration application is authorized.
+- [ ] ACTIVE NOW — inspect the exact authored migration and current live schema/migration posture read-only; define the additive-schema application, verification, and recovery decision surface; return an execution-ready packet or a precise candidate-grounded blocker.
 - [ ] Keep migration application, provider/data mutation, action invocation during proof, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, commit, push, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
