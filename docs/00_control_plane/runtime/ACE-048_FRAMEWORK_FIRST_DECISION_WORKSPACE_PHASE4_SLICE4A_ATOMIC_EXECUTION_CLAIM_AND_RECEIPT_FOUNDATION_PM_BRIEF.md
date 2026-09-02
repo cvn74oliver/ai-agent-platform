@@ -260,7 +260,6 @@ Status: `HUMAN ACCEPTED — 2026-09-03`
 
 - `ACCEPT PHASE 4 SLICE 4A STAGE A` — accept the verified Stage A source/migration candidate and authorize its governed acceptance capture/preservation; Stage B migration application remains a separate explicit decision.
 - `REJECT` — return the exact concern for bounded correction and re-verification.
-- `REJECT` — return to PM with the required correction.
 - `RETURN_TO_PM` — revise scope or architecture before implementation.
 
 Decision recorded: Oliver returned exact `ACCEPT PHASE 4 SLICE 4A STAGE A`. This authorizes governed acceptance capture/preservation only; Stage B migration application remains separately gated.
