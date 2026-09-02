@@ -7,6 +7,7 @@
 - Current `main@bf9f401c5fa9fc76170e8303c47a298a351990b9` was redeployed without build cache as production deployment `dpl_Aa2BVRAZAwwCwLQtTYeCmf9UVSTt`; it reached `READY` with `aliasError=null` and canonical aliases including `orinexlabs.com` and `www.orinexlabs.com`.
 - Authenticated post-settle production proof reloaded the exact existing Automata review route. The route showed no runtime overlay and no `supabaseKey is required` error. Deployment-scoped runtime logs recorded two `/api/runtime/gmail-memory` responses at HTTP `200`; Vercel runtime-error aggregation reported no errors for that route in the verification window.
 - Review packet: `docs/00_control_plane/runtime/ACE-048_VERCEL_PRODUCTION_KEY_FIX_REVIEW_PACKET.md`.
+- The exact six-file control-plane packet was merged through PR #4 as merge commit `003a06229c05ddd02af5eeb1c8c359b27f818c45`. Both automatic Production deployments reached `READY` with successful GitHub contexts and no alias error. Authenticated canonical-route proof retained the accepted UI and `259,422` indexed rows; two deployment-scoped `/api/runtime/gmail-memory` requests returned HTTP `200`, with no runtime error in the post-deploy scan.
 
 #### Recovery Contract
 

@@ -18,7 +18,7 @@ This file tracks active architectural, product, workflow, UI, and operating-mode
 
 ### [ACE-048] Post-merge publication recovery — 2026-08-31
 
-Status: HUMAN ACCEPTED / RECOVERY CAPTURED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE GITHUB-PUBLISHED / DRAFT PR #4 OPEN; FRAMEWORK THROUGH PHASE 4 SLICE 2 CLOSED
+Status: HUMAN ACCEPTED / RECOVERY CAPTURED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE PR #4 MERGED / PRODUCTION VERIFIED; FRAMEWORK THROUGH PHASE 4 SLICE 2 CLOSED
 Problem class: mixed / unresolved for later Phase 4 work; remain in PM discovery until a fresh target lock; the accepted Approval Queue presentation/read surface is closed and endpoint/runtime hardening remains separate and unapproved
 Execution mode: `transitional_self_verification`
 
@@ -144,7 +144,7 @@ Execution mode: `transitional_self_verification`
 - Publication-audit truth — 2026-09-02: the accepted feature worktree is clean; the accepted branch has zero unique commits/content relative to live `main`; `main` contains later closeout-only commits; and GitHub retains PR #3's historical `73 files / +17,261 / -1,839` review counter. These are distinct facts. The historical PR diff is not evidence of unpublished local work after the accepted branch is fully contained in `main`.
 - PM operating-procedure propagation — 2026-09-02: Oliver explicitly authorized the protected Project Manager Activation & Turnover Protocol edit. Completed one-time task archival is now restricted to fully propagated, decision-free, checkpoint-free, approval-free, blocker-free Automata tasks; standing long-term role tasks and every active, blocked, or awaiting-decision task remain open. Archival remains reversible, discoverable/restorable, and owned only by this project's PM; cross-project archival is prohibited by default.
 
-Checkpoint Status: none. GitHub authentication completed as `cvn74oliver`; the exact six-file accepted Vercel-fix control-plane packet was committed as `b66c1d4` and normally pushed to `codex/ace-048-vercel-production-key-fix`. Documentation-only draft PR #4 is open at `https://github.com/cvn74oliver/automata/pull/4`. Merge and any resulting deployment remain separately gated. No unpropagated Vercel, runtime, provider, data, or publication state remains.
+Checkpoint Status: none. GitHub authentication completed as `cvn74oliver`; the exact six-file accepted Vercel-fix control-plane packet was committed as `b66c1d4`, closed by `7e5438f`, and normally pushed to `codex/ace-048-vercel-production-key-fix`. Oliver explicitly authorized PR #4 merge plus automatic Vercel consequences. PR #4 merged to `main` as `003a06229c05ddd02af5eeb1c8c359b27f818c45`; both GitHub Vercel contexts passed. Canonical deployment `dpl_5qpg7KLUJU2MUpJsJ9KHEPp3J39j` and duplicate-project deployment `dpl_FfeyA9WdwijPEM5kdBHUtw4zuHWL` reached Production `READY` with `aliasError=null`. The exact authenticated canonical route settled without an overlay or console error, retained `259,422` indexed rows, and produced two `/api/runtime/gmail-memory` HTTP `200` responses; the 15-minute error scan was clean. No unpropagated Vercel, runtime, provider, data, or publication state remains.
 
 ### [ACE-048] Automata Revival — Security and Rebaseline
 

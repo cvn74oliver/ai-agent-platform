@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE GITHUB-PUBLISHED / DRAFT PR #4 OPEN
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE PR #4 MERGED / PRODUCTION VERIFIED
 
 ## Current position
 
@@ -12,8 +12,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAI
 - Problem class: mixed / unresolved for later Phase 4 work; remain in PM discovery until a fresh target lock; endpoint/runtime hardening remains separate and unapproved
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
-- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged with merge commit `c766da0` from base `49f863c` and accepted head `ccf2c27`; merge tree equals the accepted head tree; local/remote/live `main@c1f98a3` parity and accepted-branch zero-unique-content proof verified; source and recovery refs preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
-- Deployment posture: historical automatic builds reached `READY`, but canonical `ai-agent-platform` initially logged seven `/api/runtime/gmail-memory` `500` errors through `08:46:48Z` because its Production environment lacked the service key. Oliver explicitly accepted the fix; the existing matching key is now a Production-only Vercel Secret. Exact `main@bf9f401` redeploy `dpl_Aa2BVRAZAwwCwLQtTYeCmf9UVSTt` is `READY` on `orinexlabs.com` / `www.orinexlabs.com`; authenticated post-settle proof recorded two route HTTP `200` responses and no runtime errors. Preview and `e6cc` remain untouched
+- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
+- Deployment posture: canonical `ai-agent-platform` initially logged seven `/api/runtime/gmail-memory` `500` errors because Production lacked the service key. The accepted Production-only Secret repair and exact-source redeploy resolved it. After PR #4, canonical `dpl_5qpg7KLUJU2MUpJsJ9KHEPp3J39j` and duplicate `dpl_FfeyA9WdwijPEM5kdBHUtw4zuHWL` reached Production `READY` with successful GitHub contexts and no alias error. Authenticated canonical proof retained the accepted UI and `259,422` rows; two route requests returned HTTP `200`, and the post-deploy runtime-error scan was clean
 - Task-archival posture: completed one-time Automata tasks are eligible only after full propagation and clean decision/checkpoint/approval/blocker/continuation state; standing long-term, active, blocked, and awaiting-decision tasks remain open; archival is reversible and project-scoped
 - Runtime publication posture: repaired artifact `full-mailbox-20260831062356983` is active and `published / fresh`; predecessor `full-mailbox-20260825031402535` remains the immediate rollback version and April `full-mailbox-20260415024237593` remains preserved historical lineage
 - Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 and Slice 2 Human-acceptance incrementals completed on 2026-09-02 with `2,409` and `2,434` files respectively; Vercel-fix pre-propagation and accepted-closeout incrementals were created on 2026-09-02 with normal project-scoped seven-day pruning and `KEEP` preservation
@@ -113,7 +113,7 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAI
 - [x] Add and propagate the project-scoped completed-task archival procedure without changing later Phase 4 authority
 - [x] Record clean-worktree / zero-unique-branch-content / main-only-closeout / historical-PR-counter separation
 - [x] Adjudicate canonical Vercel ownership and repair the missing Production service key under Oliver's explicit acceptance; redeploy exact current `main` and verify the previously failing route at HTTP `200` with no runtime-error recurrence
-- [x] Complete GitHub device verification and publish the exact six-file control-plane packet as commit `b66c1d4` on documentation-only draft PR #4; merge remains separately gated
+- [x] Merge documentation-only PR #4 as `003a062`; verify both automatic Production deployments, GitHub contexts, canonical authenticated UI, route HTTP `200` responses, and clean runtime-error scan
 - [ ] Keep Slice 2 closed; require a fresh PM discovery/target lock and separate approval before endpoint hardening or later Phase 4 work
 
 - [x] Decision-complete plan approved for immediate same-flow execution
