@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 const {
   assignSenderCleanupGroupDecision,
@@ -434,6 +435,17 @@ for (const fixtureCase of fixtureCases) {
   )
 }
 
+const cleanupGroupsPageSource = readFileSync(
+  new URL('../src/app/agents/[id]/operations/clusters/page.tsx', import.meta.url),
+  'utf8'
+)
+assert.match(cleanupGroupsPageSource, /CLEANUP_GROUP_PRIMARY_CHOICE_LIMIT = 8/)
+assert.match(cleanupGroupsPageSource, /CLEANUP_GROUP_TINY_SUBJECT_LIMIT = 5/)
+assert.match(cleanupGroupsPageSource, /CLEANUP_GROUP_TINY_PARENT_SHARE_PCT = 1/)
+assert.match(cleanupGroupsPageSource, /More specific groups/)
+assert.match(cleanupGroupsPageSource, /Special handling/)
+assert.match(cleanupGroupsPageSource, /decision subjects/)
+
 const allRows = fixtureCases.flatMap((fixtureCase) => fixtureCase.rows)
 const projections = fixtureCases.map((fixtureCase) =>
   projectGmailSenderArtifactSlice({
@@ -662,6 +674,12 @@ const proof = {
     }
   }),
   exclusion_reason_mapping: exclusionReasonMapping,
+  presentation_policy: {
+    primary_choice_limit: 8,
+    tiny_subject_limit_exclusive: 5,
+    tiny_parent_share_pct_exclusive: 1,
+    exact_membership_preserved: assignedSenderCount === uniqueAssignedSenders.size,
+  },
 }
 
 console.log(JSON.stringify(proof, null, 2))

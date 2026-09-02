@@ -1,3 +1,19 @@
+import type {
+  DecisionWorkspaceActionDefinition,
+  DecisionWorkspaceContract,
+  DecisionWorkspaceSizingPolicy,
+  DecisionWorkspaceSubjectDefinition,
+  DecisionWorkspaceUniverseDefinition,
+} from './decisionWorkspaceContract'
+
+export type {
+  DecisionWorkspaceActionDefinition,
+  DecisionWorkspaceContract,
+  DecisionWorkspaceSizingPolicy,
+  DecisionWorkspaceSubjectDefinition,
+  DecisionWorkspaceUniverseDefinition,
+} from './decisionWorkspaceContract'
+
 export type ReviewUnitPartitionValue = {
   key: string
   label: string
@@ -9,41 +25,12 @@ export type ReviewUnitPartitionPathEntry = ReviewUnitPartitionValue & {
   dimension: string
 }
 
-export type ReviewUnitSizingPolicy = {
-  targetMin: number
-  targetMax: number
-  hardMax: number
-}
-
-export type WorkspaceUniverseDefinition = {
-  type: string
-  label: string
-}
-
-export type WorkspaceDecisionSubjectDefinition = {
-  type: string
-  singularLabel: string
-  pluralLabel: string
-}
-
-export type WorkspaceDecisionActionDefinition = {
-  id: string
-  label: string
-}
-
-export type WorkspaceDecisionWorkflowBlueprint<TDimension extends string = string> = {
-  schemaVersion: 1
-  workspaceType: string
-  workflowId: string
-  universe: WorkspaceUniverseDefinition
-  decisionSubject: WorkspaceDecisionSubjectDefinition
-  evidenceKinds: readonly string[]
-  actions: readonly WorkspaceDecisionActionDefinition[]
-  reviewUnits: {
-    dimensions: readonly TDimension[]
-    sizing: ReviewUnitSizingPolicy
-  }
-}
+export type ReviewUnitSizingPolicy = DecisionWorkspaceSizingPolicy
+export type WorkspaceUniverseDefinition = DecisionWorkspaceUniverseDefinition
+export type WorkspaceDecisionSubjectDefinition = DecisionWorkspaceSubjectDefinition
+export type WorkspaceDecisionActionDefinition = DecisionWorkspaceActionDefinition
+export type WorkspaceDecisionWorkflowBlueprint<TDimension extends string = string> =
+  DecisionWorkspaceContract<TDimension>
 
 export type ReviewUnitManifestEntry = {
   unitId: string

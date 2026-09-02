@@ -1,11 +1,38 @@
 # 🧩 AI Agent Platform – System Overview
-_Last Updated: August 21, 2026_
+_Last Updated: August 31, 2026_
 
 ---
 
 ## 🧠 Purpose
 This document explains how the **AI Agent Platform operating system** works for the human operator.
 It summarizes the active execution model, documentation layers, and current platform/runtime architecture so you can re-orient quickly without relying on chat memory.
+
+## Product model
+
+Automata is a provider-neutral reporting and human-decision system for agent-operated SOPs and workflows. Gmail is the first reference adapter, not the platform model.
+
+Reusable product loop:
+
+`Source data -> agent/SOP analysis -> evidence-backed recommendation -> human decision -> approved execution -> measured outcome`
+
+The platform owns shared decision concepts, visual reporting, evidence/provenance, approvals, execution lifecycle, and history. Provider adapters own authentication, source schemas, domain vocabulary, metrics, capabilities, and provider-specific operations. A workspace may contain multiple providers and multiple decision-subject workflows; cross-source reporting may combine only explicitly compatible metrics.
+
+Product-area ownership:
+
+- Settings / Connections: provider accounts, authentication/scopes, connection health, reusable capability inventory
+- Automations / Workflow Studio: guided SOP/workflow authoring, testing, versioning, publication, and assignment
+- Agents / Operations: runtime reports, recommendations, human decisions, approvals, execution truth, outcomes, and history for a published workflow version
+- Dashboard: compatible cross-workflow and cross-source status
+
+Automations owns the mutable workflow draft and immutable published definitions. Operations references a published definition/version; it does not duplicate the builder. Workflows may select connected integrations, but secret-bearing provider connections remain centrally managed.
+
+The active staged framework plan is tracked under `ACE-048`; the control plane governs exact scope and implementation authority.
+
+Initial validation domains are customer service, investments, paid media, and finance. They validate the framework but do not define its limits. Future users may install marketplace templates/connectors or use an AI-guided builder to create versioned workflows and populate the company-owned proprietary brain from approved integrations and human feedback.
+
+The same framework must support arbitrary cross-agent operating chains—for example, purchasing, spreadsheet maintenance, shipping or inventory tracking, and outcome feedback between agents. Specialization should be expressed through versioned workflow modules, adapter vocabulary, semantic metrics, evidence types, declared capabilities, action catalogs, and bounded provider add-ons. A company-specific fork or broad platform overhaul is a last resort when those explicit extension seams cannot truthfully represent the workflow.
+
+Company SOPs, policies, examples, corrections, decisions, and outcome history form a tenant-owned proprietary brain. This is versioned application-layer knowledge and memory, not a newly trained LLM or fine-tuning dataset. Foundation models may use authorized brain context at runtime, while the platform retains inspectable topic coverage, provenance, quality, knowledge gaps, feedback, and versions. The brain remains private by default. Cross-customer learning is a separate opt-in capability requiring aggregation/de-identification, privacy thresholds, provenance, evaluation, and rollback; raw proprietary SOPs, examples, corrections, and records are never implicitly shared.
 
 ---
 

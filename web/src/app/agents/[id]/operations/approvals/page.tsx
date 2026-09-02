@@ -4,78 +4,14 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { serializeOperationsQuery } from '@/lib/runtime/operationsWorkspace'
+import { useDecisionWorkspaceActions } from '@/components/runtime/DecisionWorkspaceActionContext'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
+import type {
+  DecisionWorkspaceActionTone,
+  DecisionWorkspaceApprovalStatus,
+} from '@/lib/runtime/decisionWorkspaceActionModel'
 
-type QueueStatus = 'pending_approval' | 'approved' | 'executed' | 'rejected'
-type QueueActionKind = 'review' | 'archive' | 'analyze' | 'other'
-
-type ApprovalQueueItem = {
-  key: string
-  approvalId: string
-  status: QueueStatus
-  title: string
-  reason: string
-  actionLabel: string
-  actionKind: QueueActionKind
-  source: string
-  objectScope: string
-  approvalEffect: string
-  effect: string
-  rejectionEffect: string
-  exactSelectedCount: number | null
-  reviewedCount: number | null
-  candidateCount: number | null
-  excludedCount: number | null
-  affectedSendersCount: number | null
-  messageScopeLabel: string
-  evidenceBasis: string | null
-  safeSignals: string[]
-  safetyExclusions: string[]
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return null
-}
-
-function parseStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-    .map((entry) => entry.trim())
-}
-
-function actionKindFromAction(action: string): QueueActionKind {
-  if (action === 'review_query_cluster' || action === 'review_sender_cluster') return 'review'
-  if (action === 'archive_messages') return 'archive'
-  if (action === 'analyze_inbox') return 'analyze'
-  return 'other'
-}
-
-function actionEffectText(action: string): string {
-  if (action === 'review_query_cluster' || action === 'review_sender_cluster') {
-    return 'On execute: run read-only preview and attach review evidence. No inbox mutation.'
-  }
-  if (action === 'archive_messages') {
-    return 'On execute: remove INBOX label from selected emails only. No delete/unsubscribe.'
-  }
-  if (action === 'analyze_inbox') {
-    return 'On execute: run bounded metadata analysis only. No inbox mutation.'
-  }
-  return 'On execute: apply this approved action using runtime supervision.'
-}
-
-function actionLabel(action: string): string {
-  if (action === 'review_query_cluster') return 'Review this query cluster'
-  if (action === 'review_sender_cluster') return 'Review this sender cluster'
-  if (action === 'archive_messages') return 'Archive selected emails'
-  if (action === 'analyze_inbox') return 'Analyze inbox metadata'
-  return action
-}
+type QueueStatus = DecisionWorkspaceApprovalStatus
 
 function statusChipClass(status: QueueStatus): string {
   if (status === 'approved') return 'border-blue-900/70 bg-blue-950/35 text-blue-200'
@@ -84,275 +20,12 @@ function statusChipClass(status: QueueStatus): string {
   return 'border-amber-900/70 bg-amber-950/35 text-amber-200'
 }
 
-function deriveQueueItems(params: {
-  data: ReturnType<typeof useOperationsRuntime>['data']
-  localOverrides: Record<string, QueueStatus>
-}): ApprovalQueueItem[] {
-  const items: ApprovalQueueItem[] = []
-  const seen = new Set<string>()
-  const addItem = (item: ApprovalQueueItem) => {
-    if (seen.has(item.key)) return
-    seen.add(item.key)
-    const override = params.localOverrides[item.approvalId]
-    items.push({
-      ...item,
-      status: override || item.status,
-    })
-  }
-
-  for (const queueItem of params.data?.runtime_approval_queue_items || []) {
-    const approvalId =
-      typeof queueItem.approval_id === 'string' ? queueItem.approval_id.trim() : ''
-    if (!approvalId) continue
-
-    const normalizedStatus: QueueStatus =
-      queueItem.status === 'approved' ||
-      queueItem.status === 'executed' ||
-      queueItem.status === 'rejected' ||
-      queueItem.status === 'pending_approval'
-        ? queueItem.status
-        : 'pending_approval'
-
-    const firstAction = Array.isArray(queueItem.proposed_actions)
-      ? queueItem.proposed_actions[0]
-      : null
-    const action =
-      firstAction && typeof firstAction.action === 'string' ? firstAction.action : 'other'
-    const tool = firstAction && typeof firstAction.tool === 'string' ? firstAction.tool : 'runtime'
-    const args =
-      firstAction && typeof firstAction.args === 'object' && firstAction.args
-        ? (firstAction.args as Record<string, unknown>)
-        : {}
-
-    const objectScope =
-      (typeof args.source_label === 'string' && args.source_label.trim()) ||
-      (typeof args.batch_title === 'string' && args.batch_title.trim()) ||
-      (typeof args.sender === 'string' && args.sender.trim()) ||
-      (typeof args.title === 'string' && args.title.trim()) ||
-      (typeof args.query === 'string' && args.query.trim()) ||
-      (typeof queueItem.user_request === 'string' && queueItem.user_request.trim()) ||
-      'Scope not specified'
-
-    const selectionCustomization =
-      typeof args.selection_customization === 'object' && args.selection_customization
-        ? (args.selection_customization as Record<string, unknown>)
-        : null
-    const selectionScope =
-      selectionCustomization != null && typeof selectionCustomization.analysis_scope === 'string'
-        ? selectionCustomization.analysis_scope.trim()
-        : ''
-    const matchingMessagesInScope =
-      selectionCustomization != null ? toFiniteNumber(selectionCustomization.matching_messages_in_scope) : null
-    const exactSelectedCountFromIds = Array.isArray(args.message_ids)
-      ? args.message_ids.filter((entry) => typeof entry === 'string' && entry.trim().length > 0).length
-      : null
-    const exactSelectedCountFromCustomization =
-      selectionCustomization != null
-        ? toFiniteNumber(selectionCustomization.selected_count)
-        : null
-    const exactSelectedCount = exactSelectedCountFromCustomization ?? exactSelectedCountFromIds
-    const reviewedCount =
-      selectionCustomization != null ? toFiniteNumber(selectionCustomization.reviewed_count) : null
-    const candidateCount =
-      selectionCustomization != null ? toFiniteNumber(selectionCustomization.candidate_count) : null
-    const excludedCount =
-      selectionCustomization != null ? toFiniteNumber(selectionCustomization.excluded_count) : null
-    const affectedSendersCount =
-      selectionCustomization != null
-        ? (() => {
-            const excluded = parseStringList(selectionCustomization.excluded_senders)
-            if (excluded.length > 0) return excluded.length
-            if (typeof args.sender === 'string' && args.sender.trim()) return 1
-            return null
-          })()
-        : null
-    const safeSignals = parseStringList(args.safe_signals)
-    const safetyExclusions = parseStringList(args.safety_exclusions)
-    const evidenceBasis =
-      typeof args.selection_basis === 'string' && args.selection_basis.trim()
-        ? args.selection_basis.trim()
-        : null
-    const messageScopeLabel =
-      action === 'archive_messages'
-        ? exactSelectedCount != null
-          ? `Exact message-id scope (${exactSelectedCount} selected ids${
-              selectionScope ? ` · window ${selectionScope}` : ''
-            }${matchingMessagesInScope != null ? ` · matching in scope ${matchingMessagesInScope}` : ''})`
-          : 'Cluster-derived scope (exact ids unavailable)'
-        : 'Read-only review/analysis scope'
-
-    addItem({
-      key: `queue:${approvalId}`,
-      approvalId,
-      status: normalizedStatus,
-      title:
-        (typeof args.title === 'string' && args.title.trim()) ||
-        actionLabel(action) ||
-        'Approval request',
-      reason:
-        (typeof queueItem.user_request === 'string' && queueItem.user_request.trim()) ||
-        (typeof args.selection_basis === 'string' && args.selection_basis.trim()) ||
-        'Runtime approval request',
-      actionLabel: actionLabel(action),
-      actionKind: actionKindFromAction(action),
-      source: `${tool}.${action}`,
-      objectScope,
-      approvalEffect:
-        action === 'archive_messages'
-          ? 'If approved: request becomes executable archive action.'
-          : 'If approved: request becomes executable in operations workflow.',
-      effect: actionEffectText(action),
-      rejectionEffect:
-        'Rejecting marks this request non-actionable. You can create a new request later from Review Detail.',
-      exactSelectedCount,
-      reviewedCount,
-      candidateCount,
-      excludedCount,
-      affectedSendersCount,
-      messageScopeLabel,
-      evidenceBasis,
-      safeSignals,
-      safetyExclusions,
-    })
-  }
-
-  for (const set of params.data?.runtime_suggestion_sets || []) {
-    for (const candidate of set.candidates || []) {
-      if (!candidate.approval_id || !candidate.approval_id.trim()) continue
-      if (
-        candidate.status !== 'pending_approval' &&
-        candidate.status !== 'approved' &&
-        candidate.status !== 'executed'
-      ) {
-        continue
-      }
-      const action = candidate.proposed_action.action
-      const args =
-        typeof candidate.proposed_action.args === 'object' && candidate.proposed_action.args
-          ? (candidate.proposed_action.args as Record<string, unknown>)
-          : {}
-      const objectScope =
-        (typeof args.source_label === 'string' && args.source_label.trim()) ||
-        (typeof args.batch_title === 'string' && args.batch_title.trim()) ||
-        (typeof args.sender === 'string' && args.sender.trim()) ||
-        (typeof args.title === 'string' && args.title.trim()) ||
-        (typeof args.query === 'string' && args.query.trim()) ||
-        'Scope not specified'
-      const selectionCustomization =
-        typeof args.selection_customization === 'object' && args.selection_customization
-          ? (args.selection_customization as Record<string, unknown>)
-          : null
-      const selectionScope =
-        selectionCustomization != null && typeof selectionCustomization.analysis_scope === 'string'
-          ? selectionCustomization.analysis_scope.trim()
-          : ''
-      const matchingMessagesInScope =
-        selectionCustomization != null
-          ? toFiniteNumber(selectionCustomization.matching_messages_in_scope)
-          : null
-      const exactSelectedCountFromIds = Array.isArray(args.message_ids)
-        ? args.message_ids.filter((entry) => typeof entry === 'string' && entry.trim().length > 0).length
-        : null
-      const exactSelectedCountFromCustomization =
-        selectionCustomization != null
-          ? toFiniteNumber(selectionCustomization.selected_count)
-          : null
-      const exactSelectedCount = exactSelectedCountFromCustomization ?? exactSelectedCountFromIds
-      const reviewedCount =
-        selectionCustomization != null ? toFiniteNumber(selectionCustomization.reviewed_count) : null
-      const candidateCount =
-        selectionCustomization != null ? toFiniteNumber(selectionCustomization.candidate_count) : null
-      const excludedCount =
-        selectionCustomization != null ? toFiniteNumber(selectionCustomization.excluded_count) : null
-      const affectedSendersCount =
-        selectionCustomization != null
-          ? (() => {
-              const excluded = parseStringList(selectionCustomization.excluded_senders)
-              if (excluded.length > 0) return excluded.length
-              if (typeof args.sender === 'string' && args.sender.trim()) return 1
-              return null
-            })()
-          : null
-      const safeSignals = parseStringList(args.safe_signals)
-      const safetyExclusions = parseStringList(args.safety_exclusions)
-      const evidenceBasis =
-        typeof args.selection_basis === 'string' && args.selection_basis.trim()
-          ? args.selection_basis.trim()
-          : null
-      const messageScopeLabel =
-        action === 'archive_messages'
-          ? exactSelectedCount != null
-            ? `Exact message-id scope (${exactSelectedCount} selected ids${
-                selectionScope ? ` · window ${selectionScope}` : ''
-              }${matchingMessagesInScope != null ? ` · matching in scope ${matchingMessagesInScope}` : ''})`
-            : 'Cluster-derived scope (exact ids unavailable)'
-          : 'Read-only review/analysis scope'
-      addItem({
-        key: `approval:${candidate.approval_id}`,
-        approvalId: candidate.approval_id,
-        status: candidate.status,
-        title: candidate.label,
-        reason: candidate.reason,
-        actionLabel: actionLabel(action),
-        actionKind: actionKindFromAction(action),
-        source: `${candidate.proposed_action.tool}.${action}`,
-        objectScope,
-        approvalEffect:
-          action === 'archive_messages'
-            ? 'If approved: request becomes executable archive action.'
-            : 'If approved: request becomes executable in operations workflow.',
-        effect: actionEffectText(action),
-        rejectionEffect:
-          'Rejecting marks this request non-actionable. You can create a new request later from Review Detail.',
-        exactSelectedCount,
-        reviewedCount,
-        candidateCount,
-        excludedCount,
-        affectedSendersCount,
-        messageScopeLabel,
-        evidenceBasis,
-        safeSignals,
-        safetyExclusions,
-      })
-    }
-  }
-
-  for (const cluster of params.data?.runtime_cleanup_plan?.clusters || []) {
-    if (!cluster.approval_id || !cluster.approval_id.trim()) continue
-    if (
-      cluster.status !== 'pending_approval' &&
-      cluster.status !== 'approved' &&
-      cluster.status !== 'executed'
-    ) {
-      continue
-    }
-    addItem({
-      key: `cluster:${cluster.cluster_id}:${cluster.approval_id}`,
-      approvalId: cluster.approval_id,
-      status: cluster.status,
-      title: cluster.title,
-      reason: cluster.why_selected,
-      actionLabel: 'Review this query cluster',
-      actionKind: 'review',
-      source: 'gmail.review_query_cluster',
-      objectScope: cluster.title,
-      approvalEffect: 'If approved: request becomes executable review action.',
-      effect: actionEffectText('review_query_cluster'),
-      rejectionEffect:
-        'Rejecting marks this query-review request non-actionable. You can request another review from the cluster page.',
-      exactSelectedCount: null,
-      reviewedCount: null,
-      candidateCount: cluster.estimated_count,
-      excludedCount: null,
-      affectedSendersCount: null,
-      messageScopeLabel: 'Read-only review scope',
-      evidenceBasis: cluster.why_selected,
-      safeSignals: [],
-      safetyExclusions: ['No inbox mutation while pending/approved'],
-    })
-  }
-
-  return items.sort((a, b) => a.title.localeCompare(b.title))
+function controlClass(tone: DecisionWorkspaceActionTone, submitting: boolean): string {
+  if (submitting) return 'bg-gray-700 text-gray-400 cursor-not-allowed'
+  if (tone === 'positive') return 'bg-emerald-700 hover:bg-emerald-600 text-white'
+  if (tone === 'caution') return 'bg-rose-700 hover:bg-rose-600 text-white'
+  if (tone === 'primary') return 'bg-blue-700 hover:bg-blue-600 text-white'
+  return 'bg-gray-700 hover:bg-gray-600 text-white'
 }
 
 export default function OperationsApprovalsPage() {
@@ -361,6 +34,7 @@ export default function OperationsApprovalsPage() {
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const requestedSessionId = searchParams.get('playground_session_id')
   const runtime = useOperationsRuntime()
+  const actionAdapter = useDecisionWorkspaceActions()
   const effectiveSessionId = runtime.sessionId || requestedSessionId
   const sessionQuery = serializeOperationsQuery(effectiveSessionId, runtime.analysisScope)
   const [submittingById, setSubmittingById] = useState<Record<string, boolean>>({})
@@ -368,10 +42,11 @@ export default function OperationsApprovalsPage() {
   const [actionNote, setActionNote] = useState<string | null>(null)
 
   const queueSummary = runtime.data?.runtime_approval_queue_summary
-  const queueItems = useMemo(
-    () => deriveQueueItems({ data: runtime.data, localOverrides: localStatusOverrides }),
-    [localStatusOverrides, runtime.data]
+  const approvalQueue = useMemo(
+    () => actionAdapter.approvals.getQueue({ data: runtime.data, localOverrides: localStatusOverrides }),
+    [actionAdapter, localStatusOverrides, runtime.data]
   )
+  const queueItems = approvalQueue.requests
 
   const pendingItems = queueItems.filter((item) => item.status === 'pending_approval')
   const approvedItems = queueItems.filter((item) => item.status === 'approved')
@@ -467,10 +142,8 @@ export default function OperationsApprovalsPage() {
     )
   }
 
-  const renderItem = (item: ApprovalQueueItem) => {
+  const renderItem = (item: (typeof queueItems)[number]) => {
     const submitting = Boolean(submittingById[item.approvalId])
-    const canApproveReject = item.status === 'pending_approval'
-    const canExecute = item.status === 'approved'
     return (
       <article
         key={item.key}
@@ -480,6 +153,7 @@ export default function OperationsApprovalsPage() {
           <div>
             <p className="text-sm font-semibold text-gray-100">{item.title}</p>
             <p className="text-[11px] text-gray-400">{item.reason}</p>
+            <p className="mt-1 text-[11px] font-medium text-cyan-200">{item.bundleLabel}</p>
           </div>
           <span className={`rounded-full border px-2 py-0.5 text-[11px] ${statusChipClass(item.status)}`}>
             {item.status === 'pending_approval'
@@ -492,109 +166,135 @@ export default function OperationsApprovalsPage() {
           </span>
         </div>
 
-        <div className="grid gap-1 text-[11px] text-gray-300 sm:grid-cols-2">
-          <p>
-            <span className="text-gray-500">Request:</span> {item.actionLabel}
-          </p>
-          <p>
-            <span className="text-gray-500">Approval id:</span>{' '}
-            <span className="font-mono text-gray-200">{item.approvalId}</span>
-          </p>
-          <p className="sm:col-span-2">
-            <span className="text-gray-500">Applies to:</span> {item.objectScope}
-          </p>
-          <p className="sm:col-span-2">
-            <span className="text-gray-500">If approved:</span> {item.approvalEffect}
-          </p>
-          <p className="sm:col-span-2">
-            <span className="text-gray-500">If approved/executed:</span> {item.effect}
-          </p>
-          <p className="sm:col-span-2">
-            <span className="text-gray-500">Execution scope:</span> {item.messageScopeLabel}
-          </p>
-          {(item.reviewedCount != null ||
-            item.candidateCount != null ||
-            item.exactSelectedCount != null ||
-            item.excludedCount != null ||
-            item.affectedSendersCount != null) ? (
-            <p className="sm:col-span-2">
-              <span className="text-gray-500">Scope summary:</span>{' '}
-              {[
-                item.reviewedCount != null ? `reviewed ${item.reviewedCount}` : null,
-                item.candidateCount != null ? `candidate ${item.candidateCount}` : null,
-                item.exactSelectedCount != null ? `selected ${item.exactSelectedCount}` : null,
-                item.excludedCount != null ? `excluded ${item.excludedCount}` : null,
-                item.affectedSendersCount != null ? `affected senders ${item.affectedSendersCount}` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          ) : null}
-          {item.evidenceBasis ? (
-            <p className="sm:col-span-2">
-              <span className="text-gray-500">Evidence basis:</span> {item.evidenceBasis}
-            </p>
-          ) : null}
-          {item.safeSignals.length > 0 ? (
-            <p className="sm:col-span-2">
-              <span className="text-gray-500">Safety signals:</span> {item.safeSignals.join(' · ')}
-            </p>
-          ) : null}
-          {item.safetyExclusions.length > 0 ? (
-            <p className="sm:col-span-2">
-              <span className="text-gray-500">Protected exclusions:</span>{' '}
-              {item.safetyExclusions.join(' · ')}
-            </p>
-          ) : null}
-          <p className="sm:col-span-2">
-            <span className="text-gray-500">If rejected:</span> {item.rejectionEffect}
-          </p>
-          <p className="sm:col-span-2 text-gray-500">Source: {item.source}</p>
+        {!item.validation.valid ? (
+          <div className="rounded border border-rose-900/60 bg-rose-950/25 p-2 text-[11px] text-rose-200">
+            This request is visible for diagnosis but cannot be approved or executed because its
+            action metadata did not validate.
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          {item.actions.map((action) => (
+            <section
+              key={action.id}
+              className="rounded border border-gray-800/90 bg-gray-900/35 p-2.5 space-y-1"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-gray-100">
+                  {item.actions.length > 1 ? `Action ${action.order + 1} of ${item.actions.length}: ` : ''}
+                  {action.label}
+                </p>
+                <span className="font-mono text-[10px] text-gray-500">
+                  {action.toolId}.{action.actionId}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400">{action.description}</p>
+              <div className="grid gap-1 text-[11px] text-gray-300 sm:grid-cols-2">
+                <p>
+                  <span className="text-gray-500">Source:</span>{' '}
+                  {action.sourceId || 'Unavailable'}
+                </p>
+                <p>
+                  <span className="text-gray-500">Responsible role:</span> {action.agentRoleId}
+                </p>
+                <p>
+                  <span className="text-gray-500">Workflow stage:</span> {action.workflowStageId}
+                </p>
+                <p>
+                  <span className="text-gray-500">Effect / risk:</span>{' '}
+                  {action.declaredEffect.replaceAll('_', ' ')} · {action.risk}
+                </p>
+                <p className="sm:col-span-2">
+                  <span className="text-gray-500">Applies to:</span> {action.objectScope}
+                </p>
+                <p className="sm:col-span-2">
+                  <span className="text-gray-500">If approved:</span> {action.approvalEffect}
+                </p>
+                <p className="sm:col-span-2">
+                  <span className="text-gray-500">If approved/executed:</span>{' '}
+                  {action.executionEffect}
+                </p>
+                <p className="sm:col-span-2">
+                  <span className="text-gray-500">Execution scope:</span> {action.scopeLabel}
+                </p>
+                {(action.metrics.reviewedCount != null ||
+                  action.metrics.candidateCount != null ||
+                  action.metrics.exactSelectedCount != null ||
+                  action.metrics.excludedCount != null ||
+                  action.metrics.affectedSubjectsCount != null) ? (
+                  <p className="sm:col-span-2">
+                    <span className="text-gray-500">Scope summary:</span>{' '}
+                    {[
+                      action.metrics.reviewedCount != null
+                        ? `reviewed ${action.metrics.reviewedCount}`
+                        : null,
+                      action.metrics.candidateCount != null
+                        ? `candidate ${action.metrics.candidateCount}`
+                        : null,
+                      action.metrics.exactSelectedCount != null
+                        ? `selected ${action.metrics.exactSelectedCount}`
+                        : null,
+                      action.metrics.excludedCount != null
+                        ? `excluded ${action.metrics.excludedCount}`
+                        : null,
+                      action.metrics.affectedSubjectsCount != null
+                        ? `${action.affectedSubjectsLabel} ${action.metrics.affectedSubjectsCount}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                ) : null}
+                {action.evidenceBasis ? (
+                  <p className="sm:col-span-2">
+                    <span className="text-gray-500">Evidence basis:</span> {action.evidenceBasis}
+                  </p>
+                ) : null}
+                {action.safeSignals.length > 0 ? (
+                  <p className="sm:col-span-2">
+                    <span className="text-gray-500">Safety signals:</span>{' '}
+                    {action.safeSignals.join(' · ')}
+                  </p>
+                ) : null}
+                {action.safetyExclusions.length > 0 ? (
+                  <p className="sm:col-span-2">
+                    <span className="text-gray-500">Protected exclusions:</span>{' '}
+                    {action.safetyExclusions.join(' · ')}
+                  </p>
+                ) : null}
+                <p className="sm:col-span-2 text-gray-500">
+                  Capability: {action.capability} · Reversibility:{' '}
+                  {action.reversibility.replaceAll('_', ' ')}
+                </p>
+              </div>
+            </section>
+          ))}
         </div>
 
+        <p className="text-[11px] text-gray-300">
+          <span className="text-gray-500">If rejected:</span> {item.rejectionEffect}
+        </p>
+
         <div className="flex flex-wrap gap-2">
-          {canApproveReject ? (
-            <>
-              <button
-                type="button"
-                onClick={() => void submitDecision(item.approvalId, 'approved')}
-                disabled={submitting}
-                className={`rounded px-3 py-1.5 text-xs font-medium ${
-                  submitting
-                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-700 hover:bg-blue-600 text-white'
-                }`}
-              >
-                Approve request
-              </button>
-              <button
-                type="button"
-                onClick={() => void submitDecision(item.approvalId, 'rejected')}
-                disabled={submitting}
-                className={`rounded px-3 py-1.5 text-xs font-medium ${
-                  submitting
-                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                    : 'bg-rose-700 hover:bg-rose-600 text-white'
-                }`}
-              >
-                Reject request
-              </button>
-            </>
-          ) : null}
-          {canExecute ? (
+          {item.controls.map((control) => (
             <button
+              key={control.operation}
               type="button"
-              onClick={() => void executeApproved(item.approvalId)}
-              disabled={submitting}
-              className={`rounded px-3 py-1.5 text-xs font-medium ${
-                submitting
-                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                  : 'bg-emerald-700 hover:bg-emerald-600 text-white'
-              }`}
+              onClick={() => {
+                if (control.compatibilityValue === 'approved') {
+                  void submitDecision(item.approvalId, 'approved')
+                } else if (control.compatibilityValue === 'rejected') {
+                  void submitDecision(item.approvalId, 'rejected')
+                } else if (control.compatibilityValue === 'execute') {
+                  void executeApproved(item.approvalId)
+                }
+              }}
+              disabled={submitting || control.availability.state !== 'available'}
+              className={`rounded px-3 py-1.5 text-xs font-medium ${controlClass(control.tone, submitting)}`}
             >
-              Execute approved action
+              {submitting ? control.pendingLabel : control.label}
             </button>
-          ) : null}
+          ))}
         </div>
       </article>
     )
@@ -603,16 +303,15 @@ export default function OperationsApprovalsPage() {
   return (
     <section className="space-y-3">
       <header className="rounded-xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-4 space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-cyan-300">Pending Approvals</p>
-        <h1 className="text-xl font-semibold text-cyan-100">Approval Queue (actual approval step)</h1>
-        <p className="text-sm text-gray-300">
-          This is where real approve/reject decisions happen. Creating a request in Sender Decisions
-          or Confirmation only sends it here; no inbox mutation happens until approve + execute.
+        <p className="text-[11px] uppercase tracking-wide text-cyan-300">
+          {approvalQueue.presentation.eyebrow}
         </p>
+        <h1 className="text-xl font-semibold text-cyan-100">{approvalQueue.presentation.title}</h1>
+        <p className="text-sm text-gray-300">{approvalQueue.presentation.description}</p>
         <div className="rounded border border-gray-800 bg-gray-900/40 p-2 text-[11px] text-gray-300">
-          <p>1) Sender Decisions / Confirmation: create request</p>
-          <p>2) Pending Approvals (this page): approve or reject</p>
-          <p>3) Execute approved action: apply inbox change</p>
+          {approvalQueue.presentation.steps.map((step) => (
+            <p key={step}>{step}</p>
+          ))}
         </div>
         <div className="grid gap-2 sm:grid-cols-4">
           <div className="rounded border border-amber-900/55 bg-amber-950/20 p-2">
@@ -641,9 +340,13 @@ export default function OperationsApprovalsPage() {
             Queue scope is reconciling with latest runtime snapshot. Refresh if this note persists.
           </p>
         ) : null}
-        {actionNote ? (
-          <p className="text-[11px] text-cyan-200">{actionNote}</p>
+        {!approvalQueue.validation.valid && queueItems.some((item) => !item.validation.valid) ? (
+          <p className="text-[11px] text-rose-300">
+            One or more requests are visible but safely disabled because their complete action bundle
+            could not be validated.
+          </p>
         ) : null}
+        {actionNote ? <p className="text-[11px] text-cyan-200">{actionNote}</p> : null}
       </header>
 
       <section className="space-y-2">

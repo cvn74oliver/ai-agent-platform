@@ -8,26 +8,19 @@ import {
   MailboxMissionPanel,
 } from '@/components/runtime/GmailCleanupComponents'
 import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
+import { useDecisionWorkspaceRead } from '@/components/runtime/DecisionWorkspaceReadContext'
+import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
+import { resolveDecisionWorkspacePresentationSlot } from '@/lib/runtime/decisionWorkspacePresentation'
 import {
-  fetchGmailDecisionManagementSummary,
-  fetchGmailMailboxIntelligence,
-  fetchGmailPressureTrend,
-  gmailCleanupWorkflowDraftHasActiveContent,
-  primeCachedGmailPressureTrend,
-  readGmailCleanupWorkflowDraft,
-  readCachedGmailMailboxIntelligence,
-  readCachedGmailPressureTrend,
-  readLatestCachedGmailMailboxIntelligence,
-  type GmailCleanupClusterRef,
-  type GmailMailboxIntelligenceData,
-  type GmailPressureTrendData,
-  type GmailPressureTrendWindow,
-} from '@/lib/runtime/gmailCleanupWorkspace'
-import {
-  recommendArtifactCleanupGroupForUi,
-  recommendRuntimeCleanupGroupForUi,
-  type CleanupGroupRecommendationReason,
-} from '@/lib/runtime/cleanupGroupPresentation'
+  type DecisionReviewRecommendationReason,
+  type DecisionWorkspaceCleanupClusterRef,
+  type DecisionWorkspaceIntelligenceData,
+  type DecisionWorkspaceIntelligenceGroup,
+  type DecisionWorkspaceManagementSignals,
+  type DecisionWorkspacePressureTrendData,
+  type DecisionWorkspacePressureTrendWindow,
+  type DecisionWorkspaceWorkflowProgress,
+} from '@/lib/runtime/decisionWorkspaceReadModel'
 import {
   serializeOperationsQuery,
   type OperationsAnalysisScope,
@@ -35,32 +28,16 @@ import {
 
 type LoadState =
   | { status: 'idle' | 'loading'; seedKey: string | null; data: null; error: null }
-  | { status: 'ready'; seedKey: string; data: GmailMailboxIntelligenceData; error: null }
+  | { status: 'ready'; seedKey: string; data: DecisionWorkspaceIntelligenceData; error: null }
   | { status: 'error'; seedKey: string; data: null; error: string }
 
 type PressureTrendLoadState =
   | { status: 'idle'; data: null; error: null; requestKey: null }
   | { status: 'loading'; data: null; error: null; requestKey: string }
-  | { status: 'ready'; data: GmailPressureTrendData; error: null; requestKey: string }
+  | { status: 'ready'; data: DecisionWorkspacePressureTrendData; error: null; requestKey: string }
   | { status: 'error'; data: null; error: string; requestKey: string }
 
-type LocalWorkflowProgress = {
-  decidedSenderCount: number
-  startedClusterCount: number
-  latestClusterId: string | null
-  latestStage: string | null
-}
-
-type CleanupGroupSummary = GmailMailboxIntelligenceData['cleanup_groups'][number] | null
-
-type LocalManagementSignals = {
-  managedSenderCount: number
-  archiveVerificationCount: number
-  archiveFailureCount: number
-  quarantineCount: number
-  customRuleCount: number
-  recentRestoreCount: number
-}
+type CleanupGroupSummary = DecisionWorkspaceIntelligenceGroup | null
 
 type HealthTrendSignal = {
   direction: 'rising' | 'falling' | 'stable' | 'unknown'
@@ -74,7 +51,7 @@ type HealthTrendSignal = {
 }
 
 type PressureTrendSelection = {
-  window: GmailPressureTrendWindow
+  window: DecisionWorkspacePressureTrendWindow
   start: string | null
   end: string | null
 }
@@ -85,7 +62,7 @@ type PressureTrendSeed = PressureTrendSelection & {
 }
 
 type PressureTrendSeedCandidate = {
-  data: GmailPressureTrendData
+  data: DecisionWorkspacePressureTrendData
   source: 'cached_intelligence' | 'runtime_intelligence' | 'mailbox_intelligence_fetch'
 }
 
@@ -125,12 +102,8 @@ type MailboxHealthIntelligence = {
   nextActionMode: 'approve_queue' | 'resume_work' | 'open_group' | 'refresh'
 }
 
-function workflowClusterIdFromRuntimeCluster(cluster: GmailCleanupClusterRef): string {
-  return cluster.canonicalClusterId || cluster.clusterId
-}
-
 function workflowClusterIdFromArtifactCluster(
-  cluster: GmailMailboxIntelligenceData['cleanup_groups'][number] | null | undefined
+  cluster: DecisionWorkspaceIntelligenceGroup | null | undefined
 ): string | null {
   if (!cluster) return null
   return cluster.canonical_cluster_id || cluster.cluster_id
@@ -194,7 +167,7 @@ function dateInputValueFromIso(value: string | null | undefined, timeZone: strin
   return dateInputValueFromDate(new Date(parsed), timeZone)
 }
 
-function normalizePressureTrendWindow(value: string | null): GmailPressureTrendWindow | null {
+function normalizePressureTrendWindow(value: string | null): DecisionWorkspacePressureTrendWindow | null {
   if (
     value === 'all_indexed' ||
     value === 'last_year' ||
@@ -251,7 +224,7 @@ function pressureTrendSelectionFromSearch(params: {
   return legacyScopeToPressureTrendSelection(params.analysisScope, params.timeZone)
 }
 
-function pressureTrendDateRangeLabel(data: GmailPressureTrendData): string {
+function pressureTrendDateRangeLabel(data: DecisionWorkspacePressureTrendData): string {
   if (!data.window.effective_start || !data.window.effective_end) {
     return `Showing ${data.window.label.toLowerCase()}`
   }
@@ -276,7 +249,7 @@ function pressureTrendDateRangeLabel(data: GmailPressureTrendData): string {
   return `Showing ${formatter.format(start)} - ${formatter.format(end)}`
 }
 
-function pressureTrendRangeDetail(data: GmailPressureTrendData): string {
+function pressureTrendRangeDetail(data: DecisionWorkspacePressureTrendData): string {
   const base = `${pressureTrendDateRangeLabel(data)} · ${data.grouping.label.toLowerCase()}`
   return data.window.limited_by_indexed_coverage
     ? `${base} · adjusted to available indexed history`
@@ -284,7 +257,7 @@ function pressureTrendRangeDetail(data: GmailPressureTrendData): string {
 }
 
 function readyPressureTrendState(
-  data: GmailPressureTrendData,
+  data: DecisionWorkspacePressureTrendData,
   requestKey: string
 ): PressureTrendLoadState {
   return {
@@ -303,11 +276,11 @@ function pressureTrendSelectionsMatch(
 }
 
 function isUsableCachedPressureTrend(params: {
-  data: GmailPressureTrendData | null
+  data: DecisionWorkspacePressureTrendData | null
   selection: PressureTrendSelection
   timeZone: string
 }): params is {
-  data: GmailPressureTrendData
+  data: DecisionWorkspacePressureTrendData
   selection: PressureTrendSelection
   timeZone: string
 } {
@@ -466,7 +439,7 @@ function buildPressureTrendRequestKey(params: {
   cacheVersion: string | null
   timeZone: string
   selection: PressureTrendSelection
-  clusters: GmailCleanupClusterRef[]
+  clusters: DecisionWorkspaceCleanupClusterRef[]
 }): string {
   return [
     params.cacheVersion || 'default',
@@ -480,7 +453,7 @@ function buildPressureTrendRequestKey(params: {
   ].join('|||')
 }
 
-function chartPressureTrend(data: GmailPressureTrendData): HealthTrendSignal {
+function chartPressureTrend(data: DecisionWorkspacePressureTrendData): HealthTrendSignal {
   const timeline = data.series
   if (timeline.length === 0) {
     return {
@@ -600,7 +573,7 @@ function chartPressureTrend(data: GmailPressureTrendData): HealthTrendSignal {
   }
 }
 
-function healthTrend(data: GmailMailboxIntelligenceData): HealthTrendSignal {
+function healthTrend(data: DecisionWorkspaceIntelligenceData): HealthTrendSignal {
   const timeline = data.cleanup_candidate_universe.activity_timeline
   if (timeline.length === 0) {
     return {
@@ -713,13 +686,13 @@ function healthStateFromScore(
 }
 
 function buildMailboxHealthIntelligence(params: {
-  data: GmailMailboxIntelligenceData
+  data: DecisionWorkspaceIntelligenceData
   syncHealth: string | null | undefined
   pendingApprovals: number
-  workflowProgress: LocalWorkflowProgress
+  workflowProgress: DecisionWorkspaceWorkflowProgress
   managedSenderCount: number
   nextCluster: CleanupGroupSummary
-  nextClusterReason: CleanupGroupRecommendationReason
+  nextClusterReason: DecisionReviewRecommendationReason
   resumeCluster: CleanupGroupSummary
 }): MailboxHealthIntelligence {
   const totalSenders = Math.max(params.data.whole_mailbox.sender_count, 1)
@@ -967,6 +940,10 @@ export default function OperationsIntelligencePage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const runtime = useOperationsRuntime()
+  const { intelligence: intelligenceService } = useDecisionWorkspaceRead()
+  const presentation = useDecisionWorkspacePresentation()
+  const healthSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'health_overview')
+  const reviewGroupsSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'review_groups')
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const intelligencePathname = agentId ? `/agents/${agentId}/operations/intelligence` : '/agents/unknown/operations/intelligence'
   const requestedSessionId = searchParams.get('playground_session_id')
@@ -988,7 +965,7 @@ export default function OperationsIntelligencePage() {
   )
   const query = serializeOperationsQuery(runtime.sessionId || requestedSessionId, runtime.analysisScope)
   const cacheVersion = runtime.data?.runtime_cleanup_plan?.generated_at || null
-  const clusters = useMemo<GmailCleanupClusterRef[]>(
+  const clusters = useMemo<DecisionWorkspaceCleanupClusterRef[]>(
     () =>
       (runtime.data?.runtime_cleanup_plan?.clusters || []).map((cluster) => ({
         clusterId: cluster.cluster_id,
@@ -1011,23 +988,23 @@ export default function OperationsIntelligencePage() {
   const cachedIntelligence = useMemo(
     () =>
       clusters.length > 0
-        ? readCachedGmailMailboxIntelligence({
+        ? intelligenceService.readCachedIntelligence({
             clusters,
-            analysisScope: runtime.analysisScope,
+            analysisScopeId: runtime.analysisScope,
             cacheVersion,
           })
         : null,
-    [cacheVersion, clusters, runtime.analysisScope]
+    [cacheVersion, clusters, intelligenceService, runtime.analysisScope]
   )
   const latestStableIntelligence = useMemo(
     () =>
       clusters.length > 0
-        ? readLatestCachedGmailMailboxIntelligence({
+        ? intelligenceService.readLatestStableIntelligence({
             clusters,
-            analysisScope: runtime.analysisScope,
+            analysisScopeId: runtime.analysisScope,
           })
         : null,
-    [clusters, runtime.analysisScope]
+    [clusters, intelligenceService, runtime.analysisScope]
   )
   const trustedRuntimeIntelligence = useMemo(() => {
     const runtimeIntelligence = runtime.data?.runtime_mailbox_intelligence
@@ -1046,7 +1023,7 @@ export default function OperationsIntelligencePage() {
   const cachedPressureTrend = useMemo(
     () =>
       clusters.length > 0
-        ? readCachedGmailPressureTrend({
+        ? intelligenceService.readCachedActivitySeries({
             clusters,
             cacheVersion,
             pressureWindow: pressureTrendSelection.window,
@@ -1055,7 +1032,7 @@ export default function OperationsIntelligencePage() {
             timeZone: browserTimeZone,
           })
         : null,
-    [browserTimeZone, cacheVersion, clusters, pressureTrendSelection]
+    [browserTimeZone, cacheVersion, clusters, intelligenceService, pressureTrendSelection]
   )
   const usableCachedPressureTrend = useMemo(
     () =>
@@ -1108,13 +1085,13 @@ export default function OperationsIntelligencePage() {
     requestKey: null,
   })
   const pressureTrendAttemptedKeyRef = useRef<string | null>(null)
-  const [workflowProgress, setWorkflowProgress] = useState<LocalWorkflowProgress>({
+  const [workflowProgress, setWorkflowProgress] = useState<DecisionWorkspaceWorkflowProgress>({
     decidedSenderCount: 0,
     startedClusterCount: 0,
     latestClusterId: null,
     latestStage: null,
   })
-  const [managementSignals, setManagementSignals] = useState<LocalManagementSignals>({
+  const [managementSignals, setManagementSignals] = useState<DecisionWorkspaceManagementSignals>({
     managedSenderCount: 0,
     archiveVerificationCount: 0,
     archiveFailureCount: 0,
@@ -1362,7 +1339,7 @@ export default function OperationsIntelligencePage() {
   useEffect(() => {
     if (!initialPressureTrendSeedDecision.usable) return
 
-    primeCachedGmailPressureTrend({
+    intelligenceService.primeCachedActivitySeries({
       clusters,
       cacheVersion,
       pressureWindow: pressureTrendSelection.window,
@@ -1375,6 +1352,7 @@ export default function OperationsIntelligencePage() {
     browserTimeZone,
     cacheVersion,
     clusters,
+    intelligenceService,
     initialPressureTrendSeedDecision,
     pressureTrendSelection.end,
     pressureTrendSelection.start,
@@ -1404,9 +1382,9 @@ export default function OperationsIntelligencePage() {
 
       let attempt = 0
       while (!cancelled) {
-        const result = await fetchGmailMailboxIntelligence({
+        const result = await intelligenceService.fetchIntelligence({
           clusters,
-          analysisScope: runtime.analysisScope,
+          analysisScopeId: runtime.analysisScope,
           cacheVersion,
           initialPressureWindow: pressureTrendSelection.window,
           initialPressureStart: pressureTrendSelection.start,
@@ -1458,6 +1436,7 @@ export default function OperationsIntelligencePage() {
     cachedIntelligence,
     clusters,
     latestStableIntelligence,
+    intelligenceService,
     mailboxIntelligenceSeedKey,
     pressureTrendSelection.end,
     pressureTrendSelection.start,
@@ -1501,7 +1480,7 @@ export default function OperationsIntelligencePage() {
       })
     }
 
-    void fetchGmailPressureTrend({
+    void intelligenceService.fetchActivitySeries({
       clusters: requestPlan.clusters,
       cacheVersion: requestPlan.cacheVersion,
       pressureWindow: requestPlan.selection.window,
@@ -1542,6 +1521,7 @@ export default function OperationsIntelligencePage() {
     }
   }, [
     canRequestPressureTrend,
+    intelligenceService,
     pressureTrendRequestKey,
   ])
 
@@ -1549,40 +1529,14 @@ export default function OperationsIntelligencePage() {
     if (typeof window === 'undefined' || !agentId) return
 
     const syncProgress = () => {
-      let decidedSenderCount = 0
-      let startedClusterCount = 0
-      let latestClusterId: string | null = null
-      let latestStage: string | null = null
-      let latestUpdatedAt = 0
-
-      for (const cluster of clusters) {
-        const draft = readGmailCleanupWorkflowDraft({
+      setWorkflowProgress(
+        intelligenceService.readWorkflowProgress({
           agentId,
           sessionId: runtime.sessionId || requestedSessionId || null,
-          clusterId: cluster.clusterId,
-          canonicalClusterId: cluster.canonicalClusterId,
-          legacyClusterIds: cluster.legacyClusterIds,
-          snapshotVersion: cacheVersion,
+          cacheVersion,
+          clusters,
         })
-        if (!gmailCleanupWorkflowDraftHasActiveContent(draft)) continue
-
-        const senderPolicies = Object.keys(draft.senderPolicies || {}).length
-        startedClusterCount += 1
-        decidedSenderCount += senderPolicies
-
-        if (draft.updatedAt >= latestUpdatedAt) {
-          latestUpdatedAt = draft.updatedAt
-          latestClusterId = workflowClusterIdFromRuntimeCluster(cluster)
-          latestStage = draft.currentStage
-        }
-      }
-
-      setWorkflowProgress({
-        decidedSenderCount,
-        startedClusterCount,
-        latestClusterId,
-        latestStage,
-      })
+      )
     }
 
     syncProgress()
@@ -1592,47 +1546,16 @@ export default function OperationsIntelligencePage() {
       window.removeEventListener('storage', syncProgress)
       window.removeEventListener('focus', syncProgress)
     }
-  }, [agentId, cacheVersion, clusters, requestedSessionId, runtime.sessionId])
+  }, [agentId, cacheVersion, clusters, intelligenceService, requestedSessionId, runtime.sessionId])
 
   useEffect(() => {
     if (!agentId) return
     let cancelled = false
 
     const loadManagementSummary = () => {
-      void fetchGmailDecisionManagementSummary({ agentId }).then((result) => {
-        if (cancelled || !result.ok) return
-        const managedSenderCount = new Set(
-          result.data.sender_profiles.map((profile) => profile.sender_key)
-        ).size
-        const archiveVerificationCount = result.data.sender_profiles.filter(
-          (profile) =>
-            profile.destination_state === 'ARCHIVE' &&
-            (profile.execution_state === 'deferred' || profile.execution_state === 'pending')
-        ).length
-        const archiveFailureCount = result.data.sender_profiles.filter(
-          (profile) =>
-            profile.destination_state === 'ARCHIVE' && profile.execution_state === 'failed'
-        ).length
-        const quarantineCount =
-          result.data.destination_summaries.find((summary) => summary.state === 'QUARANTINE')
-            ?.sender_count || 0
-        const customRuleCount =
-          result.data.destination_summaries.find((summary) => summary.state === 'CUSTOM_RULE')
-            ?.sender_count || 0
-        const recentRestoreCount = result.data.recent_decision_activity.filter((activity) => {
-          const source = activity.destination_source.toLowerCase()
-          const reason = activity.destination_reason?.toLowerCase() || ''
-          return source.includes('restore') || source.includes('reversed') || reason.includes('restore')
-        }).length
-
-        setManagementSignals({
-          managedSenderCount,
-          archiveVerificationCount,
-          archiveFailureCount,
-          quarantineCount,
-          customRuleCount,
-          recentRestoreCount,
-        })
+      void intelligenceService.readManagementSignals({ agentId }).then((signals) => {
+        if (cancelled || !signals) return
+        setManagementSignals(signals)
       })
     }
 
@@ -1647,12 +1570,12 @@ export default function OperationsIntelligencePage() {
         window.removeEventListener('focus', loadManagementSummary)
       }
     }
-  }, [agentId])
+  }, [agentId, intelligenceService])
 
   if (runtime.loading && !runtime.data) {
     return (
       <section className="app-surface-card-subtle rounded-2xl p-4 text-sm text-gray-300">
-        Loading Mailbox Intelligence…
+        Loading {healthSlot.title}…
       </section>
     )
   }
@@ -1668,7 +1591,8 @@ export default function OperationsIntelligencePage() {
   if (clusters.length === 0) {
     return (
       <section className="app-surface-card-subtle rounded-2xl p-4 text-sm text-gray-300">
-        No cleanup groups are available yet. Refresh cleanup analysis to populate Mailbox Intelligence.
+        No {presentation.nouns.subjectPlural.toLowerCase()} are available for {reviewGroupsSlot.title} yet.
+        Refresh cleanup analysis to populate {healthSlot.title}.
       </section>
     )
   }
@@ -1683,7 +1607,7 @@ export default function OperationsIntelligencePage() {
 
   if (!resolvedIntelligence) {
     const pendingApprovals = runtime.data?.runtime_approval_queue_summary?.pending || 0
-    const nextRuntimeCluster = recommendRuntimeCleanupGroupForUi({
+    const nextRuntimeCluster = intelligenceService.recommendRuntimeReviewGroup({
       groups: clusters,
       latestClusterId: workflowProgress.latestClusterId,
     }).group
@@ -1711,7 +1635,7 @@ export default function OperationsIntelligencePage() {
   }
 
   const pendingApprovals = runtime.data?.runtime_approval_queue_summary?.pending || 0
-  const nextClusterRecommendation = recommendArtifactCleanupGroupForUi({
+  const nextClusterRecommendation = intelligenceService.recommendArtifactReviewGroup({
     groups: resolvedIntelligence.cleanup_groups,
     latestClusterId: workflowProgress.latestClusterId,
   })
@@ -1838,7 +1762,7 @@ export default function OperationsIntelligencePage() {
       />
 
       <MailboxIntelligenceDashboard
-        data={resolvedIntelligence}
+        groups={resolvedIntelligence.cleanup_groups}
         openGroupsHref={`/agents/${agentId}/operations/clusters${query}`}
         recommendedCleanupGroup={nextCluster}
         recommendedCleanupGroupReason={nextClusterRecommendation.reason}

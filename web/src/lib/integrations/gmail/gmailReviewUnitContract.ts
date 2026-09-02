@@ -6,6 +6,7 @@ import {
   type ReviewUnitPartitionValue,
   type WorkspaceDecisionWorkflowBlueprint,
 } from '@/lib/runtime/reviewUnitContract'
+import { defineDecisionWorkspaceContract } from '@/lib/runtime/decisionWorkspaceContract'
 import type {
   GmailCleanupGroupReviewUnit,
   GmailCleanupGroupReviewUnitBasis,
@@ -239,16 +240,65 @@ function dimensionsForBasis(
 export function gmailCleanupDecisionWorkflowBlueprint(
   basis: GmailCleanupGroupReviewUnitBasis
 ): WorkspaceDecisionWorkflowBlueprint<GmailReviewUnitDimension> {
-  return {
+  return defineDecisionWorkspaceContract({
     schemaVersion: 1,
     workspaceType: 'gmail',
     workflowId: 'mailbox_cleanup',
+    workflowDefinition: {
+      definitionId: 'builtin.gmail.mailbox_cleanup',
+      version: '1',
+      source: 'builtin_compatibility',
+      publicationStatus: 'published',
+    },
+    sources: [
+      {
+        id: 'gmail.primary',
+        providerType: 'gmail',
+        role: 'primary',
+        requiredCapabilities: [
+          'gmail.archive_messages',
+          'gmail.quarantine_sender',
+          'gmail.unsubscribe_sender',
+          'gmail.create_rule',
+        ],
+      },
+    ],
     universe: { type: 'mailbox', label: 'Mailbox' },
     decisionSubject: {
       type: 'sender',
       singularLabel: 'Sender',
       pluralLabel: 'Senders',
     },
+    activity: {
+      type: 'message',
+      singularLabel: 'Message',
+      pluralLabel: 'Messages',
+      occurredAtField: 'internal_date',
+      primaryMetricId: 'supporting_message_count',
+    },
+    metrics: [
+      {
+        id: 'supporting_message_count',
+        label: 'Supporting messages',
+        valueType: 'count',
+        unit: 'messages',
+        aggregation: 'sum',
+        direction: 'context_only',
+        timeBasis: 'event_time',
+        crossSource: { mode: 'same_definition_only' },
+      },
+      {
+        id: 'active_sender_count',
+        label: 'Active senders',
+        valueType: 'count',
+        unit: 'senders',
+        aggregation: 'distinct_count',
+        direction: 'context_only',
+        timeBasis: 'event_time',
+        crossSource: { mode: 'same_definition_only' },
+      },
+    ],
+    entityLinks: [],
     evidenceKinds: [
       'semantic_family',
       'semantic_subtype',
@@ -258,12 +308,78 @@ export function gmailCleanupDecisionWorkflowBlueprint(
       'assignment_reason',
       'exclusion_reason',
     ],
+    evidencePolicy: {
+      requiresSourceRecord: true,
+      requiresObservedAt: true,
+      requiresIngestedAt: true,
+      requiresFreshness: true,
+      requiresQuality: true,
+      requiresTransformationVersion: true,
+    },
+    recommendationPolicy: {
+      requiresRationale: true,
+      requiresEvidence: true,
+      requiresConfidence: true,
+      requiresExpectedImpact: true,
+      supportsAlternatives: true,
+      requiresExpiryOrReevaluation: true,
+    },
     actions: [
-      { id: 'keep', label: 'Always keep' },
-      { id: 'archive', label: 'Archive automatically' },
-      { id: 'quarantine', label: 'Quarantine' },
-      { id: 'unsubscribe', label: 'Unsubscribe' },
-      { id: 'custom_rule', label: 'Create custom rule' },
+      {
+        id: 'keep',
+        label: 'Always keep',
+        capability: 'decision.keep',
+        effect: 'decision_only',
+        risk: 'low',
+        reversibility: 'not_applicable',
+        approval: 'none',
+        supportsPreview: false,
+        idempotencyRequired: false,
+      },
+      {
+        id: 'archive',
+        label: 'Archive automatically',
+        capability: 'gmail.archive_messages',
+        effect: 'provider_write',
+        risk: 'medium',
+        reversibility: 'reversible',
+        approval: 'policy',
+        supportsPreview: true,
+        idempotencyRequired: true,
+      },
+      {
+        id: 'quarantine',
+        label: 'Quarantine',
+        capability: 'gmail.quarantine_sender',
+        effect: 'provider_write',
+        risk: 'high',
+        reversibility: 'reversible',
+        approval: 'always',
+        supportsPreview: true,
+        idempotencyRequired: true,
+      },
+      {
+        id: 'unsubscribe',
+        label: 'Unsubscribe',
+        capability: 'gmail.unsubscribe_sender',
+        effect: 'provider_write',
+        risk: 'high',
+        reversibility: 'compensating_action',
+        approval: 'always',
+        supportsPreview: true,
+        idempotencyRequired: true,
+      },
+      {
+        id: 'custom_rule',
+        label: 'Create custom rule',
+        capability: 'gmail.create_rule',
+        effect: 'provider_write',
+        risk: 'medium',
+        reversibility: 'reversible',
+        approval: 'policy',
+        supportsPreview: true,
+        idempotencyRequired: true,
+      },
     ],
     reviewUnits: {
       dimensions: dimensionsForBasis(basis),
@@ -273,7 +389,20 @@ export function gmailCleanupDecisionWorkflowBlueprint(
         hardMax: GMAIL_REVIEW_UNIT_HARD_MAX,
       },
     },
-  }
+    governance: {
+      proprietaryBrain: {
+        kind: 'versioned_knowledge_and_memory',
+        ownership: 'tenant',
+        privacy: 'private',
+        provenance: 'required',
+        feedbackCapture: 'required',
+        foundationModelTraining: 'excluded',
+      },
+      sharedLearning: 'disabled',
+      auditTrail: 'required',
+      sopVersionReference: 'required',
+    },
+  })
 }
 
 function compatibilityUnitId(

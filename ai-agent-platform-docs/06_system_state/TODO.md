@@ -1,7 +1,123 @@
 # TODO — Automata Revival
-_Last updated: 2026-08-30 • Accepted ACE-048 consolidation published to GitHub; Management planning remains next_
+_Last updated: 2026-09-02 • Phase 4 Slice 2 Human-accepted, recovery-backed, GitHub-preserved, and closed; later Phase 4 work requires fresh PM discovery and target lock_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
+
+### Post-merge publication recovery — HUMAN ACCEPTED / RECOVERY CAPTURED
+
+- [x] Reattest clean Git lineage: local `main` and `origin/main` match at `49f863c`; accepted Cleanup Groups and shared-analysis integration commits are present.
+- [x] Diagnose the live mismatch read-only: April artifact `full-mailbox-20260415024237593` remains published with zero review-unit manifests; August candidate `full-mailbox-20260825031402535` is terminal candidate-ready with `5,024` senders, `60` validated manifests, and coverage through August 15.
+- [x] Record Oliver `ACCEPT` for the bounded publication recovery plan.
+- [x] Create authoritative runtime brief `docs/00_control_plane/runtime/ACE-048_POST_MERGE_PUBLICATION_RECOVERY_PM_BRIEF.md`.
+- [x] Create verified full pre-change `KEEP` backup; skip pruning.
+- [x] Restore a narrow compare-and-set readiness/promotion path without wholesale cleanup-branch integration.
+- [x] Make Mailbox Intelligence use read-only indexed provenance in the sidebar and keep Pressure Trend as its sole mutable timeframe authority.
+- [x] Run static verification and a non-published August-candidate browser preview across Cleanup Groups, Sender Overview, Sender Distribution, Time Context, Pressure Trend, and Decision Mode.
+- [x] Reattest exact publication identity and atomically promote the August candidate with the April version retained for rollback.
+- [x] Run final post-settle linked-surface proof on normal port `3000`; all locked surfaces passed with zero API failures, guard churn, or console errors.
+- [x] Record Human Review `REJECT`: yearly Pressure Trend has May/June 2026 gaps, small child choices need a framework-first clutter policy, and non-`All Indexed` analysis windows fail for additional chooser-generated units.
+- [x] Diagnose indexed-source continuity without Gmail access or mutation: May/June are absent from raw indexed rows because fixed-window fresh-head recovery stopped in July before bridging to the prior April endpoint.
+- [x] Diagnose narrowed Sender Distribution / Time Context: manifest-parent projection identity succeeds for simple and composite units, while presentation/legacy parent identities fail; the small-unit compatibility fallback masked the mismatch.
+- [x] Produce a framework-first small-group presentation recommendation: preserve exact units, classify `<5` and `<1%` ordinary units under More specific, preserve action/risk exceptions under Special handling, and cap immediately visible primary choices at `8`.
+- [x] Produce authoritative three-packet correction plan `docs/00_control_plane/runtime/ACE-048_HUMAN_REVIEW_RETURN_CORRECTION_PM_BRIEF.md` with projection identity -> index continuity -> chooser presentation execution order.
+- [x] Record Oliver `ACCEPT` on the correction plan and immediate same-flow source-only execution.
+- [x] Execute packets A-C without provider access, live data repair, rebuild, or publication.
+- [x] Pass targeted continuity/projection/cleanup fixtures, TypeScript, diff check, and authenticated composite-child browser proof across `All Indexed`, `1Y`, `1M`, `1W`, Time Context, workflow rows, and Decision Mode return.
+- [x] Create `docs/00_control_plane/runtime/ACE-048_HUMAN_REVIEW_RETURN_CORRECTION_REVIEW_PACKET.md` with the required visible artifacts and State Transition Matrix.
+- [x] Record Oliver `ACCEPT` on the correction candidate and authorization for one bounded live continuity bridge plus one unpublished candidate verification.
+- [x] Take and verify the pre-live-repair milestone backup; preserve all `KEEP` archives.
+- [x] Execute one bounded provider-backed continuity bridge; prove lifecycle completion and exact indexed coverage without overlapping pollers or unattended retries.
+- [x] Generate exactly one unpublished candidate from the repaired index and verify linked Pressure Trend, Sender Distribution, Time Context, workflow rows, and Decision Mode truth; keep publication behind a later explicit gate.
+- [x] Record Oliver's direction to resolve the remaining published gaps, take the pre-publication incremental backup, and perform one guarded compare-and-set transition from `full-mailbox-20260825031402535` to `full-mailbox-20260831062356983`.
+- [x] Complete canonical port-`3000` post-publication verification: Pressure Trend May/June bars, Time Context May/June activity bars, exact Cleanup Groups tiers, simple/composite switch loops, populated workflows, and Decision Mode close/return all pass after settle with no API failure or guard churn.
+- [x] Classify the terminal final production-build proof as `Missing Proof Type: Blocked` by the documented pre-existing Turbopack idle / Webpack `node:crypto` environment behavior; do not repeat without a new signal.
+- [x] Obtain final Human Review decision on the active published correction: `ACCEPT` on 2026-08-31.
+- [x] Record Recovery Contract: `CHANGELOG.md` -> `August 31, 2026 — ACE-048 Published Continuity and Linked Analysis Truth Accepted`.
+- [x] Create the Human-acceptance milestone incremental backup with project-scoped seven-day pruning and `KEEP` preservation.
+- [x] Trace `1,999` to the unique published cleanup-candidate sender universe and complete read-only framework-language audit on the exact canonical route.
+- [x] Create target-locked plan `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_INTELLIGENCE_PM_BRIEF.md`.
+- [x] Record Oliver's acceptance of the narrow naming direction and immediate scope expansion before implementation; mark the naming-only brief superseded rather than partially executing it.
+- [x] Audit the architecture boundary: generic review-unit and activity-projection contracts exist; shared UI/runtime seams still expose Gmail-shaped vocabulary, DTOs, assistant context, and action semantics.
+- [x] Expand the audit around Automata's reporting/decision purpose: identify versioned SOP context, semantic metrics, provenance/data quality, recommendation rationale, decision/action lifecycle, multi-source composition, and human-attention reporting as required generic contracts.
+- [x] Lock product-area ownership: Settings/Connections manages reusable provider connections; Automations authors/publishes versioned SOP workflows; Agents/Operations runs and reports on published versions; Dashboard summarizes compatible cross-workflow truth.
+- [x] Create authoritative phased plan `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_REFACTOR_PM_BRIEF.md`.
+- [x] Record Oliver `ACCEPT` for Phase 1 generic decision-workspace contract and cross-domain fixtures only.
+- [x] Capture the initial modular validation roadmap: customer service, investments, paid media, and finance; preserve every real connector/system as a later separate implementation gate.
+- [x] Capture marketplace, AI/MCP-guided creation, agent monitoring/feedback, the company-owned proprietary brain, and privacy-first opt-in shared learning as future architecture requirements.
+- [x] Record that the proprietary brain is versioned application-layer knowledge/memory—not an LLM or fine-tuning system—and preserve topic coverage, provenance, quality labels, examples, corrections, and outcome feedback under new vocabulary.
+- [ ] Later product migration: replace legacy `LLM training`, `fine-tune dataset`, and `training example` UI/route language with proprietary-brain terminology after a separately approved target-lock and migration plan; do not mutate those historical surfaces in Phase 1.
+- [x] Implement and verifier-accept the target-locked Phase 1 contract/fixture slice without visible behavior or provider mutation.
+- [x] Create `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE1_REVIEW_PACKET.md` with contract, regression, dirty-state, backup, and non-UI verification evidence.
+- [x] Record Oliver's Phase 1 Human decision: `ACCEPT` on 2026-08-31.
+- [x] Record Recovery Contract: `CHANGELOG.md` -> `August 31, 2026 — ACE-048 Framework-First Decision Workspace Phase 1 Accepted`.
+- [x] Create the Phase 1 Human-acceptance milestone incremental with project-scoped seven-day pruning and `KEEP` preservation.
+- [x] Complete Phase 2 read-only discovery, prove the shared render path, lock framework/adapter/provider vocabulary ownership, and validate the proposal across Gmail, customer service, real estate, crypto, multi-source paid media, bookkeeping, tax, and arbitrary future workflows.
+- [x] Record Oliver's acceptance of the Phase 2 target-locked direction and capture the execution-ready plan at `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE2_PM_BRIEF.md` as logged deferred execution.
+- [x] Complete pre-execution PM authority audit: preserve logged deferred execution, reject ambiguous conversational acceptance as source/UI authority, and add multi-agent/source identity plus governed/reversible proprietary-brain constraints to the Phase 2 brief.
+- [x] Record Oliver's explicit `ACCEPT PHASE 2 IMPLEMENTATION` decision for the locked 14-file/five-slice brief.
+- [x] Capture domain-adaptive visible titles as versioned deterministic metadata over framework semantic slots, with `Decision health` fallback and no page-load AI/runtime behavior.
+- [x] Create the governed pre-implementation incremental backup with normal project-scoped seven-day pruning and `KEEP` preservation.
+- [x] Execute and verifier-accept the five bounded presentation slices inside the locked source allowlist, including seven-domain/static proof and full authenticated post-settle Playwright before/after evidence.
+- [x] Record Oliver's Phase 2 Human Review decision: `ACCEPT` on 2026-09-01 after the exact worktree runtime was recovered and the visible Gmail result was inspected.
+- [x] Record Recovery Contract: `CHANGELOG.md` -> `September 1, 2026 — ACE-048 Framework-First Decision Workspace Phase 2 Accepted`.
+- [x] Create and verify the Phase 2 Human-acceptance milestone incremental at `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - ACE-048 framework-first Decision Workspace Phase 2 Human acceptance)` with project-scoped seven-day pruning and `KEEP` preservation.
+- [x] Record Oliver's explicit `ACCEPT PHASE 3 DISCOVERY` decision and activate the bounded read-only generic runtime/data-facade discovery/target-lock pass.
+- [x] Prove the exact current data/import path, separate platform read-model semantics from Gmail/provider seams, and select Review Groups as the safest first accepted surface.
+- [x] Create the exact target-locked eight-file execution contract at `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_REVIEW_GROUPS_PM_BRIEF.md` with cross-domain, Gmail-parity, load, rollback, and full post-settle proof requirements.
+- [x] Record Oliver's explicit `ACCEPT PHASE 3 SLICE 1 IMPLEMENTATION` and create the governed pre-implementation worktree incremental with project-scoped seven-day pruning and `KEEP` preservation.
+- [x] Implement the exact eight-file generic Review Groups read facade, Gmail compatibility adapter, selected-adapter context, generic page consumer, and eight-domain fail-closed fixtures without changing routes, requests, provider/data state, or accepted Gmail behavior.
+- [x] Complete required regressions, TypeScript, targeted lint, diff hygiene, and full post-settle Playwright proof across cold load, focused state, exact child transition, and return; record verifier `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE1_REVIEW_PACKET.md`.
+- [x] Record Oliver's Phase 3 Slice 1 Human Review decision: `ACCEPT` on 2026-09-01.
+- [x] Record Recovery Contract: `CHANGELOG.md` -> `September 1, 2026 — ACE-048 Framework-First Decision Workspace Phase 3 Slice 1 Accepted`.
+- [x] Create and verify the Human-acceptance milestone incremental at `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-01/ai-agent-platform-worktree-8642 (incremental 1 September 2026 - ACE-048 framework-first Decision Workspace Phase 3 Slice 1 Human acceptance)` with `1,114` files, project-scoped seven-day pruning, and `KEEP` preservation.
+- [x] Record Oliver's approval for the separately bounded Phase 3 Slice 2 discovery/target-lock pass.
+- [x] Select Decision Intelligence (`Inbox health`) as the safest next accepted facade surface and prove its exact render/data/import/request path, adapter boundary, load shape, regressions, and six-file source allowlist.
+- [x] Create `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE2_DECISION_INTELLIGENCE_PM_BRIEF.md` with the cross-domain contract, frozen Gmail lifecycle, rollback, and post-settle proof requirements.
+- [x] Record Oliver's direct `accept` response to the explicit Phase 3 Slice 2 implementation gate; authority is limited to the locked six-file Decision Intelligence read-facade contract.
+- [x] Create and verify the governed `1,116`-file pre-implementation worktree incremental with project-scoped seven-day pruning and `KEEP` preservation.
+- [x] Implement only the locked Decision Intelligence read-model/context/Gmail-adapter/page/component/fixture seams with zero route, request, cache, polling, provider/data, or accepted Gmail behavior change.
+- [x] Complete targeted regressions, TypeScript, lint, diff/allowlist checks, and full post-settle browser verification; record verifier `ACCEPT / HIGH` in `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE2_REVIEW_PACKET.md`.
+- [x] Record Oliver's Phase 3 Slice 2 Human Review `ACCEPT`, Recovery Contract, and verified `1,136`-file Human-acceptance milestone backup.
+- [x] Record Oliver's approval for a fresh bounded Phase 3 Slice 3 Sender Overview discovery/target-lock pass.
+- [x] Prove the exact Sender Overview route/render/data/cache/request/lifecycle seams, validate the generic `item_overview` / subject / activity contract across eight domains, and create the exact six-file target-locked PM Brief.
+- [x] Record Oliver's direct `accept` response to the explicit Phase 3 Slice 3 implementation gate.
+- [x] Create and verify the `1,138`-file governed pre-implementation worktree incremental with seven-day project-scoped pruning and `KEEP` preservation.
+- [x] Implement and verifier-accept only the six locked Sender Overview read-facade files; preserve accepted Gmail UI, routes, requests, cache/lifecycle ownership, provider action, and Decision Mode close/return.
+- [x] Pass eight-domain/static fixtures, required Gmail regressions, TypeScript, targeted lint, diff/allowlist checks, and authenticated post-settle Playwright proof across the exact routes, window matrix, Analysis Rail tabs, pagination, evidence/preview, Decision Mode, close/return, and accepted editorial redirect.
+- [x] Record Oliver's Phase 3 Slice 3 Human Review `ACCEPT`, Recovery Contract, and verified `1,574`-file Human-acceptance milestone backup.
+- [x] Record Oliver's approval for the bounded read-only Phase 3 completion audit of remaining Decision Mode and Decision Management read boundaries.
+- [x] Complete repository-first Decision Mode/Decision Management discovery, isolate the remaining direct management-summary read seam, and create the exact six-file Slice 4 managed decision-state read-facade PM Brief.
+- [x] Record Oliver's direct `accept` response to the explicit Phase 3 Slice 4 implementation gate.
+- [x] Create and verify the `1,579`-file governed pre-implementation worktree incremental with normal seven-day project-scoped pruning and all `23` `KEEP` archives preserved.
+- [x] Implement and verifier-accept only the exact six-file managed decision-state read facade; preserve all provider actions, requests, caches, lifecycle, routes, and accepted Gmail behavior. Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE3_SLICE4_REVIEW_PACKET.md` (`ACCEPT / HIGH`).
+- [x] Preserve Oliver's clarification that earlier general approval was not Human Review; do not infer acceptance from it.
+- [x] Complete the operator-requested delegated Playwright refresh at `PASS / HIGH` with post-settle screenshots, state matrix, console/network proof, and zero provider actions.
+- [x] Record Oliver's later explicit Human Review `Accept`, create the Recovery Contract, and verify the `2,163`-file September 2 Human-acceptance milestone backup.
+- [x] Close Phase 3 with Slices 1-4 Human-accepted and recovery-backed.
+- [x] Record Oliver's explicit `ACCEPT PHASE 4 DISCOVERY` decision and create the authoritative bounded read-only discovery handoff at `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_DISCOVERY_HANDOFF.md`.
+- [x] Trace and classify Decision Mode and Decision Management capability/action paths, test the contract across eight reference workflows, and create the exact eight-file `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE1_ACTION_PRESENTATION_PM_BRIEF.md` target lock.
+- [x] Record Oliver's acceptance of the recommended sequence and authorization for the exact Phase 4 Slice 1 implementation after the governed backup/publication checkpoint.
+- [x] Audit the detached and named recovery worktrees, `main`/`origin/main` divergence, canonical remote, and dirty-path counts in `ACE-048_GIT_PUBLICATION_SAFETY_AUDIT.md`; no Git mutation occurred.
+- [x] Record Oliver's standing policy that every Human-accepted stable fix/slice/phase/milestone receives both a verified backup and exact-scope normal non-force GitHub publication.
+- [x] Create the combined pre-publication/pre-implementation backup, reconcile exact accepted paths across both dirty worktrees, exclude secrets/generated/auth/unrelated state, verify, commit, push, and prove live parity.
+- [x] Verify the `2,175`-file incremental plus readable/checksummed full archive and exact `61`-path staged packet; pass 11 fixture families, TypeScript, targeted lint, cached diff check, and the environment-corrected `63`-route production build.
+- [x] Publish `eef994f` normally on `agent/ace-048-accepted-framework-baseline`; verify local/remote/PR-head parity and open draft PR #3 against `main`.
+- [x] Implement and verifier-accept only the exact eight-file Phase 4 Slice 1 action-presentation/availability brief; preserve all Gmail handlers, requests, routes, counts, lifecycle, provider controls, and close/return behavior.
+- [x] Record Oliver's explicit Phase 4 Slice 1 Human Review `ACCEPT` and Recovery Contract.
+- [x] Create and verify the `2,409`-file Human-acceptance milestone backup with exact worktree/branch/HEAD identity, normal seven-day pruning, and `KEEP` preservation.
+- [x] Publish accepted-content commit `9e27a12` normally without force and prove local/remote/live/PR-head parity before final docs-only closeout propagation.
+- [x] Record Oliver's approval for a fresh bounded PM discovery/target-lock pass before any further Phase 4 implementation.
+- [x] Complete read-only discovery of the next Phase 4 capability/action slice and prove the Approval Queue first-action truncation versus full-bundle execution boundary.
+- [x] Create the exact four-file target-locked `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE2_APPROVAL_QUEUE_TRUTH_PM_BRIEF.md` with eight-domain, multi-role/source, fail-closed, load, rollback, and post-settle proof contracts.
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 2 IMPLEMENTATION` decision.
+- [x] Create and verify the governed pre-implementation recovery point, then implement and verifier-check only the exact four-file Approval Queue truth-projection contract.
+- [x] Record Oliver's Human Review `accept` and create the accepted-fix Recovery Contract for Phase 4 Slice 2.
+- [x] Create and verify the `2,434`-file Phase 4 Slice 2 Human-acceptance backup with exact worktree/branch/HEAD identity, normal seven-day project-scoped pruning, and `KEEP` preservation.
+- [x] Commit accepted-content commit `00f8c6e` and push normally without force; prove local, remote-tracking, live remote, and draft PR #3 head parity with `0 / 0` divergence before final docs-only closeout propagation.
+- [ ] ACTIVE NOW — keep Phase 4 Slice 2 closed; return to PM for a separately approved next discovery/target-lock task before any endpoint hardening or later Phase 4 implementation.
+- [ ] Plan the discovered approval/execution endpoint integrity issues as a separate later work unit before any generalized provider-execution claim; do not fold runtime hardening into the four-file presentation/read slice.
+- [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
+- [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 
 - [x] Oliver approved the decision-complete all-parent plan and immediate same-flow implementation through the pre-rebuild gate.
 - [x] Create authoritative runtime packet `docs/00_control_plane/runtime/ACE-048_ALL_PARENT_CLEANUP_TAXONOMY_CONSOLIDATION_PM_BRIEF.md`; supersede Marketing-only execution authority while preserving it as partial evidence.

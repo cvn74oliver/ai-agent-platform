@@ -3,9 +3,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useDecisionWorkspaceActions } from '@/components/runtime/DecisionWorkspaceActionContext'
+import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
+import { useDecisionWorkspaceRead } from '@/components/runtime/DecisionWorkspaceReadContext'
+import { resolveDecisionWorkspacePresentationSlot } from '@/lib/runtime/decisionWorkspacePresentation'
+import type {
+  DecisionWorkspaceActionGroup,
+  DecisionWorkspaceActionTone,
+} from '@/lib/runtime/decisionWorkspaceActionModel'
 import {
   clearSenderFromGmailCleanupWorkflowDrafts,
-  fetchGmailDecisionManagementSummary,
   persistGmailCleanupMemoryEvent,
   type GmailDecisionManagementSummaryData,
 } from '@/lib/runtime/gmailCleanupWorkspace'
@@ -130,9 +137,6 @@ function executionPresentation(profile: SenderProfile): {
   detail: string
   actionSummary: string
   className: string
-  canPushArchive: boolean
-  canRestoreArchive: boolean
-  canReopen: boolean
 } {
   if (profile.destination_state === 'KEEP') {
     return {
@@ -143,9 +147,6 @@ function executionPresentation(profile: SenderProfile): {
         'Stored destination only. Keep remains visible in summary, filters, and sender profile management without competing as active work.',
       actionSummary: 'Quiet managed state. Reopen only if this sender should return to Decisions.',
       className: 'border-emerald-900/45 bg-emerald-950/10 text-emerald-100',
-      canPushArchive: false,
-      canRestoreArchive: false,
-      canReopen: true,
     }
   }
 
@@ -159,9 +160,6 @@ function executionPresentation(profile: SenderProfile): {
       actionSummary:
         'Controlled deferral. Reopen when you want this sender back in Decision Mode for a new decision.',
       className: 'border-amber-900/45 bg-amber-950/10 text-amber-100',
-      canPushArchive: false,
-      canRestoreArchive: false,
-      canReopen: true,
     }
   }
 
@@ -183,9 +181,6 @@ function executionPresentation(profile: SenderProfile): {
         actionSummary:
           'This state is already applied. Reopen only if you intend to supersede the managed destination.',
         className: 'border-emerald-900/45 bg-emerald-950/10 text-emerald-100',
-        canPushArchive: false,
-        canRestoreArchive: false,
-        canReopen: true,
       }
     }
     if (reversed) {
@@ -198,9 +193,6 @@ function executionPresentation(profile: SenderProfile): {
         actionSummary:
           'Reopen returns the sender to Decision Mode while preserving the management history.',
         className: 'border-slate-700 bg-slate-950/35 text-slate-100',
-        canPushArchive: false,
-        canRestoreArchive: false,
-        canReopen: true,
       }
     }
     if (pushRequested) {
@@ -211,9 +203,6 @@ function executionPresentation(profile: SenderProfile): {
         detail: 'A legacy downstream push is in progress for this sender.',
         actionSummary: 'No new action is available while this sender waits on external execution or verification.',
         className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
-        canPushArchive: false,
-        canRestoreArchive: false,
-        canReopen: false,
       }
     }
     if (mismatch) {
@@ -224,9 +213,6 @@ function executionPresentation(profile: SenderProfile): {
         detail: profile.execution_warning || 'Execution and sync truth need follow-up before this sender is trusted again.',
         actionSummary: 'This is a valid managed state, but its execution history needs operator attention.',
         className: 'border-rose-900/45 bg-rose-950/10 text-rose-100',
-        canPushArchive: false,
-        canRestoreArchive: false,
-        canReopen: true,
       }
     }
     if (refinedReady) {
@@ -238,9 +224,6 @@ function executionPresentation(profile: SenderProfile): {
           'Refinement history exists, but Gmail action remains outside slice 1. This sender stays managed until the refinement flow ships.',
         actionSummary: 'No Gmail action is available in this slice even when refinement metadata exists.',
         className: 'border-violet-900/45 bg-violet-950/10 text-violet-100',
-        canPushArchive: false,
-        canRestoreArchive: false,
-        canReopen: true,
       }
     }
     return {
@@ -252,9 +235,6 @@ function executionPresentation(profile: SenderProfile): {
       actionSummary:
         'No Gmail action is available yet. The next step is later refinement, not another decision or immediate execution.',
       className: 'border-violet-900/45 bg-violet-950/10 text-violet-100',
-      canPushArchive: false,
-      canRestoreArchive: false,
-      canReopen: true,
     }
   }
 
@@ -276,9 +256,6 @@ function executionPresentation(profile: SenderProfile): {
       actionSummary:
         'Restore is available here in Management because this is where Gmail mutations are controlled and verified.',
       className: 'border-emerald-900/45 bg-emerald-950/10 text-emerald-100',
-      canPushArchive: false,
-      canRestoreArchive: true,
-      canReopen: false,
     }
   }
   if (reversed) {
@@ -290,9 +267,6 @@ function executionPresentation(profile: SenderProfile): {
         'Inbox restore has been verified. The sender remains managed until you reopen it for a new decision.',
       actionSummary: 'You can push again later or reopen this sender back into Decision Mode.',
       className: 'border-slate-700 bg-slate-950/35 text-slate-100',
-      canPushArchive: true,
-      canRestoreArchive: false,
-      canReopen: true,
     }
   }
   if (pushRequested) {
@@ -303,9 +277,6 @@ function executionPresentation(profile: SenderProfile): {
       detail: 'Archive push is in progress and waiting on Gmail execution or verification.',
       actionSummary: 'This sender is waiting on Gmail. New archive actions stay locked until verification finishes.',
       className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
-      canPushArchive: false,
-      canRestoreArchive: false,
-      canReopen: false,
     }
   }
   if (mismatch) {
@@ -317,9 +288,6 @@ function executionPresentation(profile: SenderProfile): {
       actionSummary:
         'Management is the place to retry or reopen because Gmail changes only happen from this surface.',
       className: 'border-rose-900/45 bg-rose-950/10 text-rose-100',
-      canPushArchive: true,
-      canRestoreArchive: false,
-      canReopen: true,
     }
   }
   if (readyToPush) {
@@ -331,9 +299,6 @@ function executionPresentation(profile: SenderProfile): {
       actionSummary:
         'Push to Gmail is the execution step. Decision Mode stored the destination earlier but did not mutate Gmail.',
       className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
-      canPushArchive: true,
-      canRestoreArchive: false,
-      canReopen: true,
     }
   }
   return {
@@ -344,9 +309,6 @@ function executionPresentation(profile: SenderProfile): {
     actionSummary:
       'Push to Gmail is the execution step. Decision Mode stored the destination earlier but did not mutate Gmail.',
     className: 'border-cyan-900/45 bg-cyan-950/10 text-cyan-100',
-    canPushArchive: true,
-    canRestoreArchive: false,
-    canReopen: true,
   }
 }
 
@@ -354,14 +316,19 @@ type DecoratedProfile = {
   profile: SenderProfile
   destination: ReturnType<typeof destinationBadge>
   execution: ReturnType<typeof executionPresentation>
+  actions: DecisionWorkspaceActionGroup
   supportingMessages: number
 }
 
-function decorateProfile(profile: SenderProfile): DecoratedProfile {
+function decorateProfile(
+  profile: SenderProfile,
+  getActions: (compatibilityState: unknown) => DecisionWorkspaceActionGroup
+): DecoratedProfile {
   return {
     profile,
     destination: destinationBadge(profile),
     execution: executionPresentation(profile),
+    actions: getActions(profile),
     supportingMessages: supportingMessageCount(profile),
   }
 }
@@ -393,33 +360,21 @@ function countByKind(items: DecoratedProfile[], kind: ExecutionKind): number {
   return items.filter((item) => item.execution.kind === kind).length
 }
 
-function actionFootnote(item: DecoratedProfile): string {
-  if (item.execution.canPushArchive) {
-    return 'Push to Gmail is the only action here that changes Gmail in slice 1.'
-  }
-  if (item.execution.canRestoreArchive) {
-    return 'Restore will return verified archive changes back into Inbox while keeping the sender managed.'
-  }
-  if (item.profile.destination_state === 'CUSTOM_RULE') {
-    return 'Valid managed state. Gmail action stays unavailable until the later refinement slice ships.'
-  }
-  if (item.profile.destination_state === 'QUARANTINE') {
-    return 'Deferred on purpose. Reopen when this sender needs another decision pass.'
-  }
-  if (item.profile.destination_state === 'KEEP') {
-    return 'Quiet managed state. Keep stays visible in summary and filters without becoming active work.'
-  }
-  if (item.execution.kind === 'push_requested') {
-    return 'Waiting on Gmail execution or verification before more actions become available.'
-  }
-  return 'No additional action is available right now.'
-}
-
 const nestedSurfaceClass = 'app-surface-card-nested'
 const insetSurfaceClass = 'app-surface-card-inset'
 const insetPillClass = 'app-surface-card-tile'
 const quietSecondaryActionClass =
   'app-surface-card-tile text-gray-200 hover:border-cyan-700/60 hover:text-cyan-100'
+
+function managementActionClassName(tone: DecisionWorkspaceActionTone): string {
+  if (tone === 'primary') {
+    return 'bg-cyan-500 text-gray-950 hover:bg-cyan-400'
+  }
+  if (tone === 'caution') {
+    return 'border border-amber-700/50 bg-amber-950/20 text-amber-100 hover:border-amber-600/70 hover:bg-amber-950/30'
+  }
+  return quietSecondaryActionClass
+}
 
 function SectionHeader(props: { title: string; subtitle: string }) {
   return (
@@ -568,43 +523,44 @@ function SenderRow(props: {
         <div className={`${nestedSurfaceClass} rounded-xl p-3`}>
           <p className="text-[10px] uppercase tracking-wide text-gray-500">Available actions</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {execution.canPushArchive ? (
-              <button
-                type="button"
-                disabled={isPushing || isRestoring || isReopening}
-                onClick={() => void props.onPushArchive(profile)}
-                className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isPushing ? 'Pushing…' : 'Push to Gmail'}
-              </button>
-            ) : null}
-            {execution.canRestoreArchive ? (
-              <button
-                type="button"
-                disabled={isPushing || isRestoring || isReopening}
-                onClick={() => void props.onRestoreArchive(profile)}
-                className="rounded-full border border-amber-700/50 bg-amber-950/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:border-amber-600/70 hover:bg-amber-950/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isRestoring ? 'Restoring…' : 'Restore'}
-              </button>
-            ) : null}
-            {execution.canReopen ? (
-              <button
-                type="button"
-                disabled={isPushing || isRestoring || isReopening}
-                onClick={() => void props.onReopen(profile)}
-                className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60`}
-              >
-                {isReopening ? 'Reopening…' : 'Reopen in Decisions'}
-              </button>
-            ) : null}
-            {!execution.canPushArchive && !execution.canRestoreArchive && !execution.canReopen ? (
+            {item.actions.actions.map((action) => {
+              const isActionPending =
+                (action.compatibilityValue === 'push_archive' && isPushing) ||
+                (action.compatibilityValue === 'restore_archive' && isRestoring) ||
+                (action.compatibilityValue === 'reopen' && isReopening)
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  title={action.description}
+                  disabled={
+                    isPushing ||
+                    isRestoring ||
+                    isReopening ||
+                    action.availability.state !== 'available'
+                  }
+                  onClick={() => {
+                    if (action.compatibilityValue === 'push_archive') {
+                      void props.onPushArchive(profile)
+                    } else if (action.compatibilityValue === 'restore_archive') {
+                      void props.onRestoreArchive(profile)
+                    } else if (action.compatibilityValue === 'reopen') {
+                      void props.onReopen(profile)
+                    }
+                  }}
+                  className={`${managementActionClassName(action.tone)} rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {isActionPending ? action.pendingLabel : action.label}
+                </button>
+              )
+            })}
+            {item.actions.actions.length === 0 ? (
               <span className={`${insetPillClass} rounded-full px-4 py-2 text-sm text-gray-400`}>
-                No action available right now
+                {item.actions.emptyLabel}
               </span>
             ) : null}
           </div>
-          <p className="mt-3 text-xs leading-5 text-gray-400">{actionFootnote(item)}</p>
+          <p className="mt-3 text-xs leading-5 text-gray-400">{item.actions.footnote}</p>
         </div>
       </div>
     </article>
@@ -650,6 +606,12 @@ export default function OperationsDecisionManagementPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const actionAdapter = useDecisionWorkspaceActions()
+  const presentation = useDecisionWorkspacePresentation()
+  const { management } = useDecisionWorkspaceRead()
+  const itemOverviewSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'item_overview')
+  const decisionModeSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'decision_mode')
+  const managementSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'decision_management')
   const agentId = typeof params?.id === 'string' ? params.id : ''
   const sessionId = searchParams.get('playground_session_id')
   const analysisScope = normalizeOperationsAnalysisScope(searchParams.get('analysis_scope'))
@@ -663,13 +625,17 @@ export default function OperationsDecisionManagementPage() {
   const [reopeningSenderKey, setReopeningSenderKey] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
-    const result = await fetchGmailDecisionManagementSummary({ agentId })
+    const result = await management.readSummary({ agentId })
     if (!result.ok) {
       setState({ status: 'error', data: null, error: result.error })
       return
     }
-    setState({ status: 'ready', data: result.data, error: null })
-  }, [agentId])
+    setState({
+      status: 'ready',
+      data: result.data.compatibilityValue.value as GmailDecisionManagementSummaryData,
+      error: null,
+    })
+  }, [agentId, management])
 
   useEffect(() => {
     if (!agentId) return
@@ -823,7 +789,7 @@ export default function OperationsDecisionManagementPage() {
   if (state.status === 'loading') {
     return (
       <section className="app-surface-card-subtle rounded-2xl p-5 text-sm text-gray-300">
-        Loading Management control center…
+        Loading {managementSlot.title}…
       </section>
     )
   }
@@ -831,7 +797,7 @@ export default function OperationsDecisionManagementPage() {
   if (state.status === 'error' || !state.data) {
     return (
       <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-5 text-sm text-rose-100">
-        {state.error || 'Failed to load Decision Management.'}
+        {state.error || `Failed to load ${managementSlot.title}.`}
       </section>
     )
   }
@@ -844,7 +810,9 @@ export default function OperationsDecisionManagementPage() {
       profile.destination_state === 'QUARANTINE'
   )
 
-  const decoratedProfiles = senderProfiles.map(decorateProfile)
+  const decoratedProfiles = senderProfiles.map((profile) =>
+    decorateProfile(profile, actionAdapter.management.getActions)
+  )
   const profilesByBucket: Record<BucketKey, DecoratedProfile[]> = {
     ARCHIVE: sortDecoratedProfiles(
       decoratedProfiles.filter((item) => item.profile.destination_state === 'ARCHIVE')
@@ -902,8 +870,8 @@ export default function OperationsDecisionManagementPage() {
       <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-900/45 bg-gradient-to-b from-cyan-950/25 to-gray-950/45 p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Management</p>
-            <h1 className="text-2xl font-semibold text-white">Execution and sync control center</h1>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">{managementSlot.title}</p>
+            <h1 className="text-2xl font-semibold text-white">{managementSlot.subtitle}</h1>
             <p className="max-w-3xl text-sm text-gray-300">
               Decisions are already stored. Management is where you see what can act now, what is stored for later, what Gmail has already applied, and where attention is needed.
             </p>
@@ -913,13 +881,13 @@ export default function OperationsDecisionManagementPage() {
               href={buildReviewHref({ agentId, sessionId, analysisScope })}
               className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
             >
-              Sender Overview
+              {itemOverviewSlot.title}
             </Link>
             <Link
               href={buildReviewHref({ agentId, sessionId, analysisScope, mode: 'decision' })}
               className={`${quietSecondaryActionClass} rounded-full px-4 py-2 text-sm`}
             >
-              Decision Mode
+              {decisionModeSlot.title}
             </Link>
           </div>
         </div>

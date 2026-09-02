@@ -1,50 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { useOperationsRuntime } from '@/components/runtime/OperationsRuntimeContext'
+import { useDecisionWorkspaceRead } from '@/components/runtime/DecisionWorkspaceReadContext'
+import { useDecisionWorkspacePresentation } from '@/components/runtime/DecisionWorkspacePresentationContext'
+import { resolveDecisionWorkspacePresentationSlot } from '@/lib/runtime/decisionWorkspacePresentation'
 import {
-  gmailCleanupWorkflowDraftHasActiveContent,
-  readGmailCleanupWorkflowDraft,
-  readCachedGmailMailboxIntelligence,
-  readLatestCachedGmailMailboxIntelligence,
-  type GmailCleanupClusterRef,
-  type GmailMailboxIntelligenceData,
-} from '@/lib/runtime/gmailCleanupWorkspace'
-import {
-  buildCleanupGroupPresentationPartitions,
-  buildCleanupGroupPublishedReviewUnits,
-  buildCleanupGroupInternalStructure,
-  buildCleanupGroupIntentSnapshotsForUi,
-  buildCleanupGroupSectionSummariesForUi,
-  buildCleanupGroupSectionsForUi,
-  getCleanupGroupSection,
-  getCleanupGroupDisplayTitle,
-  getCleanupGroupLaneLabel,
-  getCleanupGroupSurfaceKind,
-  getCleanupGroupSurfaceTier,
-  isCleanupGroupSurfacedInUi,
-  type CleanupGroupRecommendationReason,
-  type CleanupGroupPublishedReviewUnit,
-  type CleanupGroupSurfaceKind,
-  getCleanupGroupStartWith,
-  getCleanupGroupWhyExists,
-  findDuplicateCleanupReviewUnitLabels,
-  recommendCleanupGroupPublishedReviewUnit,
-  recommendCleanupGroupForUi,
-} from '@/lib/runtime/cleanupGroupPresentation'
-import {
-  buildGmailCleanupPresentationPartitionBlueprints,
-  buildGmailSemanticPresentationPolicy,
-  gmailCleanupCopyForHumans,
-} from '@/lib/runtime/gmailSemanticPresentationPolicy'
-import { serializeOperationsQuery } from '@/lib/runtime/operationsWorkspace'
-
-function normalizedCount(value: number | null | undefined): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
-  return Math.round(value)
-}
+  type DecisionReviewGroupSurfaceKind,
+  type DecisionReviewRecommendationReason,
+  type DecisionReviewUnitReadModel,
+} from '@/lib/runtime/decisionWorkspaceReadModel'
 
 function messageShareLabel(sharePct: number | null | undefined, messageCount: number | null): string {
   if (sharePct == null || !Number.isFinite(sharePct)) {
@@ -78,7 +43,7 @@ function cleanupGroupSectionMeaning(sectionId: string): string {
 }
 
 function cleanupGroupNextStepInstruction(
-  reason: CleanupGroupRecommendationReason,
+  reason: DecisionReviewRecommendationReason,
   groupTitle: string | null
 ): string {
   if (reason === 'resume_work') {
@@ -127,31 +92,155 @@ function buildCleanupGroupFocusHref(params: {
 }
 
 function buildRenderableReviewUnits(
-  reviewUnits: CleanupGroupPublishedReviewUnit[]
-): CleanupGroupPublishedReviewUnit[] {
-  return reviewUnits.filter((unit) => unit.senderCount > 0)
+  reviewUnits: readonly DecisionReviewUnitReadModel[]
+): DecisionReviewUnitReadModel[] {
+  return reviewUnits.filter((unit) => unit.subjectCount > 0)
+}
+
+const CLEANUP_GROUP_PRIMARY_CHOICE_LIMIT = 8
+const CLEANUP_GROUP_TINY_SUBJECT_LIMIT = 5
+const CLEANUP_GROUP_TINY_PARENT_SHARE_PCT = 1
+
+type CleanupReviewUnitTiers = {
+  primary: DecisionReviewUnitReadModel[]
+  moreSpecific: DecisionReviewUnitReadModel[]
+  specialHandling: DecisionReviewUnitReadModel[]
+}
+
+function cleanupReviewUnitNeedsSpecialHandling(unit: DecisionReviewUnitReadModel): boolean {
+  if (unit.reasonKind != null) return true
+  if (unit.semanticFamily === 'security_alert' || unit.semanticFamily === 'human_personal') {
+    return true
+  }
+  const semanticIdentity = [
+    unit.id,
+    unit.label,
+    unit.sourceKey,
+    unit.semanticSubtype,
+    ...unit.decompositionPath,
+  ]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase()
+  return /\b(security|risk|fraud|scam|protected|trusted|compliance|identity|authentication|login|legal|medical|personal)\b/.test(
+    semanticIdentity
+  )
+}
+
+function buildCleanupReviewUnitTiers(
+  reviewUnits: DecisionReviewUnitReadModel[]
+): CleanupReviewUnitTiers {
+  const primary: DecisionReviewUnitReadModel[] = []
+  const moreSpecific: DecisionReviewUnitReadModel[] = []
+  const specialHandling: DecisionReviewUnitReadModel[] = []
+  const ordinary: DecisionReviewUnitReadModel[] = []
+
+  for (const unit of reviewUnits) {
+    const isTiny =
+      unit.subjectCount < CLEANUP_GROUP_TINY_SUBJECT_LIMIT &&
+      unit.groupSharePct < CLEANUP_GROUP_TINY_PARENT_SHARE_PCT
+    if (isTiny && cleanupReviewUnitNeedsSpecialHandling(unit)) {
+      specialHandling.push(unit)
+    } else if (isTiny) {
+      moreSpecific.push(unit)
+    } else {
+      ordinary.push(unit)
+    }
+  }
+
+  ordinary.sort(
+    (left, right) =>
+      right.subjectCount - left.subjectCount ||
+      right.groupSharePct - left.groupSharePct ||
+      left.label.localeCompare(right.label)
+  )
+  primary.push(...ordinary.slice(0, CLEANUP_GROUP_PRIMARY_CHOICE_LIMIT))
+  moreSpecific.push(...ordinary.slice(CLEANUP_GROUP_PRIMARY_CHOICE_LIMIT))
+
+  if (primary.length === 0) {
+    const promoted = moreSpecific.shift() ?? specialHandling.shift()
+    if (promoted) primary.push(promoted)
+  }
+
+  return { primary, moreSpecific, specialHandling }
+}
+
+function CleanupReviewUnitChoice(props: {
+  unit: DecisionReviewUnitReadModel
+  reviewUnitsReady: boolean
+  agentId: string
+  query: string
+  clusterId: string
+  compact?: boolean
+}) {
+  const selectable = props.reviewUnitsReady && props.unit.manageabilityState !== 'oversized'
+  const content = props.compact ? (
+    <>
+      {props.unit.label} · {props.unit.subjectCount.toLocaleString()} decision subjects
+      {!selectable ? ' · paused' : ''}
+    </>
+  ) : (
+    <>
+      <p className="text-sm font-medium text-cyan-50">{props.unit.label}</p>
+      <p className="mt-1 text-xs text-cyan-100/90">
+        {props.unit.subjectCount.toLocaleString()} decision subjects
+      </p>
+      <p className="mt-1 text-[11px] text-cyan-200/80">
+        {props.unit.groupSharePct}% of this group · {props.unit.manageabilityLabel}
+      </p>
+    </>
+  )
+
+  return selectable ? (
+    <Link
+      href={buildDerivedReviewUnitHref({
+        agentId: props.agentId,
+        query: props.query,
+        clusterId: props.clusterId,
+        unitId: props.unit.targetRoute.subsetValue,
+      })}
+      className={
+        props.compact
+          ? 'rounded-xl border border-cyan-700/45 bg-cyan-950/10 px-3 py-2 text-xs text-cyan-100 hover:border-cyan-600/60 hover:text-white'
+          : 'rounded-xl border border-cyan-700/45 bg-cyan-950/15 p-3 text-left transition hover:border-cyan-600/70 hover:bg-cyan-950/20'
+      }
+    >
+      {content}
+    </Link>
+  ) : (
+    <div
+      className={
+        props.compact
+          ? 'rounded-xl border border-amber-700/35 bg-amber-950/15 px-3 py-2 text-xs text-amber-100'
+          : 'rounded-xl border border-amber-700/35 bg-amber-950/15 p-3 text-left'
+      }
+    >
+      {content}
+    </div>
+  )
 }
 
 function actionableReviewUnitsReady(params: {
   parentSenderCount: number | null
-  reviewUnits: Array<{ label: string; senderCount: number; targetState: string }>
+  reviewUnits: readonly DecisionReviewUnitReadModel[]
   presentationErrors?: string[]
 }): boolean {
+  const normalizedLabels = params.reviewUnits.map((unit) => unit.label.trim().toLowerCase())
   return (
     (params.presentationErrors?.length || 0) === 0 &&
     params.parentSenderCount != null &&
     params.reviewUnits.length > 0 &&
-    findDuplicateCleanupReviewUnitLabels(params.reviewUnits).length === 0 &&
+    new Set(normalizedLabels).size === normalizedLabels.length &&
     params.reviewUnits.every(
-      (unit) => unit.senderCount > 0 && unit.targetState !== 'oversized'
+      (unit) => unit.subjectCount > 0 && unit.manageabilityState !== 'oversized'
     ) &&
-    params.reviewUnits.reduce((sum, unit) => sum + unit.senderCount, 0) ===
+    params.reviewUnits.reduce((sum, unit) => sum + unit.subjectCount, 0) ===
       params.parentSenderCount
   )
 }
 
 function cleanupGroupDecisionValueDetail(params: {
-  surfaceKind: CleanupGroupSurfaceKind
+  surfaceKind: DecisionReviewGroupSurfaceKind
   senderCount: number | null
   messageCount: number | null
   sharePct: number | null
@@ -170,7 +259,7 @@ function cleanupGroupDecisionValueDetail(params: {
   return `Start here because ${senderDetail} account for ${messageDetail}${impactDetail}, the messages share a comparatively consistent purpose, and the work is already divided into manageable choices. That combination offers useful progress with less ambiguity than the groups below.`
 }
 
-function cleanupGroupSurfaceRoleLabel(kind: CleanupGroupSurfaceKind): string {
+function cleanupGroupSurfaceRoleLabel(kind: DecisionReviewGroupSurfaceKind): string {
   if (kind === 'semantic_parent') return 'Clear category'
   if (kind === 'backlog_parent') return 'Older items'
   if (kind === 'structural_parent') return 'Careful review'
@@ -178,7 +267,7 @@ function cleanupGroupSurfaceRoleLabel(kind: CleanupGroupSurfaceKind): string {
   return 'Optional group'
 }
 
-function cleanupGroupSurfaceRoleDetail(kind: CleanupGroupSurfaceKind): string {
+function cleanupGroupSurfaceRoleDetail(kind: DecisionReviewGroupSurfaceKind): string {
   if (kind === 'semantic_parent') {
     return 'These items share a clear purpose, so the system can offer a simple guided starting point.'
   }
@@ -197,415 +286,72 @@ function cleanupGroupSurfaceRoleDetail(kind: CleanupGroupSurfaceKind): string {
 export default function OperationsClustersPage() {
   const params = useParams()
   const searchParams = useSearchParams()
-  const runtime = useOperationsRuntime()
+  const { reviewGroups } = useDecisionWorkspaceRead()
+  const presentation = useDecisionWorkspacePresentation()
+  const healthSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'health_overview')
+  const reviewGroupsSlot = resolveDecisionWorkspacePresentationSlot(presentation, 'review_groups')
   const agentId = typeof params?.id === 'string' ? params.id : ''
-  const requestedSessionId = searchParams.get('playground_session_id')
   const focusCluster = searchParams.get('focus_cluster')
-  const [workflowProgress, setWorkflowProgress] = useState<{
-    latestClusterId: string | null
-    startedGroupCount: number
-    startedClusterIds: string[]
-  }>({
-    latestClusterId: null,
-    startedGroupCount: 0,
-    startedClusterIds: [],
-  })
-  const query = serializeOperationsQuery(runtime.sessionId || requestedSessionId, runtime.analysisScope)
-  const cacheVersion = runtime.data?.runtime_cleanup_plan?.generated_at || null
-  const clusters = useMemo<GmailCleanupClusterRef[]>(
-    () =>
-      (runtime.data?.runtime_cleanup_plan?.clusters || []).map((cluster) => ({
-        clusterId: cluster.cluster_id,
-        canonicalClusterId: cluster.canonical_cluster_id,
-        legacyClusterIds: cluster.legacy_cluster_ids || [],
-        clusterType: cluster.cluster_type,
-        title: cluster.title,
-        query: cluster.query,
-        whySelected: cluster.why_selected,
-        riskNote: cluster.risk_note,
-        safetyNote: cluster.safety_note,
-        senderCount: cluster.sender_count,
-        messageCount: cluster.message_count,
-        estimatedCount: cluster.estimated_count,
-        surfaceTier: cluster.surface_tier || null,
-        surfaceKind: cluster.surface_kind || null,
-        surfaceVisibility: cluster.surface_visibility || null,
-        topLevelRank: cluster.top_level_rank ?? null,
-      })),
-    [runtime.data?.runtime_cleanup_plan?.clusters]
-  )
-  const cachedIntelligence = useMemo(
-    () =>
-      clusters.length > 0
-        ? readCachedGmailMailboxIntelligence({
-            clusters,
-            analysisScope: runtime.analysisScope,
-            cacheVersion,
-          })
-        : null,
-    [cacheVersion, clusters, runtime.analysisScope]
-  )
-  const latestStableIntelligence = useMemo(
-    () =>
-      clusters.length > 0
-        ? readLatestCachedGmailMailboxIntelligence({
-            clusters,
-            analysisScope: runtime.analysisScope,
-          })
-        : null,
-    [clusters, runtime.analysisScope]
-  )
-  const trustedRuntimeIntelligence = useMemo<GmailMailboxIntelligenceData | null>(() => {
-    const runtimeIntelligence = runtime.data?.runtime_mailbox_intelligence
-    if (!runtimeIntelligence || clusters.length === 0) return null
-    if (runtimeIntelligence.analysis_scope !== runtime.analysisScope) return null
-    if (runtimeIntelligence.source !== 'gmail_index_cache') return null
-    return runtimeIntelligence
-  }, [clusters.length, runtime.analysisScope, runtime.data?.runtime_mailbox_intelligence])
-  const resolvedIntelligence = cachedIntelligence || trustedRuntimeIntelligence || latestStableIntelligence
-  const fallbackGroupCards = useMemo(
-    () =>
-      clusters.map((cluster) => ({
-        cluster_id: cluster.clusterId,
-        cluster_type: cluster.clusterType,
-        title: cluster.title,
-        query: cluster.query,
-        why_selected: cluster.whySelected || 'Grouped by the current cleanup plan.',
-        risk_note: cluster.riskNote || 'Review mixed senders carefully before approving bulk archive.',
-        safety_note:
-          cluster.safetyNote || 'Sender-first review protects safe traffic while you inspect this group.',
-        sender_count:
-          typeof cluster.senderCount === 'number' && Number.isFinite(cluster.senderCount)
-            ? Math.max(0, Math.round(cluster.senderCount))
-            : null,
-        message_count:
-          typeof cluster.messageCount === 'number' && Number.isFinite(cluster.messageCount)
-            ? Math.max(0, Math.round(cluster.messageCount))
-            : null,
-        estimated_count:
-          typeof cluster.estimatedCount === 'number' && Number.isFinite(cluster.estimatedCount)
-            ? Math.max(0, Math.round(cluster.estimatedCount))
-            : null,
-      })),
-    [clusters]
-  )
-  const sourceRenderedGroups = useMemo(
-    () =>
-      (resolvedIntelligence?.cleanup_groups || fallbackGroupCards)
-        .map((group) => {
-          const semanticPresentation = buildGmailSemanticPresentationPolicy(
-            'semantic_rollup' in group ? group.semantic_rollup : null
-          ).cleanupGroupCard
-          const semanticSupport =
-            gmailCleanupCopyForHumans(semanticPresentation.support) || semanticPresentation.support
-          const semanticSupplement =
-            gmailCleanupCopyForHumans(semanticPresentation.semanticSupport) ||
-            semanticPresentation.semanticSupport
-          const internalStructure = buildCleanupGroupInternalStructure(
-            group.cluster_id,
-            'semantic_rollup' in group ? group.semantic_rollup : null
-          )
-          const reviewUnits = buildCleanupGroupPublishedReviewUnits(
-            group.cluster_id,
-            'semantic_rollup' in group ? group.semantic_rollup : null
-          )
-          const recommendedReviewUnit = recommendCleanupGroupPublishedReviewUnit(reviewUnits)
-          const section = getCleanupGroupSection(group.cluster_id)
-
-          return {
-            clusterId: group.cluster_id,
-            presentationId: group.cluster_id,
-            isPresentationSlice: false,
-            presentationErrors: [] as string[],
-            title: getCleanupGroupDisplayTitle(group.cluster_id, group.title),
-            canonicalClusterId:
-              'canonical_cluster_id' in group ? group.canonical_cluster_id : group.cluster_id,
-            legacyClusterIds:
-              'legacy_cluster_ids' in group && Array.isArray(group.legacy_cluster_ids)
-                ? group.legacy_cluster_ids
-                : [],
-            sectionId: section.id,
-            surfaceTier: getCleanupGroupSurfaceTier(group.cluster_id),
-            surfaceKind: getCleanupGroupSurfaceKind(group.cluster_id),
-            senderCount: normalizedCount(group.sender_count),
-            messageCount: normalizedCount(group.message_count),
-            sharePct: 'share_pct' in group ? group.share_pct : null,
-            whyExists: getCleanupGroupWhyExists(group.cluster_id),
-            laneLabel: getCleanupGroupLaneLabel(group.cluster_id),
-            startWith: getCleanupGroupStartWith(group.cluster_id),
-            whySelected:
-              gmailCleanupCopyForHumans(group.why_selected) || group.why_selected,
-            riskNote: gmailCleanupCopyForHumans(group.risk_note) || group.risk_note,
-            safetyNote: gmailCleanupCopyForHumans(group.safety_note) || group.safety_note,
-            dominantSender: 'dominant_sender' in group ? group.dominant_sender : null,
-            dominantPattern: 'dominant_pattern' in group ? group.dominant_pattern : null,
-            protectedMessageCount:
-              'protected_message_count' in group
-                ? normalizedCount(group.protected_message_count)
-                : null,
-            uncertainSenderCount:
-              'uncertain_sender_count' in group
-                ? normalizedCount(group.uncertain_sender_count)
-                : null,
-            semanticContextLabel:
-              gmailCleanupCopyForHumans(semanticPresentation.contextLabel) ||
-              semanticPresentation.contextLabel,
-            semanticHeadline:
-              gmailCleanupCopyForHumans(semanticPresentation.headline) ||
-              semanticPresentation.headline,
-            semanticSupport,
-            semanticSupplement:
-              semanticSupplement.toLowerCase() === semanticSupport.toLowerCase()
-                ? null
-                : semanticSupplement,
-            internalStructure,
-            reviewUnits,
-            recommendedReviewUnit,
-          }
-        })
-        .filter((group) => isCleanupGroupSurfacedInUi(group.clusterId)),
-    [fallbackGroupCards, resolvedIntelligence?.cleanup_groups]
-  )
-  const renderedGroups = useMemo(
-    () =>
-      sourceRenderedGroups.flatMap((group) => {
-        const blueprints = buildGmailCleanupPresentationPartitionBlueprints({
-          canonicalClusterId: group.canonicalClusterId || group.clusterId,
-          reviewUnits: group.reviewUnits.map((unit) => ({
-            id: unit.id,
-            sourceKey: unit.sourceKey,
-            sourceKind: unit.sourceKind,
-            decompositionPath: unit.decompositionPath,
-          })),
-        })
-        if (!blueprints) return [group]
-
-        const partitionResult = buildCleanupGroupPresentationPartitions({
-          parentId: group.canonicalClusterId || group.clusterId,
-          parentSenderCount: group.senderCount,
-          reviewUnits: group.reviewUnits,
-          blueprints,
-        })
-        if (partitionResult.errors.length > 0) {
-          return [
-            {
-              ...group,
-              presentationErrors: partitionResult.errors,
-            },
-          ]
-        }
-
-        return partitionResult.partitions.map((partition) => {
-          const reviewUnits = partition.reviewUnits.map((unit) => ({
-            ...unit,
-            groupSharePct:
-              partition.senderCount > 0
-                ? Math.round((unit.senderCount / partition.senderCount) * 100)
-                : 0,
-          }))
-          return {
-            ...group,
-            presentationId: `${group.clusterId}::${partition.id}`,
-            isPresentationSlice: true,
-            presentationErrors: [] as string[],
-            title: partition.title,
-            senderCount: partition.senderCount,
-            messageCount: null,
-            sharePct: null,
-            whyExists: partition.whyExists,
-            startWith: partition.startWith,
-            whySelected: partition.whyExists,
-            semanticContextLabel: 'Why these items are together',
-            semanticHeadline: partition.title,
-            semanticSupport: partition.whyExists,
-            semanticSupplement: null,
-            reviewUnits,
-            recommendedReviewUnit: recommendCleanupGroupPublishedReviewUnit(reviewUnits),
-          }
-        })
-      }),
-    [sourceRenderedGroups]
-  )
-  const sourcePrimaryDecisionGroups = useMemo(
-    () =>
-      sourceRenderedGroups.filter(
-        (group) => group.sectionId !== 'secondary' && group.sectionId !== 'context'
-      ),
-    [sourceRenderedGroups]
-  )
-  const primaryDecisionGroups = useMemo(
-    () => renderedGroups.filter((group) => group.sectionId !== 'secondary' && group.sectionId !== 'context'),
-    [renderedGroups]
-  )
-  const secondaryGroups = useMemo(
-    () => renderedGroups.filter((group) => group.sectionId === 'secondary'),
-    [renderedGroups]
-  )
-  const contextGroups = useMemo(
-    () => renderedGroups.filter((group) => group.sectionId === 'context'),
-    [renderedGroups]
-  )
-  const optionalGroups = useMemo(
-    () => renderedGroups.filter((group) => group.sectionId === 'secondary' || group.sectionId === 'context'),
-    [renderedGroups]
-  )
-  const groupedSections = useMemo(
-    () => buildCleanupGroupSectionsForUi(renderedGroups, (group) => group.clusterId),
-    [renderedGroups]
-  )
-  const sectionSummaries = useMemo(
-    () =>
-      buildCleanupGroupSectionSummariesForUi({
-        groups: sourcePrimaryDecisionGroups,
-        getClusterId: (group) => group.clusterId,
-        getSenderCount: (group) => group.senderCount,
-        getImpactCount: (group) => group.messageCount,
-      }),
-    [sourcePrimaryDecisionGroups]
-  )
-  const intentSnapshots = useMemo(
-    () =>
-      buildCleanupGroupIntentSnapshotsForUi({
-        groups: sourceRenderedGroups,
-        getClusterId: (group) => group.clusterId,
-        getSenderCount: (group) => group.senderCount,
-        getImpactCount: (group) => group.messageCount,
-      }),
-    [sourceRenderedGroups]
-  )
-  const latestStartedGroup = useMemo(
-    () =>
-      workflowProgress.latestClusterId
-        ? renderedGroups.find((group) => group.clusterId === workflowProgress.latestClusterId) || null
-        : null,
-    [renderedGroups, workflowProgress.latestClusterId]
-  )
-  const recommendation = useMemo(
-    () => {
-      if (latestStartedGroup) {
-        return {
-          group: latestStartedGroup,
-          reason: 'resume_work' as const,
-        }
-      }
-      return recommendCleanupGroupForUi({
-        groups: renderedGroups,
-        latestClusterId: null,
-        getClusterId: (group) => group.clusterId,
-        getSenderCount: (group) => group.senderCount,
-        getImpactCount: (group) => group.messageCount,
-      })
-    },
-    [latestStartedGroup, renderedGroups]
-  )
-  const startedClusterIdSet = useMemo(
-    () => new Set(workflowProgress.startedClusterIds),
-    [workflowProgress.startedClusterIds]
-  )
+  const {
+    query,
+    groups: renderedGroups,
+    primaryGroups: primaryDecisionGroups,
+    optionalGroups,
+    secondaryGroups,
+    contextGroups,
+    sections: groupedSections,
+    sectionSummaries,
+    intentSnapshots,
+    progress,
+    recommendation,
+    subjectScopeCount: cleanupScopeSenderCount,
+  } = reviewGroups
+  const startedClusterIdSet = new Set(progress.startedGroupIds)
   const mainParentCount = primaryDecisionGroups.length
   const optionalGroupCount = optionalGroups.length
   const secondaryGroupCount = secondaryGroups.length
   const contextGroupCount = contextGroups.length
   const parentLanesWithSavedWorkCount = primaryDecisionGroups.filter((group) =>
-    startedClusterIdSet.has(group.clusterId)
+    startedClusterIdSet.has(group.workflowGroupId)
   ).length
   const parentLanesStillToReviewCount = Math.max(
     mainParentCount - parentLanesWithSavedWorkCount,
     0
   )
   const optionalGroupsWithSavedWorkCount = optionalGroups.filter((group) =>
-    startedClusterIdSet.has(group.clusterId)
+    startedClusterIdSet.has(group.workflowGroupId)
   ).length
-  const cleanupScopeSenderCount = useMemo(() => {
-    const groupedSenderScope = sourceRenderedGroups.reduce(
-      (total, group) => total + (group.senderCount ?? 0),
-      0
-    )
-    if (groupedSenderScope > 0) return groupedSenderScope
-
-    const resolvedWholeMailboxSenderCount = normalizedCount(resolvedIntelligence?.whole_mailbox?.sender_count)
-    if (resolvedWholeMailboxSenderCount != null) return resolvedWholeMailboxSenderCount
-
-    return normalizedCount(resolvedIntelligence?.cleanup_candidate_universe?.sender_count) ?? 0
-  }, [
-    sourceRenderedGroups,
-    resolvedIntelligence?.cleanup_candidate_universe?.sender_count,
-    resolvedIntelligence?.whole_mailbox?.sender_count,
-  ])
   const groupCoveragePct =
     mainParentCount > 0 ? (parentLanesWithSavedWorkCount / mainParentCount) * 100 : 0
   const recommendedGroup = recommendation.group
-  const nextStepInstruction = useMemo(
-    () => cleanupGroupNextStepInstruction(recommendation.reason, recommendedGroup?.title || null),
-    [recommendation.reason, recommendedGroup?.title]
+  const nextStepInstruction = cleanupGroupNextStepInstruction(
+    recommendation.reason,
+    recommendedGroup?.title || null
   )
-  const recommendedClusterId = recommendation.group?.clusterId || null
+  const recommendedClusterId = recommendation.groupId
   const focusedClusterId = focusCluster || null
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !agentId) return
-    if (clusters.length === 0) return
-
-    const syncLatestWorkflowCluster = () => {
-      let startedGroupCount = 0
-      let latestClusterId: string | null = null
-      let latestUpdatedAt = 0
-      const startedClusterIds: string[] = []
-
-      for (const cluster of clusters) {
-        const draft = readGmailCleanupWorkflowDraft({
-          agentId,
-          sessionId: runtime.sessionId || requestedSessionId || null,
-          clusterId: cluster.clusterId,
-          canonicalClusterId: cluster.canonicalClusterId,
-          legacyClusterIds: cluster.legacyClusterIds,
-          snapshotVersion: cacheVersion,
-        })
-        if (!gmailCleanupWorkflowDraftHasActiveContent(draft)) continue
-        startedGroupCount += 1
-        startedClusterIds.push(cluster.clusterId)
-        if (draft.updatedAt >= latestUpdatedAt) {
-          latestUpdatedAt = draft.updatedAt
-          latestClusterId = cluster.clusterId
-        }
-      }
-
-      setWorkflowProgress({
-        latestClusterId,
-        startedGroupCount,
-        startedClusterIds,
-      })
-    }
-
-    syncLatestWorkflowCluster()
-    window.addEventListener('storage', syncLatestWorkflowCluster)
-    window.addEventListener('focus', syncLatestWorkflowCluster)
-    return () => {
-      window.removeEventListener('storage', syncLatestWorkflowCluster)
-      window.removeEventListener('focus', syncLatestWorkflowCluster)
-    }
-  }, [agentId, cacheVersion, clusters, requestedSessionId, runtime.sessionId])
-
-  if (runtime.loading && !runtime.data) {
+  if (reviewGroups.loading && renderedGroups.length === 0) {
     return (
       <section className="app-surface-card-subtle rounded-2xl p-4 text-sm text-gray-300">
-        Loading Cleanup Groups…
+        Loading {reviewGroupsSlot.title}…
       </section>
     )
   }
 
-  if (runtime.error && !runtime.data) {
+  if (reviewGroups.error && renderedGroups.length === 0) {
     return (
       <section className="rounded-2xl border border-rose-900/45 bg-rose-950/20 p-4 text-sm text-rose-100">
-        {runtime.error}
+        {reviewGroups.error}
       </section>
     )
   }
 
-  if (clusters.length === 0) {
+  if (renderedGroups.length === 0) {
     return (
       <section className="app-surface-card-subtle rounded-2xl p-4 text-sm text-gray-300">
-        No cleanup groups are available yet. Refresh cleanup analysis from Mailbox Intelligence first.
+        No {presentation.nouns.subjectPlural.toLowerCase()} are available for {reviewGroupsSlot.title} yet.
+        Refresh cleanup analysis from {healthSlot.title} first.
       </section>
     )
   }
@@ -615,8 +361,8 @@ export default function OperationsClustersPage() {
       <section className="app-page-header app-page-header-hero rounded-3xl border border-cyan-700/50 bg-[linear-gradient(180deg,rgba(14,31,47,0.98),rgba(8,17,29,0.98),rgba(4,9,16,0.98))] p-5 space-y-4 shadow-[0_24px_64px_rgba(2,6,23,0.36)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">Cleanup Groups</p>
-            <h1 className="text-2xl font-semibold text-white">Choose what to review next</h1>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-300">{reviewGroupsSlot.title}</p>
+            <h1 className="text-2xl font-semibold text-white">{reviewGroupsSlot.subtitle}</h1>
             <p className="max-w-3xl text-sm text-slate-200">
               Start with the clearest opportunity, then work through older items and anything that
               needs extra care. Optional specialized groups remain available when they match your goal.
@@ -627,14 +373,14 @@ export default function OperationsClustersPage() {
               href={`/agents/${agentId}/operations/intelligence${query}`}
               className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
             >
-              Back to intelligence
+              Back to {healthSlot.title}
             </Link>
             {recommendedGroup ? (
               <Link
                 href={buildCleanupGroupFocusHref({
                   agentId,
                   query,
-                  focusClusterId: recommendedGroup.clusterId,
+                  focusClusterId: recommendedGroup.workflowGroupId,
                 })}
                 className="app-surface-card-tile rounded-full px-4 py-2 text-sm text-gray-200 hover:border-cyan-700/60 hover:text-white"
               >
@@ -689,7 +435,7 @@ export default function OperationsClustersPage() {
           </div>
           <div className="app-surface-card-nested rounded-2xl p-4">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
-              Senders in cleanup scope
+              {presentation.metricLabels.itemsInScope}
             </p>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
               {formatCountLabel(cleanupScopeSenderCount)}
@@ -750,7 +496,7 @@ export default function OperationsClustersPage() {
         </div>
       </section>
 
-      {!resolvedIntelligence ? (
+      {!reviewGroups.hasResolvedIntelligence ? (
         <section className="app-surface-card rounded-2xl p-4 text-sm text-slate-200">
           <p className="font-medium text-white">Rendering from the current runtime cleanup snapshot</p>
           <p className="mt-2 leading-6 text-slate-200">
@@ -774,7 +520,7 @@ export default function OperationsClustersPage() {
               ? buildCleanupGroupFocusHref({
                   agentId,
                   query,
-                  focusClusterId: snapshotGroup.clusterId,
+                  focusClusterId: snapshotGroup.workflowGroupId,
                 })
               : null
             const snapshotContent = (
@@ -798,13 +544,13 @@ export default function OperationsClustersPage() {
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Workload</p>
                         <p className="mt-1 text-sm font-medium text-white">
-                          {formatCountLabel(snapshotGroup.senderCount)} senders
+                          {formatCountLabel(snapshotGroup.subjectCount)} senders
                         </p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Impact</p>
                         <p className="mt-1 text-sm font-medium text-white">
-                          {formatCountLabel(snapshotGroup.messageCount)} emails
+                          {formatCountLabel(snapshotGroup.activityCount)} emails
                         </p>
                       </div>
                     </div>
@@ -860,8 +606,8 @@ export default function OperationsClustersPage() {
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-300">{cleanupGroupSectionMeaning(section.id)}</p>
                 <p className="mt-3 text-xs text-gray-400">
-                  {section.totalSenderCount.toLocaleString()} senders ·{' '}
-                  {section.totalImpactCount.toLocaleString()} emails
+                  {section.totalSubjectCount.toLocaleString()} senders ·{' '}
+                  {section.totalActivityCount.toLocaleString()} emails
                 </p>
               </div>
             ))}
@@ -880,19 +626,20 @@ export default function OperationsClustersPage() {
               {featuredLaneGroups.length > 0 ? (
                 <div className="grid gap-4 xl:grid-cols-2">
                   {featuredLaneGroups.map((group) => {
-                    const isFocused = focusedClusterId === group.clusterId
-                    const isRecommended = recommendedClusterId === group.clusterId
+                    const isFocused = focusedClusterId === group.workflowGroupId
+                    const isRecommended = recommendedClusterId === group.workflowGroupId
                     const actionableParent = group.surfaceKind !== 'historical_parent'
                     const renderableReviewUnits = buildRenderableReviewUnits(group.reviewUnits)
+                    const reviewUnitTiers = buildCleanupReviewUnitTiers(renderableReviewUnits)
                     const reviewUnitsReady = actionableReviewUnitsReady({
-                      parentSenderCount: group.senderCount,
+                      parentSenderCount: group.subjectCount,
                       reviewUnits: renderableReviewUnits,
-                      presentationErrors: group.presentationErrors,
+                      presentationErrors: [...group.validationErrors],
                     })
                     const decisionValueDetail = cleanupGroupDecisionValueDetail({
                       surfaceKind: group.surfaceKind,
-                      senderCount: group.senderCount,
-                      messageCount: group.messageCount,
+                      senderCount: group.subjectCount,
+                      messageCount: group.activityCount,
                       sharePct: group.sharePct,
                     })
                     const cardClassName = isFocused
@@ -933,7 +680,7 @@ export default function OperationsClustersPage() {
                           <div className="app-surface-card-inset rounded-xl p-3">
                             <p className="text-[10px] uppercase tracking-wide text-gray-500">People or services</p>
                             <p className="mt-1 text-xl font-semibold text-white">
-                              {group.senderCount != null ? group.senderCount.toLocaleString() : '—'}
+                              {group.subjectCount != null ? group.subjectCount.toLocaleString() : '—'}
                             </p>
                             <p className="mt-1 text-xs text-gray-400">Items to review</p>
                           </div>
@@ -949,10 +696,10 @@ export default function OperationsClustersPage() {
                             <div className="app-surface-card-inset rounded-xl p-3">
                               <p className="text-[10px] uppercase tracking-wide text-gray-500">Emails</p>
                               <p className="mt-1 text-xl font-semibold text-white">
-                                {group.messageCount != null ? group.messageCount.toLocaleString() : '—'}
+                                {group.activityCount != null ? group.activityCount.toLocaleString() : '—'}
                               </p>
                               <p className="mt-1 text-xs text-gray-400">
-                                {messageShareLabel(group.sharePct, group.messageCount)}
+                                {messageShareLabel(group.sharePct, group.activityCount)}
                               </p>
                             </div>
                           )}
@@ -978,47 +725,69 @@ export default function OperationsClustersPage() {
                                   : 'The smaller groups are not ready or do not add up correctly, so review is paused to protect the data.'}
                               </p>
                               {renderableReviewUnits.length > 0 ? (
-                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                  {renderableReviewUnits.map((unit) => {
-                                    const content = (
-                                      <>
-                                        <p className="text-sm font-medium text-cyan-50">{unit.label}</p>
-                                        <p className="mt-1 text-xs text-cyan-100/90">
-                                          {unit.senderCount.toLocaleString()} senders
-                                        </p>
-                                        <p className="mt-1 text-[11px] text-cyan-200/80">
-                                          {unit.groupSharePct}% of this group · {unit.targetLabel}
-                                        </p>
-                                      </>
-                                    )
-                                    return reviewUnitsReady && unit.targetState !== 'oversized' ? (
-                                      <Link
+                                <div className="mt-3 space-y-3">
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    {reviewUnitTiers.primary.map((unit) => (
+                                      <CleanupReviewUnitChoice
                                         key={unit.id}
-                                        href={buildDerivedReviewUnitHref({
-                                          agentId,
-                                          query,
-                                          clusterId: group.canonicalClusterId || group.clusterId,
-                                          unitId: unit.id,
-                                        })}
-                                        className="rounded-xl border border-cyan-700/45 bg-cyan-950/15 p-3 text-left transition hover:border-cyan-600/70 hover:bg-cyan-950/20"
-                                      >
-                                        {content}
-                                      </Link>
-                                    ) : (
-                                      <div
-                                        key={unit.id}
-                                        className="rounded-xl border border-amber-700/35 bg-amber-950/15 p-3 text-left"
-                                      >
-                                        {content}
+                                        unit={unit}
+                                        reviewUnitsReady={reviewUnitsReady}
+                                        agentId={agentId}
+                                        query={query}
+                                        clusterId={group.canonicalId}
+                                      />
+                                    ))}
+                                  </div>
+                                  {reviewUnitTiers.moreSpecific.length > 0 ? (
+                                    <details className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                      <summary className="cursor-pointer text-xs font-medium text-slate-200">
+                                        More specific groups ({reviewUnitTiers.moreSpecific.length})
+                                      </summary>
+                                      <p className="mt-2 text-xs leading-5 text-slate-400">
+                                        Lower-volume or overflow choices remain exact and individually selectable.
+                                      </p>
+                                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                        {reviewUnitTiers.moreSpecific.map((unit) => (
+                                          <CleanupReviewUnitChoice
+                                            key={unit.id}
+                                            unit={unit}
+                                            reviewUnitsReady={reviewUnitsReady}
+                                            agentId={agentId}
+                                            query={query}
+                                            clusterId={group.canonicalId}
+                                          />
+                                        ))}
                                       </div>
-                                    )
-                                  })}
+                                    </details>
+                                  ) : null}
+                                  {reviewUnitTiers.specialHandling.length > 0 ? (
+                                    <details className="rounded-xl border border-amber-700/35 bg-amber-950/10 p-3">
+                                      <summary className="cursor-pointer text-xs font-medium text-amber-100">
+                                        Special handling ({reviewUnitTiers.specialHandling.length})
+                                      </summary>
+                                      <p className="mt-2 text-xs leading-5 text-amber-100/80">
+                                        These choices stay separate because their risk, trust, or action needs are materially different.
+                                      </p>
+                                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                        {reviewUnitTiers.specialHandling.map((unit) => (
+                                          <CleanupReviewUnitChoice
+                                            key={unit.id}
+                                            unit={unit}
+                                            reviewUnitsReady={reviewUnitsReady}
+                                            agentId={agentId}
+                                            query={query}
+                                            clusterId={group.canonicalId}
+                                          />
+                                        ))}
+                                      </div>
+                                    </details>
+                                  ) : null}
                                 </div>
                               ) : null}
                               {!reviewUnitsReady ? (
                                 <div className="mt-3 rounded-xl border border-amber-700/35 bg-amber-950/20 px-3 py-3 text-xs leading-5 text-amber-100">
                                   Review remains paused until every smaller group is manageable and all smaller-group totals match the full group exactly.
-                                  {group.presentationErrors.length > 0 ? (
+                                  {group.validationErrors.length > 0 ? (
                                     <span className="mt-2 block">
                                       The display grouping also failed its exact-membership check.
                                     </span>
@@ -1053,14 +822,14 @@ export default function OperationsClustersPage() {
                               <div className="space-y-2 text-xs leading-5 text-gray-300">
                                 <p>
                                   Why it was grouped this way:{' '}
-                                  {decisionValueDetail || group.whySelected}
+                                  {decisionValueDetail || group.explanation}
                                 </p>
-                                <p>What the system is protecting: {group.safetyNote}</p>
-                                <p>What to check while reviewing: {group.riskNote}</p>
+                                <p>What the system is protecting: {group.safetyGuidance}</p>
+                                <p>What to check while reviewing: {group.riskGuidance}</p>
                               </div>
-                              {group.dominantSender || group.dominantPattern ? (
+                              {group.dominantSubject || group.dominantPattern ? (
                                 <p className="text-xs text-gray-500">
-                                  Most visible sender: {group.dominantSender || 'Not available'} · most common pattern:{' '}
+                                  Most visible sender: {group.dominantSubject || 'Not available'} · most common pattern:{' '}
                                   {group.dominantPattern || 'Not available'}
                                 </p>
                               ) : null}
@@ -1083,8 +852,8 @@ export default function OperationsClustersPage() {
               ) : null}
 
               {collapsedLaneGroups.map((group) => {
-                const isFocused = focusedClusterId === group.clusterId
-                const isRecommended = recommendedClusterId === group.clusterId
+                const isFocused = focusedClusterId === group.workflowGroupId
+                const isRecommended = recommendedClusterId === group.workflowGroupId
                 return (
                   <div
                     key={group.presentationId}
@@ -1119,10 +888,10 @@ export default function OperationsClustersPage() {
                         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                           <p className="text-[10px] uppercase tracking-wide text-slate-300">Reference coverage</p>
                           <p className="mt-1 text-xl font-semibold text-white">
-                            {formatCountLabel(group.senderCount)} senders
+                            {formatCountLabel(group.subjectCount)} senders
                           </p>
                           <p className="mt-1 text-xs text-slate-400">
-                            {formatCountLabel(group.messageCount)} emails
+                            {formatCountLabel(group.activityCount)} emails
                           </p>
                         </div>
                         <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs leading-5 text-slate-300">
@@ -1137,14 +906,15 @@ export default function OperationsClustersPage() {
               {demotedLaneGroups.length > 0 ? (
                 <div className="grid gap-3 xl:grid-cols-3">
                   {demotedLaneGroups.map((group) => {
-                    const isFocused = focusedClusterId === group.clusterId
-                    const isRecommended = recommendedClusterId === group.clusterId
-                    const hasSavedWork = startedClusterIdSet.has(group.clusterId)
+                    const isFocused = focusedClusterId === group.workflowGroupId
+                    const isRecommended = recommendedClusterId === group.workflowGroupId
+                    const hasSavedWork = startedClusterIdSet.has(group.workflowGroupId)
                     const renderableReviewUnits = buildRenderableReviewUnits(group.reviewUnits)
+                    const reviewUnitTiers = buildCleanupReviewUnitTiers(renderableReviewUnits)
                     const reviewUnitsReady = actionableReviewUnitsReady({
-                      parentSenderCount: group.senderCount,
+                      parentSenderCount: group.subjectCount,
                       reviewUnits: renderableReviewUnits,
-                      presentationErrors: group.presentationErrors,
+                      presentationErrors: [...group.validationErrors],
                     })
                     return (
                       <article
@@ -1166,7 +936,7 @@ export default function OperationsClustersPage() {
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-gray-100">
-                            {formatCountLabel(group.senderCount)} senders
+                            {formatCountLabel(group.subjectCount)} senders
                           </span>
                           <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-gray-100">
                             {group.laneLabel}
@@ -1178,29 +948,57 @@ export default function OperationsClustersPage() {
                           ) : null}
                         </div>
                         <div className="mt-4 grid gap-2">
-                          {renderableReviewUnits.map((unit) =>
-                            reviewUnitsReady && unit.targetState !== 'oversized' ? (
-                              <Link
-                                key={unit.id}
-                                href={buildDerivedReviewUnitHref({
-                                  agentId,
-                                  query,
-                                  clusterId: group.canonicalClusterId || group.clusterId,
-                                  unitId: unit.id,
-                                })}
-                                className="rounded-xl border border-cyan-700/45 bg-cyan-950/10 px-3 py-2 text-xs text-cyan-100 hover:border-cyan-600/60 hover:text-white"
-                              >
-                                {unit.label} · {unit.senderCount.toLocaleString()} senders
-                              </Link>
-                            ) : (
-                              <div
-                                key={unit.id}
-                                className="rounded-xl border border-amber-700/35 bg-amber-950/15 px-3 py-2 text-xs text-amber-100"
-                              >
-                                {unit.label} · {unit.senderCount.toLocaleString()} senders · paused
+                          {reviewUnitTiers.primary.map((unit) => (
+                            <CleanupReviewUnitChoice
+                              key={unit.id}
+                              unit={unit}
+                              reviewUnitsReady={reviewUnitsReady}
+                              agentId={agentId}
+                              query={query}
+                              clusterId={group.canonicalId}
+                              compact
+                            />
+                          ))}
+                          {reviewUnitTiers.moreSpecific.length > 0 ? (
+                            <details className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                              <summary className="cursor-pointer text-xs font-medium text-slate-200">
+                                More specific groups ({reviewUnitTiers.moreSpecific.length})
+                              </summary>
+                              <div className="mt-3 grid gap-2">
+                                {reviewUnitTiers.moreSpecific.map((unit) => (
+                                  <CleanupReviewUnitChoice
+                                    key={unit.id}
+                                    unit={unit}
+                                    reviewUnitsReady={reviewUnitsReady}
+                                    agentId={agentId}
+                                    query={query}
+                                    clusterId={group.canonicalId}
+                                    compact
+                                  />
+                                ))}
                               </div>
-                            )
-                          )}
+                            </details>
+                          ) : null}
+                          {reviewUnitTiers.specialHandling.length > 0 ? (
+                            <details className="rounded-xl border border-amber-700/35 bg-amber-950/10 p-3">
+                              <summary className="cursor-pointer text-xs font-medium text-amber-100">
+                                Special handling ({reviewUnitTiers.specialHandling.length})
+                              </summary>
+                              <div className="mt-3 grid gap-2">
+                                {reviewUnitTiers.specialHandling.map((unit) => (
+                                  <CleanupReviewUnitChoice
+                                    key={unit.id}
+                                    unit={unit}
+                                    reviewUnitsReady={reviewUnitsReady}
+                                    agentId={agentId}
+                                    query={query}
+                                    clusterId={group.canonicalId}
+                                    compact
+                                  />
+                                ))}
+                              </div>
+                            </details>
+                          ) : null}
                           {!reviewUnitsReady ? (
                             <p className="text-xs leading-5 text-amber-100">
                               Review is paused until all smaller-group counts add up exactly.
