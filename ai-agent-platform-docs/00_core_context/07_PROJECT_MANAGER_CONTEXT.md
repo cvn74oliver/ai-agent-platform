@@ -396,6 +396,9 @@ Required PM behavior:
 - explicitly instruct Codex to close the thread and start a new one when closeout conditions are met
 - confirm that control-plane state is sufficient to resume work in a new thread
 - ensure no governing truth, accepted-fix state, or approved plan remains unpropagated before closure
+- archive completed one-time Codex tasks only after project control-plane propagation is complete and no unresolved decision, checkpoint, approval, blocker, or continuation remains
+- keep standing long-term role tasks and all active, blocked, or awaiting-decision tasks open
+- keep archival reversible and project-scoped; each Project Manager may archive only its own project's eligible tasks, which must remain discoverable and restorable
 
 Continuation rules:
 - same-thread continuation is allowed only when:

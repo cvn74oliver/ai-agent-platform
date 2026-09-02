@@ -428,6 +428,14 @@ When closing a phase OR retiring a PM:
 - control-plane alignment must be complete BEFORE any new thread begins
 - a new PM must never rely on chat memory for continuity
 
+### Project-Scoped Completed-Task Archival
+
+- Archive a completed one-time Codex task only after all material outcomes are fully propagated into the authoritative project control plane and no unresolved decision, checkpoint, approval, blocked dependency, or required continuation remains.
+- Preserve standing long-term role tasks and every active, blocked, or awaiting-decision task.
+- Archival must be reversible, and the archived task must remain discoverable and restorable.
+- Each Project Manager owns archival decisions only for its own project. Cross-project task archival is prohibited by default.
+- Before archival, confirm the task is project-scoped, one-time, complete, fully propagated, and no longer needed as an active execution container.
+
 ---
 
 # 🚨 DRIFT DETECTION

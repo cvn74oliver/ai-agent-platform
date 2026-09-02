@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • Phase 4 Slice 2 Human-accepted, recovery-backed, GitHub-preserved, and closed; later Phase 4 work requires fresh PM discovery and target lock_
+_Last updated: 2026-09-02 • PR #3 merge-integrated to main with successful automatic production deployments; Phase 4 Slice 2 remains closed and later work requires fresh PM discovery and target lock_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -114,6 +114,9 @@ _Last updated: 2026-09-02 • Phase 4 Slice 2 Human-accepted, recovery-backed, G
 - [x] Record Oliver's Human Review `accept` and create the accepted-fix Recovery Contract for Phase 4 Slice 2.
 - [x] Create and verify the `2,434`-file Phase 4 Slice 2 Human-acceptance backup with exact worktree/branch/HEAD identity, normal seven-day project-scoped pruning, and `KEEP` preservation.
 - [x] Commit accepted-content commit `00f8c6e` and push normally without force; prove local, remote-tracking, live remote, and draft PR #3 head parity with `0 / 0` divergence before final docs-only closeout propagation.
+- [x] Merge PR #3 into `main` using GitHub's merge-commit method; verify merge commit `c766da0`, ordered parents, accepted-head-equivalent tree, merged PR state, preserved source/recovery refs, and local/remote/live main parity.
+- [x] Monitor the two automatic Vercel production deployments for merge commit `c766da0`; both reached `READY`, both GitHub status contexts passed, and both projects reported no runtime-error clusters in the post-merge observation window.
+- [x] Add the authorized project-scoped completed-task archival procedure and propagate the matching PM operating rule: archive only fully propagated completed one-time Automata tasks; preserve standing long-term, active, blocked, and awaiting-decision tasks; keep archival reversible and project-owned.
 - [ ] ACTIVE NOW — keep Phase 4 Slice 2 closed; return to PM for a separately approved next discovery/target-lock task before any endpoint hardening or later Phase 4 implementation.
 - [ ] Plan the discovered approval/execution endpoint integrity issues as a separate later work unit before any generalized provider-execution claim; do not fold runtime hardening into the four-file presentation/read slice.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
