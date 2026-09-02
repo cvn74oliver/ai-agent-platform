@@ -118,7 +118,8 @@ _Last updated: 2026-09-02 • PR #3 merge-integrated to main with successful aut
 - [x] Monitor the automatic Vercel production deployments through final-main closeout `c1f98a3`; all settled `READY` and GitHub status contexts passed. Preserve the initial two-error observation and the later aggregate truth: `ai-agent-platform` now records seven `/api/runtime/gmail-memory` `500` errors through `08:46:48Z`, including final deployment `dpl_57MugdbUNE5ze2R1WAHqPVbbJkWX`, because `supabaseKey is required`; `e6cc` reports no runtime-error group in the same two-hour window.
 - [x] Add the authorized project-scoped completed-task archival procedure and propagate the matching PM operating rule: archive only fully propagated completed one-time Automata tasks; preserve standing long-term, active, blocked, and awaiting-decision tasks; keep archival reversible and project-owned.
 - [x] Record the publication-audit distinction: a clean worktree, zero branch-unique commits/content, later main-only closeout commits, and GitHub's historical PR change counter are separate facts; historical PR review stats do not prove unpublished local work.
-- [ ] Separate PM adjudication — resolve the duplicate-project/canonical-environment question and the missing `supabaseKey` runtime configuration on `ai-agent-platform`; no Vercel environment, domain, promotion, rollback, or deployment mutation is authorized by the PR #3 merge closeout.
+- [x] Complete separate PM adjudication and accepted repair: lock `ai-agent-platform` as canonical by custom-domain ownership, add the existing project-matched service-role key as a Production-only Vercel Secret, redeploy exact `main@bf9f401`, and prove two deployment-scoped `/api/runtime/gmail-memory` HTTP `200` responses with no route error. Preserve Preview, `e6cc`, domains, source, provider/data, and Supabase schema/data.
+- [ ] Complete GitHub's email-backed device verification, then commit and normally push the exact six-file Vercel-fix control-plane packet as a draft PR. Do not merge or trigger another production deployment without a separate decision.
 - [ ] ACTIVE NOW — keep Phase 4 Slice 2 closed; return to PM for a separately approved next discovery/target-lock task before any endpoint hardening or later Phase 4 implementation.
 - [ ] Plan the discovered approval/execution endpoint integrity issues as a separate later work unit before any generalized provider-execution claim; do not fold runtime hardening into the four-file presentation/read slice.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
@@ -576,7 +577,7 @@ Operations published fallback and scroll-lock repair
 - [ ] 8. Verify the integrated app with terminal health and Playwright, then obtain human acceptance before merge/commit/push.
 - [ ] 9. Implement service-role API caller-authentication and ownership hardening.
 - [ ] 10. Upgrade Next.js from `16.0.10` to the approved patched security baseline.
-- [ ] 11. Adjudicate the canonical Vercel project for the duplicate `main` deployment.
+- [x] 11. Adjudicate the canonical Vercel project for the duplicate `main` deployment — `ai-agent-platform` is canonical by `orinexlabs.com` / `www.orinexlabs.com` ownership; `e6cc` remains untouched.
 - [ ] 12. Reconcile local Supabase migrations with live schema and establish reproducibility.
 - [ ] 13. Finish one Gmail end-to-end closed loop.
 - [ ] 14. Build governed learning substrate.
