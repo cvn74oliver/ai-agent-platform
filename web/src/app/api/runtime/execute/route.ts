@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import {
+  isExecutionBoundToRequest,
+  validateBoundApprovalDecision,
+  validateBoundApprovalRequest,
+} from '@/lib/runtime/runtimeApprovalIntegrity'
+import {
+  resolveRuntimeRequestAccess,
+  resolveRuntimeRequestPrincipal,
+} from '@/lib/runtime/runtimeRequestAccess'
 import {
   analyzeGmailInboxForTenant,
   archiveGmailMessagesForTenant,
@@ -505,6 +513,12 @@ function simulateSandboxAction(action: RuntimeProposedAction): RuntimeExecutionA
 
 export async function POST(req: Request) {
   try {
+    const principal = await resolveRuntimeRequestPrincipal({
+      req,
+      requireSameOrigin: true,
+    })
+    if (!principal.ok) return principal.response
+
     const body = (await req.json().catch(() => null)) as RuntimeExecuteRequest | null
 
     if (!body || typeof body.agent_id !== 'string' || !body.agent_id.trim()) {
@@ -531,7 +545,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = await getSupabaseAdmin()
+    const access = await resolveRuntimeRequestAccess({
+      principal,
+      agentId,
+    })
+    if (!access.ok) return access.response
+    const supabase = access.admin
 
     const { data: modeRows, error: modeError } = await supabase
       .from('agent_events')
@@ -557,7 +576,7 @@ export async function POST(req: Request) {
 
     const { data: requestRows, error: requestError } = await supabase
       .from('agent_events')
-      .select('payload')
+      .select('id,agent_id,payload')
       .eq('agent_id', agentId)
       .eq('event_type', 'approval_request')
       .eq('payload->>approval_id', approvalId)
@@ -572,17 +591,26 @@ export async function POST(req: Request) {
       )
     }
 
-    const approvalRequestPayload = requestRows?.[0] ? parsePayload(requestRows[0].payload) : null
-    if (!approvalRequestPayload) {
-      return NextResponse.json({ ok: false, error: 'Approval request not found' }, { status: 400 })
+    const approvalRequest = validateBoundApprovalRequest({
+      row: requestRows?.[0],
+      agentId,
+      approvalId,
+    })
+    if (!approvalRequest) {
+      return NextResponse.json(
+        { ok: false, error: 'Approval request not found or access denied.' },
+        { status: 404 }
+      )
     }
 
-    const { count: approvedDecisionCount, error: decisionError } = await supabase
+    const { data: decisionRows, error: decisionError } = await supabase
       .from('agent_events')
-      .select('id', { count: 'exact', head: true })
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
       .eq('event_type', 'approval_decision')
       .eq('payload->>approval_id', approvalId)
-      .eq('payload->>decision', 'approved')
+      .order('created_at', { ascending: false })
+      .limit(1)
 
     if (decisionError) {
       console.error('[runtime/execute] approval decision lookup error:', decisionError)
@@ -592,15 +620,23 @@ export async function POST(req: Request) {
       )
     }
 
-    if ((approvedDecisionCount ?? 0) === 0) {
+    const currentDecision = validateBoundApprovalDecision({
+      row: decisionRows?.[0],
+      agentId,
+      approvalId,
+    })
+    if (!currentDecision || currentDecision.decision !== 'approved') {
       return NextResponse.json({ ok: false, error: 'Approval not approved' }, { status: 400 })
     }
 
-    const { count: existingExecutionCount, error: existingExecutionError } = await supabase
+    const { data: existingExecutionRows, error: existingExecutionError } = await supabase
       .from('agent_events')
-      .select('id', { count: 'exact', head: true })
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
       .eq('event_type', 'execution_result')
       .eq('payload->>approval_id', approvalId)
+      .order('created_at', { ascending: false })
+      .limit(50)
 
     if (existingExecutionError) {
       console.error('[runtime/execute] execution check error:', existingExecutionError)
@@ -610,11 +646,19 @@ export async function POST(req: Request) {
       )
     }
 
-    if ((existingExecutionCount ?? 0) > 0) {
+    const alreadyExecuted = (existingExecutionRows || []).some((row) =>
+      isExecutionBoundToRequest({
+        row,
+        agentId,
+        approvalId,
+        requestEventId: approvalRequest.eventId,
+      })
+    )
+    if (alreadyExecuted) {
       return NextResponse.json({ ok: false, error: 'Already executed' }, { status: 400 })
     }
 
-    const proposedActions = parseProposedActions(approvalRequestPayload.proposed_actions)
+    const proposedActions = parseProposedActions(approvalRequest.payload.proposed_actions)
     if (proposedActions == null) {
       return NextResponse.json(
         { ok: false, error: 'Invalid proposed_actions' },
@@ -640,41 +684,9 @@ export async function POST(req: Request) {
       (action) => action.tool === 'gmail' && action.action === 'draft_email'
     )
 
-    let tenantId = ''
+    const tenantId = access.tenantId
     let gmailAccessToken = ''
     if (hasGmailAction) {
-      const { data: agentRow, error: agentError } = await supabase
-        .from('agents')
-        .select('user_id')
-        .eq('id', agentId)
-        .maybeSingle()
-
-      if (agentError) {
-        console.error('[runtime/execute] agent lookup error:', agentError)
-        return NextResponse.json({ ok: false, error: 'Failed to load agent.' }, { status: 500 })
-      }
-
-      const userId = typeof agentRow?.user_id === 'string' ? agentRow.user_id : ''
-      if (!userId) {
-        return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
-      }
-
-      const { data: profileRow, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (profileError) {
-        console.error('[runtime/execute] profile lookup error:', profileError)
-        return NextResponse.json({ ok: false, error: 'Failed to load profile.' }, { status: 500 })
-      }
-
-      tenantId = typeof profileRow?.tenant_id === 'string' ? profileRow.tenant_id : ''
-      if (!tenantId) {
-        return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
-      }
-
       if (hasGmailDraftAction) {
         const { data: connectionRow, error: connectionError } = await supabase
           .from('integration_connections')
@@ -925,6 +937,10 @@ export async function POST(req: Request) {
     const executedAt = new Date().toISOString()
     const executionPayload: RuntimeExecutionResultPayload = {
       approval_id: approvalId,
+      actor_id: access.actorId,
+      tenant_id: access.tenantId,
+      request_event_id: approvalRequest.eventId,
+      decision_event_id: currentDecision.eventId,
       results,
       executed_at: executedAt,
       success: true,

@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import {
+  classifyDecisionReplay,
+  validateBoundApprovalDecision,
+  validateBoundApprovalRequest,
+} from '@/lib/runtime/runtimeApprovalIntegrity'
+import {
+  resolveRuntimeRequestAccess,
+  resolveRuntimeRequestPrincipal,
+} from '@/lib/runtime/runtimeRequestAccess'
 import { isUuid } from '@/lib/runtime/types'
 import type {
   RuntimeApprovalDecisionPayload,
@@ -61,6 +69,12 @@ function parseProposedActions(value: unknown): ProposedAction[] {
 
 export async function POST(req: Request) {
   try {
+    const principal = await resolveRuntimeRequestPrincipal({
+      req,
+      requireSameOrigin: true,
+    })
+    if (!principal.ok) return principal.response
+
     const body = (await req.json().catch(() => null)) as RuntimeAutoApproveRequest | null
 
     if (!body || typeof body.agent_id !== 'string' || !body.agent_id.trim()) {
@@ -93,7 +107,82 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = await getSupabaseAdmin()
+    const access = await resolveRuntimeRequestAccess({
+      principal,
+      agentId,
+    })
+    if (!access.ok) return access.response
+    const supabase = access.admin
+
+    const { data: requestRows, error: requestError } = await supabase
+      .from('agent_events')
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
+      .eq('event_type', 'approval_request')
+      .eq('payload->>approval_id', approvalId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (requestError) {
+      console.error('[runtime/auto-approve] request lookup failed')
+      return NextResponse.json(
+        { ok: false, error: 'Failed to load approval request.' },
+        { status: 500 }
+      )
+    }
+
+    const approvalRequest = validateBoundApprovalRequest({
+      row: requestRows?.[0],
+      agentId,
+      approvalId,
+    })
+    if (!approvalRequest) {
+      return NextResponse.json(
+        { ok: false, error: 'Approval request not found or access denied.' },
+        { status: 404 }
+      )
+    }
+
+    const { data: currentDecisionRows, error: currentDecisionError } = await supabase
+      .from('agent_events')
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
+      .eq('event_type', 'approval_decision')
+      .eq('payload->>approval_id', approvalId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (currentDecisionError) {
+      console.error('[runtime/auto-approve] current decision lookup failed')
+      return NextResponse.json(
+        { ok: false, error: 'Failed to check current approval decision.' },
+        { status: 500 }
+      )
+    }
+
+    const currentDecisionRow = currentDecisionRows?.[0]
+    const currentDecision = validateBoundApprovalDecision({
+      row: currentDecisionRow,
+      agentId,
+      approvalId,
+    })
+    if (currentDecisionRow && !currentDecision) {
+      return NextResponse.json(
+        { ok: false, error: 'Current approval decision is invalid.' },
+        { status: 409 }
+      )
+    }
+
+    const replay = classifyDecisionReplay(currentDecision, 'approved')
+    if (replay === 'idempotent') {
+      return NextResponse.json({ ok: true })
+    }
+    if (replay === 'conflict') {
+      return NextResponse.json(
+        { ok: false, error: 'Approval already has a conflicting decision.' },
+        { status: 409 }
+      )
+    }
 
     const { data: modeRows, error: modeError } = await supabase
       .from('agent_events')
@@ -123,46 +212,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { count: existingDecisionCount, error: existingDecisionError } = await supabase
-      .from('agent_events')
-      .select('id', { count: 'exact', head: true })
-      .eq('event_type', 'approval_decision')
-      .eq('payload->>approval_id', approvalId)
-
-    if (existingDecisionError) {
-      console.error('[runtime/auto-approve] decision lookup error:', existingDecisionError)
-      return NextResponse.json(
-        { ok: false, error: 'Failed to check existing decision.' },
-        { status: 500 }
-      )
-    }
-
-    if ((existingDecisionCount ?? 0) > 0) {
-      return NextResponse.json(
-        { ok: false, error: 'Already decided' },
-        { status: 400 }
-      )
-    }
-
-    const { data: requestRows, error: requestError } = await supabase
-      .from('agent_events')
-      .select('payload')
-      .eq('agent_id', agentId)
-      .eq('event_type', 'approval_request')
-      .eq('payload->>approval_id', approvalId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    if (requestError) {
-      console.error('[runtime/auto-approve] request lookup error:', requestError)
-      return NextResponse.json(
-        { ok: false, error: 'Failed to load approval request.' },
-        { status: 500 }
-      )
-    }
-
-    const approvalRequestPayload = requestRows?.[0] ? parsePayload(requestRows[0].payload) : null
-    const proposedActions = parseProposedActions(approvalRequestPayload?.proposed_actions)
+    const proposedActions = parseProposedActions(approvalRequest.payload.proposed_actions)
 
     if (proposedActions.length === 0) {
       return NextResponse.json(
@@ -223,6 +273,9 @@ export async function POST(req: Request) {
     const decidedAt = new Date().toISOString()
     const payload: RuntimeApprovalDecisionPayload = {
       approval_id: approvalId,
+      actor_id: access.actorId,
+      tenant_id: access.tenantId,
+      request_event_id: approvalRequest.eventId,
       decision: 'approved',
       auto_approved: true,
       decided_at: decidedAt,

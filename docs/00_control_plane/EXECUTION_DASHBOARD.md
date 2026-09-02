@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-02
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE PR #4 MERGED / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / PRODUCTION VERIFIED; PHASE 4 SLICE 3 HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PUBLICATION PENDING
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, and Phase 4 Slices 1-2 Human-accepted, recovery-backed, GitHub-preserved, and closed
-- Problem class: mixed / unresolved for later Phase 4 work; remain in PM discovery until a fresh target lock; endpoint/runtime hardening remains separate and unapproved
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, and Phase 4 Slices 1-2 Human-accepted, recovery-backed, GitHub-preserved, and closed; Phase 4 Slice 3 is verifier-accepted and awaiting Human Review
+- Problem class: runtime behavior / endpoint access and request-decision binding Human-accepted and recovery-backed; GitHub publication pending; atomic execution/receipt lifecycle separately unresolved
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
@@ -114,7 +114,14 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAI
 - [x] Record clean-worktree / zero-unique-branch-content / main-only-closeout / historical-PR-counter separation
 - [x] Adjudicate canonical Vercel ownership and repair the missing Production service key under Oliver's explicit acceptance; redeploy exact current `main` and verify the previously failing route at HTTP `200` with no runtime-error recurrence
 - [x] Merge documentation-only PR #4 as `003a062`; verify both automatic Production deployments, GitHub contexts, canonical authenticated UI, route HTTP `200` responses, and clean runtime-error scan
-- [ ] Keep Slice 2 closed; require a fresh PM discovery/target lock and separate approval before endpoint hardening or later Phase 4 work
+- [x] Keep Slice 2 closed and obtain separate Phase 4 endpoint-integrity discovery authority
+- [x] Complete the bounded read-only endpoint-integrity trace; confirm no detected current event corruption; target-lock the exact 13-file Slice 3 access/decision-binding correction
+- [x] Record the exact `ACCEPT PHASE 4 SLICE 3 ENDPOINT ACCESS IMPLEMENTATION` decision and complete the governed Automata-worktree pre-implementation incremental with seven-day project-scoped pruning and `KEEP` preservation
+- [x] Implement and verifier-accept only the exact 13-file authenticated owner/tenant access and request/latest-decision binding correction; all static/runtime proof passed at HIGH confidence
+- [x] Record explicit Slice 3 Human Review `ACCEPT` and Recovery Contract
+- [x] Create/verify the `2,466`-file Human-acceptance backup with exact identity, `21` changed paths, normal seven-day pruning, and `KEEP` preservation
+- [ ] ACTIVE NOW — commit and normally push only the exact accepted packet; no merge or deployment
+- [ ] Keep the atomic execution/receipt ledger, action invocation during proof, provider/data mutation, schema work, new request/lifecycle behavior, commit, push, merge, and deployment behind separate gates
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

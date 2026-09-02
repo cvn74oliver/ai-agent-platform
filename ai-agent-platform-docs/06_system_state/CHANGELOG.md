@@ -1,3 +1,47 @@
+### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 3 Accepted
+
+#### Accepted outcome
+
+- Oliver returned explicit Human Review `ACCEPT` on 2026-09-02 after verifier-native browser and static proof established `ACCEPT / HIGH` for the exact target-locked endpoint-access packet.
+- Every locked approval-family endpoint now authenticates with the request-scoped Supabase SSR client. State-changing POST requests prove the authenticated principal and same-origin request before body parsing; owned-agent and tenant proof completes before the existing admin client becomes available.
+- Approval requests, latest decisions, and prior execution history are bound to the same agent and exact request. Identical decision replay is idempotent, conflicting replay fails closed, and execution requires the latest bound decision to be approved.
+- Actor, tenant, request-event, and decision-event provenance is retained through optional backward-compatible payload fields. The legacy `/approvals` route uses authenticated owner-scoped reads rather than a global service-role queue.
+- The accepted Gmail Operations queue remains visibly and operationally unchanged for its owner. Atomic execution claims, per-action receipts, partial/indeterminate failure semantics, retry/reconciliation, rollback ledgers, and generalized provider execution remain a later separately target-locked slice.
+
+#### Acceptance proof
+
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE3_REVIEW_PACKET.md`.
+- New endpoint-integrity fixtures, all required Decision Workspace/Gmail regressions, TypeScript, exact-file lint, diff/allowlist checks, and seven frozen source hashes pass.
+- Authenticated post-settle Playwright preserved the canonical Operations queue at Pending `3`, Approved `0`, Executed `8`, Rejected `46`, with the full Gmail bundle and controls intact, existing read families only, zero action POSTs, zero `409` churn, and zero accepted-page console errors or warnings.
+- The owner-scoped legacy queue rendered Total `73`, Pending `3`, Approved `14`, Executed `10`, Rejected `46`, and visibly reported `Scope: approvals for your agents`.
+- Anonymous GET and POST probes returned `401`. An authenticated foreign agent and a nonexistent agent returned the same non-enumerating `404`; aggregate `agent_events` remained `910 -> 910` across the negative probes.
+
+#### Recovery identity
+
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE3_ENDPOINT_ACCESS_AND_DECISION_BINDING_PM_BRIEF.md`.
+- Discovery handoff: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_ENDPOINT_INTEGRITY_DISCOVERY_HANDOFF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE3_REVIEW_PACKET.md`.
+- Accepted source packet: the exact 13-file allowlist in the governing brief and review packet.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 4 Slice 3 Human acceptance)`; `2,466` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pre-publication HEAD `98b513ffaf1f1490b90601fd55ec1e8d4ec6515c`, `21` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+
+#### Replay steps
+
+1. Run `web/scripts/runtime-endpoint-integrity-fixtures.mjs` plus the retained Decision Workspace contract, presentation, read-model, action-model, Gmail review-unit, cleanup-group, window-projection, and optional-evidence fixtures.
+2. Run TypeScript, exact-file ESLint, `git diff --check`, exact 13-file source allowlist comparison, package-manifest comparison, and the seven frozen-hash checks.
+3. Start the exact worktree runtime with environment values loaded only in-process and loopback binding; never print, copy, commit, or publish secrets or saved authentication state.
+4. With Playwright saved authentication, exercise the exact owner Operations Approval Queue and legacy queue after settle. Require stable counts, full bundle presentation, owner scope, unchanged current request families, zero action POSTs, zero `409` churn, and clean accepted-page consoles.
+5. Use read-only negative probes to confirm anonymous `401`, identical foreign/nonexistent denial, and zero event-count change. Never invoke approval, rejection, mode, auto-approval, execution, Gmail destination, or provider-action controls during verification.
+
+#### Recovery Contract
+
+- Restore only the exact accepted source packet if this endpoint-access correction must be removed: return the ten previously existing source files to their pre-Slice-3 baseline hashes and remove the three new source files (`runtimeRequestAccess.ts`, `runtimeApprovalIntegrity.ts`, and `runtime-endpoint-integrity-fixtures.mjs`).
+- Re-run the replay steps after restoration and require the prior accepted Gmail counts, routes, request families, provider controls, caches, polling, and lifecycle behavior to remain intact.
+- No database, schema, migration, provider, Gmail, artifact, index, publication, Vercel, or domain rollback belongs to this source-only accepted fix because none of those surfaces changed.
+- Do not partially remove the access seam from individual endpoints. Either preserve the complete accepted access/binding invariant or execute a separately approved replacement design with equivalent authenticated owner, agent, tenant, request, and latest-decision guarantees.
+- This accepted fix does not authorize or certify atomic/exactly-once provider execution, receipt-ledger semantics, retry/reconciliation, rollback execution, provider registry work, Workflow Studio, shared learning, or multi-agent orchestration.
+
+---
+
 ### September 2, 2026 — ACE-048 Vercel Production Service-Key Configuration Accepted
 
 #### Accepted outcome

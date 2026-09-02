@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient, getSupabaseAdmin } from '@/lib/supabase'
+import {
+  resolveRuntimeRequestAccess,
+  resolveRuntimeRequestPrincipal,
+} from '@/lib/runtime/runtimeRequestAccess'
 import {
   runPlaygroundChatCompletion,
   type PlaygroundChatMessage as ChatMessage,
@@ -48,21 +51,6 @@ import {
 
 const MANUAL_RUNTIME_REFRESH_COOLDOWN_MS = 30 * 1000
 
-async function resolvePlaygroundSupabaseClient() {
-  const hasAdminConfig = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() && process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-  )
-
-  if (hasAdminConfig) {
-    return getSupabaseAdmin()
-  }
-
-  console.warn(
-    '[playground] SUPABASE_SERVICE_ROLE_KEY missing; falling back to request-scoped Supabase client.'
-  )
-  return createServerSupabaseClient()
-}
-
 export async function POST(req: Request) {
   const requestStartedAt = Date.now()
   let requestRehydrateOnly = false
@@ -91,6 +79,12 @@ export async function POST(req: Request) {
   }
 
   try {
+    const principal = await resolveRuntimeRequestPrincipal({
+      req,
+      requireSameOrigin: true,
+    })
+    if (!principal.ok) return principal.response
+
     const normalizeStartedAt = Date.now()
     const body = (await req.json()) as {
       agent_id?: string
@@ -151,7 +145,12 @@ export async function POST(req: Request) {
     const isReviewDetailMode = requestMode === 'playground_review_detail'
     timing.request_normalize_ms = Date.now() - normalizeStartedAt
 
-    const supabase = await resolvePlaygroundSupabaseClient()
+    const access = await resolveRuntimeRequestAccess({
+      principal,
+      agentId: agent_id,
+    })
+    if (!access.ok) return access.response
+    const supabase = access.admin
 
     const agentConfigStartedAt = Date.now()
     const loadedAgent = await loadPlaygroundAgentConfig({

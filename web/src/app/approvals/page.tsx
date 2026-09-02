@@ -1,4 +1,5 @@
-import { getSupabaseAdmin } from '@/lib/supabase'
+import { redirect } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase'
 import type {
   RuntimeApprovalStatus,
   RuntimeMode,
@@ -186,7 +187,11 @@ export default async function ApprovalsPage({
   const scopeSessionId =
     typeof scopeSessionIdRaw === 'string' && scopeSessionIdRaw.trim() ? scopeSessionIdRaw.trim() : null
 
-  const supabase = await getSupabaseAdmin()
+  const supabase = await createServerSupabaseClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const [
     { data: requestRows, error: requestError },
@@ -332,7 +337,7 @@ export default async function ApprovalsPage({
       ? `Scope: current Playground session (${(scopeSessionId || '').slice(0, 8)})`
       : effectiveScope === 'agent'
         ? 'Scope: all approvals for this agent'
-        : 'Scope: global approvals queue'
+        : 'Scope: approvals for your agents'
 
   const confidenceByAgentAction: Record<string, Record<string, number>> = {}
   for (const row of confidenceUpdates) {

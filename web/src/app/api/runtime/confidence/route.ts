@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import { resolveRuntimeRequestAccess } from '@/lib/runtime/runtimeRequestAccess'
 import { isUuid } from '@/lib/runtime/types'
 import type { RuntimeConfidenceActionSummary } from '@/lib/runtime/types'
 
@@ -53,7 +53,9 @@ export async function GET(req: Request) {
       )
     }
 
-    const supabase = await getSupabaseAdmin()
+    const access = await resolveRuntimeRequestAccess({ req, agentId })
+    if (!access.ok) return access.response
+    const supabase = access.admin
     const { data, error } = await supabase
       .from('agent_events')
       .select('payload')

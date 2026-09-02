@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • PR #3 merge-integrated to main with successful automatic production deployments; Phase 4 Slice 2 remains closed and later work requires fresh PM discovery and target lock_
+_Last updated: 2026-09-02 • Phase 4 Slice 3 Human-accepted and recovery-backed; exact commit and normal push pending_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -120,8 +120,15 @@ _Last updated: 2026-09-02 • PR #3 merge-integrated to main with successful aut
 - [x] Record the publication-audit distinction: a clean worktree, zero branch-unique commits/content, later main-only closeout commits, and GitHub's historical PR change counter are separate facts; historical PR review stats do not prove unpublished local work.
 - [x] Complete separate PM adjudication and accepted repair: lock `ai-agent-platform` as canonical by custom-domain ownership, add the existing project-matched service-role key as a Production-only Vercel Secret, redeploy exact `main@bf9f401`, and prove two deployment-scoped `/api/runtime/gmail-memory` HTTP `200` responses with no route error. Preserve Preview, `e6cc`, domains, source, provider/data, and Supabase schema/data.
 - [x] Complete GitHub device verification and merge the exact six-file Vercel-fix packet through PR #4 as `003a062`; verify both automatic Production deployments `READY`, both GitHub contexts successful, canonical authenticated UI settled, two `/api/runtime/gmail-memory` HTTP `200` responses, and no runtime-error recurrence.
-- [ ] ACTIVE NOW — keep Phase 4 Slice 2 closed; return to PM for a separately approved next discovery/target-lock task before any endpoint hardening or later Phase 4 implementation.
-- [ ] Plan the discovered approval/execution endpoint integrity issues as a separate later work unit before any generalized provider-execution claim; do not fold runtime hardening into the four-file presentation/read slice.
+- [x] Keep Phase 4 Slice 2 closed and obtain separate authority before endpoint-integrity discovery.
+- [x] Complete the bounded read-only Phase 4 endpoint-integrity trace and lock the 13-file access/decision-binding correction.
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 3 ENDPOINT ACCESS IMPLEMENTATION` decision and create the required Automata-worktree pre-implementation incremental with normal seven-day project-scoped pruning and `KEEP` preservation.
+- [x] Implement and verifier-accept only the exact 13-file endpoint access/request-decision binding target lock; preserve accepted Gmail behavior and stop before the separate atomic execution/receipt ledger.
+- [x] Record explicit Phase 4 Slice 3 Human Review `ACCEPT` and create the accepted-fix Recovery Contract.
+- [x] Create and verify the `2,466`-file Human-acceptance incremental with exact worktree/branch/HEAD identity, `21` changed paths, normal seven-day project-scoped pruning, and `KEEP` preservation.
+- [ ] ACTIVE NOW — commit and normally push only the exact accepted packet; merge, deployment, and later ledger work remain separate.
+- [ ] After Slice 3 is separately accepted, plan the atomic execution claim, per-action receipt, partial/indeterminate failure, retry/reconciliation, and rollback ledger as a new target lock before any generalized provider-execution claim.
+- [ ] Keep provider/data mutation, action invocation during proof, schema work, new requests/polling/cache/lifecycle behavior, commit, push, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 
