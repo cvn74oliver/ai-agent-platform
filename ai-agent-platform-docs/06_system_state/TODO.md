@@ -113,7 +113,8 @@ _Last updated: 2026-09-02 • Phase 4 Slice 2 Approval Queue truth implementatio
 - [x] Create and verify the governed pre-implementation recovery point, then implement and verifier-check only the exact four-file Approval Queue truth-projection contract.
 - [x] Record Oliver's Human Review `accept` and create the accepted-fix Recovery Contract for Phase 4 Slice 2.
 - [x] Create and verify the `2,434`-file Phase 4 Slice 2 Human-acceptance backup with exact worktree/branch/HEAD identity, normal seven-day project-scoped pruning, and `KEEP` preservation.
-- [ ] ACTIVE NOW — commit and normally push only the exact accepted 11-path Slice 2 source/control-plane packet, then prove local/remote/live/PR-head parity before starting another slice.
+- [x] Commit accepted-content commit `00f8c6e` and push normally without force; prove local, remote-tracking, live remote, and draft PR #3 head parity with `0 / 0` divergence before final docs-only closeout propagation.
+- [ ] ACTIVE NOW — keep Phase 4 Slice 2 closed; return to PM for a separately approved next discovery/target-lock task before any endpoint hardening or later Phase 4 implementation.
 - [ ] Plan the discovered approval/execution endpoint integrity issues as a separate later work unit before any generalized provider-execution claim; do not fold runtime hardening into the four-file presentation/read slice.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.

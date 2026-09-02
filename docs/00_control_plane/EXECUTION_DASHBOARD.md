@@ -105,7 +105,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 1 HUMAN-ACCEPTED / RECOVERY-BACKED / GIT
 - [x] Create/verify the pre-implementation recovery point, then implement and verifier-check only the exact four-file target lock; runtime endpoint hardening remains separate
 - [x] Record Human Review `accept` and the Phase 4 Slice 2 Recovery Contract
 - [x] Create and verify the `2,434`-file Human-acceptance backup with exact worktree/branch/HEAD identity and `KEEP` preservation
-- [ ] Commit and normally push only the exact accepted 11-path Slice 2 packet; prove local/remote/live/PR-head parity
+- [x] Commit accepted-content `00f8c6e`, push normally without force, and prove local/remote/live/draft-PR-head parity with `0 / 0` divergence
+- [ ] Keep Slice 2 closed; require a fresh PM discovery/target lock and separate approval before endpoint hardening or later Phase 4 work
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

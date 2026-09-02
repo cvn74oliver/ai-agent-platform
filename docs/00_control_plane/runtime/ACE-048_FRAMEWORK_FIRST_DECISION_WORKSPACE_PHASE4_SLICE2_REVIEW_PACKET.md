@@ -1,7 +1,7 @@
 # ACE-048 Phase 4 Slice 2 — Approval Queue Truth Review Packet
 
 Date: 2026-09-02
-Status: `HUMAN ACCEPTED / RECOVERY-BACKED / GIT PUBLICATION PENDING`
+Status: `HUMAN ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED`
 Verifier verdict: `ACCEPT`
 Verification confidence: `HIGH`
 Execution mode: `transitional_self_verification`
@@ -116,4 +116,4 @@ Human Review: `ACCEPT` recorded from Oliver on 2026-09-02.
 
 Oliver returned `accept`, authorizing the accepted-fix Recovery Contract, Human-acceptance backup, exact-scope commit, and normal non-force GitHub push under the standing publication policy. No merge or deployment is authorized.
 
-Checkpoint Status: `propagation required before closeout`; Human acceptance, the Recovery Contract, and the verified `2,434`-file acceptance snapshot are propagated, but exact-scope Git publication remains pending.
+Checkpoint Status: `none`; Human acceptance, Recovery Contract, verified acceptance snapshot, accepted-content commit `00f8c6e`, and local/remote/live/PR-head parity are propagated with no remaining Slice 2 closeout state.

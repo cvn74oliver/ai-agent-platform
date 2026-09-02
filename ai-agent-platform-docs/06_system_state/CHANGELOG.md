@@ -21,7 +21,7 @@ Recovery identity:
 - Shared Approval Queue consumer: `web/src/app/agents/[id]/operations/approvals/page.tsx`.
 - Cross-domain proof: `web/scripts/workspace-decision-action-model-fixtures.mjs`.
 - Accepted browser evidence: `output/playwright/ace048-phase4-slice2/`; generated screenshots, DOM snapshots, and authentication state remain excluded from Git.
-- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 4 Slice 2 Human acceptance)`; `2,434` files, exact worktree source, branch `agent/ace-048-accepted-framework-baseline`, pre-publication HEAD `861e0a917a75f60f0717cb566dcdeed6ab777fd2`, `11` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 4 Slice 2 Human acceptance)`; `2,434` files, exact worktree source, branch `agent/ace-048-accepted-framework-baseline`, pre-publication HEAD `861e0a917a75f60f0717cb566dcdeed6ab777fd2`, `11` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance. Accepted-content commit `00f8c6e87ce49cc6884c1fea5520145bce785a13` was pushed normally without force; local, remote-tracking, live remote, and draft PR #3 head all matched it with `0 / 0` divergence before final docs-only closeout propagation.
 
 Replay steps:
 1. Run the action-model fixture plus retained Decision Workspace contract, presentation, read-model, Gmail review-unit, cleanup-assignment, and optional-evidence fixtures.

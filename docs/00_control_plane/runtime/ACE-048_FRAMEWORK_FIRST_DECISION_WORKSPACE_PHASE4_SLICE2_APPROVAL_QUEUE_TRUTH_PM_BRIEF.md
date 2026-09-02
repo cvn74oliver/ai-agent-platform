@@ -1,7 +1,7 @@
 # ACE-048 Framework-First Decision Workspace Phase 4 Slice 2 — Approval Queue Truth Projection PM Brief
 
 Date: 2026-09-02
-Status: `HUMAN-ACCEPTED / RECOVERY-BACKED / GIT PUBLICATION PENDING`
+Status: `HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED`
 Governing event: `ACE-048`
 Feature domain: Decision Workspace approval queue — complete proposed-action truth and deterministic adapter presentation
 Mode: bounded `EXECUTION MODE` completed; accepted closeout in progress
@@ -268,4 +268,4 @@ Oliver returned the exact decision `ACCEPT PHASE 4 SLICE 2 IMPLEMENTATION` on 20
 
 It does not authorize a fifth source file, endpoint/runtime hardening, provider or data mutation, approval/execution during verification, route/request/cache/poll/lifecycle changes, commit, push, merge, deployment, force operations, or lineage deletion. Accepted-milestone backup and Git publication remain post-verifier/Human Review steps under the standing policy.
 
-Checkpoint Status: propagation required before closeout. Human acceptance, the Recovery Contract, and the verified `2,434`-file acceptance snapshot are captured; exact-scope Git publication remains pending.
+Checkpoint Status: none. Human acceptance, Recovery Contract, verified acceptance snapshot, accepted-content commit `00f8c6e`, and local/remote/live/PR-head parity are captured; no unpropagated Slice 2 state remains.
