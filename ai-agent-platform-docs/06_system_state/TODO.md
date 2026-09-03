@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B Human-accepted, recovery-backed, GitHub-preserved, and closed_
+_Last updated: 2026-09-03 • Phase 4 live-ledger/RPC read-only discovery authorized and active_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -149,7 +149,8 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B Human-accepted, recovery-
 - [x] Record Oliver's explicit Human Review `accept` and the authoritative Stage B Recovery Contract.
 - [x] Create and verify the `2,588`-file Human-acceptance incremental with exact identity, `7` accepted changed paths, normal pruning, and `KEEP` preservation.
 - [x] Commit the exact accepted Stage B documentation/control-plane packet as `000fdcb` and push normally without force to the dedicated branch.
-- [ ] NEXT DECISION — authorize or defer fresh PM discovery for the separately gated live ledger/RPC proof and activation contract.
+- [x] Record Oliver's explicit request to create the fresh live-ledger/RPC discovery task and exact `ACCEPT DISCOVERY AUTHORITY PROPAGATION`.
+- [ ] ACTIVE NOW — complete bounded read-only discovery of the installed four-RPC contract, application seams, provenance requirements, and safe synthetic-proof path; return an operator-readable recommendation plus an exact target-locked PM Brief or precise blocker.
 - [ ] Keep live ledger/RPC proof, provider/customer-data action, source integration, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.

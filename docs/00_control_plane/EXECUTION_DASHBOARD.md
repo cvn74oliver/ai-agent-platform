@@ -2,13 +2,13 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; LIVE-LEDGER/RPC READ-ONLY DISCOVERY AUTHORIZED / ACTIVE; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, and Stage B migration application Human-accepted, recovery-backed, GitHub-preserved, and closed
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, and Stage B migration application Human-accepted, recovery-backed, GitHub-preserved, and closed; live-ledger/RPC read-only discovery authorized and active
 - Problem class: runtime behavior — additive execution-ledger schema installation only
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
@@ -140,7 +140,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Record Human Review `accept`, acceptance recheck, and the authoritative Stage B Recovery Contract
 - [x] Verify the `2,588`-file Human-acceptance backup with exact identity, `7` accepted changed paths, normal pruning, and `KEEP` preservation
 - [x] Commit the exact accepted Stage B packet as `000fdcb`, push normally without force, and close Stage B
-- [ ] NEXT DECISION — authorize or defer fresh PM discovery for separately gated live ledger/RPC proof and activation
+- [x] Record Oliver's explicit live-ledger/RPC discovery request and `ACCEPT DISCOVERY AUTHORITY PROPAGATION`
+- [ ] ACTIVE NOW — complete bounded read-only discovery and return an exact target-locked next-slice brief or precise blocker
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
