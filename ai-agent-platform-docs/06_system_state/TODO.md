@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C1 rollback-only RPC proof authorized; pre-implementation propagation in progress_
+_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C1 Human-accepted; acceptance preservation in progress_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -152,8 +152,11 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C1 rollback-only RPC proof 
 - [x] Record Oliver's explicit request to create the fresh live-ledger/RPC discovery task and exact `ACCEPT DISCOVERY AUTHORITY PROPAGATION`.
 - [x] Complete bounded read-only discovery of the installed four-RPC contract, application seams, provenance requirements, and safe synthetic-proof path.
 - [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 4A STAGE C1 ROLLBACK-ONLY RPC PROOF` and the execution-ready PM Brief.
-- [ ] ACTIVE NOW — create the governed backup, execute the exact single rollback-only synthetic transaction, and complete independent zero-persistence verification plus the required State Transition Matrix.
-- [ ] Keep live ledger/RPC proof, provider/customer-data action, source integration, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, merge, and deployment behind their applicable separate gates.
+- [x] Create the governed backup, execute the exact single rollback-only synthetic transaction, and complete independent zero-persistence verification plus the required State Transition Matrix.
+- [x] Record Oliver's exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C1` and authoritative Recovery Contract.
+- [x] Create and verify the `2,590`-file Human-acceptance incremental with exact identity, `5` accepted changed paths, normal pruning, and `KEEP` preservation.
+- [ ] ACTIVE NOW — commit and normally push only the exact accepted Stage C1 review/control-plane packet, then record final Git parity and close Stage C1.
+- [ ] Keep application-route/wrapper proof, provider/customer-data action, source integration activation, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 

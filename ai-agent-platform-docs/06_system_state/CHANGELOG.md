@@ -1,3 +1,47 @@
+### September 3, 2026 — ACE-048 Phase 4 Slice 4A Stage C1 Rollback-Only RPC Proof Accepted
+
+#### Accepted outcome
+
+- Oliver returned exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C1` after verifier `ACCEPT / HIGH` and `Accepted Fix Proven` classification.
+- One explicit rollback-only live transaction exercised all four installed execution-ledger RPC contracts with fixed synthetic sandbox identities and exactly `15` function calls.
+- Success and compatibility binding, identical replay without second authority, partial aggregation, stale-to-indeterminate/manual-required resolution, and cross-tenant rejection all passed.
+- The transaction returned `ACE048_STAGEC1_ASSERTION_SUCCESS`; independent postflight found `0` ledger runs, `0` ledger actions, and zero surviving synthetic agent/events/execution keys/idempotency keys.
+- Gmail, all providers, customer data, source/UI/routes, application HTTP, migrations, background behavior, merge, and deployment remained untouched.
+
+#### Acceptance proof
+
+- PM Brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC1_ROLLBACK_ONLY_RPC_PROOF_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC1_ROLLBACK_ONLY_RPC_PROOF_REVIEW_PACKET.md`.
+- Governing migration SHA-256: `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`.
+- Ephemeral SQL artifact: `/private/tmp/ace048_stagec1_rollback_rpc_proof.sql`; SHA-256 `b22a6a51bf374d69393b0eef5bc481129b9f8dea446daf662a613293a32bf277`; not tracked or authoritative runtime context.
+- The eight-domain static ledger fixture passed before and after the transaction, and every frozen source hash remained unchanged.
+- Six-row State Transition Matrix: PASS for succeeded finalization, identical replay, partial aggregation, stale resolution, cross-tenant rejection, and rollback/zero persistence.
+
+#### Recovery identity
+
+- Pre-execution snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage C1 rollback-only RPC proof)`; `2,589` files, clean linked worktree, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `0c665f795381596db8e6bd60dd2347c9cbd1f34e`, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage C1 Human acceptance)`; `2,590` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `0c665f795381596db8e6bd60dd2347c9cbd1f34e`, `5` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted-content Git identity: pending exact-scope commit and normal non-force push.
+
+#### Replay steps
+
+1. Reattest project `cjpjekhlvzwjwtszqpmy`, migration and function-definition identities, service-role-only execution, zero ledger rows, fixed synthetic identity absence, and trigger/publication isolation.
+2. Require the eight-domain static ledger fixture and frozen-source hashes to pass.
+3. Recreate the exact ephemeral SQL artifact from the accepted PM Brief; require one `BEGIN`, one `SET LOCAL ROLE service_role`, one terminal `ROLLBACK`, and no `COMMIT` statement.
+4. Execute the exact fixed synthetic assertions once, require `ACE048_STAGEC1_ASSERTION_SUCCESS`, and do not retry an ambiguous result before independent postflight adjudication.
+5. Independently require the ledger baseline and every fixed synthetic identity to remain at zero after rollback; rerun the static fixture.
+
+#### Recovery Contract
+
+- The accepted durable state is zero persistence. The Stage C1 transaction itself requires no database rollback because it was already rolled back and independent postflight matched the zero baseline.
+- If a future replay or related proof leaves any synthetic or ledger row, stop immediately. Do not issue cleanup `DELETE`, alter migration history, drop objects, or run another proof until PM defines a separately approved data-recovery plan.
+- If the RPC definitions or accepted source hashes drift, restore or correct through a separately scoped forward change from the accepted migration/source Git lineage; never edit the applied migration or falsify remote history.
+- Preserve tenant, actor, agent, request, decision, workflow/runtime, role, source, connection, action, lease, idempotency, receipt, transition, compatibility-event, partial, and indeterminate provenance invariants.
+- This acceptance proves sequential rollback-only database behavior. It does not prove true concurrent-session claims, application wrapper/HTTP integration, provider execution, deployed behavior, or automatic retry/reconciliation.
+- No application activation, Gmail/provider action, persistent test data, source change, merge, or deployment is authorized by this Recovery Contract.
+
+---
+
 ### September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage B Migration Application Accepted
 
 #### Accepted outcome
