@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import {
+  isExecutionBoundToRequest,
+  validateBoundApprovalDecision,
+  validateBoundApprovalRequest,
+} from '@/lib/runtime/runtimeApprovalIntegrity'
+import {
+  resolveRuntimeRequestAccess,
+  resolveRuntimeRequestPrincipal,
+} from '@/lib/runtime/runtimeRequestAccess'
 import {
   analyzeGmailInboxForTenant,
   archiveGmailMessagesForTenant,
@@ -8,6 +16,22 @@ import {
   reviewGmailSenderClusterForTenant,
 } from '@/lib/integrations/gmail/inboxAnalysis'
 import { resolveGmailSenderPolicyArchiveScopeForTenant } from '@/lib/integrations/gmail/gmailCleanupWorkspace'
+import {
+  classifyGmailArchiveExecution,
+  classifyGmailDraftExecution,
+} from '@/lib/integrations/gmail/gmailDecisionWorkspaceExecutionPolicy'
+import {
+  prepareDecisionWorkspaceExecutionClaim,
+  sanitizeDecisionWorkspaceProviderReceipt,
+  type DecisionWorkspaceExecutionActionInput,
+  type DecisionWorkspaceExecutionActionOutcome,
+} from '@/lib/runtime/decisionWorkspaceExecutionModel'
+import {
+  claimRuntimeExecution,
+  finalizeRuntimeExecution,
+  recordRuntimeExecutionActionReceipt,
+  resolveStaleRuntimeExecution,
+} from '@/lib/runtime/runtimeExecutionLedger'
 import { isUuid } from '@/lib/runtime/types'
 import type {
   RuntimeExecuteRequest,
@@ -83,6 +107,12 @@ type GmailDraftCreateResponse = {
   message?: {
     id?: string
   }
+}
+
+type GmailDraftCreateAttemptResult = {
+  outcome: DecisionWorkspaceExecutionActionOutcome
+  draftId: string | null
+  messageId: string | null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -425,32 +455,90 @@ async function createGmailDraft(params: {
   to: string
   subject: string
   body: string
-}): Promise<{ draftId: string; messageId: string } | null> {
+}): Promise<GmailDraftCreateAttemptResult> {
   const mimeMessage = [`To: ${params.to}`, `Subject: ${params.subject}`, '', params.body].join('\r\n')
   const raw = toBase64Url(mimeMessage)
 
-  const gmailResponse = await fetch(GMAIL_DRAFTS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${params.accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      message: { raw },
-    }),
-    cache: 'no-store',
-  })
+  try {
+    const gmailResponse = await fetch(GMAIL_DRAFTS_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: { raw },
+      }),
+      cache: 'no-store',
+    })
 
-  const draftData = (await gmailResponse.json().catch(() => null)) as GmailDraftCreateResponse | null
-  const draftId = typeof draftData?.id === 'string' ? draftData.id : ''
-  const messageId = typeof draftData?.message?.id === 'string' ? draftData.message.id : ''
+    const draftData = (await gmailResponse
+      .json()
+      .catch(() => null)) as GmailDraftCreateResponse | null
+    const draftId = typeof draftData?.id === 'string' ? draftData.id.trim() : ''
+    const messageId = typeof draftData?.message?.id === 'string' ? draftData.message.id.trim() : ''
+    const outcome = classifyGmailDraftExecution({
+      phase: 'provider_response',
+      httpStatus: gmailResponse.status,
+      draftId,
+      messageId,
+      errorCode: gmailResponse.ok ? 'gmail_draft_receipt_missing' : 'gmail_draft_provider_error',
+    })
 
-  if (!gmailResponse.ok || !draftId || !messageId) {
-    console.error('[runtime/execute] Gmail draft create error:', draftData)
-    return null
+    if (outcome.status !== 'succeeded') {
+      console.error('[runtime/execute] Gmail draft create did not return a definitive success receipt.')
+    }
+    return {
+      outcome,
+      draftId: draftId || null,
+      messageId: messageId || null,
+    }
+  } catch {
+    return {
+      outcome: classifyGmailDraftExecution({
+        phase: 'transport_failure',
+        errorCode: 'gmail_draft_transport_failure',
+      }),
+      draftId: null,
+      messageId: null,
+    }
+  }
+}
+
+function executionActionInput(action: RuntimeProposedAction): DecisionWorkspaceExecutionActionInput {
+  if (action.tool === 'sandbox') {
+    return {
+      tool: action.tool,
+      action: action.action,
+      args: action.args,
+      providerType: 'sandbox',
+      sourceId: null,
+      connectionId: null,
+      agentRoleId: null,
+      capability: `sandbox.${action.action}`,
+      effect: 'decision_only',
+      reversibility: 'not_applicable',
+    }
   }
 
-  return { draftId, messageId }
+  const providerWrite = action.action === 'draft_email' || action.action === 'archive_messages'
+  return {
+    tool: action.tool,
+    action: action.action,
+    args: action.args,
+    providerType: action.tool,
+    sourceId: action.tool === 'gmail' ? 'gmail.primary' : null,
+    connectionId: null,
+    agentRoleId: null,
+    capability: `${action.tool}.${action.action}`,
+    effect: providerWrite ? 'provider_write' : 'provider_read',
+    reversibility:
+      action.action === 'archive_messages'
+        ? 'reversible'
+        : action.action === 'draft_email'
+          ? 'compensating_action'
+          : 'not_applicable',
+  }
 }
 
 function simulateSandboxAction(action: RuntimeProposedAction): RuntimeExecutionActionResult {
@@ -505,6 +593,12 @@ function simulateSandboxAction(action: RuntimeProposedAction): RuntimeExecutionA
 
 export async function POST(req: Request) {
   try {
+    const principal = await resolveRuntimeRequestPrincipal({
+      req,
+      requireSameOrigin: true,
+    })
+    if (!principal.ok) return principal.response
+
     const body = (await req.json().catch(() => null)) as RuntimeExecuteRequest | null
 
     if (!body || typeof body.agent_id !== 'string' || !body.agent_id.trim()) {
@@ -531,7 +625,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = await getSupabaseAdmin()
+    const access = await resolveRuntimeRequestAccess({
+      principal,
+      agentId,
+    })
+    if (!access.ok) return access.response
+    const supabase = access.admin
 
     const { data: modeRows, error: modeError } = await supabase
       .from('agent_events')
@@ -557,7 +656,7 @@ export async function POST(req: Request) {
 
     const { data: requestRows, error: requestError } = await supabase
       .from('agent_events')
-      .select('payload')
+      .select('id,agent_id,payload')
       .eq('agent_id', agentId)
       .eq('event_type', 'approval_request')
       .eq('payload->>approval_id', approvalId)
@@ -572,17 +671,26 @@ export async function POST(req: Request) {
       )
     }
 
-    const approvalRequestPayload = requestRows?.[0] ? parsePayload(requestRows[0].payload) : null
-    if (!approvalRequestPayload) {
-      return NextResponse.json({ ok: false, error: 'Approval request not found' }, { status: 400 })
+    const approvalRequest = validateBoundApprovalRequest({
+      row: requestRows?.[0],
+      agentId,
+      approvalId,
+    })
+    if (!approvalRequest) {
+      return NextResponse.json(
+        { ok: false, error: 'Approval request not found or access denied.' },
+        { status: 404 }
+      )
     }
 
-    const { count: approvedDecisionCount, error: decisionError } = await supabase
+    const { data: decisionRows, error: decisionError } = await supabase
       .from('agent_events')
-      .select('id', { count: 'exact', head: true })
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
       .eq('event_type', 'approval_decision')
       .eq('payload->>approval_id', approvalId)
-      .eq('payload->>decision', 'approved')
+      .order('created_at', { ascending: false })
+      .limit(1)
 
     if (decisionError) {
       console.error('[runtime/execute] approval decision lookup error:', decisionError)
@@ -592,15 +700,23 @@ export async function POST(req: Request) {
       )
     }
 
-    if ((approvedDecisionCount ?? 0) === 0) {
+    const currentDecision = validateBoundApprovalDecision({
+      row: decisionRows?.[0],
+      agentId,
+      approvalId,
+    })
+    if (!currentDecision || currentDecision.decision !== 'approved') {
       return NextResponse.json({ ok: false, error: 'Approval not approved' }, { status: 400 })
     }
 
-    const { count: existingExecutionCount, error: existingExecutionError } = await supabase
+    const { data: existingExecutionRows, error: existingExecutionError } = await supabase
       .from('agent_events')
-      .select('id', { count: 'exact', head: true })
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
       .eq('event_type', 'execution_result')
       .eq('payload->>approval_id', approvalId)
+      .order('created_at', { ascending: false })
+      .limit(50)
 
     if (existingExecutionError) {
       console.error('[runtime/execute] execution check error:', existingExecutionError)
@@ -610,11 +726,19 @@ export async function POST(req: Request) {
       )
     }
 
-    if ((existingExecutionCount ?? 0) > 0) {
+    const alreadyExecuted = (existingExecutionRows || []).some((row) =>
+      isExecutionBoundToRequest({
+        row,
+        agentId,
+        approvalId,
+        requestEventId: approvalRequest.eventId,
+      })
+    )
+    if (alreadyExecuted) {
       return NextResponse.json({ ok: false, error: 'Already executed' }, { status: 400 })
     }
 
-    const proposedActions = parseProposedActions(approvalRequestPayload.proposed_actions)
+    const proposedActions = parseProposedActions(approvalRequest.payload.proposed_actions)
     if (proposedActions == null) {
       return NextResponse.json(
         { ok: false, error: 'Invalid proposed_actions' },
@@ -635,99 +759,262 @@ export async function POST(req: Request) {
     }
 
     const executionActions = parsedExecution.actions
-    const hasGmailAction = executionActions.some((action) => action.tool === 'gmail')
     const hasGmailDraftAction = executionActions.some(
       (action) => action.tool === 'gmail' && action.action === 'draft_email'
     )
 
-    let tenantId = ''
+    const tenantId = access.tenantId
     let gmailAccessToken = ''
-    if (hasGmailAction) {
-      const { data: agentRow, error: agentError } = await supabase
-        .from('agents')
-        .select('user_id')
-        .eq('id', agentId)
+    let gmailRefreshToken = ''
+    let gmailTokenExpiresAt: unknown = null
+    if (hasGmailDraftAction) {
+      const { data: connectionRow, error: connectionError } = await supabase
+        .from('integration_connections')
+        .select('access_token,refresh_token,expires_at')
+        .eq('tenant_id', tenantId)
+        .eq('provider', 'gmail')
         .maybeSingle()
 
-      if (agentError) {
-        console.error('[runtime/execute] agent lookup error:', agentError)
-        return NextResponse.json({ ok: false, error: 'Failed to load agent.' }, { status: 500 })
+      if (connectionError) {
+        console.error('[runtime/execute] Gmail connection lookup error:', connectionError)
+        return NextResponse.json(
+          { ok: false, error: 'Failed to load Gmail connection.' },
+          { status: 500 }
+        )
       }
 
-      const userId = typeof agentRow?.user_id === 'string' ? agentRow.user_id : ''
-      if (!userId) {
+      gmailAccessToken =
+        typeof connectionRow?.access_token === 'string' ? connectionRow.access_token.trim() : ''
+      gmailRefreshToken =
+        typeof connectionRow?.refresh_token === 'string' ? connectionRow.refresh_token.trim() : ''
+      gmailTokenExpiresAt = connectionRow?.expires_at
+
+      if (!gmailAccessToken || !gmailRefreshToken) {
         return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
       }
+    }
 
-      const { data: profileRow, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('id', userId)
-        .maybeSingle()
+    let preparedClaim
+    try {
+      preparedClaim = prepareDecisionWorkspaceExecutionClaim({
+        tenantId,
+        agentId,
+        requestEventId: approvalRequest.eventId,
+        workflowContext: {
+          source: 'builtin_compatibility',
+          ...(typeof approvalRequest.payload.session_id === 'string' &&
+          approvalRequest.payload.session_id.trim()
+            ? { runtime_instance_id: approvalRequest.payload.session_id.trim() }
+            : {}),
+        },
+        actions: proposedActions.map(executionActionInput),
+      })
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: 'Approved execution metadata is invalid.' },
+        { status: 400 }
+      )
+    }
 
-      if (profileError) {
-        console.error('[runtime/execute] profile lookup error:', profileError)
-        return NextResponse.json({ ok: false, error: 'Failed to load profile.' }, { status: 500 })
+    const claim = await claimRuntimeExecution({
+      supabase,
+      tenantId,
+      agentId,
+      actorId: access.actorId,
+      approvalId,
+      requestEventId: approvalRequest.eventId,
+      decisionEventId: currentDecision.eventId,
+      claim: preparedClaim,
+    })
+    if (!claim.ok) {
+      console.error('[runtime/execute] execution claim failed')
+      return NextResponse.json(
+        { ok: false, error: claim.error },
+        { status: claim.kind === 'conflict' ? 409 : 500 }
+      )
+    }
+
+    if (!claim.invocationAuthorized) {
+      let durableStatus = claim.status
+      if (
+        (claim.status === 'claimed' || claim.status === 'executing') &&
+        isExpiredTimestamp(claim.leaseExpiresAt)
+      ) {
+        const stale = await resolveStaleRuntimeExecution({
+          supabase,
+          tenantId,
+          executionId: claim.executionId,
+          actorId: access.actorId,
+        })
+        if (stale.ok) durableStatus = stale.status
       }
 
-      tenantId = typeof profileRow?.tenant_id === 'string' ? profileRow.tenant_id : ''
-      if (!tenantId) {
-        return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            durableStatus === 'indeterminate'
+              ? 'Execution outcome requires reconciliation before another attempt.'
+              : 'This approved request already has a durable execution claim.',
+          data: {
+            execution_id: claim.executionId,
+            status: durableStatus,
+            executed: durableStatus === 'succeeded',
+          },
+        },
+        { status: 409 }
+      )
+    }
+
+    const startAction = async (actionIndex: number) =>
+      recordRuntimeExecutionActionReceipt({
+        supabase,
+        tenantId,
+        executionId: claim.executionId,
+        leaseToken: claim.leaseToken,
+        actionIndex,
+        expectedStatus: 'claimed',
+        nextStatus: 'executing',
+        actorId: access.actorId,
+      })
+
+    const completeAction = async (
+      actionIndex: number,
+      outcome: DecisionWorkspaceExecutionActionOutcome
+    ) =>
+      recordRuntimeExecutionActionReceipt({
+        supabase,
+        tenantId,
+        executionId: claim.executionId,
+        leaseToken: claim.leaseToken,
+        actionIndex,
+        expectedStatus: 'executing',
+        nextStatus: outcome.status,
+        actorId: access.actorId,
+        providerReceipt: outcome.receipt,
+        errorCode: outcome.errorCode,
+        reconciliationStatus: outcome.reconciliationStatus,
+      })
+
+    const stopAfterOutcome = async (params: {
+      actionIndex: number
+      outcome: DecisionWorkspaceExecutionActionOutcome
+      error: string
+      status: number
+    }) => {
+      const recorded = await completeAction(params.actionIndex, params.outcome)
+      if (!recorded.ok) {
+        return NextResponse.json({ ok: false, error: recorded.error }, { status: 500 })
       }
 
-      if (hasGmailDraftAction) {
-        const { data: connectionRow, error: connectionError } = await supabase
-          .from('integration_connections')
-          .select('access_token,refresh_token,expires_at')
-          .eq('tenant_id', tenantId)
-          .eq('provider', 'gmail')
-          .maybeSingle()
-
-        if (connectionError) {
-          console.error('[runtime/execute] Gmail connection lookup error:', connectionError)
-          return NextResponse.json(
-            { ok: false, error: 'Failed to load Gmail connection.' },
-            { status: 500 }
-          )
+      for (let index = params.actionIndex + 1; index < executionActions.length; index += 1) {
+        const skipped = await recordRuntimeExecutionActionReceipt({
+          supabase,
+          tenantId,
+          executionId: claim.executionId,
+          leaseToken: claim.leaseToken,
+          actionIndex: index,
+          expectedStatus: 'claimed',
+          nextStatus: 'skipped',
+          actorId: access.actorId,
+          errorCode: 'prior_action_not_succeeded',
+        })
+        if (!skipped.ok) {
+          return NextResponse.json({ ok: false, error: skipped.error }, { status: 500 })
         }
+      }
 
-        const accessToken =
-          typeof connectionRow?.access_token === 'string' ? connectionRow.access_token.trim() : ''
-        const refreshToken =
-          typeof connectionRow?.refresh_token === 'string' ? connectionRow.refresh_token.trim() : ''
+      const finalized = await finalizeRuntimeExecution({
+        supabase,
+        tenantId,
+        executionId: claim.executionId,
+        leaseToken: claim.leaseToken,
+        actorId: access.actorId,
+      })
+      if (!finalized.ok) {
+        return NextResponse.json({ ok: false, error: finalized.error }, { status: 500 })
+      }
 
-        if (!accessToken || !refreshToken) {
-          return NextResponse.json({ ok: false, error: 'Gmail not connected' }, { status: 400 })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: params.error,
+          data: {
+            execution_id: claim.executionId,
+            status: finalized.status,
+            executed: false,
+          },
+        },
+        { status: finalized.status === 'partial' || finalized.status === 'indeterminate' ? 409 : params.status }
+      )
+    }
+
+    const results: RuntimeExecutionActionResult[] = []
+    let draftId: string | null = null
+    let messageId: string | null = null
+    let gmailTokenRefreshed = false
+
+    for (const [actionIndex, action] of executionActions.entries()) {
+      const started = await startAction(actionIndex)
+      if (!started.ok) {
+        return NextResponse.json({ ok: false, error: started.error }, { status: 500 })
+      }
+
+      if (action.tool === 'sandbox') {
+        const result = simulateSandboxAction(action.action)
+        const completed = await completeAction(actionIndex, {
+          status: 'succeeded',
+          receipt: sanitizeDecisionWorkspaceProviderReceipt({
+            provider_type: 'sandbox',
+            operation: action.action.action,
+            simulated: true,
+          }),
+          errorCode: null,
+          reconciliationStatus: 'not_required',
+        })
+        if (!completed.ok) {
+          return NextResponse.json({ ok: false, error: completed.error }, { status: 500 })
         }
+        results.push(result)
+        continue
+      }
 
-        gmailAccessToken = accessToken
-
-        if (isExpiredTimestamp(connectionRow?.expires_at)) {
+      if (action.action === 'draft_email') {
+        if (isExpiredTimestamp(gmailTokenExpiresAt) && !gmailTokenRefreshed) {
           const clientId = process.env.GOOGLE_CLIENT_ID
           const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-
           if (!clientId || !clientSecret) {
-            return NextResponse.json(
-              { ok: false, error: 'Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET.' },
-              { status: 500 }
-            )
+            return stopAfterOutcome({
+              actionIndex,
+              outcome: classifyGmailDraftExecution({
+                phase: 'pre_dispatch_failure',
+                errorCode: 'gmail_draft_credentials_unavailable',
+              }),
+              error: 'Gmail draft execution prerequisites are unavailable.',
+              status: 500,
+            })
           }
 
           const refreshedToken = await refreshGmailAccessToken({
-            refreshToken,
+            refreshToken: gmailRefreshToken,
             clientId,
             clientSecret,
           })
-
           if (!refreshedToken) {
-            return NextResponse.json(
-              { ok: false, error: 'Failed to refresh Gmail access token.' },
-              { status: 500 }
-            )
+            return stopAfterOutcome({
+              actionIndex,
+              outcome: classifyGmailDraftExecution({
+                phase: 'pre_dispatch_failure',
+                errorCode: 'gmail_draft_token_refresh_failed',
+              }),
+              error: 'Failed to refresh Gmail access token.',
+              status: 500,
+            })
           }
 
           gmailAccessToken = refreshedToken.accessToken
-
+          gmailTokenExpiresAt = refreshedToken.expiresAt
+          gmailTokenRefreshed = true
           const { error: updateConnectionError } = await supabase
             .from('integration_connections')
             .update({
@@ -740,26 +1027,18 @@ export async function POST(req: Request) {
 
           if (updateConnectionError) {
             console.error('[runtime/execute] Gmail connection update error:', updateConnectionError)
-            return NextResponse.json(
-              { ok: false, error: 'Failed to persist refreshed Gmail token.' },
-              { status: 500 }
-            )
+            return stopAfterOutcome({
+              actionIndex,
+              outcome: classifyGmailDraftExecution({
+                phase: 'pre_dispatch_failure',
+                errorCode: 'gmail_draft_token_persistence_failed',
+              }),
+              error: 'Failed to persist refreshed Gmail token.',
+              status: 500,
+            })
           }
         }
-      }
-    }
 
-    const results: RuntimeExecutionActionResult[] = []
-    let draftId: string | null = null
-    let messageId: string | null = null
-
-    for (const action of executionActions) {
-      if (action.tool === 'sandbox') {
-        results.push(simulateSandboxAction(action.action))
-        continue
-      }
-
-      if (action.action === 'draft_email') {
         const draft = await createGmailDraft({
           accessToken: gmailAccessToken,
           to: action.args.to,
@@ -767,15 +1046,24 @@ export async function POST(req: Request) {
           body: action.args.body,
         })
 
-        if (!draft) {
-          return NextResponse.json(
-            { ok: false, error: 'Failed to create Gmail draft.' },
-            { status: 500 }
-          )
+        if (draft.outcome.status !== 'succeeded' || !draft.draftId || !draft.messageId) {
+          return stopAfterOutcome({
+            actionIndex,
+            outcome: draft.outcome,
+            error:
+              draft.outcome.status === 'indeterminate'
+                ? 'Gmail draft outcome requires reconciliation before another attempt.'
+                : 'Failed to create Gmail draft.',
+            status: 500,
+          })
         }
 
         draftId = draft.draftId
         messageId = draft.messageId
+        const completed = await completeAction(actionIndex, draft.outcome)
+        if (!completed.ok) {
+          return NextResponse.json({ ok: false, error: completed.error }, { status: 500 })
+        }
         results.push({
           tool: 'gmail',
           action: 'draft_email',
@@ -795,7 +1083,31 @@ export async function POST(req: Request) {
         })
 
         if (!review.ok) {
-          return NextResponse.json({ ok: false, error: review.error }, { status: review.status })
+          return stopAfterOutcome({
+            actionIndex,
+            outcome: {
+              status: 'failed',
+              receipt: null,
+              errorCode: 'gmail_sender_review_failed',
+              reconciliationStatus: 'not_required',
+            },
+            error: review.error,
+            status: review.status,
+          })
+        }
+
+        const completed = await completeAction(actionIndex, {
+          status: 'succeeded',
+          receipt: sanitizeDecisionWorkspaceProviderReceipt({
+            provider_type: 'gmail',
+            operation: 'review_sender_cluster',
+            sender: action.args.sender,
+          }),
+          errorCode: null,
+          reconciliationStatus: 'not_required',
+        })
+        if (!completed.ok) {
+          return NextResponse.json({ ok: false, error: completed.error }, { status: 500 })
         }
 
         results.push({
@@ -822,10 +1134,32 @@ export async function POST(req: Request) {
         })
 
         if (!queryReview.ok) {
-          return NextResponse.json(
-            { ok: false, error: queryReview.error },
-            { status: queryReview.status }
-          )
+          return stopAfterOutcome({
+            actionIndex,
+            outcome: {
+              status: 'failed',
+              receipt: null,
+              errorCode: 'gmail_query_review_failed',
+              reconciliationStatus: 'not_required',
+            },
+            error: queryReview.error,
+            status: queryReview.status,
+          })
+        }
+
+        const completed = await completeAction(actionIndex, {
+          status: 'succeeded',
+          receipt: sanitizeDecisionWorkspaceProviderReceipt({
+            provider_type: 'gmail',
+            operation: 'review_query_cluster',
+            cluster_id: action.args.cluster_id,
+            cluster_type: action.args.cluster_type,
+          }),
+          errorCode: null,
+          reconciliationStatus: 'not_required',
+        })
+        if (!completed.ok) {
+          return NextResponse.json({ ok: false, error: completed.error }, { status: 500 })
         }
 
         results.push({
@@ -873,7 +1207,17 @@ export async function POST(req: Request) {
           })
 
           if (!resolved.ok) {
-            return NextResponse.json({ ok: false, error: resolved.error }, { status: resolved.status })
+            return stopAfterOutcome({
+              actionIndex,
+              outcome: {
+                status: 'failed',
+                receipt: null,
+                errorCode: 'gmail_archive_scope_resolution_failed',
+                reconciliationStatus: 'not_required',
+              },
+              error: resolved.error,
+              status: resolved.status,
+            })
           }
           resolvedMessageIds = resolved.data.messageIds
         }
@@ -892,7 +1236,37 @@ export async function POST(req: Request) {
         })
 
         if (!archive.ok) {
-          return NextResponse.json({ ok: false, error: archive.error }, { status: archive.status })
+          const ambiguous = archive.status >= 500
+          return stopAfterOutcome({
+            actionIndex,
+            outcome: {
+              status: ambiguous ? 'indeterminate' : 'failed',
+              receipt: null,
+              errorCode: ambiguous
+                ? 'gmail_archive_outcome_indeterminate'
+                : 'gmail_archive_precondition_failed',
+              reconciliationStatus: ambiguous ? 'manual_required' : 'not_required',
+            },
+            error: ambiguous
+              ? 'Gmail archive outcome requires reconciliation before another attempt.'
+              : archive.error,
+            status: archive.status,
+          })
+        }
+
+        const archiveOutcome = classifyGmailArchiveExecution(archive.data)
+        if (archiveOutcome.status !== 'succeeded') {
+          return stopAfterOutcome({
+            actionIndex,
+            outcome: archiveOutcome,
+            error: 'Gmail archived only part of the approved message scope.',
+            status: 409,
+          })
+        }
+
+        const completed = await completeAction(actionIndex, archiveOutcome)
+        if (!completed.ok) {
+          return NextResponse.json({ ok: false, error: completed.error }, { status: 500 })
         }
 
         results.push({
@@ -911,7 +1285,31 @@ export async function POST(req: Request) {
       })
 
       if (!analysis.ok) {
-        return NextResponse.json({ ok: false, error: analysis.error }, { status: analysis.status })
+        return stopAfterOutcome({
+          actionIndex,
+          outcome: {
+            status: 'failed',
+            receipt: null,
+            errorCode: 'gmail_inbox_analysis_failed',
+            reconciliationStatus: 'not_required',
+          },
+          error: analysis.error,
+          status: analysis.status,
+        })
+      }
+
+      const completed = await completeAction(actionIndex, {
+        status: 'succeeded',
+        receipt: sanitizeDecisionWorkspaceProviderReceipt({
+          provider_type: 'gmail',
+          operation: 'analyze_inbox',
+          completed: true,
+        }),
+        errorCode: null,
+        reconciliationStatus: 'not_required',
+      })
+      if (!completed.ok) {
+        return NextResponse.json({ ok: false, error: completed.error }, { status: 500 })
       }
 
       results.push({
@@ -925,9 +1323,14 @@ export async function POST(req: Request) {
     const executedAt = new Date().toISOString()
     const executionPayload: RuntimeExecutionResultPayload = {
       approval_id: approvalId,
+      actor_id: access.actorId,
+      tenant_id: access.tenantId,
+      request_event_id: approvalRequest.eventId,
+      decision_event_id: currentDecision.eventId,
       results,
       executed_at: executedAt,
       success: true,
+      status: 'succeeded',
       ...(draftId && messageId
         ? {
             tool: 'gmail' as const,
@@ -938,19 +1341,18 @@ export async function POST(req: Request) {
         : {}),
     }
 
-    const { error: insertError } = await supabase.from('agent_events').insert([
-      {
-        agent_id: agentId,
-        event_type: 'execution_result',
-        created_at: executedAt,
-        payload: executionPayload,
-      },
-    ])
-
-    if (insertError) {
-      console.error('[runtime/execute] insert error:', insertError)
+    const finalized = await finalizeRuntimeExecution({
+      supabase,
+      tenantId,
+      executionId: claim.executionId,
+      leaseToken: claim.leaseToken,
+      actorId: access.actorId,
+      compatibilityPayload: executionPayload,
+    })
+    if (!finalized.ok || finalized.status !== 'succeeded') {
+      console.error('[runtime/execute] successful action receipts could not be finalized')
       return NextResponse.json(
-        { ok: false, error: 'Failed to store execution result.' },
+        { ok: false, error: finalized.ok ? 'Execution did not finalize successfully.' : finalized.error },
         { status: 500 }
       )
     }
@@ -958,11 +1360,25 @@ export async function POST(req: Request) {
     if (draftId) {
       return NextResponse.json({
         ok: true,
-        data: { executed: true, draft_id: draftId, results },
+        data: {
+          execution_id: claim.executionId,
+          status: finalized.status,
+          executed: true,
+          draft_id: draftId,
+          results,
+        },
       })
     }
 
-    return NextResponse.json({ ok: true, data: { executed: true, results } })
+    return NextResponse.json({
+      ok: true,
+      data: {
+        execution_id: claim.executionId,
+        status: finalized.status,
+        executed: true,
+        results,
+      },
+    })
   } catch (err) {
     console.error('[runtime/execute] Unexpected error:', err)
     return NextResponse.json(

@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-02 • PR #3 merge-integrated to main with successful automatic production deployments; Phase 4 Slice 2 remains closed and later work requires fresh PM discovery and target lock_
+_Last updated: 2026-09-04 • PR #5 independently accepted at `72c05a8`; Oliver authorized merge plus automatic dual-Vercel production consequences; exact merge-target propagation and re-verification active_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -120,8 +120,57 @@ _Last updated: 2026-09-02 • PR #3 merge-integrated to main with successful aut
 - [x] Record the publication-audit distinction: a clean worktree, zero branch-unique commits/content, later main-only closeout commits, and GitHub's historical PR change counter are separate facts; historical PR review stats do not prove unpublished local work.
 - [x] Complete separate PM adjudication and accepted repair: lock `ai-agent-platform` as canonical by custom-domain ownership, add the existing project-matched service-role key as a Production-only Vercel Secret, redeploy exact `main@bf9f401`, and prove two deployment-scoped `/api/runtime/gmail-memory` HTTP `200` responses with no route error. Preserve Preview, `e6cc`, domains, source, provider/data, and Supabase schema/data.
 - [x] Complete GitHub device verification and merge the exact six-file Vercel-fix packet through PR #4 as `003a062`; verify both automatic Production deployments `READY`, both GitHub contexts successful, canonical authenticated UI settled, two `/api/runtime/gmail-memory` HTTP `200` responses, and no runtime-error recurrence.
-- [ ] ACTIVE NOW — keep Phase 4 Slice 2 closed; return to PM for a separately approved next discovery/target-lock task before any endpoint hardening or later Phase 4 implementation.
-- [ ] Plan the discovered approval/execution endpoint integrity issues as a separate later work unit before any generalized provider-execution claim; do not fold runtime hardening into the four-file presentation/read slice.
+- [x] Keep Phase 4 Slice 2 closed and obtain separate authority before endpoint-integrity discovery.
+- [x] Complete the bounded read-only Phase 4 endpoint-integrity trace and lock the 13-file access/decision-binding correction.
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 3 ENDPOINT ACCESS IMPLEMENTATION` decision and create the required Automata-worktree pre-implementation incremental with normal seven-day project-scoped pruning and `KEEP` preservation.
+- [x] Implement and verifier-accept only the exact 13-file endpoint access/request-decision binding target lock; preserve accepted Gmail behavior and stop before the separate atomic execution/receipt ledger.
+- [x] Record explicit Phase 4 Slice 3 Human Review `ACCEPT` and create the accepted-fix Recovery Contract.
+- [x] Create and verify the `2,466`-file Human-acceptance incremental with exact worktree/branch/HEAD identity, `21` changed paths, normal seven-day project-scoped pruning, and `KEEP` preservation.
+- [x] Commit accepted-content `22243c25bdd16098c2bd5eb97719f0a0ac95874e` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
+- [x] Complete the bounded Phase 4 Slice 4A repository/live-schema discovery, create the governed pre-target-generation recovery point, and generate the exact empty migration identity through `supabase migration new`.
+- [x] Create the exact nine-file target-locked `ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_ATOMIC_EXECUTION_CLAIM_AND_RECEIPT_FOUNDATION_PM_BRIEF.md`; preserve Gmail as the first reference adapter under a provider-neutral, multi-business execution/receipt contract with no false cross-provider atomicity.
+- [x] Record Oliver's `ACCEPT PHASE 4 SLICE 4A STAGE A IMPLEMENTATION` and implement only the exact nine-file source/migration packet without applying the migration or invoking a provider action.
+- [x] Pass eight-domain/static lifecycle fixtures, ten established Decision Workspace/Gmail regressions, TypeScript, exact lint, diff/allowlist/frozen-hash checks, and authenticated post-settle Gmail Approval Queue proof at verifier `ACCEPT / HIGH`.
+- [x] Record Oliver's exact Human Review decision `ACCEPT PHASE 4 SLICE 4A STAGE A` and the Stage A Recovery Contract.
+- [x] Create and verify the `2,584`-file Human-acceptance snapshot with exact linked-worktree identity, `16` changed paths, normal seven-day project-scoped pruning, and `KEEP` preservation.
+- [x] Commit accepted Stage A content as `a4fdbc0` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
+- [x] Record Oliver's authorization for a fresh, bounded, read-only Stage B readiness review. No migration application is authorized.
+- [x] Complete the read-only Stage B readiness review; confirm the accepted migration/schema contract is bounded but detect local/remote migration-history identity drift that prevents an exact one-migration dry run.
+- [x] Record Oliver's exact `ACCEPT MIGRATION-HISTORY RECONCILIATION DISCOVERY`; this authorizes read-only discovery/target-lock only, not reconciliation writes or Stage B application.
+- [x] Recover authoritative definitions for the two April remote-only migrations, prove exact SQL/schema-effect equivalence or difference for all four timestamp aliases, and lock the canonical local-only non-reexecution mapping.
+- [x] Record Oliver's exact `ACCEPT MIGRATION-HISTORY RECONCILIATION IMPLEMENTATION`; this authorizes only the governed backup, exact ten-path local reconciliation, linked migration-list verification, and a dry run.
+- [x] Create and verify the pre-implementation incremental; add the two exact April definitions, retimestamp the four aliases, restore the exact historical projection-migration blob, and prove `supabase db push --dry-run --linked` lists exactly `20260902141603` and nothing older.
+- [x] Record explicit Human Review `ACCEPT`, create the `2,586`-file Human-acceptance snapshot, and add the authoritative Recovery Contract.
+- [x] Commit accepted reconciliation content as `0e859f3` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 4A STAGE B MIGRATION APPLICATION` and the separately reviewed additive-schema recovery procedure.
+- [x] Create and verify the `2,587`-file pre-application incremental; reattest exact Git/project/hash/history/object identity and an exact one-migration linked dry run.
+- [x] Apply exactly `20260902141603_add_decision_workspace_execution_ledger.sql` once through linked CLI, then prove migration history, no pending migration, exact objects/security, zero ledger rows, and advisor posture without invoking ledger RPCs or providers.
+- [x] Return the Stage B verifier packet at `ACCEPT / HIGH` and enter the explicit Human Review decision gate.
+- [x] Record Oliver's explicit Human Review `accept` and the authoritative Stage B Recovery Contract.
+- [x] Create and verify the `2,588`-file Human-acceptance incremental with exact identity, `7` accepted changed paths, normal pruning, and `KEEP` preservation.
+- [x] Commit the exact accepted Stage B documentation/control-plane packet as `000fdcb` and push normally without force to the dedicated branch.
+- [x] Record Oliver's explicit request to create the fresh live-ledger/RPC discovery task and exact `ACCEPT DISCOVERY AUTHORITY PROPAGATION`.
+- [x] Complete bounded read-only discovery of the installed four-RPC contract, application seams, provenance requirements, and safe synthetic-proof path.
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 4A STAGE C1 ROLLBACK-ONLY RPC PROOF` and the execution-ready PM Brief.
+- [x] Create the governed backup, execute the exact single rollback-only synthetic transaction, and complete independent zero-persistence verification plus the required State Transition Matrix.
+- [x] Record Oliver's exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C1` and authoritative Recovery Contract.
+- [x] Create and verify the `2,590`-file Human-acceptance incremental with exact identity, `5` accepted changed paths, normal pruning, and `KEEP` preservation.
+- [x] Commit the exact accepted Stage C1 review/control-plane packet as `edc4be2`, push normally without force, record final Git parity, and close Stage C1.
+- [x] Record Oliver's approval for fresh Stage C2 application-wrapper/HTTP read-only discovery without provider activation.
+- [x] Discover the exact authenticated wrapper/route proof seam, zero-persistence strategy, request/load shape, and accepted proof surfaces; prove that multi-request live rollback is not safe and lock the localhost in-memory application proof.
+- [x] Record exact `ACCEPT PHASE 4 SLICE 4A STAGE C2 APPLICATION-WRAPPER/HTTP PROOF IMPLEMENTATION` and authoritative PM Brief `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC2_APPLICATION_WRAPPER_HTTP_PROOF_PM_BRIEF.md`.
+- [x] Create the governed pre-implementation backup, execute only the exact four-file test-harness allowlist, and complete targeted verification, adversarial discovery, final verification, independent verifier `ACCEPT / HIGH`, and Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2`.
+- [x] Create and verify the `2,594`-file Stage C2 Human-acceptance snapshot, authoritative review packet, and Recovery Contract.
+- [x] Preserve the exact accepted Stage C2 candidate as `4db0a70`, record final closeout documentation, push normally without force, and prove clean local/upstream/live parity.
+- [x] Record Oliver's approval to proceed with fresh read-only publication-readiness discovery for the ledger-enabled application source.
+- [x] Reattest the accepted branch against live `main`, GitHub/PR state, migration and source dependencies, automatic deployment implications, and read-only Vercel/Supabase truth; lock the safe draft-PR-only publication step.
+- [x] Record Oliver's exact `ACCEPT PHASE 4 SLICE 4A DRAFT PR CREATION`, corrected `ACCEPT DRAFT PR WITH PROPAGATION COMMIT`, and authoritative execution-ready PM Brief.
+- [x] Commit/push the exact five-path authority packet, create exactly one draft PR to locked `main@98b513f`, and independently verify pre-propagation head `ae4f132` at `ACCEPT / HIGH`: PR #5 is `OPEN+DRAFT`, `0 behind / 23 ahead`, `46` files, `+6,559 / -285`, unmerged, and without auto-merge; exact-head previews are `READY/success`, production remains on `main@98b513f`, and the live ledger remains `0 / 0`.
+- [x] Commit/push the exact four-file verification-propagation packet and independently verify PR #5 at `72c05a8` with `ACCEPT / HIGH`: sole `OPEN+DRAFT` PR, `MERGEABLE/CLEAN`, `0 behind / 24 ahead`, `46` files, `+6,564 / -287`, successful exact-head previews, unchanged production, and live ledger `0 / 0`.
+- [x] Record Oliver's exact `ACCEPT PR #5 MERGE + AUTOMATIC DUAL VERCEL PRODUCTION CONSEQUENCES` and create the execution-ready merge/deployment/runtime proof contract.
+- [ ] ACTIVE NOW — commit/push only this exact five-path merge-authority packet, lock the resulting PR head and automatic non-production previews, and obtain fresh independent verifier `ACCEPT`; if every lock passes, immediately continue same-flow into the already-authorized governed backup, merge-commit execution, automatic dual-production observation, and post-settle verification.
+- [ ] After successful merge verification, propagate exact merge/deployment/runtime evidence, ledger baseline, Human acceptance, Recovery Contract, dashboard closeout, and final Git parity before closing the milestone.
+- [ ] Keep provider/customer-data action, explicit Execute/live ledger RPC exercise, source integration activation, automatic retry/reconciliation, new application polling/cache/background lifecycle behavior, migration/schema mutation, manual Vercel mutation, and unrelated artifact publication behind separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 

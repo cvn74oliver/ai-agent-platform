@@ -1,22 +1,22 @@
 # Automata Execution Dashboard
 
-Last updated: 2026-09-02
+Last updated: 2026-09-04
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAIN-INTEGRATED / VERCEL PRODUCTION SERVICE-KEY FIX VERIFIED / CONTROL-PLANE PR #4 MERGED / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C2 APPLICATION-WRAPPER/HTTP PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; PR #5 MERGE + AUTOMATIC DUAL-VERCEL PRODUCTION CONSEQUENCES AUTHORIZED / TARGET PROPAGATION ACTIVE / RE-VERIFICATION REQUIRED; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, and Phase 4 Slices 1-2 Human-accepted, recovery-backed, GitHub-preserved, and closed
-- Problem class: mixed / unresolved for later Phase 4 work; remain in PM discovery until a fresh target lock; endpoint/runtime hardening remains separate and unapproved
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, Stage C1 rollback-only RPC proof, and Stage C2 application-wrapper/HTTP proof Human-accepted, recovery-backed, GitHub-preserved, and closed; PR #5 independently verifier-accepted at `72c05a8`; merge plus automatic dual-project Vercel production consequences Human-authorized; exact merge-target propagation and re-verification active
+- Problem class: artifact / publication truth — ledger-enabled application source readiness
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
-- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
-- Deployment posture: canonical `ai-agent-platform` initially logged seven `/api/runtime/gmail-memory` `500` errors because Production lacked the service key. The accepted Production-only Secret repair and exact-source redeploy resolved it. After PR #4, canonical `dpl_5qpg7KLUJU2MUpJsJ9KHEPp3J39j` and duplicate `dpl_FfeyA9WdwijPEM5kdBHUtw4zuHWL` reached Production `READY` with successful GitHub contexts and no alias error. Authenticated canonical proof retained the accepted UI and `259,422` rows; two route requests returned HTTP `200`, and the post-deploy runtime-error scan was clean
+- Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane. [Draft PR #5](https://github.com/cvn74oliver/automata/pull/5) is the sole PR for the Slice 4A branch and was independently accepted at pre-propagation head `72c05a8`: `OPEN+DRAFT`, `MERGEABLE/CLEAN`, base `main@98b513f`, `0 behind / 24 ahead`, `46` files, `+6,564 / -287`, unmerged, and auto-merge absent. Oliver authorized merge-commit integration plus its automatic dual-project Vercel production consequences. This exact five-path propagation changes the head and requires fresh independent verification before execution; source/recovery refs remain preserved and the source branch must not be deleted.
+- Deployment posture: PR #5 pre-propagation previews `dpl_5SXoAPVnR2t79umHurJz9BzyfGFk` and `dpl_AbP6Hzyr6FWoeJHZ5CmQJSVsrR3g` are `READY/success`; canonical production `dpl_9VFDctCf6hgEGrveED3iAdDWXumG` and duplicate production `dpl_921pTKPexxgqJaSg3kmVdVwjGYck` remain unchanged on `main@98b513f`. The five-path documentation push may create a new non-production preview pair, which must settle and be independently verified. After verifier `ACCEPT`, the authorized merge will automatically create two production deployments; the merge executor may only observe them boundedly and must not manually deploy, retry, promote, roll back, or change configuration. Migration `20260902141603`, both ledger tables, and four RPCs remain present with `0` runs / `0` actions. Provider/customer-data action, explicit Execute/live RPC exercise, canary/concurrency/retry/reconciliation, migration/schema mutation, manual Vercel mutation, and unrelated artifact publication remain unauthorized.
 - Task-archival posture: completed one-time Automata tasks are eligible only after full propagation and clean decision/checkpoint/approval/blocker/continuation state; standing long-term, active, blocked, and awaiting-decision tasks remain open; archival is reversible and project-scoped
 - Runtime publication posture: repaired artifact `full-mailbox-20260831062356983` is active and `published / fresh`; predecessor `full-mailbox-20260825031402535` remains the immediate rollback version and April `full-mailbox-20260415024237593` remains preserved historical lineage
-- Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 and Slice 2 Human-acceptance incrementals completed on 2026-09-02 with `2,409` and `2,434` files respectively; Vercel-fix pre-propagation and accepted-closeout incrementals were created on 2026-09-02 with normal project-scoped seven-day pruning and `KEEP` preservation
+- Recovery backup: full pre-change `KEEP` archive verified; Phase 2 and Phase 3 Slices 1-3 Human-acceptance incrementals completed on 2026-09-01; Phase 3 Slice 4 explicit Human-acceptance incremental completed with `2,163` files; Phase 4 Slice 1 and Slice 2 Human-acceptance incrementals completed on 2026-09-02 with `2,409` and `2,434` files respectively; Vercel-fix pre-propagation and accepted-closeout incrementals plus the clean `2,466`-file Phase 4 Slice 4A pre-target-generation incremental were created on 2026-09-02; the verified `2,584`-file Slice 4A Stage A Human-acceptance incremental, `2,589`-file Stage C1 pre-execution incremental, `2,590`-file Stage C1 Human-acceptance incremental, `2,591`-file Stage C2 pre-implementation incremental, and `2,594`-file Stage C2 Human-acceptance incremental completed on 2026-09-03 with normal project-scoped seven-day pruning and `KEEP` preservation
 - Contracts A/B Human Review: ACCEPTED; Recovery Contract recorded
 - Revival/control-plane baseline accepted by Oliver: YES — 2026-08-15
 - Successor environment: Claude Code approved as a deferred primary implementation environment; `ACE-049` is queued/inactive and cannot interrupt ACE-048 stabilization.
@@ -114,7 +114,52 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 2 HUMAN-ACCEPTED / RECOVERY-BACKED / MAI
 - [x] Record clean-worktree / zero-unique-branch-content / main-only-closeout / historical-PR-counter separation
 - [x] Adjudicate canonical Vercel ownership and repair the missing Production service key under Oliver's explicit acceptance; redeploy exact current `main` and verify the previously failing route at HTTP `200` with no runtime-error recurrence
 - [x] Merge documentation-only PR #4 as `003a062`; verify both automatic Production deployments, GitHub contexts, canonical authenticated UI, route HTTP `200` responses, and clean runtime-error scan
-- [ ] Keep Slice 2 closed; require a fresh PM discovery/target lock and separate approval before endpoint hardening or later Phase 4 work
+- [x] Keep Slice 2 closed and obtain separate Phase 4 endpoint-integrity discovery authority
+- [x] Complete the bounded read-only endpoint-integrity trace; confirm no detected current event corruption; target-lock the exact 13-file Slice 3 access/decision-binding correction
+- [x] Record the exact `ACCEPT PHASE 4 SLICE 3 ENDPOINT ACCESS IMPLEMENTATION` decision and complete the governed Automata-worktree pre-implementation incremental with seven-day project-scoped pruning and `KEEP` preservation
+- [x] Implement and verifier-accept only the exact 13-file authenticated owner/tenant access and request/latest-decision binding correction; all static/runtime proof passed at HIGH confidence
+- [x] Record explicit Slice 3 Human Review `ACCEPT` and Recovery Contract
+- [x] Create/verify the `2,466`-file Human-acceptance backup with exact identity, `21` changed paths, normal seven-day pruning, and `KEEP` preservation
+- [x] Commit accepted-content `22243c25bdd16098c2bd5eb97719f0a0ac95874e` and push normally without force to the dedicated Slice 3 branch
+- [x] Complete Phase 4 Slice 4A repository/live-schema discovery, create the clean pre-target-generation recovery point, and generate exact empty unapplied migration `20260902141603_add_decision_workspace_execution_ledger.sql` through the required Supabase workflow
+- [x] Create the exact nine-file target-locked Slice 4A PM Brief for a provider-neutral atomic local claim/per-action receipt foundation; retain multi-source/workflow/agent-role identity and honest partial/indeterminate outcomes without claiming cross-provider atomicity
+- [x] Implement and verifier-accept only the exact nine-file Slice 4A Stage A source/schema packet; pass eight-domain/static lifecycle fixtures, established regressions, TypeScript, lint, diff/allowlist/frozen hashes, and post-settle read-only Gmail proof at `HIGH`
+- [x] Record Oliver's exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE A` and the authoritative Recovery Contract
+- [x] Create and verify the `2,584`-file Slice 4A Stage A Human-acceptance snapshot with exact identity, `16` accepted changed paths, normal pruning, and `KEEP` preservation
+- [x] Commit accepted Stage A content as `a4fdbc0` and push normally without force to the dedicated branch
+- [x] Record Oliver's authorization for the fresh bounded Stage B read-only readiness review
+- [x] Complete the read-only Stage B readiness review and return `BLOCKED / RETURN_TO_PM` after the safe linked dry run refuses on migration-history drift
+- [x] Record exact `ACCEPT MIGRATION-HISTORY RECONCILIATION DISCOVERY`
+- [x] Complete read-only authoritative-definition recovery and four-pair equivalence target lock; prove the live schema is correct and the defect is local migration identity only
+- [x] Create the governed backup; apply only the locked two-file recovery/four-alias local reconciliation; prove the linked dry run lists exactly `20260902141603` and nothing older
+- [x] Record explicit Human Review `ACCEPT`, create the `2,586`-file acceptance snapshot, and record the authoritative Recovery Contract
+- [x] Commit accepted reconciliation content as `0e859f3` and push normally without force to the dedicated branch
+- [x] Record exact `ACCEPT PHASE 4 SLICE 4A STAGE B MIGRATION APPLICATION` and the target-locked additive-schema execution/recovery packet
+- [x] Verify the `2,587`-file pre-application incremental and all exact project/hash/history/object/one-migration dry-run gates
+- [x] Apply only migration `20260902141603` once and complete read-only schema/security/zero-row/advisor proof at `ACCEPT / HIGH`
+- [x] Record Human Review `accept`, acceptance recheck, and the authoritative Stage B Recovery Contract
+- [x] Verify the `2,588`-file Human-acceptance backup with exact identity, `7` accepted changed paths, normal pruning, and `KEEP` preservation
+- [x] Commit the exact accepted Stage B packet as `000fdcb`, push normally without force, and close Stage B
+- [x] Record Oliver's explicit live-ledger/RPC discovery request and `ACCEPT DISCOVERY AUTHORITY PROPAGATION`
+- [x] Complete bounded read-only discovery and lock the rollback-only Stage C1 RPC proof
+- [x] Record exact `ACCEPT PHASE 4 SLICE 4A STAGE C1 ROLLBACK-ONLY RPC PROOF` and its execution-ready PM Brief
+- [x] Complete the governed backup, single rollback-only synthetic transaction, independent zero-persistence verification, eight-domain before/after regression, and six-row State Transition Matrix at verifier `ACCEPT / HIGH`
+- [x] Record exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C1`, Recovery Contract, and verified `2,590`-file acceptance backup
+- [x] Commit the exact accepted Stage C1 packet as `edc4be2`, push normally without force, record final Git parity, and close Stage C1
+- [x] Record Oliver's approval for Stage C2 application-wrapper/HTTP read-only discovery without provider activation
+- [x] Lock the localhost in-memory authenticated application proof after establishing that a live multi-request HTTP chain cannot provide transactional zero persistence
+- [x] Record exact Stage C2 implementation authority and the execution-ready four-file PM Brief
+- [x] Execute the exact four-file Stage C2 localhost/in-memory HTTP proof; pass all eight request/state rows, exact wrapper/RPC bindings, eight-domain and endpoint regressions, TypeScript, lint, diff/allowlist, and locked-source hashes at independent verifier `ACCEPT / HIGH`
+- [x] Record Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2`, the `2,594`-file Human-acceptance snapshot, authoritative review packet, and Recovery Contract
+- [x] Commit the exact accepted Stage C2 candidate as `4db0a70`, record final closeout documentation, push normally without force, and prove clean local/upstream/live parity
+- [x] Record Oliver's approval for fresh read-only publication-readiness discovery without merge, deployment, Vercel mutation, live activation, provider/data, or true-concurrency authority
+- [x] Lock the exact safe publication target and dependency/deployment consequence set; confirm dual READY previews, unchanged production, applied migration/RPC prerequisites, empty ledger, and no existing PR
+- [x] Record exact `ACCEPT PHASE 4 SLICE 4A DRAFT PR CREATION`, corrected `ACCEPT DRAFT PR WITH PROPAGATION COMMIT`, and authoritative draft-PR-only PM Brief
+- [x] Commit/push the exact five-path authority packet, create exactly one draft PR to `main@98b513f`, and independently verify PR #5 at pre-propagation head `ae4f132` with `ACCEPT / HIGH`
+- [x] Commit/push the exact four-file verification-propagation packet and independently verify PR #5 at `72c05a8` with `ACCEPT / HIGH`
+- [x] Record Oliver's exact merge plus automatic dual-project Vercel production consequence authority and create the execution-ready merge contract
+- [ ] ACTIVE NOW — commit/push this exact five-path merge-authority packet, independently verify the resulting PR head and non-production preview pair, then—only on `ACCEPT` with every lock intact—continue same-flow into the governed backup, merge-commit execution, automatic dual-production observation, and full post-settle verification
+- [ ] Propagate final merge identity, both deployments, runtime/UI evidence, ledger baseline, Human acceptance, Recovery Contract, dashboard closeout, and final Git parity before milestone closeout
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

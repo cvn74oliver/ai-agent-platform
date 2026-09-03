@@ -38,6 +38,8 @@ export type RuntimePlanJson = {
 export type RuntimeApprovalRequestPayload = {
   approval_id: string
   agent_id: string
+  actor_id?: string
+  tenant_id?: string
   session_id?: string
   user_request: string
   plan_json: RuntimePlanJson
@@ -54,6 +56,9 @@ export type RuntimeApproveRequest = {
 
 export type RuntimeApprovalDecisionPayload = {
   approval_id: string
+  actor_id?: string
+  tenant_id?: string
+  request_event_id?: string
   decision: 'approved' | 'rejected'
   auto_approved?: boolean
   reviewer_note?: string
@@ -81,6 +86,9 @@ export type RuntimePendingApproval = {
 
 export type RuntimeConfidenceUpdatePayload = {
   approval_id: string
+  actor_id?: string
+  tenant_id?: string
+  request_event_id?: string
   tool: string
   action: string
   decision: 'approved' | 'rejected'
@@ -100,6 +108,8 @@ export type RuntimeConfidenceActionSummary = {
 
 export type RuntimeModeUpdatePayload = {
   mode: RuntimeMode
+  actor_id?: string
+  tenant_id?: string
   updated_at: string
 }
 
@@ -223,6 +233,9 @@ export type RuntimeGmailArchiveMessagesData = {
   requested_count: number
   archived_count: number
   message_ids: string[]
+  accepted_message_ids: string[]
+  failed_message_ids: string[]
+  partial_failure: boolean
 }
 
 export type RuntimeGmailArchiveMessagesExecutionActionResult = {
@@ -242,6 +255,10 @@ export type RuntimeExecutionActionResult =
 
 export type RuntimeExecutionResultPayload = {
   approval_id: string
+  actor_id?: string
+  tenant_id?: string
+  request_event_id?: string
+  decision_event_id?: string
   results?: RuntimeExecutionActionResult[]
   tool?: 'gmail'
   action?: 'draft_email'
@@ -249,4 +266,13 @@ export type RuntimeExecutionResultPayload = {
   message_id?: string
   executed_at: string
   success: true
+  status?: 'succeeded'
+}
+
+export type RuntimeExecutionOutcomeData = {
+  execution_id: string
+  status: 'succeeded' | 'failed' | 'partial' | 'indeterminate'
+  executed: boolean
+  results?: RuntimeExecutionActionResult[]
+  draft_id?: string
 }

@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import {
+  resolveRuntimeRequestAccess,
+  resolveRuntimeRequestPrincipal,
+} from '@/lib/runtime/runtimeRequestAccess'
 import { isUuid } from '@/lib/runtime/types'
 import type { RuntimeMode, RuntimeModeUpdatePayload } from '@/lib/runtime/types'
 
@@ -15,6 +18,12 @@ function parseMode(value: unknown): RuntimeMode | null {
 
 export async function POST(req: Request) {
   try {
+    const principal = await resolveRuntimeRequestPrincipal({
+      req,
+      requireSameOrigin: true,
+    })
+    if (!principal.ok) return principal.response
+
     const body = (await req.json().catch(() => null)) as RuntimeModeRequest | null
     const rawAgentId = typeof body?.agent_id === 'string' ? body.agent_id.trim() : ''
     const mode = parseMode(body?.mode)
@@ -40,13 +49,21 @@ export async function POST(req: Request) {
       )
     }
 
+    const access = await resolveRuntimeRequestAccess({
+      principal,
+      agentId: rawAgentId,
+    })
+    if (!access.ok) return access.response
+
     const updatedAt = new Date().toISOString()
     const payload: RuntimeModeUpdatePayload = {
       mode,
+      actor_id: access.actorId,
+      tenant_id: access.tenantId,
       updated_at: updatedAt,
     }
 
-    const supabase = await getSupabaseAdmin()
+    const supabase = access.admin
     const { error } = await supabase.from('agent_events').insert([
       {
         agent_id: rawAgentId,

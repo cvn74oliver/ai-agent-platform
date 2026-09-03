@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  resolveRuntimeRequestAccess,
+  resolveRuntimeRequestPrincipal,
+} from '@/lib/runtime/runtimeRequestAccess'
 import type {
   RuntimePlanJson,
   RuntimePlanRequest,
@@ -118,7 +122,7 @@ function dedupeKeyFromProposedActions(actions: RuntimeProposedAction[]): string 
 }
 
 async function findExistingPendingApproval(params: {
-  supabase: Awaited<ReturnType<typeof getSupabaseAdmin>>
+  supabase: SupabaseClient
   agentId: string
   sessionId: string | null
   dedupeKey: string
@@ -240,6 +244,12 @@ function generatePlanJson(
 
 export async function POST(req: Request) {
   try {
+    const principal = await resolveRuntimeRequestPrincipal({
+      req,
+      requireSameOrigin: true,
+    })
+    if (!principal.ok) return principal.response
+
     const body = (await req.json().catch(() => null)) as RuntimePlanRequest | null
 
     if (!body || typeof body.agent_id !== 'string' || !body.agent_id.trim()) {
@@ -282,7 +292,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = await getSupabaseAdmin()
+    const access = await resolveRuntimeRequestAccess({
+      principal,
+      agentId,
+    })
+    if (!access.ok) return access.response
+    const supabase = access.admin
     const dedupeKey = dedupeKeyFromProposedActions(proposedActions)
     if (dedupeKey) {
       const existingApprovalId = await findExistingPendingApproval({
@@ -309,6 +324,8 @@ export async function POST(req: Request) {
     const payload: RuntimeApprovalRequestPayload = {
       approval_id: approvalId,
       agent_id: agentId,
+      actor_id: access.actorId,
+      tenant_id: access.tenantId,
       ...(sessionId ? { session_id: sessionId } : {}),
       user_request: userRequest,
       plan_json: planJson,

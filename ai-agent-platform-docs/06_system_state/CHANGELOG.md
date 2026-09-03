@@ -1,3 +1,223 @@
+### September 3, 2026 — ACE-048 Phase 4 Slice 4A Stage C1 Rollback-Only RPC Proof Accepted
+
+#### Accepted outcome
+
+- Oliver returned exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C1` after verifier `ACCEPT / HIGH` and `Accepted Fix Proven` classification.
+- One explicit rollback-only live transaction exercised all four installed execution-ledger RPC contracts with fixed synthetic sandbox identities and exactly `15` function calls.
+- Success and compatibility binding, identical replay without second authority, partial aggregation, stale-to-indeterminate/manual-required resolution, and cross-tenant rejection all passed.
+- The transaction returned `ACE048_STAGEC1_ASSERTION_SUCCESS`; independent postflight found `0` ledger runs, `0` ledger actions, and zero surviving synthetic agent/events/execution keys/idempotency keys.
+- Gmail, all providers, customer data, source/UI/routes, application HTTP, migrations, background behavior, merge, and deployment remained untouched.
+
+#### Acceptance proof
+
+- PM Brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC1_ROLLBACK_ONLY_RPC_PROOF_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC1_ROLLBACK_ONLY_RPC_PROOF_REVIEW_PACKET.md`.
+- Governing migration SHA-256: `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`.
+- Ephemeral SQL artifact: `/private/tmp/ace048_stagec1_rollback_rpc_proof.sql`; SHA-256 `b22a6a51bf374d69393b0eef5bc481129b9f8dea446daf662a613293a32bf277`; not tracked or authoritative runtime context.
+- The eight-domain static ledger fixture passed before and after the transaction, and every frozen source hash remained unchanged.
+- Six-row State Transition Matrix: PASS for succeeded finalization, identical replay, partial aggregation, stale resolution, cross-tenant rejection, and rollback/zero persistence.
+
+#### Recovery identity
+
+- Pre-execution snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage C1 rollback-only RPC proof)`; `2,589` files, clean linked worktree, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `0c665f795381596db8e6bd60dd2347c9cbd1f34e`, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage C1 Human acceptance)`; `2,590` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `0c665f795381596db8e6bd60dd2347c9cbd1f34e`, `5` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted-content Git identity: commit `edc4be2`, pushed normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
+
+#### Replay steps
+
+1. Reattest project `cjpjekhlvzwjwtszqpmy`, migration and function-definition identities, service-role-only execution, zero ledger rows, fixed synthetic identity absence, and trigger/publication isolation.
+2. Require the eight-domain static ledger fixture and frozen-source hashes to pass.
+3. Recreate the exact ephemeral SQL artifact from the accepted PM Brief; require one `BEGIN`, one `SET LOCAL ROLE service_role`, one terminal `ROLLBACK`, and no `COMMIT` statement.
+4. Execute the exact fixed synthetic assertions once, require `ACE048_STAGEC1_ASSERTION_SUCCESS`, and do not retry an ambiguous result before independent postflight adjudication.
+5. Independently require the ledger baseline and every fixed synthetic identity to remain at zero after rollback; rerun the static fixture.
+
+#### Recovery Contract
+
+- The accepted durable state is zero persistence. The Stage C1 transaction itself requires no database rollback because it was already rolled back and independent postflight matched the zero baseline.
+- If a future replay or related proof leaves any synthetic or ledger row, stop immediately. Do not issue cleanup `DELETE`, alter migration history, drop objects, or run another proof until PM defines a separately approved data-recovery plan.
+- If the RPC definitions or accepted source hashes drift, restore or correct through a separately scoped forward change from the accepted migration/source Git lineage; never edit the applied migration or falsify remote history.
+- Preserve tenant, actor, agent, request, decision, workflow/runtime, role, source, connection, action, lease, idempotency, receipt, transition, compatibility-event, partial, and indeterminate provenance invariants.
+- This acceptance proves sequential rollback-only database behavior. It does not prove true concurrent-session claims, application wrapper/HTTP integration, provider execution, deployed behavior, or automatic retry/reconciliation.
+- No application activation, Gmail/provider action, persistent test data, source change, merge, or deployment is authorized by this Recovery Contract.
+
+---
+
+### September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage B Migration Application Accepted
+
+#### Accepted outcome
+
+- Oliver returned explicit Human Review `accept` on 2026-09-03 after verifier `ACCEPT / HIGH` for the exact Stage B migration application.
+- Linked Supabase project `cjpjekhlvzwjwtszqpmy` now records migration `20260902141603_add_decision_workspace_execution_ledger.sql` exactly once.
+- The accepted provider-neutral execution-ledger schema is installed as two empty RLS-enabled tables, three indexes, and four service-role-only `SECURITY INVOKER` functions with fixed search path and statement timeout.
+- The schema remains dormant. No ledger function, Gmail/provider action, customer-data write, application consumer, request/polling change, merge, or deployment was activated by this acceptance.
+
+#### Acceptance proof
+
+- Governing application packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEB_MIGRATION_APPLICATION_EXECUTION_PACKET.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEB_REVIEW_PACKET.md`.
+- Target SHA-256: `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`.
+- Pre-application linked dry run listed only `20260902141603`; one `supabase db push --linked --yes` invocation applied it; post-application migration list aligned local/remote and the final debug dry run reported the remote database up to date.
+- Catalog proof found exactly two target tables with RLS enabled, three target indexes, four exact-signature `SECURITY INVOKER` functions with `search_path=public, pg_temp` and `statement_timeout=8s`, no anon/authenticated table or function privileges, and intended service-role grants.
+- Acceptance recheck found one target migration record, four target functions, `0` execution-run rows, and `0` execution-action rows.
+- Advisors reported zero target warning/error. Two no-policy and three unused-index `INFO` notices are the expected result for deny-by-default service-role-only objects that remain empty and unused.
+
+#### Recovery identity
+
+- Pre-application snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage B migration application)`; `2,587` files, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `4ab5253504a885986c66890eb5f4f163106ed4f4`, `5` changed authorization/control-plane paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone repository restore guidance.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage B Human acceptance)`; `2,588` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `4ab5253504a885986c66890eb5f4f163106ed4f4`, `7` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted-content Git identity: commit `000fdcb`, pushed normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
+
+#### Replay steps
+
+1. Confirm linked project ref `cjpjekhlvzwjwtszqpmy` and migration-file SHA-256 `6bba05da...`.
+2. Run `supabase migration list --linked` and require `20260902141603` to appear in both Local and Remote columns.
+3. Run `supabase db push --dry-run --linked` and require the remote database to be up to date. This is verification only; do not reapply the migration.
+4. Read the exact catalog: require two RLS-enabled target tables, three indexes, four `SECURITY INVOKER` functions with fixed search path/timeout, denied anon/authenticated privileges, and intended service-role grants.
+5. Confirm both target tables remain empty until a separately approved live ledger/RPC proof or provider-execution stage explicitly authorizes writes.
+6. Run security and performance advisors and distinguish target-object findings from unrelated existing debt.
+
+#### Recovery Contract
+
+- The default recovery is logical quarantine: do not integrate or deploy a consumer, do not invoke the four ledger functions, and do not execute provider actions through this schema. The accepted application remains behaviorally inert while both tables are empty.
+- Never roll back by deleting or editing the applied migration file, falsifying migration history, marking `20260902141603` reverted, or automatically dropping database objects.
+- If physical removal becomes necessary, first prove both target tables contain zero rows and that no deployed source depends on the objects. Then create a new forward migration that removes only the four target functions, three indexes, and two tables in dependency-safe order. That destructive migration requires a separate PM target lock, explicit Oliver approval, live recovery planning, and post-removal verification.
+- If any target table contains a row, destructive removal is blocked until a separate data-retention/export and reconciliation decision is approved. Ledger receipts and provenance must never be silently discarded.
+- If the schema is retained but later superseded, the replacement must preserve tenant, actor, agent, approval, request, decision, workflow/runtime, role, source, connection, action, lease, idempotency, receipt, and honest partial/indeterminate outcome invariants.
+- This Recovery Contract does not authorize live RPC testing, provider execution, source integration, retry/reconciliation workers, merge, or deployment. Each remains a separate gate.
+
+---
+
+### September 3, 2026 — ACE-048 Migration-History Reconciliation Accepted
+
+#### Accepted outcome
+
+- Oliver returned explicit Human Review `ACCEPT` on 2026-09-03 after verifier `ACCEPT / HIGH` for the local-only migration-history reconciliation.
+- The repository now carries the two authoritative April migrations missing from local history and uses Supabase's recorded timestamps for all four previously aliased migration files.
+- The historical projection migration is restored to its exact pre-optimization form; the following optimization migration remains the sole owner of the four `auth.uid()` initplan optimizations.
+- Live Supabase schema and migration-history records were not changed. The Stage 4A execution-ledger migration remains unapplied and requires a separate Stage B decision.
+
+#### Acceptance proof
+
+- Supabase project identity: `cjpjekhlvzwjwtszqpmy` (`agent_platform`).
+- `supabase migration list --linked` aligned local and remote identities for `20260406101500`, `20260407113000`, `20260823022435`, `20260825030532`, `20260825030928`, and `20260828012004`.
+- `supabase db push --dry-run --linked` completed successfully and listed exactly `20260902141603_add_decision_workspace_execution_ledger.sql`.
+- Locked SHA-256 values passed: April migrations `1d5c08618edc12297bdf5af848f75564a6f27d607ab39b2112e1e5d859810bd3` and `1b953fd5a5b1d348218476a1c37b84df3ee5db065440125677722b5df3e990b6`; restored projection migration `5d8506b8cf6c89be999037e998dc102f7354fb5040c105c031b49889c9ff5bb7`; unchanged Stage 4A target `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`.
+- `git diff --check` passed. No migration application, history repair, DDL/RPC, provider/data/schema/artifact/index/publication mutation, merge, or deployment occurred.
+
+#### Recovery identity
+
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 migration-history reconciliation implementation)`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 migration-history reconciliation Human acceptance)`; `2,586` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `420ab319a183525b39e4a8414450ad1351b27a3b`, `14` changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted migration-path packet: add `20260406101500` and `20260407113000`; retimestamp `20260821130242` to `20260823022435`, `20260824132718` to `20260825030532`, `20260825030822` to `20260825030928`, and `20260828011458` to `20260828012004`; restore the projection migration to historical hash `5d8506b...`.
+- Accepted-content Git identity: commit `0e859f3` on branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pushed normally without force.
+
+#### Replay steps
+
+1. Confirm the seven locked migration-file SHA-256 values and require the four obsolete timestamp paths to be absent.
+2. Run `git diff --check`.
+3. Run `supabase migration list --linked` and require all six reconciled historical versions to align.
+4. Run only `supabase db push --dry-run --linked`; require it to list exactly `20260902141603_add_decision_workspace_execution_ledger.sql` and nothing older.
+5. Do not use `migration repair`, applied/reverted marking, `--include-all`, `db pull`, non-dry-run push, direct migration application, or write SQL while replaying this local-history fix.
+
+#### Recovery Contract
+
+- To remove only this accepted local reconciliation, restore the four obsolete timestamp files from the pre-implementation snapshot and remove the two recovered April files plus the four canonical-timestamp replacements.
+- Re-run the fingerprint and linked-history checks after restoration. Expect the prior migration-history mismatch and blocked dry run to return; do not represent that restored blocker as a healthy deployable state.
+- No live database, remote migration ledger, provider, Gmail, artifact, index, publication, Vercel, or domain rollback belongs to this fix because none of those surfaces changed.
+- Never roll back this local-history reconciliation by marking remote migrations reverted or by replaying historical SQL. Any replacement strategy requires separate target locking and must preserve exact migration provenance without reexecution.
+- If Stage B later applies `20260902141603`, this Recovery Contract does not authorize deleting that migration or reversing its additive schema. Stage B must establish its own separately reviewed application recovery procedure.
+
+---
+
+### September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage A Accepted
+
+#### Accepted outcome
+
+- Oliver returned the exact Human Review decision `ACCEPT PHASE 4 SLICE 4A STAGE A` on 2026-09-03 after verifier `ACCEPT / HIGH` for the exact nine-file Stage A packet.
+- The accepted source candidate defines a provider-neutral, tenant-scoped atomic local execution claim, stable per-action identity, lease-token-guarded receipts and finalization, explicit stale resolution, and honest `partial`, `indeterminate`, and `skipped` outcomes.
+- Gmail remains the reference adapter rather than the framework vocabulary. Its archive policy retains accepted and failed message identities, and ambiguous draft creation becomes manual-required `indeterminate` rather than an automatic retry.
+- Multi-source and multi-role workflows retain tenant, workflow, runtime, role, source, connection, action, and receipt identity. The contract does not claim cross-provider atomicity or authorize uncontrolled self-modification, silent cross-tenant learning, Workflow Studio, training UI, shared learning, a provider registry, or multi-agent orchestration.
+- The generated migration remains unapplied. Stage B migration application, live ledger/RPC proof, provider action, production execution, retry/reconciliation, merge, and deployment remain separately gated.
+
+#### Acceptance proof
+
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_ATOMIC_EXECUTION_CLAIM_AND_RECEIPT_FOUNDATION_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEA_REVIEW_PACKET.md`.
+- Eight-domain/static fixtures prove Gmail, customer service, real estate, investments/crypto, multi-source paid media, bookkeeping, tax, and purchasing/records/shipping behavior from the same provider-neutral execution model.
+- All required state-transition rows, ten established Decision Workspace/Gmail regressions, TypeScript, exact-file lint, diff/allowlist/frozen-hash checks, and authenticated post-settle Playwright passed at `HIGH` confidence.
+- The accepted Gmail Approval Queue remained `3 / 0 / 8 / 46`, with its existing read family only, zero action POSTs, zero failed final requests, zero `409` churn, and a clean console.
+
+#### Recovery identity
+
+- Accepted source packet: the exact nine-file Stage A allowlist in the governing brief and review packet.
+- Migration identity: `supabase/migrations/20260902141603_add_decision_workspace_execution_ledger.sql`, SHA-256 `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`, authored but not applied.
+- Pre-target recovery: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - Pre ACE-048 Phase 4 Slice 4A atomic execution ledger target generation)`; `2,466` files at clean baseline `b752c863c7dc4d634e6e21b061fd6f7d2a4cc1ef`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage A Human acceptance)`; `2,584` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pre-publication HEAD `b752c863c7dc4d634e6e21b061fd6f7d2a4cc1ef`, `16` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted-content Git identity: commit `a4fdbc0` on branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pushed normally without force. Local, remote-tracking, and live branch parity were required before closeout.
+
+#### Replay steps
+
+1. Run `web/scripts/runtime-execution-ledger-fixtures.mjs` and the retained Decision Workspace/Gmail regression fixtures named in the review packet.
+2. Run non-incremental TypeScript, exact-file ESLint, `git diff --check`, exact nine-file implementation allowlist comparison, and the two frozen-file hash checks.
+3. Start the exact worktree runtime with environment values loaded only in-process and loopback binding; never print, copy, commit, or publish secrets or saved authentication state.
+4. With saved Playwright authentication, open the exact canonical Approval Queue after settle and require `3 / 0 / 8 / 46`, the existing read family only, zero action POSTs, zero failed requests or `409` churn, and a clean console.
+5. Do not apply the migration, invoke a provider action, or write live ledger/data rows during Stage A replay.
+
+#### Recovery Contract
+
+- Before Stage B, restore the four previously existing source files to baseline and remove the four new source/fixture files plus the generated unapplied migration to return to the pre-Stage-A source state.
+- Re-run the replay steps after restoration and require the previously accepted Gmail routes, counts, groups, charts, windows, rows, actions, provider controls, request families, caches, polling, and close/return behavior to remain intact.
+- No live database, schema, provider, Gmail, artifact, index, publication, Vercel, or domain rollback belongs to Stage A because no such mutation occurred.
+- Do not partially remove the claim, action identity, receipt, finalization, or provider-policy seams. Preserve the complete accepted invariant or execute a separately approved replacement with equivalent tenant isolation, provenance, idempotency, lease, and honest-outcome guarantees.
+- If Stage B later applies the migration, this source-only Recovery Contract no longer authorizes rollback by deleting migration files or executing a destructive down migration. Stage B must establish its own separately reviewed additive-schema recovery procedure before application.
+
+---
+
+### September 2, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 3 Accepted
+
+#### Accepted outcome
+
+- Oliver returned explicit Human Review `ACCEPT` on 2026-09-02 after verifier-native browser and static proof established `ACCEPT / HIGH` for the exact target-locked endpoint-access packet.
+- Every locked approval-family endpoint now authenticates with the request-scoped Supabase SSR client. State-changing POST requests prove the authenticated principal and same-origin request before body parsing; owned-agent and tenant proof completes before the existing admin client becomes available.
+- Approval requests, latest decisions, and prior execution history are bound to the same agent and exact request. Identical decision replay is idempotent, conflicting replay fails closed, and execution requires the latest bound decision to be approved.
+- Actor, tenant, request-event, and decision-event provenance is retained through optional backward-compatible payload fields. The legacy `/approvals` route uses authenticated owner-scoped reads rather than a global service-role queue.
+- The accepted Gmail Operations queue remains visibly and operationally unchanged for its owner. Atomic execution claims, per-action receipts, partial/indeterminate failure semantics, retry/reconciliation, rollback ledgers, and generalized provider execution remain a later separately target-locked slice.
+
+#### Acceptance proof
+
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE3_REVIEW_PACKET.md`.
+- New endpoint-integrity fixtures, all required Decision Workspace/Gmail regressions, TypeScript, exact-file lint, diff/allowlist checks, and seven frozen source hashes pass.
+- Authenticated post-settle Playwright preserved the canonical Operations queue at Pending `3`, Approved `0`, Executed `8`, Rejected `46`, with the full Gmail bundle and controls intact, existing read families only, zero action POSTs, zero `409` churn, and zero accepted-page console errors or warnings.
+- The owner-scoped legacy queue rendered Total `73`, Pending `3`, Approved `14`, Executed `10`, Rejected `46`, and visibly reported `Scope: approvals for your agents`.
+- Anonymous GET and POST probes returned `401`. An authenticated foreign agent and a nonexistent agent returned the same non-enumerating `404`; aggregate `agent_events` remained `910 -> 910` across the negative probes.
+
+#### Recovery identity
+
+- Governing brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE3_ENDPOINT_ACCESS_AND_DECISION_BINDING_PM_BRIEF.md`.
+- Discovery handoff: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_ENDPOINT_INTEGRITY_DISCOVERY_HANDOFF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE3_REVIEW_PACKET.md`.
+- Accepted source packet: the exact 13-file allowlist in the governing brief and review packet.
+- Accepted-content Git identity: commit `22243c25bdd16098c2bd5eb97719f0a0ac95874e` on branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pushed normally without force.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-02/ai-agent-platform-worktree-8642 (incremental 2 September 2026 - ACE-048 Phase 4 Slice 3 Human acceptance)`; `2,466` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pre-publication HEAD `98b513ffaf1f1490b90601fd55ec1e8d4ec6515c`, `21` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+
+#### Replay steps
+
+1. Run `web/scripts/runtime-endpoint-integrity-fixtures.mjs` plus the retained Decision Workspace contract, presentation, read-model, action-model, Gmail review-unit, cleanup-group, window-projection, and optional-evidence fixtures.
+2. Run TypeScript, exact-file ESLint, `git diff --check`, exact 13-file source allowlist comparison, package-manifest comparison, and the seven frozen-hash checks.
+3. Start the exact worktree runtime with environment values loaded only in-process and loopback binding; never print, copy, commit, or publish secrets or saved authentication state.
+4. With Playwright saved authentication, exercise the exact owner Operations Approval Queue and legacy queue after settle. Require stable counts, full bundle presentation, owner scope, unchanged current request families, zero action POSTs, zero `409` churn, and clean accepted-page consoles.
+5. Use read-only negative probes to confirm anonymous `401`, identical foreign/nonexistent denial, and zero event-count change. Never invoke approval, rejection, mode, auto-approval, execution, Gmail destination, or provider-action controls during verification.
+
+#### Recovery Contract
+
+- Restore only the exact accepted source packet if this endpoint-access correction must be removed: return the ten previously existing source files to their pre-Slice-3 baseline hashes and remove the three new source files (`runtimeRequestAccess.ts`, `runtimeApprovalIntegrity.ts`, and `runtime-endpoint-integrity-fixtures.mjs`).
+- Re-run the replay steps after restoration and require the prior accepted Gmail counts, routes, request families, provider controls, caches, polling, and lifecycle behavior to remain intact.
+- No database, schema, migration, provider, Gmail, artifact, index, publication, Vercel, or domain rollback belongs to this source-only accepted fix because none of those surfaces changed.
+- Do not partially remove the access seam from individual endpoints. Either preserve the complete accepted access/binding invariant or execute a separately approved replacement design with equivalent authenticated owner, agent, tenant, request, and latest-decision guarantees.
+- This accepted fix does not authorize or certify atomic/exactly-once provider execution, receipt-ledger semantics, retry/reconciliation, rollback execution, provider registry work, Workflow Studio, shared learning, or multi-agent orchestration.
+
+---
+
 ### September 2, 2026 — ACE-048 Vercel Production Service-Key Configuration Accepted
 
 #### Accepted outcome
@@ -7687,3 +7907,47 @@ Validation update:
   - post-build counted `gmail_preview_index=359486`
   - likely requires preview-index idempotency / duplicate-row verification after retry
 - Publish readiness remains blocked until the review-unit publication contract is aligned and the resulting candidate passes validation.
+### September 3, 2026 — ACE-048 Phase 4 Slice 4A Stage C2 Application-Wrapper HTTP Proof Accepted
+
+#### Accepted outcome
+
+- Oliver returned exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2` after independent verifier `ACCEPT / HIGH` and `Accepted Fix Proven` classification.
+- A localhost-only HTTP fixture invokes the real execute handler and accepted ledger wrappers against an in-memory Supabase substitute.
+- Eight request/state rows prove authentication and origin before malformed-body parsing, owned-agent and tenant resolution, exact approval lineage, successful claim/receipt/finalization, compatibility replay denial, durable replay denial, and conflicting-fingerprint denial.
+- The successful sandbox path performs the exact expected `11` in-memory upstream operations and binds the compatibility payload only after success.
+- The existing framework fixture remains green across eight business domains; product source and accepted Gmail behavior remain byte-identical.
+- Live ledger state remained `0` runs / `0` actions, with zero provider/model/customer requests and zero persistent database writes.
+
+#### Acceptance proof
+
+- PM Brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC2_APPLICATION_WRAPPER_HTTP_PROOF_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC2_APPLICATION_WRAPPER_HTTP_PROOF_REVIEW_PACKET.md`.
+- Accepted files: one frozen-hash correction in `runtime-endpoint-integrity-fixtures.mjs` plus the three Stage C2 loader/Supabase/HTTP fixture files.
+- New HTTP fixture, eight-domain execution-ledger fixture, endpoint-integrity fixture, TypeScript, exact lint, diff/allowlist review, and six locked product-source hashes: PASS.
+- Fixture traffic: exactly `8` loopback HTTP requests; external/provider/model/customer requests `0`; live execute-route/RPC calls `0`; persistent writes `0`; polling/timers/retries/background/cache/lifecycle changes `0`.
+- Independent verifier: `ACCEPT / HIGH`; Human Review: `ACCEPT PHASE 4 SLICE 4A STAGE C2`.
+
+#### Recovery identity
+
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage C2 application-wrapper HTTP proof implementat)`; `2,591` files.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Human acceptance of ACE-048 Phase 4 Slice 4A Stage C2 application-wrapper HTTP p)`; `2,594` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `ab3be8e97bf8f82fec05f29a3ea35557a47536a7`, `4` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, candidate-hash readback, and standalone linked-worktree restore guidance.
+- Accepted-content Git identity: `4db0a7086ce9e7a89cd0c0cdeec04a21a73f4384`.
+
+#### Replay steps
+
+1. Reattest the six locked product hashes and a live zero-row ledger baseline without calling the execute route or any RPC.
+2. Run the Stage C2 HTTP fixture with the exact test loader and require eight loopback requests, eight PASS rows, zero external traffic, and zero persistent writes.
+3. Run the eight-domain execution-ledger and endpoint-integrity fixtures.
+4. Run TypeScript, exact four-script lint, diff/allowlist checks, and a final locked-source rehash.
+5. Require the live ledger to remain `0` runs / `0` actions.
+
+#### Recovery Contract
+
+- The accepted durable state is no product behavior change and zero live ledger persistence. No database, provider, model, customer-data, migration, artifact, index, or deployment rollback is expected.
+- To reverse only Stage C2, restore the four accepted fixture paths from the Human-acceptance snapshot or revert the accepted-content Git commit. This removes the three new fixture files and returns the endpoint-integrity hash line to its preceding value.
+- After reversal, rerun the pre-existing execution-ledger and endpoint-integrity fixtures and rehash all six locked product sources.
+- If any future replay attempts external traffic or changes the live `0 / 0` ledger baseline, stop immediately. Do not issue cleanup SQL, invoke a live RPC, or retry until PM authorizes a bounded recovery plan.
+- Preserve the application handler, access/approval/ledger wrappers, Gmail behavior, routes, requests, polling, caches, lifecycle, provider controls, and tenant/provenance boundaries as byte-identical product state.
+- This contract does not authorize true concurrent-session proof, publication/merge/deployment, Vercel consequences, live route/RPC activation, provider/model/customer action, persistent test data, automatic retry/reconciliation, migration work, or artifact/index publication.
+
+---

@@ -809,6 +809,9 @@ export type GmailArchiveMessagesData = {
   requested_count: number
   archived_count: number
   message_ids: string[]
+  accepted_message_ids: string[]
+  failed_message_ids: string[]
+  partial_failure: boolean
 }
 
 export type GmailArchiveMessagesResult =
@@ -10169,6 +10172,9 @@ export async function archiveGmailMessagesForTenant(params: {
       requested_count: mutation.data.requested_count,
       archived_count: mutation.data.accepted_count,
       message_ids: mutation.data.accepted_message_ids.slice(0, 100),
+      accepted_message_ids: mutation.data.accepted_message_ids,
+      failed_message_ids: mutation.data.failed_message_ids,
+      partial_failure: mutation.data.partial_failure,
     },
   }
 }
@@ -10619,6 +10625,9 @@ export async function restoreGmailMessagesToInboxForTenant(params: {
       requested_count: mutation.data.requested_count,
       archived_count: mutation.data.accepted_count,
       message_ids: mutation.data.accepted_message_ids.slice(0, 100),
+      accepted_message_ids: mutation.data.accepted_message_ids,
+      failed_message_ids: mutation.data.failed_message_ids,
+      partial_failure: mutation.data.partial_failure,
     },
   }
 }

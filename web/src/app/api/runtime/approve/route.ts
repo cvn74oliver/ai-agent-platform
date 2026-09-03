@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import {
+  classifyDecisionReplay,
+  validateBoundApprovalDecision,
+  validateBoundApprovalRequest,
+} from '@/lib/runtime/runtimeApprovalIntegrity'
+import {
+  resolveRuntimeRequestAccess,
+  resolveRuntimeRequestPrincipal,
+} from '@/lib/runtime/runtimeRequestAccess'
 import type {
   RuntimeApproveRequest,
   RuntimeApprovalDecisionPayload,
@@ -17,11 +25,6 @@ type ProposedAction = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
-}
-
-function parsePayload(value: unknown): Record<string, unknown> | null {
-  const parsed = typeof value === 'string' ? JSON.parse(value) : value
-  return isRecord(parsed) ? parsed : null
 }
 
 function parseProposedActions(value: unknown): ProposedAction[] {
@@ -45,6 +48,12 @@ function parseProposedActions(value: unknown): ProposedAction[] {
 
 export async function POST(req: Request) {
   try {
+    const principal = await resolveRuntimeRequestPrincipal({
+      req,
+      requireSameOrigin: true,
+    })
+    if (!principal.ok) return principal.response
+
     const body = (await req.json().catch(() => null)) as RuntimeApproveRequest | null
 
     if (!body || typeof body.agent_id !== 'string' || !body.agent_id.trim()) {
@@ -84,11 +93,90 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = await getSupabaseAdmin()
+    const access = await resolveRuntimeRequestAccess({
+      principal,
+      agentId,
+    })
+    if (!access.ok) return access.response
+    const supabase = access.admin
+
+    const { data: approvalRequestRows, error: approvalRequestError } = await supabase
+      .from('agent_events')
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
+      .eq('event_type', 'approval_request')
+      .eq('payload->>approval_id', approvalId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (approvalRequestError) {
+      console.error('[runtime/approve] approval request lookup failed')
+      return NextResponse.json(
+        { ok: false, error: 'Failed to load approval request.' },
+        { status: 500 }
+      )
+    }
+
+    const approvalRequest = validateBoundApprovalRequest({
+      row: approvalRequestRows?.[0],
+      agentId,
+      approvalId,
+    })
+    if (!approvalRequest) {
+      return NextResponse.json(
+        { ok: false, error: 'Approval request not found or access denied.' },
+        { status: 404 }
+      )
+    }
+
+    const { data: currentDecisionRows, error: currentDecisionError } = await supabase
+      .from('agent_events')
+      .select('id,agent_id,payload')
+      .eq('agent_id', agentId)
+      .eq('event_type', 'approval_decision')
+      .eq('payload->>approval_id', approvalId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (currentDecisionError) {
+      console.error('[runtime/approve] current decision lookup failed')
+      return NextResponse.json(
+        { ok: false, error: 'Failed to check current approval decision.' },
+        { status: 500 }
+      )
+    }
+
+    const currentDecisionRow = currentDecisionRows?.[0]
+    const currentDecision = validateBoundApprovalDecision({
+      row: currentDecisionRow,
+      agentId,
+      approvalId,
+    })
+    if (currentDecisionRow && !currentDecision) {
+      return NextResponse.json(
+        { ok: false, error: 'Current approval decision is invalid.' },
+        { status: 409 }
+      )
+    }
+
+    const replay = classifyDecisionReplay(currentDecision, body.decision)
+    if (replay === 'idempotent') {
+      return NextResponse.json({ ok: true })
+    }
+    if (replay === 'conflict') {
+      return NextResponse.json(
+        { ok: false, error: 'Approval already has a conflicting decision.' },
+        { status: 409 }
+      )
+    }
+
     const decidedAt = new Date().toISOString()
 
     const payload: RuntimeApprovalDecisionPayload = {
       approval_id: approvalId,
+      actor_id: access.actorId,
+      tenant_id: access.tenantId,
+      request_event_id: approvalRequest.eventId,
       decision: body.decision,
       reviewer_note:
         typeof body.reviewer_note === 'string' && body.reviewer_note.trim()
@@ -115,69 +203,57 @@ export async function POST(req: Request) {
     }
 
     try {
-      const { data: approvalRequestRows, error: approvalRequestError } = await supabase
-        .from('agent_events')
-        .select('payload, created_at')
-        .eq('agent_id', agentId)
-        .eq('event_type', 'approval_request')
-        .eq('payload->>approval_id', approvalId)
-        .order('created_at', { ascending: false })
-        .limit(1)
+      const proposedActions = parseProposedActions(approvalRequest.payload.proposed_actions)
 
-      if (approvalRequestError) {
-        console.error('[runtime/approve] approval request lookup error:', approvalRequestError)
-      } else {
-        const approvalRequest = approvalRequestRows?.[0]
-        const parsedPayload = approvalRequest ? parsePayload(approvalRequest.payload) : null
-        const proposedActions = parseProposedActions(parsedPayload?.proposed_actions)
+      if (proposedActions.length > 0) {
+        for (const proposedAction of proposedActions) {
+          const { count: approvedCount, error: countError } = await supabase
+            .from('agent_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('agent_id', agentId)
+            .eq('event_type', 'confidence_update')
+            .eq('payload->>tool', proposedAction.tool)
+            .eq('payload->>action', proposedAction.action)
+            .eq('payload->>decision', 'approved')
 
-        if (proposedActions.length > 0) {
-          for (const proposedAction of proposedActions) {
-            const { count: approvedCount, error: countError } = await supabase
-              .from('agent_events')
-              .select('id', { count: 'exact', head: true })
-              .eq('agent_id', agentId)
-              .eq('event_type', 'confidence_update')
-              .eq('payload->>tool', proposedAction.tool)
-              .eq('payload->>action', proposedAction.action)
-              .eq('payload->>decision', 'approved')
+          if (countError) {
+            console.error('[runtime/approve] confidence count error:', countError)
+            continue
+          }
 
-            if (countError) {
-              console.error('[runtime/approve] confidence count error:', countError)
-              continue
-            }
+          const currentCount = approvedCount ?? 0
+          const increment = body.decision === 'approved' ? 1 : 0
+          const newCount = currentCount + increment
+          const eligibleAuto =
+            body.decision === 'approved' && newCount >= CONFIDENCE_THRESHOLD
 
-            const currentCount = approvedCount ?? 0
-            const increment = body.decision === 'approved' ? 1 : 0
-            const newCount = currentCount + increment
-            const eligibleAuto =
-              body.decision === 'approved' && newCount >= CONFIDENCE_THRESHOLD
+          const confidencePayload: RuntimeConfidenceUpdatePayload = {
+            approval_id: approvalId,
+            actor_id: access.actorId,
+            tenant_id: access.tenantId,
+            request_event_id: approvalRequest.eventId,
+            tool: proposedAction.tool,
+            action: proposedAction.action,
+            decision: body.decision,
+            new_count: newCount,
+            threshold: CONFIDENCE_THRESHOLD,
+            eligible_auto: eligibleAuto,
+            updated_at: decidedAt,
+          }
 
-            const confidencePayload: RuntimeConfidenceUpdatePayload = {
-              approval_id: approvalId,
-              tool: proposedAction.tool,
-              action: proposedAction.action,
-              decision: body.decision,
-              new_count: newCount,
-              threshold: CONFIDENCE_THRESHOLD,
-              eligible_auto: eligibleAuto,
-              updated_at: decidedAt,
-            }
+          const { error: confidenceInsertError } = await supabase
+            .from('agent_events')
+            .insert([
+              {
+                agent_id: agentId,
+                event_type: 'confidence_update',
+                created_at: decidedAt,
+                payload: confidencePayload,
+              },
+            ])
 
-            const { error: confidenceInsertError } = await supabase
-              .from('agent_events')
-              .insert([
-                {
-                  agent_id: agentId,
-                  event_type: 'confidence_update',
-                  created_at: decidedAt,
-                  payload: confidencePayload,
-                },
-              ])
-
-            if (confidenceInsertError) {
-              console.error('[runtime/approve] confidence insert error:', confidenceInsertError)
-            }
+          if (confidenceInsertError) {
+            console.error('[runtime/approve] confidence insert error:', confidenceInsertError)
           }
         }
       }
