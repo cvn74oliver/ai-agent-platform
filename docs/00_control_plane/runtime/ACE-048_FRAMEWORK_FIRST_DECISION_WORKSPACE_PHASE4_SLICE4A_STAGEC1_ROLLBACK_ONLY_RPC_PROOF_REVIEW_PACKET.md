@@ -8,7 +8,7 @@ Accepted defect/proof surface: exact installed execution-ledger RPC contract on 
 Verifier decision: `ACCEPT`
 Verification confidence: `HIGH`
 Final classification: `Accepted Fix Proven`
-Status: HUMAN ACCEPTED / RECOVERY CONTRACT RECORDED / ACCEPTANCE PRESERVATION IN PROGRESS
+Status: HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVED / CLOSED
 
 ## Executive summary
 
@@ -109,7 +109,7 @@ Verification Confidence: `HIGH`
 
 Final classification: `Accepted Fix Proven`
 
-Checkpoint Status: `propagation required before closeout` — Human acceptance, Recovery Contract, and verified acceptance backup are recorded; exact-scope Git preservation remains pending.
+Checkpoint Status: `none` — Human acceptance, Recovery Contract, verified acceptance backup, and accepted-content Git preservation are recorded; no unpropagated Stage C1 state remains.
 
 Status: Decision recorded — `ACCEPT`
 
@@ -127,3 +127,5 @@ Oliver returned exact `ACCEPT PHASE 4 SLICE 4A STAGE C1` on 2026-09-03. This acc
 Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage C1 Human acceptance)`; `2,590` files, exact linked-worktree/branch/baseline identity, `5` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
 
 Recovery Contract: `CHANGELOG.md` -> `September 3, 2026 — ACE-048 Phase 4 Slice 4A Stage C1 Rollback-Only RPC Proof Accepted`.
+
+Accepted-content Git identity: commit `edc4be2`, pushed normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.

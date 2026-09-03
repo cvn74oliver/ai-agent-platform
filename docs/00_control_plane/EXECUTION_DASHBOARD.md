@@ -2,13 +2,13 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY CONTRACT RECORDED / ACCEPTANCE PRESERVATION IN PROGRESS; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, and Stage B migration application Human-accepted, recovery-backed, GitHub-preserved, and closed; Stage C1 rollback-only RPC proof Human-accepted with acceptance preservation in progress
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, and Stage C1 rollback-only RPC proof Human-accepted, recovery-backed, GitHub-preserved, and closed
 - Problem class: runtime behavior — live execution-ledger RPC contract proof
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
@@ -145,7 +145,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Record exact `ACCEPT PHASE 4 SLICE 4A STAGE C1 ROLLBACK-ONLY RPC PROOF` and its execution-ready PM Brief
 - [x] Complete the governed backup, single rollback-only synthetic transaction, independent zero-persistence verification, eight-domain before/after regression, and six-row State Transition Matrix at verifier `ACCEPT / HIGH`
 - [x] Record exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C1`, Recovery Contract, and verified `2,590`-file acceptance backup
-- [ ] ACTIVE NOW — commit and normally push the exact accepted Stage C1 packet, record final Git parity, and close Stage C1
+- [x] Commit the exact accepted Stage C1 packet as `edc4be2`, push normally without force, record final Git parity, and close Stage C1
+- [ ] NEXT DECISION — authorize or defer fresh PM discovery for separately gated application-wrapper/HTTP proof without provider activation
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
