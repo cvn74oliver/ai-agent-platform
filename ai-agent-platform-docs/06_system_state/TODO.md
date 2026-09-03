@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Migration-history reconciliation Human-accepted and recovery-backed; GitHub preservation active_
+_Last updated: 2026-09-03 • Migration-history reconciliation Human-accepted, recovery-backed, GitHub-preserved, and closed_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -141,7 +141,8 @@ _Last updated: 2026-09-03 • Migration-history reconciliation Human-accepted an
 - [x] Record Oliver's exact `ACCEPT MIGRATION-HISTORY RECONCILIATION IMPLEMENTATION`; this authorizes only the governed backup, exact ten-path local reconciliation, linked migration-list verification, and a dry run.
 - [x] Create and verify the pre-implementation incremental; add the two exact April definitions, retimestamp the four aliases, restore the exact historical projection-migration blob, and prove `supabase db push --dry-run --linked` lists exactly `20260902141603` and nothing older.
 - [x] Record explicit Human Review `ACCEPT`, create the `2,586`-file Human-acceptance snapshot, and add the authoritative Recovery Contract.
-- [ ] ACTIVE NOW — commit and push the exact accepted migration-history reconciliation packet normally without force; verify local, tracking, and live remote parity.
+- [x] Commit accepted reconciliation content as `0e859f3` and push normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
+- [ ] NEXT DECISION — authorize or defer the separately gated Phase 4 Slice 4A Stage B migration application and its pre-application recovery procedure.
 - [ ] Keep Stage B application blocked until `supabase db push --dry-run --linked` lists exactly `20260902141603` and nothing older, after a separately approved reconciliation and pre-application recovery point.
 - [ ] Keep migration application, provider/data mutation, action invocation during proof, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, commit, push, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.

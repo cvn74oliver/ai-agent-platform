@@ -2,13 +2,13 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB PRESERVATION ACTIVE; STAGE B APPLICATION BLOCKED; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B APPLICATION AWAITS SEPARATE DECISION; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, and Slice 4A Stage A Human-accepted, recovery-backed, GitHub-preserved, and closed; migration-history reconciliation Human-accepted and recovery-backed, awaiting GitHub preservation while Stage B application remains blocked
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, and migration-history reconciliation Human-accepted, recovery-backed, GitHub-preserved, and closed; Stage B application awaits a separate explicit decision
 - Problem class: source/index truth for migration-history identity; local-only canonical file reconciliation verified with zero database/history-ledger replay
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
@@ -133,7 +133,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Complete read-only authoritative-definition recovery and four-pair equivalence target lock; prove the live schema is correct and the defect is local migration identity only
 - [x] Create the governed backup; apply only the locked two-file recovery/four-alias local reconciliation; prove the linked dry run lists exactly `20260902141603` and nothing older
 - [x] Record explicit Human Review `ACCEPT`, create the `2,586`-file acceptance snapshot, and record the authoritative Recovery Contract
-- [ ] ACTIVE NOW — commit and push the exact accepted migration-history reconciliation packet; then close and archive completed one-time discovery tasks
+- [x] Commit accepted reconciliation content as `0e859f3` and push normally without force to the dedicated branch
+- [ ] NEXT DECISION — authorize or defer the separately gated Phase 4 Slice 4A Stage B migration application and its pre-application recovery procedure
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

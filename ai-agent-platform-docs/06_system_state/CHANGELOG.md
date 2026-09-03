@@ -20,6 +20,7 @@
 - Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 migration-history reconciliation implementation)`.
 - Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 migration-history reconciliation Human acceptance)`; `2,586` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `420ab319a183525b39e4a8414450ad1351b27a3b`, `14` changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
 - Accepted migration-path packet: add `20260406101500` and `20260407113000`; retimestamp `20260821130242` to `20260823022435`, `20260824132718` to `20260825030532`, `20260825030822` to `20260825030928`, and `20260828011458` to `20260828012004`; restore the projection migration to historical hash `5d8506b...`.
+- Accepted-content Git identity: commit `0e859f3` on branch `codex/ace-048-phase4-endpoint-integrity-discovery`, pushed normally without force.
 
 #### Replay steps
 
