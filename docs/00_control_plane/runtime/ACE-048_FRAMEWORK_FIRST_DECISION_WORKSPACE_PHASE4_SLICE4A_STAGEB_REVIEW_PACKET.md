@@ -6,9 +6,9 @@ Execution mode: `transitional_self_verification`
 Problem class: runtime behavior — additive schema installation only
 Verifier decision: `ACCEPT`
 Verification confidence: HIGH
-Status: HUMAN ACCEPTED / ACCEPTANCE CAPTURE IN PROGRESS
+Status: HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVED / CLOSED
 
-Checkpoint Status: propagation required before closeout — Human acceptance, the Recovery Contract, and the verified `2,588`-file acceptance backup are recorded; the exact-scope commit and normal GitHub push remain pending.
+Checkpoint Status: none — Human acceptance, the Recovery Contract, the verified `2,588`-file acceptance backup, and accepted-content GitHub preservation are recorded; no unpropagated Stage B state remains.
 
 ## Executive summary
 
@@ -119,15 +119,17 @@ This prepares the framework for accountable execution across Gmail and future pr
 
 ## Decision gate
 
-The Stage B application is verifier-accepted but is not yet Human-accepted or closed. No Recovery Contract, acceptance backup, commit, or push has been created for this applied milestone.
+The decision gate below was the required non-terminal Human Review boundary. Oliver's explicit decision and the completed acceptance-capture result are recorded after the options for auditability.
 
 - `ACCEPT` — accept the verified Stage B migration application and authorize the standing acceptance-capture workflow: Recovery Contract, Human-acceptance backup, exact-scope commit, and normal non-force GitHub push.
 - `REJECT` — keep the schema quarantined and return the exact concern for PM adjudication; do not drop objects automatically.
 - `BLOCKED` — identify the additional proof required before acceptance.
 - `RETURN_TO_PM` — revise the recovery or next-stage contract.
 
-Status: Awaiting Decision
+Status: Decision recorded — `ACCEPT`
 
-Decision recorded: Oliver returned explicit `accept` on 2026-09-03. Recovery Contract: `CHANGELOG.md` -> `September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage B Migration Application Accepted`. The standing accepted-milestone backup and GitHub preservation workflow is authorized and in progress.
+Decision recorded: Oliver returned explicit `accept` on 2026-09-03. Recovery Contract: `CHANGELOG.md` -> `September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage B Migration Application Accepted`. The standing accepted-milestone backup and exact-scope GitHub preservation workflow completed.
 
 Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage B Human acceptance)`; `2,588` files, exact linked-worktree/branch/baseline identity, `7` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+
+Accepted-content Git identity: commit `000fdcb`, pushed normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.

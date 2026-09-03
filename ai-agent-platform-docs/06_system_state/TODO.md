@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B Human-accepted; acceptance preservation in progress_
+_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B Human-accepted, recovery-backed, GitHub-preserved, and closed_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -148,9 +148,9 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage B Human-accepted; acceptanc
 - [x] Return the Stage B verifier packet at `ACCEPT / HIGH` and enter the explicit Human Review decision gate.
 - [x] Record Oliver's explicit Human Review `accept` and the authoritative Stage B Recovery Contract.
 - [x] Create and verify the `2,588`-file Human-acceptance incremental with exact identity, `7` accepted changed paths, normal pruning, and `KEEP` preservation.
-- [ ] Commit and normally push only the exact accepted Stage B documentation/control-plane packet.
-- [ ] Keep live ledger/RPC proof, provider execution, source integration, retry/reconciliation, merge, and deployment behind separate explicit gates.
-- [ ] Keep live ledger/RPC proof, provider/customer-data action, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, commit, push, merge, and deployment behind their applicable separate gates.
+- [x] Commit the exact accepted Stage B documentation/control-plane packet as `000fdcb` and push normally without force to the dedicated branch.
+- [ ] NEXT DECISION — authorize or defer fresh PM discovery for the separately gated live ledger/RPC proof and activation contract.
+- [ ] Keep live ledger/RPC proof, provider/customer-data action, source integration, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
 

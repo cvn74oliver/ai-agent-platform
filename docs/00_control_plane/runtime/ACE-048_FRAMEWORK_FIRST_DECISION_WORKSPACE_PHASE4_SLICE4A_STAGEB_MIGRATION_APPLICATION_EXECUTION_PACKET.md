@@ -5,7 +5,7 @@ Governing event: `ACE-048`
 Execution mode: `transitional_self_verification`
 Problem class: runtime behavior — additive schema installation only
 Reasoning level: HIGH — one bounded live production-schema mutation with exact identity and recovery gates
-Status: HUMAN ACCEPTED / RECOVERY CONTRACT RECORDED / ACCEPTANCE PRESERVATION IN PROGRESS
+Status: HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVED / CLOSED
 
 ## Operator summary
 
@@ -141,4 +141,4 @@ Oliver returned the exact decision `ACCEPT PHASE 4 SLICE 4A STAGE B MIGRATION AP
 
 ## Execution result
 
-The pre-application incremental and all eight gates passed. The linked CLI applied only migration `20260902141603` once. Post-application migration history, no-pending dry run, exact catalog/security configuration, zero-row state, and advisors passed at verifier `ACCEPT / HIGH`. Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEB_REVIEW_PACKET.md`. Oliver returned explicit Human Review `accept`; the Recovery Contract is recorded, and accepted-milestone backup/GitHub preservation is in progress.
+The pre-application incremental and all eight gates passed. The linked CLI applied only migration `20260902141603` once. Post-application migration history, no-pending dry run, exact catalog/security configuration, zero-row state, and advisors passed at verifier `ACCEPT / HIGH`. Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEB_REVIEW_PACKET.md`. Oliver returned explicit Human Review `accept`; the Recovery Contract and `2,588`-file acceptance backup are recorded. Accepted content commit `000fdcb` was pushed normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`; Stage B is closed.

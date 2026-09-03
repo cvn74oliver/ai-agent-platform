@@ -21,7 +21,7 @@
 
 - Pre-application snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage B migration application)`; `2,587` files, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `4ab5253504a885986c66890eb5f4f163106ed4f4`, `5` changed authorization/control-plane paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone repository restore guidance.
 - Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage B Human acceptance)`; `2,588` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `4ab5253504a885986c66890eb5f4f163106ed4f4`, `7` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
-- Accepted-content Git identity: pending exact-scope commit and normal non-force push.
+- Accepted-content Git identity: commit `000fdcb`, pushed normally without force to `codex/ace-048-phase4-endpoint-integrity-discovery`.
 
 #### Replay steps
 
