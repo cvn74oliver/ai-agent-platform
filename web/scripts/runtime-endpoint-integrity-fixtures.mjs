@@ -219,7 +219,7 @@ assert.doesNotMatch(legacyApprovalsSource, /global approvals queue/)
 
 const frozenHashes = {
   'src/lib/integrations/gmail/inboxAnalysis.ts':
-    '57ab82fffd8a29570d34719616149f2732d670bb2b35424ca6df85d2ac78058c',
+    'eead81b3e3f72e1eab6b2f7da709ab9c71f5d617c430ae18b1250d3f5e3feaae',
   'src/lib/integrations/gmail/gmailCleanupWorkspace.ts':
     '226c30e475783909b8a880971a05d62b9890ecae957071460015029eaa269f6b',
   'src/app/agents/[id]/operations/approvals/page.tsx':

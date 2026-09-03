@@ -7907,3 +7907,47 @@ Validation update:
   - post-build counted `gmail_preview_index=359486`
   - likely requires preview-index idempotency / duplicate-row verification after retry
 - Publish readiness remains blocked until the review-unit publication contract is aligned and the resulting candidate passes validation.
+### September 3, 2026 — ACE-048 Phase 4 Slice 4A Stage C2 Application-Wrapper HTTP Proof Accepted
+
+#### Accepted outcome
+
+- Oliver returned exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2` after independent verifier `ACCEPT / HIGH` and `Accepted Fix Proven` classification.
+- A localhost-only HTTP fixture invokes the real execute handler and accepted ledger wrappers against an in-memory Supabase substitute.
+- Eight request/state rows prove authentication and origin before malformed-body parsing, owned-agent and tenant resolution, exact approval lineage, successful claim/receipt/finalization, compatibility replay denial, durable replay denial, and conflicting-fingerprint denial.
+- The successful sandbox path performs the exact expected `11` in-memory upstream operations and binds the compatibility payload only after success.
+- The existing framework fixture remains green across eight business domains; product source and accepted Gmail behavior remain byte-identical.
+- Live ledger state remained `0` runs / `0` actions, with zero provider/model/customer requests and zero persistent database writes.
+
+#### Acceptance proof
+
+- PM Brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC2_APPLICATION_WRAPPER_HTTP_PROOF_PM_BRIEF.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC2_APPLICATION_WRAPPER_HTTP_PROOF_REVIEW_PACKET.md`.
+- Accepted files: one frozen-hash correction in `runtime-endpoint-integrity-fixtures.mjs` plus the three Stage C2 loader/Supabase/HTTP fixture files.
+- New HTTP fixture, eight-domain execution-ledger fixture, endpoint-integrity fixture, TypeScript, exact lint, diff/allowlist review, and six locked product-source hashes: PASS.
+- Fixture traffic: exactly `8` loopback HTTP requests; external/provider/model/customer requests `0`; live execute-route/RPC calls `0`; persistent writes `0`; polling/timers/retries/background/cache/lifecycle changes `0`.
+- Independent verifier: `ACCEPT / HIGH`; Human Review: `ACCEPT PHASE 4 SLICE 4A STAGE C2`.
+
+#### Recovery identity
+
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage C2 application-wrapper HTTP proof implementat)`; `2,591` files.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Human acceptance of ACE-048 Phase 4 Slice 4A Stage C2 application-wrapper HTTP p)`; `2,594` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `ab3be8e97bf8f82fec05f29a3ea35557a47536a7`, `4` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, candidate-hash readback, and standalone linked-worktree restore guidance.
+- Accepted-content Git identity: `PENDING_ACCEPTED_CONTENT_COMMIT`.
+
+#### Replay steps
+
+1. Reattest the six locked product hashes and a live zero-row ledger baseline without calling the execute route or any RPC.
+2. Run the Stage C2 HTTP fixture with the exact test loader and require eight loopback requests, eight PASS rows, zero external traffic, and zero persistent writes.
+3. Run the eight-domain execution-ledger and endpoint-integrity fixtures.
+4. Run TypeScript, exact four-script lint, diff/allowlist checks, and a final locked-source rehash.
+5. Require the live ledger to remain `0` runs / `0` actions.
+
+#### Recovery Contract
+
+- The accepted durable state is no product behavior change and zero live ledger persistence. No database, provider, model, customer-data, migration, artifact, index, or deployment rollback is expected.
+- To reverse only Stage C2, restore the four accepted fixture paths from the Human-acceptance snapshot or revert the accepted-content Git commit. This removes the three new fixture files and returns the endpoint-integrity hash line to its preceding value.
+- After reversal, rerun the pre-existing execution-ledger and endpoint-integrity fixtures and rehash all six locked product sources.
+- If any future replay attempts external traffic or changes the live `0 / 0` ledger baseline, stop immediately. Do not issue cleanup SQL, invoke a live RPC, or retry until PM authorizes a bounded recovery plan.
+- Preserve the application handler, access/approval/ledger wrappers, Gmail behavior, routes, requests, polling, caches, lifecycle, provider controls, and tenant/provenance boundaries as byte-identical product state.
+- This contract does not authorize true concurrent-session proof, publication/merge/deployment, Vercel consequences, live route/RPC activation, provider/model/customer action, persistent test data, automatic retry/reconciliation, migration work, or artifact/index publication.
+
+---

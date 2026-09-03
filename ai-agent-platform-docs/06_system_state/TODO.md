@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 application-wrapper/HTTP proof implementation authorized and pending executor_
+_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 Human-accepted and recovery-backed; Git preservation in progress_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -159,7 +159,10 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 application-wrapper/HTTP
 - [x] Record Oliver's approval for fresh Stage C2 application-wrapper/HTTP read-only discovery without provider activation.
 - [x] Discover the exact authenticated wrapper/route proof seam, zero-persistence strategy, request/load shape, and accepted proof surfaces; prove that multi-request live rollback is not safe and lock the localhost in-memory application proof.
 - [x] Record exact `ACCEPT PHASE 4 SLICE 4A STAGE C2 APPLICATION-WRAPPER/HTTP PROOF IMPLEMENTATION` and authoritative PM Brief `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC2_APPLICATION_WRAPPER_HTTP_PROOF_PM_BRIEF.md`.
-- [ ] ACTIVE NOW — create the governed pre-implementation backup, execute only the exact four-file test-harness allowlist, and complete targeted verification, adversarial discovery, final verification, independent verifier acceptance, and the Human Review decision gate.
+- [x] Create the governed pre-implementation backup, execute only the exact four-file test-harness allowlist, and complete targeted verification, adversarial discovery, final verification, independent verifier `ACCEPT / HIGH`, and Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2`.
+- [x] Create and verify the `2,594`-file Stage C2 Human-acceptance snapshot, authoritative review packet, and Recovery Contract.
+- [ ] ACTIVE NOW — preserve the exact accepted Stage C2 candidate and closeout documentation in Git, push normally without force, and prove clean local/upstream/live parity.
+- [ ] NEXT DECISION GATE — PM discovery and target lock for publication readiness of the ledger-enabled application source; no merge, deployment, Vercel, live activation, provider/data, or true-concurrency authority is implied.
 - [ ] Keep application-route/wrapper proof, provider/customer-data action, source integration activation, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
