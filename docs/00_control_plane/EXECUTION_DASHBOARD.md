@@ -2,13 +2,13 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C2 APPLICATION-WRAPPER/HTTP PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; PUBLICATION-READINESS READ-ONLY DISCOVERY AUTHORIZED / ACTIVE; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C2 APPLICATION-WRAPPER/HTTP PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; DRAFT-PR CREATION AUTHORIZED / FIVE-PATH PROPAGATION COMMIT PENDING; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, Stage C1 rollback-only RPC proof, and Stage C2 application-wrapper/HTTP proof Human-accepted, recovery-backed, GitHub-preserved, and closed; publication-readiness read-only discovery authorized and active
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, Stage C1 rollback-only RPC proof, and Stage C2 application-wrapper/HTTP proof Human-accepted, recovery-backed, GitHub-preserved, and closed; draft-PR creation authorized with exact five-path propagation commit, post-push executor lock pending
 - Problem class: artifact / publication truth — ledger-enabled application source readiness
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
@@ -153,7 +153,9 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Record Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2`, the `2,594`-file Human-acceptance snapshot, authoritative review packet, and Recovery Contract
 - [x] Commit the exact accepted Stage C2 candidate as `4db0a70`, record final closeout documentation, push normally without force, and prove clean local/upstream/live parity
 - [x] Record Oliver's approval for fresh read-only publication-readiness discovery without merge, deployment, Vercel mutation, live activation, provider/data, or true-concurrency authority
-- [ ] ACTIVE NOW — lock the exact safe publication target and dependency/deployment consequence set or return a precise blocker
+- [x] Lock the exact safe publication target and dependency/deployment consequence set; confirm dual READY previews, unchanged production, applied migration/RPC prerequisites, empty ledger, and no existing PR
+- [x] Record exact `ACCEPT PHASE 4 SLICE 4A DRAFT PR CREATION`, corrected `ACCEPT DRAFT PR WITH PROPAGATION COMMIT`, and authoritative draft-PR-only PM Brief
+- [ ] ACTIVE NOW — commit/push the exact five-path authority packet, lock the resulting live head/comparison/preview pair, then create and independently verify exactly one draft PR to `main@98b513f`; keep merge and automatic dual-project production deployment behind a separate decision
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
