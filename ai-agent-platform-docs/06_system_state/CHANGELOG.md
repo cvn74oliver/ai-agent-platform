@@ -7931,7 +7931,7 @@ Validation update:
 
 - Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage C2 application-wrapper HTTP proof implementat)`; `2,591` files.
 - Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Human acceptance of ACE-048 Phase 4 Slice 4A Stage C2 application-wrapper HTTP p)`; `2,594` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `ab3be8e97bf8f82fec05f29a3ea35557a47536a7`, `4` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, candidate-hash readback, and standalone linked-worktree restore guidance.
-- Accepted-content Git identity: `PENDING_ACCEPTED_CONTENT_COMMIT`.
+- Accepted-content Git identity: `4db0a7086ce9e7a89cd0c0cdeec04a21a73f4384`.
 
 #### Replay steps
 

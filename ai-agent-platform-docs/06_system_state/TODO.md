@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 Human-accepted and recovery-backed; Git preservation in progress_
+_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 Human-accepted, recovery-backed, GitHub-preserved, and closed_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -161,7 +161,7 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 Human-accepted and recov
 - [x] Record exact `ACCEPT PHASE 4 SLICE 4A STAGE C2 APPLICATION-WRAPPER/HTTP PROOF IMPLEMENTATION` and authoritative PM Brief `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEC2_APPLICATION_WRAPPER_HTTP_PROOF_PM_BRIEF.md`.
 - [x] Create the governed pre-implementation backup, execute only the exact four-file test-harness allowlist, and complete targeted verification, adversarial discovery, final verification, independent verifier `ACCEPT / HIGH`, and Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2`.
 - [x] Create and verify the `2,594`-file Stage C2 Human-acceptance snapshot, authoritative review packet, and Recovery Contract.
-- [ ] ACTIVE NOW — preserve the exact accepted Stage C2 candidate and closeout documentation in Git, push normally without force, and prove clean local/upstream/live parity.
+- [x] Preserve the exact accepted Stage C2 candidate as `4db0a70`, record final closeout documentation, push normally without force, and prove clean local/upstream/live parity.
 - [ ] NEXT DECISION GATE — PM discovery and target lock for publication readiness of the ledger-enabled application source; no merge, deployment, Vercel, live activation, provider/data, or true-concurrency authority is implied.
 - [ ] Keep application-route/wrapper proof, provider/customer-data action, source integration activation, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.

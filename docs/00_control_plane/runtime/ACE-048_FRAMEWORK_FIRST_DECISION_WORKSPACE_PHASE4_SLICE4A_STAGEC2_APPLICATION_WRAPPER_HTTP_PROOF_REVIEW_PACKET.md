@@ -8,7 +8,7 @@ Accepted proof surface: real `POST /api/runtime/execute` handler and accepted le
 Verifier decision: `ACCEPT`
 Verification confidence: `HIGH`
 Final classification: `Accepted Fix Proven`
-Status: HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVATION IN PROGRESS
+Status: HUMAN ACCEPTED / RECOVERY BACKED / GITHUB PRESERVED / CLOSED
 
 ## Executive summary
 
@@ -121,6 +121,6 @@ Recovery Contract: `CHANGELOG.md` -> `September 3, 2026 — ACE-048 Phase 4 Slic
 
 The next separately gated decision is Project Manager discovery and target locking for publication readiness of the ledger-enabled application source. This closeout does not authorize merge, deployment, Vercel consequences, true concurrent-session proof, live execute-route/RPC invocation, provider/model/customer action, persistent data, retry/reconciliation, migration, or artifact/index publication.
 
-Accepted-content Git identity: `PENDING_ACCEPTED_CONTENT_COMMIT`.
+Accepted-content Git identity: `4db0a7086ce9e7a89cd0c0cdeec04a21a73f4384`.
 
-Checkpoint Status: `continuity checkpoint created` — Human acceptance and recovery are captured; exact Git identity and final parity remain to be recorded by the authorized closeout.
+Checkpoint Status: `none` — Human acceptance, Recovery Contract, verified acceptance backup, accepted-content identity, and Git closeout are recorded; no unpropagated Stage C2 state remains.
