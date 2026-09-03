@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C2 APPLICATION-WRAPPER/HTTP READ-ONLY DISCOVERY AUTHORIZED / ACTIVE; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C2 APPLICATION-WRAPPER/HTTP PROOF IMPLEMENTATION AUTHORIZED / PENDING EXECUTOR; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, and Stage C1 rollback-only RPC proof Human-accepted, recovery-backed, GitHub-preserved, and closed; Stage C2 application-wrapper/HTTP read-only discovery authorized and active
-- Problem class: runtime behavior — live execution-ledger RPC contract proof
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, and Stage C1 rollback-only RPC proof Human-accepted, recovery-backed, GitHub-preserved, and closed; Stage C2 application-wrapper/HTTP proof implementation authorized and pending executor
+- Problem class: runtime behavior — application execute-handler and ledger-wrapper binding proof
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
@@ -147,7 +147,9 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Record exact Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C1`, Recovery Contract, and verified `2,590`-file acceptance backup
 - [x] Commit the exact accepted Stage C1 packet as `edc4be2`, push normally without force, record final Git parity, and close Stage C1
 - [x] Record Oliver's approval for Stage C2 application-wrapper/HTTP read-only discovery without provider activation
-- [ ] ACTIVE NOW — lock the smallest authenticated application-level proof, zero-persistence strategy, and request/load contract or return a precise blocker
+- [x] Lock the localhost in-memory authenticated application proof after establishing that a live multi-request HTTP chain cannot provide transactional zero persistence
+- [x] Record exact Stage C2 implementation authority and the execution-ready four-file PM Brief
+- [ ] ACTIVE NOW — execute the test-only four-file Stage C2 proof through backup, verification loop, independent verifier acceptance, and Human Review
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
