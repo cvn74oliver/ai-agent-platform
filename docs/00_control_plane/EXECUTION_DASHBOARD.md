@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C2 APPLICATION-WRAPPER/HTTP PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C1 ROLLBACK-ONLY RPC PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE C2 APPLICATION-WRAPPER/HTTP PROOF HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; PUBLICATION-READINESS READ-ONLY DISCOVERY AUTHORIZED / ACTIVE; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, Stage C1 rollback-only RPC proof, and Stage C2 application-wrapper/HTTP proof Human-accepted, recovery-backed, GitHub-preserved, and closed
-- Problem class: runtime behavior — application execute-handler and ledger-wrapper binding proof
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, migration-history reconciliation, Stage B migration application, Stage C1 rollback-only RPC proof, and Stage C2 application-wrapper/HTTP proof Human-accepted, recovery-backed, GitHub-preserved, and closed; publication-readiness read-only discovery authorized and active
+- Problem class: artifact / publication truth — ledger-enabled application source readiness
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
@@ -152,7 +152,8 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Execute the exact four-file Stage C2 localhost/in-memory HTTP proof; pass all eight request/state rows, exact wrapper/RPC bindings, eight-domain and endpoint regressions, TypeScript, lint, diff/allowlist, and locked-source hashes at independent verifier `ACCEPT / HIGH`
 - [x] Record Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2`, the `2,594`-file Human-acceptance snapshot, authoritative review packet, and Recovery Contract
 - [x] Commit the exact accepted Stage C2 candidate as `4db0a70`, record final closeout documentation, push normally without force, and prove clean local/upstream/live parity
-- [ ] NEXT DECISION GATE — PM discovery/target lock for publication readiness of the ledger-enabled application source; no merge/deployment/Vercel/live activation/provider/data/true-concurrency authority
+- [x] Record Oliver's approval for fresh read-only publication-readiness discovery without merge, deployment, Vercel mutation, live activation, provider/data, or true-concurrency authority
+- [ ] ACTIVE NOW — lock the exact safe publication target and dependency/deployment consequence set or return a precise blocker
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence

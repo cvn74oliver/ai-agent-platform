@@ -1,5 +1,5 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 Human-accepted, recovery-backed, GitHub-preserved, and closed_
+_Last updated: 2026-09-03 • Phase 4 Slice 4A publication-readiness read-only discovery authorized and active_
 
 ## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
 
@@ -162,7 +162,8 @@ _Last updated: 2026-09-03 • Phase 4 Slice 4A Stage C2 Human-accepted, recovery
 - [x] Create the governed pre-implementation backup, execute only the exact four-file test-harness allowlist, and complete targeted verification, adversarial discovery, final verification, independent verifier `ACCEPT / HIGH`, and Human Review `ACCEPT PHASE 4 SLICE 4A STAGE C2`.
 - [x] Create and verify the `2,594`-file Stage C2 Human-acceptance snapshot, authoritative review packet, and Recovery Contract.
 - [x] Preserve the exact accepted Stage C2 candidate as `4db0a70`, record final closeout documentation, push normally without force, and prove clean local/upstream/live parity.
-- [ ] NEXT DECISION GATE — PM discovery and target lock for publication readiness of the ledger-enabled application source; no merge, deployment, Vercel, live activation, provider/data, or true-concurrency authority is implied.
+- [x] Record Oliver's approval to proceed with fresh read-only publication-readiness discovery for the ledger-enabled application source.
+- [ ] ACTIVE NOW — reattest the accepted branch against live `main`, GitHub/PR state, migration and source dependencies, automatic deployment implications, and read-only Vercel/Supabase truth; return an operator-readable target lock or precise blocker without publishing or activating anything.
 - [ ] Keep application-route/wrapper proof, provider/customer-data action, source integration activation, automatic retry/reconciliation, new requests/polling/cache/background lifecycle behavior, merge, and deployment behind their applicable separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
