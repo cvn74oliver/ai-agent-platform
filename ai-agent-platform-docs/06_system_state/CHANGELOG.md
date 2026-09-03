@@ -1,3 +1,44 @@
+### September 3, 2026 — ACE-048 Migration-History Reconciliation Accepted
+
+#### Accepted outcome
+
+- Oliver returned explicit Human Review `ACCEPT` on 2026-09-03 after verifier `ACCEPT / HIGH` for the local-only migration-history reconciliation.
+- The repository now carries the two authoritative April migrations missing from local history and uses Supabase's recorded timestamps for all four previously aliased migration files.
+- The historical projection migration is restored to its exact pre-optimization form; the following optimization migration remains the sole owner of the four `auth.uid()` initplan optimizations.
+- Live Supabase schema and migration-history records were not changed. The Stage 4A execution-ledger migration remains unapplied and requires a separate Stage B decision.
+
+#### Acceptance proof
+
+- Supabase project identity: `cjpjekhlvzwjwtszqpmy` (`agent_platform`).
+- `supabase migration list --linked` aligned local and remote identities for `20260406101500`, `20260407113000`, `20260823022435`, `20260825030532`, `20260825030928`, and `20260828012004`.
+- `supabase db push --dry-run --linked` completed successfully and listed exactly `20260902141603_add_decision_workspace_execution_ledger.sql`.
+- Locked SHA-256 values passed: April migrations `1d5c08618edc12297bdf5af848f75564a6f27d607ab39b2112e1e5d859810bd3` and `1b953fd5a5b1d348218476a1c37b84df3ee5db065440125677722b5df3e990b6`; restored projection migration `5d8506b8cf6c89be999037e998dc102f7354fb5040c105c031b49889c9ff5bb7`; unchanged Stage 4A target `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`.
+- `git diff --check` passed. No migration application, history repair, DDL/RPC, provider/data/schema/artifact/index/publication mutation, merge, or deployment occurred.
+
+#### Recovery identity
+
+- Pre-implementation snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 migration-history reconciliation implementation)`.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 migration-history reconciliation Human acceptance)`; `2,586` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `420ab319a183525b39e4a8414450ad1351b27a3b`, `14` changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted migration-path packet: add `20260406101500` and `20260407113000`; retimestamp `20260821130242` to `20260823022435`, `20260824132718` to `20260825030532`, `20260825030822` to `20260825030928`, and `20260828011458` to `20260828012004`; restore the projection migration to historical hash `5d8506b...`.
+
+#### Replay steps
+
+1. Confirm the seven locked migration-file SHA-256 values and require the four obsolete timestamp paths to be absent.
+2. Run `git diff --check`.
+3. Run `supabase migration list --linked` and require all six reconciled historical versions to align.
+4. Run only `supabase db push --dry-run --linked`; require it to list exactly `20260902141603_add_decision_workspace_execution_ledger.sql` and nothing older.
+5. Do not use `migration repair`, applied/reverted marking, `--include-all`, `db pull`, non-dry-run push, direct migration application, or write SQL while replaying this local-history fix.
+
+#### Recovery Contract
+
+- To remove only this accepted local reconciliation, restore the four obsolete timestamp files from the pre-implementation snapshot and remove the two recovered April files plus the four canonical-timestamp replacements.
+- Re-run the fingerprint and linked-history checks after restoration. Expect the prior migration-history mismatch and blocked dry run to return; do not represent that restored blocker as a healthy deployable state.
+- No live database, remote migration ledger, provider, Gmail, artifact, index, publication, Vercel, or domain rollback belongs to this fix because none of those surfaces changed.
+- Never roll back this local-history reconciliation by marking remote migrations reverted or by replaying historical SQL. Any replacement strategy requires separate target locking and must preserve exact migration provenance without reexecution.
+- If Stage B later applies `20260902141603`, this Recovery Contract does not authorize deleting that migration or reversing its additive schema. Stage B must establish its own separately reviewed application recovery procedure.
+
+---
+
 ### September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage A Accepted
 
 #### Accepted outcome

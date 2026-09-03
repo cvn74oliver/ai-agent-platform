@@ -162,14 +162,14 @@ to authenticated
 using (
   exists (
     select 1 from public.profiles p
-    where p.id = (select auth.uid())
+    where p.id = auth.uid()
       and p.tenant_id = workspace_review_unit_projection_manifests.tenant_id
   )
 )
 with check (
   exists (
     select 1 from public.profiles p
-    where p.id = (select auth.uid())
+    where p.id = auth.uid()
       and p.tenant_id = workspace_review_unit_projection_manifests.tenant_id
   )
 );
@@ -183,14 +183,14 @@ to authenticated
 using (
   exists (
     select 1 from public.profiles p
-    where p.id = (select auth.uid())
+    where p.id = auth.uid()
       and p.tenant_id = workspace_review_unit_activity_buckets.tenant_id
   )
 )
 with check (
   exists (
     select 1 from public.profiles p
-    where p.id = (select auth.uid())
+    where p.id = auth.uid()
       and p.tenant_id = workspace_review_unit_activity_buckets.tenant_id
   )
 );
