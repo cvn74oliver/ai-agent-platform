@@ -1,3 +1,48 @@
+### September 3, 2026 — ACE-048 Framework-First Decision Workspace Phase 4 Slice 4A Stage B Migration Application Accepted
+
+#### Accepted outcome
+
+- Oliver returned explicit Human Review `accept` on 2026-09-03 after verifier `ACCEPT / HIGH` for the exact Stage B migration application.
+- Linked Supabase project `cjpjekhlvzwjwtszqpmy` now records migration `20260902141603_add_decision_workspace_execution_ledger.sql` exactly once.
+- The accepted provider-neutral execution-ledger schema is installed as two empty RLS-enabled tables, three indexes, and four service-role-only `SECURITY INVOKER` functions with fixed search path and statement timeout.
+- The schema remains dormant. No ledger function, Gmail/provider action, customer-data write, application consumer, request/polling change, merge, or deployment was activated by this acceptance.
+
+#### Acceptance proof
+
+- Governing application packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEB_MIGRATION_APPLICATION_EXECUTION_PACKET.md`.
+- Review packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_STAGEB_REVIEW_PACKET.md`.
+- Target SHA-256: `6bba05da4b65bce9a36d08694c8bd6b1cc0c310a6b3f1ae5f473cf8514437ab4`.
+- Pre-application linked dry run listed only `20260902141603`; one `supabase db push --linked --yes` invocation applied it; post-application migration list aligned local/remote and the final debug dry run reported the remote database up to date.
+- Catalog proof found exactly two target tables with RLS enabled, three target indexes, four exact-signature `SECURITY INVOKER` functions with `search_path=public, pg_temp` and `statement_timeout=8s`, no anon/authenticated table or function privileges, and intended service-role grants.
+- Acceptance recheck found one target migration record, four target functions, `0` execution-run rows, and `0` execution-action rows.
+- Advisors reported zero target warning/error. Two no-policy and three unused-index `INFO` notices are the expected result for deny-by-default service-role-only objects that remain empty and unused.
+
+#### Recovery identity
+
+- Pre-application snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - Pre ACE-048 Phase 4 Slice 4A Stage B migration application)`; `2,587` files, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `4ab5253504a885986c66890eb5f4f163106ed4f4`, `5` changed authorization/control-plane paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone repository restore guidance.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-03/ai-agent-platform-worktree-8642 (incremental 3 September 2026 - ACE-048 Phase 4 Slice 4A Stage B Human acceptance)`; `2,588` files, exact linked-worktree source, branch `codex/ace-048-phase4-endpoint-integrity-discovery`, baseline HEAD `4ab5253504a885986c66890eb5f4f163106ed4f4`, `7` accepted changed paths, normal seven-day project-scoped pruning, `KEEP` preservation, and standalone restore guidance.
+- Accepted-content Git identity: pending exact-scope commit and normal non-force push.
+
+#### Replay steps
+
+1. Confirm linked project ref `cjpjekhlvzwjwtszqpmy` and migration-file SHA-256 `6bba05da...`.
+2. Run `supabase migration list --linked` and require `20260902141603` to appear in both Local and Remote columns.
+3. Run `supabase db push --dry-run --linked` and require the remote database to be up to date. This is verification only; do not reapply the migration.
+4. Read the exact catalog: require two RLS-enabled target tables, three indexes, four `SECURITY INVOKER` functions with fixed search path/timeout, denied anon/authenticated privileges, and intended service-role grants.
+5. Confirm both target tables remain empty until a separately approved live ledger/RPC proof or provider-execution stage explicitly authorizes writes.
+6. Run security and performance advisors and distinguish target-object findings from unrelated existing debt.
+
+#### Recovery Contract
+
+- The default recovery is logical quarantine: do not integrate or deploy a consumer, do not invoke the four ledger functions, and do not execute provider actions through this schema. The accepted application remains behaviorally inert while both tables are empty.
+- Never roll back by deleting or editing the applied migration file, falsifying migration history, marking `20260902141603` reverted, or automatically dropping database objects.
+- If physical removal becomes necessary, first prove both target tables contain zero rows and that no deployed source depends on the objects. Then create a new forward migration that removes only the four target functions, three indexes, and two tables in dependency-safe order. That destructive migration requires a separate PM target lock, explicit Oliver approval, live recovery planning, and post-removal verification.
+- If any target table contains a row, destructive removal is blocked until a separate data-retention/export and reconciliation decision is approved. Ledger receipts and provenance must never be silently discarded.
+- If the schema is retained but later superseded, the replacement must preserve tenant, actor, agent, approval, request, decision, workflow/runtime, role, source, connection, action, lease, idempotency, receipt, and honest partial/indeterminate outcome invariants.
+- This Recovery Contract does not authorize live RPC testing, provider execution, source integration, retry/reconciliation workers, merge, or deployment. Each remains a separate gate.
+
+---
+
 ### September 3, 2026 — ACE-048 Migration-History Reconciliation Accepted
 
 #### Accepted outcome

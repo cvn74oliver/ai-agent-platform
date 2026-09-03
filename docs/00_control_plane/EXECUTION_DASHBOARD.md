@@ -2,14 +2,14 @@
 
 Last updated: 2026-09-03
 Governing event: `ACE-048 — Automata Revival — Security and Rebaseline`
-Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B APPLICATION AWAITS SEPARATE DECISION; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
+Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; MIGRATION-HISTORY RECONCILIATION HUMAN-ACCEPTED / RECOVERY-BACKED / GITHUB-PRESERVED / CLOSED; STAGE B MIGRATION HUMAN-ACCEPTED / RECOVERY CONTRACT RECORDED / ACCEPTANCE PRESERVATION IN PROGRESS; MAIN THROUGH SLICE 2 / PRODUCTION VERIFIED
 
 ## Current position
 
 - Product stage: Revival Stage 1 — Security and Rebaseline
 - Active lane: Cleanup-Lineage Integration Program
-- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, and migration-history reconciliation Human-accepted, recovery-backed, GitHub-preserved, and closed; Stage B application awaits a separate explicit decision
-- Problem class: source/index truth for migration-history identity; local-only canonical file reconciliation verified with zero database/history-ledger replay
+- Execution phase: Phase 1 generic contract, Phase 2 provider-neutral presentation/workspace shell, all four Phase 3 generic runtime/data-facade slices, Phase 4 Slices 1-3, Slice 4A Stage A, and migration-history reconciliation Human-accepted, recovery-backed, GitHub-preserved, and closed; Stage B migration Human-accepted with Recovery Contract recorded and acceptance preservation in progress
+- Problem class: runtime behavior — additive execution-ledger schema installation only
 - Execution mode: `transitional_self_verification`
 - Backup posture: shared script active for Automata, Curative Mushrooms, Curative Genetics, and discovered worktrees; seven-day normal retention plus long-term `KEEP`; ACE-048 main/worktree combined `KEEP` set verified on 2026-08-30
 - Git posture: canonical origin `https://github.com/cvn74oliver/automata.git`; PR #3 merged the accepted framework baseline, and documentation-only PR #4 merged the Vercel-fix control plane as `003a062` from base `bf9f401` and accepted head `7e5438f`; `origin/main` reattested at `003a062`; source and recovery refs remain preserved. GitHub's historical PR counter is review history, not unpublished-work evidence
@@ -134,7 +134,12 @@ Status: FRAMEWORK THROUGH PHASE 4 SLICE 4A STAGE A HUMAN-ACCEPTED / RECOVERY-BAC
 - [x] Create the governed backup; apply only the locked two-file recovery/four-alias local reconciliation; prove the linked dry run lists exactly `20260902141603` and nothing older
 - [x] Record explicit Human Review `ACCEPT`, create the `2,586`-file acceptance snapshot, and record the authoritative Recovery Contract
 - [x] Commit accepted reconciliation content as `0e859f3` and push normally without force to the dedicated branch
-- [ ] NEXT DECISION — authorize or defer the separately gated Phase 4 Slice 4A Stage B migration application and its pre-application recovery procedure
+- [x] Record exact `ACCEPT PHASE 4 SLICE 4A STAGE B MIGRATION APPLICATION` and the target-locked additive-schema execution/recovery packet
+- [x] Verify the `2,587`-file pre-application incremental and all exact project/hash/history/object/one-migration dry-run gates
+- [x] Apply only migration `20260902141603` once and complete read-only schema/security/zero-row/advisor proof at `ACCEPT / HIGH`
+- [x] Record Human Review `accept`, acceptance recheck, and the authoritative Stage B Recovery Contract
+- [x] Verify the `2,588`-file Human-acceptance backup with exact identity, `7` accepted changed paths, normal pruning, and `KEEP` preservation
+- [ ] Commit and normally push the exact accepted Stage B packet; then close Stage B
 
 - [x] Decision-complete plan approved for immediate same-flow execution
 - [x] Authoritative all-parent PM Brief created; Marketing-only brief remains superseded partial evidence
