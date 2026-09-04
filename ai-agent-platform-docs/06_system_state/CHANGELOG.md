@@ -7950,4 +7950,33 @@ Validation update:
 - Preserve the application handler, access/approval/ledger wrappers, Gmail behavior, routes, requests, polling, caches, lifecycle, provider controls, and tenant/provenance boundaries as byte-identical product state.
 - This contract does not authorize true concurrent-session proof, publication/merge/deployment, Vercel consequences, live route/RPC activation, provider/model/customer action, persistent test data, automatic retry/reconciliation, migration work, or artifact/index publication.
 
+### September 4, 2026 — ACE-048 Phase 4 Slice 4A PR #5 Production Publication Accepted
+
+#### Accepted outcome
+
+- Oliver issued exact `ACCEPT PR #5 PRODUCTION CLOSEOUT` after independent verifier `ACCEPT / HIGH` and `Accepted Fix Proven`.
+- PR #5 merged as `dc9dbeff4c48b3d60bc984da4417b3d201da08f0` with ordered parents base `98b513ffaf1f1490b90601fd55ec1e8d4ec6515c` then accepted head `3f91896646d0fff2b751fe57ce16d83bf47073d9`; merge tree `ba837c0a52d9edc738413eed0919c89a7b342bca` equals the accepted-head tree, and the source branch remains preserved.
+- Automatic canonical deployment `dpl_AAJp5WvZg71cV8kWUKrGTKhi6Vtm` and duplicate deployment `dpl_527yit7gsXqDproyw86JxAjyHhEh` are production `READY/success` on the exact merge SHA with aliases intact and `aliasError=null`.
+- Four exact canonical production routes passed authenticated post-settle visible verification at HIGH confidence. The accepted log window beginning `2026-09-03T23:48:00Z` contains no runtime-error group or `5xx`; the earlier expired-session event remains preserved as non-admissible pre-bootstrap diagnostic evidence.
+- Migration `20260902141603`, both ledger tables, and all four expected RPCs remain present. The ledger remained `0` runs / `0` actions before and after proof, with zero provider/customer/live Execute/ledger RPC/migration/schema/manual Vercel mutation.
+
+#### Acceptance proof
+
+- PM Brief: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_PR5_MERGE_AND_DUAL_VERCEL_PRODUCTION_PM_BRIEF.md`.
+- Closeout packet: `docs/00_control_plane/runtime/ACE-048_FRAMEWORK_FIRST_DECISION_WORKSPACE_PHASE4_SLICE4A_PR5_PRODUCTION_CLOSEOUT_REVIEW_PACKET.md`.
+- Verifier artifact root: `output/playwright/ace048-pr5-postmerge-verifier/`.
+- Four-row State Transition Matrix: Approvals, Management, offer-campaign family review, and promotional-cycle nested remainder all PASS after cold-load settle with exact route identity, final visible UI inspection, all observed requests `200`, clean consoles, and no polling/retry/`409` guard churn.
+- Human-acceptance snapshot: `/Users/olivercarlin/Documents/Backups/September 2026/2026-09-04/ai-agent-platform-worktree-8642 (incremental 4 September 2026 - ACE-048 PR 5 production closeout Human acceptance)`; `2,964` readable files, exact `dc9dbeff` identity, zero changed paths, aggregate content checksum `4a93d032fbcbbd3aa5b976b9322f4dd1125e5199f8275df3a5c7866b9e2a0bc4`, normal seven-day pruning, `KEEP` preservation, and standalone restore guidance.
+
+#### Recovery Contract
+
+- Accepted invariant: the provider-neutral Decision Workspace foundation published by PR #5 must remain byte-identical to accepted head tree `ba837c0a52d9edc738413eed0919c89a7b342bca`; both linked production projects must identify merge `dc9dbeff`, remain `READY` without alias error, and preserve the accepted Gmail routes, visible truth, request/load behavior, provider controls, tenant/provenance boundaries, and dormant `0 / 0` execution ledger.
+- Source layer fixed: artifact/publication truth only. No new product source, schema, provider behavior, customer data, or runtime lifecycle was created by closeout.
+- Accepted identity: base `98b513ff`, head `3f918966`, merge `dc9dbeff`, canonical deployment `dpl_AAJp5WvZg71cV8kWUKrGTKhi6Vtm`, duplicate deployment `dpl_527yit7gsXqDproyw86JxAjyHhEh`, migration `20260902141603`, and verifier artifact root `output/playwright/ace048-pr5-postmerge-verifier/`.
+- Recovery evidence: use the preserved source branch and the named pre-merge/Human-acceptance snapshots only to reconstruct or compare the accepted state. They are evidence and recovery inputs, not authority to execute a restoration.
+- Replay steps: reattest live `main`, ordered parents, tree equality, preserved source branch, both deployment source SHAs/targets/statuses/aliases, migration/tables/four RPCs, ledger `0 / 0`, and all four exact production routes after authentication and settle. Require clean consoles, no runtime-error group or `5xx`, and no action/provider/RPC invocation.
+- Recovery boundary: if production regresses, contain the issue and preserve evidence. Do not silently force, reset, revert, redeploy, retry, promote, change configuration/aliases/domains/environment/secrets, invoke a provider or Execute control, mutate customer data, call a ledger RPC, or alter schema/migrations.
+- Any recovery requires a separately authorized forward recovery plan with new target identity, impact analysis, rollback boundary, and independent verification. The preserved branch and backups do not authorize implementation or operational action.
+- Gmail remains the reference adapter while the framework remains provider/domain neutral. Multi-source and multi-agent workflows must preserve source/workflow/agent-role provenance. Proprietary-brain improvement remains versioned, inspectable, human-governed, provenance-backed, evaluated, reversible, and tenant-safe.
+
 ---
