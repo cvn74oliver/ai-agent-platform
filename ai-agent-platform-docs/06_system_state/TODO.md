@@ -1,7 +1,7 @@
 # TODO — Automata Revival
-_Last updated: 2026-09-04 • PR #5 independently accepted at `72c05a8`; Oliver authorized merge plus automatic dual-Vercel production consequences; exact merge-target propagation and re-verification active_
+_Last updated: 2026-09-04 • PR #5 production publication Human accepted, independently verified, recovery-backed, and closed; next user-visible slice awaits fresh read-only PM discovery_
 
-## ACTIVE NOW — ACE-048 all-parent cleanup taxonomy and lineage consolidation
+## ACTIVE NOW — ACE-048 framework-first Decision Workspace continuation
 
 ### Post-merge publication recovery — HUMAN ACCEPTED / RECOVERY CAPTURED
 
@@ -168,8 +168,9 @@ _Last updated: 2026-09-04 • PR #5 independently accepted at `72c05a8`; Oliver 
 - [x] Commit/push the exact five-path authority packet, create exactly one draft PR to locked `main@98b513f`, and independently verify pre-propagation head `ae4f132` at `ACCEPT / HIGH`: PR #5 is `OPEN+DRAFT`, `0 behind / 23 ahead`, `46` files, `+6,559 / -285`, unmerged, and without auto-merge; exact-head previews are `READY/success`, production remains on `main@98b513f`, and the live ledger remains `0 / 0`.
 - [x] Commit/push the exact four-file verification-propagation packet and independently verify PR #5 at `72c05a8` with `ACCEPT / HIGH`: sole `OPEN+DRAFT` PR, `MERGEABLE/CLEAN`, `0 behind / 24 ahead`, `46` files, `+6,564 / -287`, successful exact-head previews, unchanged production, and live ledger `0 / 0`.
 - [x] Record Oliver's exact `ACCEPT PR #5 MERGE + AUTOMATIC DUAL VERCEL PRODUCTION CONSEQUENCES` and create the execution-ready merge/deployment/runtime proof contract.
-- [ ] ACTIVE NOW — commit/push only this exact five-path merge-authority packet, lock the resulting PR head and automatic non-production previews, and obtain fresh independent verifier `ACCEPT`; if every lock passes, immediately continue same-flow into the already-authorized governed backup, merge-commit execution, automatic dual-production observation, and post-settle verification.
-- [ ] After successful merge verification, propagate exact merge/deployment/runtime evidence, ledger baseline, Human acceptance, Recovery Contract, dashboard closeout, and final Git parity before closing the milestone.
+- [x] Commit/push the exact five-path merge-authority packet, independently accept final head `3f918966`, create the governed pre-merge recovery point, merge PR #5 as `dc9dbeff` with merge-commit semantics, preserve the source branch, and observe both automatic production deployments to `READY/success`.
+- [x] Independently verify exact Git/tree identity, both deployments, four post-settle production routes, clean request/console/guard state, installed migration/tables/four RPCs, and unchanged ledger `0 / 0`; record Oliver's exact `ACCEPT PR #5 PRODUCTION CLOSEOUT`, the Human-acceptance backup, Recovery Contract, dashboard closeout, and authoritative review packet.
+- [ ] ACTIVE NOW — begin a fresh read-only PM discovery to determine and target-lock the next user-visible app-development slice after the framework foundation; return an operator-readable recommendation and separate implementation decision gate rather than inventing the next implementation.
 - [ ] Keep provider/customer-data action, explicit Execute/live ledger RPC exercise, source integration activation, automatic retry/reconciliation, new application polling/cache/background lifecycle behavior, migration/schema mutation, manual Vercel mutation, and unrelated artifact publication behind separate gates.
 - [ ] Keep Management provider capability/action implementation deferred until separately planned Phase 4 contracts establish approvals, reversibility, execution receipts, retries, and lifecycle mutation.
 - [ ] Keep the Automations guided Workflow Studio as a future separately planned workstream; Phase 1 may define only the stable published-workflow reference consumed by Operations.
